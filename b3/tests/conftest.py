@@ -1,4 +1,5 @@
 from random import randint
+from django.utils import timezone
 
 import pytest
 from factory.django import DjangoModelFactory
@@ -45,4 +46,5 @@ def passive_incomes(simple_asset):
             type=PassiveIncomeTypes.dividend,
             amount=randint(100, 500),
             asset=simple_asset,
+            credited_at=timezone.now().date(),
         )
