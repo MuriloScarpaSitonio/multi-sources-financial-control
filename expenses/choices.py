@@ -8,7 +8,7 @@ class ExpenseCategory(DjangoChoices):
     clothes = ChoiceItem("CLOTHES", label="Roupas")
     gift = ChoiceItem("GIFT", label="Presentes")
     healthcare = ChoiceItem("HEALTHCARE", label="Saúde")
-    house = ChoiceItem("HOUSE", label="COmida")
+    house = ChoiceItem("HOUSE", label="Casa")
     transport = ChoiceItem("TRANSPORT", label="Transporte")
     trip = ChoiceItem("TRIP", label="Viagem")
     other = ChoiceItem("OTHER", label="Outros")
@@ -20,3 +20,4 @@ class ExpenseSource(DjangoChoices):
     bank_transker = ChoiceItem("BANK_TRANSFER", label="Transferência bancária")
     money = ChoiceItem("MONEY", label="Dinheiro")
     bank_slip = ChoiceItem("BANK_SLIP", label="Boleto")
+    settle_up = ChoiceItem("SETTLE_UP", label="Settle Up")

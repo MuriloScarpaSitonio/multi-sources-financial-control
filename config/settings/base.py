@@ -25,7 +25,7 @@ SECRET_KEY = "django-insecure-km+p$=j_@$y6hj%^u=s5ak#8%bwz^+z8%q34!+qhw+gerv@y-j
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
@@ -41,11 +41,11 @@ DEFAULT_APPS = [
 
 LOCAL_APPS = [
     "authentication.apps.AuthenticationConfig",
-    "b3.apps.B3Config",
+    "variable_income_assets.apps.VariableIncomeAssetsConfig",
     "expenses.apps.ExpensesConfig",
 ]
 
-THIRD_PARTY_APPS = []
+THIRD_PARTY_APPS = ["rest_framework", "django_filters", "drf_spectacular"]
 
 INSTALLED_APPS = DEFAULT_APPS + LOCAL_APPS + THIRD_PARTY_APPS
 
@@ -100,12 +100,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+        "OPTIONS": {"min_length": 4},
     },
 ]
 
@@ -134,4 +129,26 @@ STATIC_URL = "/static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+BASE_API_URL = "api/v1/"
+
 AUTH_USER_MODEL = "authentication.CustomUser"
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "DEFAULT_FILTER_BACKENDS": ("django_filters.rest_framework.DjangoFilterBackend",),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DATE_INPUT_FORMATS": ["%d/%m/%Y"],
+    "TEST_REQUEST_DEFAULT_FORMAT": "json",
+    "PAGE_SIZE": 10,
+    "COERCE_DECIMAL_TO_STRING": False,
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Multi Sources Financial Control API",
+    "DESCRIPTION": "B3, USA stocks and criptos crawler + expenses tracker",
+    "VERSION": "1.0.0",
+}

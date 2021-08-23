@@ -1,7 +1,7 @@
 from djchoices import DjangoChoices, ChoiceItem
 
 
-class TransactionOptions(DjangoChoices):
+class TransactionActions(DjangoChoices):
     buy = ChoiceItem("BUY", label="Compra")
     sell = ChoiceItem("SELL", label="Venda")
 
@@ -17,10 +17,16 @@ class PassiveIncomeTypes(DjangoChoices):
     dividend = ChoiceItem(
         "DIVIDEND",
         label="Dividendo",
-        valid_assets=(AssetTypes.stock, AssetTypes.stock_usa, AssetTypes.fii),
+        valid_assets=(AssetTypes.stock, AssetTypes.stock_usa),
     )
     jcp = ChoiceItem(
         "JCP",
         label="Juros sobre capital próprio",
         valid_assets=(AssetTypes.stock,),
     )
+    income = ChoiceItem("INCOME", label="Rendimento", valid_assets=(AssetTypes.fii,))
+
+
+"""class ROYTypeChoices(DjangoChoices):
+    profit = ChoiceItem("PROFIT", label="Lucro", filter_expression={"ROI__gt": 0})
+    losss = ChoiceItem("LOSS", label="perda", filter_expression={"ROI__lt": 0})"""

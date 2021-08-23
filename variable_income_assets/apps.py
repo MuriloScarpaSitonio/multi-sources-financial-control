@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
 
-class B3Config(AppConfig):
+class VariableIncomeAssetsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
-    name = "b3"
+    name = "variable_income_assets"
