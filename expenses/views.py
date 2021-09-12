@@ -18,6 +18,7 @@ from .serializers import (
 class ExpenseViewSet(ModelViewSet):
     filterset_class = ExpenseFilterSet
     serializer_class = ExpenseSerializer
+    ordering_fields = ("description", "price", "created_at", "category", "source")
 
     def get_queryset(self) -> QuerySet:
         if self.request.user.is_authenticated:

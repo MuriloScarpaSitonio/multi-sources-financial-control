@@ -133,6 +133,17 @@ Django = ">=1.11"
 six = ">=1.13.0"
 
 [[package]]
+name = "django-cors-headers"
+version = "3.8.0"
+description = "django-cors-headers is a Django application for handling the server headers required for Cross-Origin Resource Sharing (CORS)."
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+Django = ">=2.2"
+
+[[package]]
 name = "django-filter"
 version = "2.4.0"
 description = "Django-filter is a reusable Django application for allowing users to filter querysets dynamically."
@@ -600,7 +611,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "dbe4a8ef5b239021f9860c090492a512e40828f0d112aa0e9c90b269050b66d2"
+content-hash = "7ee4544ebf336faecb97e6c930d0b37d2c838e09d133c95e397972efd743a5ab"
 
 [metadata.files]
 appdirs = [
@@ -696,6 +707,10 @@ django = [
 django-choices = [
     {file = "django-choices-1.7.2.tar.gz", hash = "sha256:e52f1d9fe3afd92611bd2ea313ad8a6ba2a89fdb12d5e518438892b6ae462ee3"},
     {file = "django_choices-1.7.2-py2.py3-none-any.whl", hash = "sha256:d8dda7e11fa0627d138f98d9a5e8e3124d938bb538e2077cc65c43168bfdde10"},
+]
+django-cors-headers = [
+    {file = "django-cors-headers-3.8.0.tar.gz", hash = "sha256:4b8e13bf8d3df50ac4b986bd87085c3073dd56402ede109222ea34a774f9ec1b"},
+    {file = "django_cors_headers-3.8.0-py3-none-any.whl", hash = "sha256:425c20ceffa42b9ac11b02611eece4ae6c5fef2ff0f039c14c1df20e00c80df8"},
 ]
 django-filter = [
     {file = "django-filter-2.4.0.tar.gz", hash = "sha256:84e9d5bb93f237e451db814ed422a3a625751cbc9968b484ecc74964a8696b06"},

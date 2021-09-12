@@ -45,11 +45,17 @@ LOCAL_APPS = [
     "expenses.apps.ExpensesConfig",
 ]
 
-THIRD_PARTY_APPS = ["rest_framework", "django_filters", "drf_spectacular"]
+THIRD_PARTY_APPS = [
+    "rest_framework",
+    "django_filters",
+    "drf_spectacular",
+    "corsheaders",
+]
 
 INSTALLED_APPS = DEFAULT_APPS + LOCAL_APPS + THIRD_PARTY_APPS
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -139,7 +145,10 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
-    "DEFAULT_FILTER_BACKENDS": ("django_filters.rest_framework.DjangoFilterBackend",),
+    "DEFAULT_FILTER_BACKENDS": (
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.OrderingFilter",
+    ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DATE_INPUT_FORMATS": ["%d/%m/%Y"],
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
@@ -152,3 +161,5 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "B3, USA stocks and criptos crawler + expenses tracker",
     "VERSION": "1.0.0",
 }
+
+CORS_ALLOW_ALL_ORIGINS = True

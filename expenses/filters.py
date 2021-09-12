@@ -4,6 +4,7 @@ import django_filters as filters
 from django.forms import Form
 from django.core.exceptions import ValidationError
 
+from .choices import ExpenseCategory, ExpenseSource
 from .models import Expense
 
 
@@ -11,10 +12,12 @@ class ExpenseFilterSet(filters.FilterSet):
     start_date = filters.DateFilter(field_name="created_at", lookup_expr="gte")
     end_date = filters.DateFilter(field_name="created_at", lookup_expr="lte")
     description = filters.CharFilter(lookup_expr="icontains")
+    category = filters.MultipleChoiceFilter(choices=ExpenseCategory.choices)
+    source = filters.MultipleChoiceFilter(choices=ExpenseSource.choices)
 
     class Meta:
         model = Expense
-        fields = ("category", "source", "is_fixed")
+        fields = ("is_fixed",)
 
 
 class _ExpenseReportForm(Form):
