@@ -21,8 +21,9 @@ import DeleteIcon from '@material-ui/icons/Delete';
 import EditIcon from '@material-ui/icons/Edit';
 import IconButton from '@material-ui/core/IconButton'
 
+import getChoiceByLabel from "../helpers.js";
 import { ExpenseApi } from "../api"
-import { ExpensesChoicesMapping } from "../consts.js"
+import { ExpensesCategoriesMapping, ExpensesSourcesMapping } from "../consts.js"
 import { TableLoader } from "../components/Loaders";
 import { FormFeedback } from "../components/FormFeedback";
 import { ExpenseForm } from "../forms/ExpenseForm"
@@ -188,11 +189,11 @@ export default function Expenses() {
         },
         onFilterChange: (column, filterList, _, changedColumnIndex) => {
             if (column === 'created_at') return
-            const isFixedMapping = { "Sim": true, "Não": false }
-            const mapping = column === "is_fixed" ? isFixedMapping : ExpensesChoicesMapping
+            const isFixedMapping = [{label: "Sim",  value: true}, {label: "Não", value:false }]
+            const mapping = column === "is_fixed" ? isFixedMapping : [...ExpensesCategoriesMapping, ...ExpensesSourcesMapping]
 
             let _filters = filterList[changedColumnIndex].map(
-                f => mapping[f]
+                f => getChoiceByLabel(f, mapping).value
             )
             setFilters({ ...filters, [column]: _filters })
             setPage(1)

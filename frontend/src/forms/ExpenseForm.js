@@ -7,6 +7,7 @@ import * as yup from "yup";
 import DateFnsUtils from "@date-io/date-fns";
 import { MuiPickersUtilsProvider, KeyboardDatePicker } from "@material-ui/pickers";
 
+import Autocomplete from '@material-ui/lab/Autocomplete';
 import Button from "@material-ui/core/Button";
 import CircularProgress from "@material-ui/core/CircularProgress";
 import DialogActions from "@material-ui/core/DialogActions";
@@ -15,15 +16,13 @@ import FormGroup from "@material-ui/core/FormGroup";
 import FormHelperText from "@material-ui/core/FormHelperText";
 import FormLabel from "@material-ui/core/FormLabel";
 import Grid from "@material-ui/core/Grid";
-import InputLabel from "@material-ui/core/InputLabel";
-import MenuItem from "@material-ui/core/MenuItem";
-import Select from "@material-ui/core/Select";
 import Switch from "@material-ui/core/Switch";
 import TextField from "@material-ui/core/TextField";
 import Typography from "@material-ui/core/Typography";
 import { yupResolver } from "@hookform/resolvers/yup";
 
 import { ExpensesCategoriesMapping, ExpensesSourcesMapping } from "../consts.js";
+import getChoiceByLabel from "../helpers.js";
 import { ExpenseApi } from "../api/core.js";
 import { FormFeedback } from "../components/FormFeedback";
 
@@ -54,8 +53,14 @@ const schema = yup.object().shape({
     price: yup.number().required("O preço é obrigatório").positive("Apenas números positivos"),
     created_at: yup.date().required("A data é obrigatória").typeError("Data inválida"),
     is_fixed: yup.boolean().default(false),
-    category: yup.string().required("A categoria é obrigatória"),
-    source: yup.string().required("A fonte é obrigatória")
+    category: yup.object().shape({
+        label: yup.string().required("A categoria é obrigatória"),
+        value: yup.string().required("A categoria é obrigatória")
+    }).nullable(),
+    source: yup.object().shape({
+        label: yup.string().required("A fonte é obrigatória"),
+        value: yup.string().required("A fonte é obrigatória")
+    }).nullable()
 })
 
 export const ExpenseForm = ({ initialData, handleClose, showSuccessFeedbackForm, reloadTable }) => {
@@ -75,7 +80,12 @@ export const ExpenseForm = ({ initialData, handleClose, showSuccessFeedbackForm,
         const actionVerb = isCreateForm ? "criada" : "editada"
         if (isDirty) {
             setIsLoaded(false);
-            api[method]({ ...data, created_at: data.created_at.toLocaleDateString("pt-br") })
+            api[method]({
+                ...data,
+                created_at: data.created_at.toLocaleDateString("pt-br"),
+                category: data.category.value,
+                source: data.source.value
+            })
                 .then(() => {
                     showSuccessFeedbackForm(`Despesa ${actionVerb} com sucesso!`);
                     reloadTable();
@@ -99,16 +109,6 @@ export const ExpenseForm = ({ initialData, handleClose, showSuccessFeedbackForm,
         });
         setShowAlert(true);
     }
-
-    const expenseCategories = []
-    Object.entries(ExpensesCategoriesMapping).forEach(
-        ([key, value]) => expenseCategories.push(<MenuItem value={value}>{key}</MenuItem>)
-    )
-
-    const expenseSources = []
-    Object.entries(ExpensesSourcesMapping).forEach(
-        ([key, value]) => expenseSources.push(<MenuItem value={value}>{key}</MenuItem>)
-    )
 
     return (
         <>
@@ -169,8 +169,8 @@ export const ExpenseForm = ({ initialData, handleClose, showSuccessFeedbackForm,
                                     required
                                     format="dd/MM/yyyy"
                                     style={{ width: "30%", marginRight: "7%" }}
-                                    error={!!errors.date}
-                                    helperText={errors.date?.message}
+                                    error={!!errors.created_at}
+                                    helperText={errors.created_at?.message}
                                 />)}
                         />
                     </MuiPickersUtilsProvider>
@@ -194,35 +194,60 @@ export const ExpenseForm = ({ initialData, handleClose, showSuccessFeedbackForm,
                     </FormControl>
                 </FormGroup>
                 <FormGroup row style={{ marginTop: "5px" }}>
-                    <FormControl required style={{ width: "48%", marginRight: "2%" }} error={!!errors.category}>
-                        <InputLabel id="demo-simple-select-label">Categoria</InputLabel>
+                    <FormControl style={{ width: "48%", marginRight: "2%" }} error={!!errors.category}>
                         <Controller
                             name="category"
-                            labelId="demo-simple-select-label"
                             control={control}
-                            defaultValue={ExpensesCategoriesMapping[initialData.category]}
-                            render={({ field }) => (
+                            defaultValue={getChoiceByLabel(initialData.category, ExpensesCategoriesMapping)}
+                            render={({ field: { onChange, value } }) => (
                                 <>
-                                    <Select {...field}>{expenseCategories}</Select>
-                                    {errors.category?.message && <FormHelperText>{errors.category?.message}</FormHelperText>}
+                                    <Autocomplete
+                                        onChange={(_, category) => onChange(category)}
+                                        value={value}
+                                        clearText="Limpar"
+                                        closeText="Fechar"
+                                        options={ExpensesCategoriesMapping}
+                                        getOptionLabel={option => option.label}
+                                        renderInput={params => (
+                                            <TextField
+                                                {...params}
+                                                error={!!errors.category}
+                                                required
+                                                label="Categoria"
+                                            />
+                                        )}
+                                    />
+                                    {errors.category?.value.message && <FormHelperText>{errors.category?.value.message}</FormHelperText>}
                                 </>
                             )}
                         />
                     </FormControl>
-                    <FormControl required style={{ width: "48%" }} error={!!errors.category}>
-                        <InputLabel id="demo-select-label">Fonte</InputLabel>
-                        <Controller
-                            name="source"
-                            labelId="demo-select-label"
-                            control={control}
-                            defaultValue={ExpensesSourcesMapping[initialData.source]}
-                            render={({ field }) => (
-                                <>
-                                    <Select {...field}>{expenseSources}</Select>
-                                    {errors.source?.message && <FormHelperText>{errors.source?.message}</FormHelperText>}
-                                </>
-                            )}
-                        />
+                    <FormControl required style={{ width: "48%" }} error={!!errors.source}>                        <Controller
+                        name="source"
+                        control={control}
+                        defaultValue={getChoiceByLabel(initialData.source, ExpensesSourcesMapping)}
+                        render={({ field: { onChange, value } }) => (
+                            <>
+                                <Autocomplete
+                                    onChange={(_, source) => onChange(source)}
+                                    value={value}
+                                    clearText="Limpar"
+                                    closeText="Fechar"
+                                    options={ExpensesSourcesMapping}
+                                    getOptionLabel={option => option.label}
+                                    renderInput={params => (
+                                        <TextField
+                                            {...params}
+                                            required
+                                            error={!!errors.source}
+                                            label="Fonte"
+                                        />
+                                    )}
+                                />
+                                {errors.source?.value.message && <FormHelperText>{errors.source?.value.message}</FormHelperText>}
+                            </>
+                        )}
+                    />
                     </FormControl>
                 </FormGroup>
                 <DialogActions>
