@@ -1,3 +1,4 @@
+#!/bin/sh
 python manage.py migrate --noinput
 
 cat <<EOF | python manage.py shell

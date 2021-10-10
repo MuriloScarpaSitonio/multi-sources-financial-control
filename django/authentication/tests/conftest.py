@@ -1,16 +1,15 @@
 import pytest
 from factory.django import DjangoModelFactory
 
+from django.conf import settings
 from django.contrib.auth.hashers import make_password
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from authentication.models import CustomUser
-
 
 class UserFactory(DjangoModelFactory):
     class Meta:
-        model = CustomUser
+        model = settings.AUTH_USER_MODEL
 
     password = make_password("1X<ISRUkw+tuK")
     is_active = True

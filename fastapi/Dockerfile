@@ -6,13 +6,8 @@ ENV PYTHONUNBUFFERED=1 \
 
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential gcc
 
-WORKDIR /app/django
+WORKDIR /app/fastapi
 COPY pyproject.toml poetry.lock ./
 
 RUN pip install poetry
 RUN poetry config virtualenvs.create false && poetry install --no-dev --no-interaction
-
-COPY ./entrypoint.sh /app/django/entrypoint.sh
-
-RUN chmod +x /app/django/entrypoint.sh
-ENTRYPOINT ["sh", "/app/django/entrypoint.sh"]

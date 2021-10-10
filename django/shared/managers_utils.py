@@ -4,7 +4,7 @@ from django.db.models import QuerySet, Sum
 class SumMixin:
     @staticmethod
     def _get_sum_expression(*args, **kwargs) -> Sum:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     def sum(self, *args, **kwargs) -> QuerySet:
         return self.aggregate(**self._get_sum_expression(*args, **kwargs))

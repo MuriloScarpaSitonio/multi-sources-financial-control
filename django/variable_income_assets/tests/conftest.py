@@ -1,10 +1,9 @@
 from random import randint
-from re import I
-
-from django.utils import timezone
 
 import pytest
 from factory.django import DjangoModelFactory
+
+from django.utils import timezone
 
 from authentication.tests.conftest import user
 from variable_income_assets.choices import (
@@ -28,6 +27,11 @@ class TransactionFactory(DjangoModelFactory):
 class PassiveIncomeFactory(DjangoModelFactory):
     class Meta:
         model = PassiveIncome
+
+
+@pytest.fixture(autouse=True)
+def celery_always_eager(settings):
+    settings.CELERY_TASK_ALWAYS_EAGER = True
 
 
 @pytest.fixture
@@ -69,3 +73,31 @@ def passive_incomes(simple_asset):
             asset=simple_asset,
             credited_at=timezone.now().date(),
         )
+
+
+@pytest.fixture
+def cei_crawler_assets_response():
+    return [
+        {
+            "operation_date": "2021-03-03",
+            "action": "buy",
+            "market_type": "unit",
+            "raw_negotiation_code": "ALUP11",
+            "asset_specification": "ALUPAR UNT N2",
+            "unit_amount": 100,
+            "unit_price": 22.59,
+            "total_price": 2259,
+            "quotation_factor": 1,
+        },
+        {
+            "operation_date": "2021-03-04",
+            "action": "buy",
+            "market_type": "unit",
+            "raw_negotiation_code": "ALUP11",
+            "asset_specification": "ALUPAR UNT N2",
+            "unit_amount": 100,
+            "unit_price": 22.19,
+            "total_price": 2219,
+            "quotation_factor": 1,
+        },
+    ]

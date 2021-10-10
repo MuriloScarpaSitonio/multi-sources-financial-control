@@ -1,4 +1,4 @@
-from decimal import ROUND_UP
+from decimal import Decimal, ROUND_UP
 
 from rest_framework import serializers
 
@@ -44,5 +44,5 @@ class AssetSerializer(serializers.ModelSerializer):
             "ROI_percentage",
         )
 
-    def get_ROI_percentage(self, obj):
+    def get_ROI_percentage(self, obj) -> Decimal:
         return obj.get_ROI(percentage=True)

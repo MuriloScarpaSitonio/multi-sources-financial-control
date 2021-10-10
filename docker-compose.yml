@@ -12,15 +12,47 @@ services:
     environment: # used only for superuser creation on the first time
       - ADMIN_USERNAME=murilo
       - ADMIN_PASSWORD=test
+    command: python manage.py runserver 0.0.0.0:8000
 
-  react:
-    container_name: react
+  # react:
+  #   container_name: react
+  #   build:
+  #     context: ./react
+  #   volumes:
+  #     - ./react:/app/react
+  #     - /app/react/node_modules
+  #   ports:
+  #     - 3000:3000
+  #   depends_on:
+  #     - django
+  
+  fastapi:
+    container_name: fastapi
     build:
-      context: ./react
+      context: ./fastapi
     volumes:
-      - ./react:/app/react
-      - /app/react/node_modules
+      - ./fastapi:/app/fastapi
+      - ./django/db.sqlite3:/app/fastapi/db.sqlite3
     ports:
-      - 3000:3000
+      - 5000:5000
+    command: uvicorn crawler.main:app --reload --host=0.0.0.0 --port=5000
+  
+  rabbitmq:
+    image: rabbitmq:3.9.5-management
+    container_name: rabbitmq
+    ports:
+      - 5672:5672
+      - 15672:15672
+
+  celery:
+    container_name: celery
+    restart: always
+    build:
+      context: ./django
+    volumes:
+      - ./django:/app/django
+    entrypoint: []
+    command: celery --app=config worker --loglevel=INFO --without-heartbeat --without-gossip --without-mingle --concurrency=200
     depends_on:
+      - rabbitmq
       - django

@@ -23,7 +23,7 @@ class ExpenseViewSet(ModelViewSet):
     def get_queryset(self) -> QuerySet:
         if self.request.user.is_authenticated:
             return self.request.user.expenses.all()
-        return Expense.objects.none()  # drf-spectatular
+        return Expense.objects.none()  # pragma: no cover -- drf-spectatular
 
     @action(methods=["GET"], detail=False)
     def report(self, request: Request) -> Response:

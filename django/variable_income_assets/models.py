@@ -5,6 +5,7 @@ from django.db import models
 from django.utils.functional import cached_property
 
 from shared.models_utils import serializable_today_function
+from tasks.models import TaskHistory
 
 from .choices import AssetTypes, PassiveIncomeTypes, TransactionActions
 from .managers import PassiveIncomeQuerySet, TransactionQuerySet
@@ -27,7 +28,7 @@ class Asset(models.Model):
         unique_together = ("user", "code")
 
     def __str__(self) -> str:
-        return self.code
+        return self.code  # pragma: no cover
 
     __repr__ = __str__
 
@@ -77,6 +78,13 @@ class Transaction(models.Model):
     initial_price = models.DecimalField(
         decimal_places=2, max_digits=6, blank=True, null=True
     )
+    fetched_by = models.ForeignKey(
+        to=TaskHistory,
+        null=True,
+        blank=True,
+        related_name="transactions",
+        on_delete=models.SET_NULL,
+    )
 
     objects = TransactionQuerySet.as_manager()
 
@@ -84,7 +92,7 @@ class Transaction(models.Model):
         ordering = ("-created_at",)
 
     def __str__(self) -> str:
-        return f"<Transaction {self.action} {self.quantity} {self.asset.code} {self.price}>"
+        return f"<Transaction {self.action} {self.quantity} {self.asset.code} {self.price}>"  # pragma: no cover
 
     __repr__ = __str__
 
@@ -98,6 +106,13 @@ class PassiveIncome(models.Model):
         to=Asset,
         on_delete=models.CASCADE,
         related_name="incomes",
+    )
+    fetched_by = models.ForeignKey(
+        to=TaskHistory,
+        null=True,
+        blank=True,
+        related_name="incomes",
+        on_delete=models.SET_NULL,
     )
 
     objects = PassiveIncomeQuerySet.as_manager()
