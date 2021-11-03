@@ -1,8 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
-from django.db.models.functions.datetime import TruncMonth
 
 import pytest
+from freezegun import freeze_time
 
 from rest_framework.status import (
     HTTP_200_OK,
@@ -11,8 +11,9 @@ from rest_framework.status import (
     HTTP_400_BAD_REQUEST,
 )
 
+from expenses.choices import ExpenseCategory, ExpenseSource, ExpenseReportType
+from expenses.models import Expense
 from config.settings.base import BASE_API_URL
-from expenses.models import Expense, ExpenseCategory, ExpenseSource
 
 pytestmark = pytest.mark.django_db
 
@@ -78,14 +79,8 @@ def test_should_create_expense(client):
     # THEN
     assert response.status_code == HTTP_201_CREATED
 
-    assert (
-        response.json()["category"]
-        == ExpenseCategory.get_choice(ExpenseCategory.house).label
-    )
-    assert (
-        response.json()["source"]
-        == ExpenseSource.get_choice(ExpenseSource.bank_slip).label
-    )
+    assert response.json()["category"] == ExpenseCategory.get_choice(ExpenseCategory.house).label
+    assert response.json()["source"] == ExpenseSource.get_choice(ExpenseSource.bank_slip).label
 
     assert Expense.objects.count() == 1
 
@@ -110,9 +105,7 @@ def test_should_update_expense(client, expense):
     assert expense.price == Decimal(data["price"])
     assert expense.description == data["description"]
     assert expense.category == data["category"]
-    assert (
-        expense.created_at == datetime.strptime(data["created_at"], "%d/%m/%Y").date()
-    )
+    assert expense.created_at == datetime.strptime(data["created_at"], "%d/%m/%Y").date()
     assert expense.source == data["source"]
 
 
@@ -141,50 +134,69 @@ def test_should_delete_expense(client, expense):
     assert Expense.objects.count() == 0
 
 
-@pytest.mark.usefixtures("expenses")
-def test_should_get_report_data(client):
+def test_should_not_get_report_without_of_parameter(client):
     # GIVEN
 
     # WHEN
     response = client.get(f"{URL}/report")
 
     # THEN
-    assert response.status_code == HTTP_200_OK
-    assert response.json()["total"] == float(Expense.objects.sum()["total"])
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"of": ["Required to define the type of report"]}
 
-    for data_name, field_name in (
-        ("categories", "category"),
-        ("sources", "source"),
-        ("type", "is_fixed"),
-    ):
-        for data_info in response.json()[data_name]:
-            for qs_info in Expense.objects.aggregate_field(field_name=field_name):
-                if data_info[field_name] == qs_info[field_name]:
-                    assert data_info["total"] == float(qs_info["total"])
+
+def test_should_not_get_report_if_of_parameter_is_invalid_choice(client):
+    # GIVEN
+
+    # WHEN
+    response = client.get(f"{URL}/report?of=wrong")
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "of": ["Select a valid choice. wrong is not one of the available choices."]
+    }
 
 
 @pytest.mark.usefixtures("expenses")
-def test_should_filter_report_data(client):
+@pytest.mark.parametrize(
+    "of, field_name",
+    [(value, ExpenseReportType.get_choice(value).field_name) for value in ExpenseReportType.values],
+)
+def test_should_get_reports(client, of, field_name):
+    # GIVEN
+    qs = Expense.objects.all()
+
+    # WHEN
+    response = client.get(f"{URL}/report?of={of}")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert all(
+        result["total"] == float(result_qs["total"])
+        for result, result_qs in zip(response.json(), qs.aggregate_field(field_name=field_name))
+    )
+
+
+@pytest.mark.usefixtures("expenses")
+@pytest.mark.parametrize(
+    "of, field_name",
+    [(value, ExpenseReportType.get_choice(value).field_name) for value in ExpenseReportType.values],
+)
+def test_should_filter_report_data(client, of, field_name):
     # GIVEN
     month, year = 3, 2021
     qs = Expense.objects.filter_by_month_and_year(month=month, year=year)
 
     # WHEN
-    response = client.get(f"{URL}/report?month={month}&year={year}")
+    response = client.get(f"{URL}/report?of={of}&month={month}&year={year}")
 
     # THEN
     assert response.status_code == HTTP_200_OK
-    assert response.json()["total"] == float(qs.sum()["total"])
-
-    for data_name, field_name in (
-        ("categories", "category"),
-        ("sources", "source"),
-        ("type", "is_fixed"),
-    ):
-        for data_info in response.json()[data_name]:
-            for qs_info in qs.aggregate_field(field_name=field_name):
-                if data_info[field_name] == qs_info[field_name]:
-                    assert data_info["total"] == float(qs_info["total"])
+    assert all(
+        result["total"] == float(result_qs["total"])
+        for result, result_qs in zip(response.json(), qs.aggregate_field(field_name=field_name))
+    )
 
 
 @pytest.mark.parametrize("month, year", [(0, 2021), (1, 0)])
@@ -213,3 +225,26 @@ def test_should_get_historic_data(client):
         assert result["total"] == float(
             Expense.objects.filter(created_at__month=month).sum()["total"]
         )
+
+
+@freeze_time("2021-10-01")
+@pytest.mark.usefixtures("expenses")
+def test_should_get_indicators(client):
+    # GIVEN
+
+    # WHEN
+    response = client.get(f"{URL}/indicators")
+
+    # THEN
+    response_json = response.json()
+    past_month_total = float(Expense.objects.filter(created_at__month=9).sum()["total"])
+
+    assert response.status_code == HTTP_200_OK
+    assert response_json["total"] == float(
+        Expense.objects.filter(created_at__month=10).sum()["total"]
+    )
+    assert response_json["diff"] == response_json["total"] - past_month_total
+    # assert (
+    #     response_json["diff_percentage"]
+    #     == (((past_month_total + response_json["diff"]) / past_month_total) - 1) * 100
+    # )

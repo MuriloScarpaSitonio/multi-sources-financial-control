@@ -1,4 +1,5 @@
-from decimal import ROUND_UP
+from decimal import ROUND_UP, Decimal
+from typing import Dict, Union
 
 from rest_framework import serializers
 
@@ -31,23 +32,28 @@ class _ExpenseExtraBaseSerializer(serializers.Serializer):
     total = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_UP)
 
 
-class _ExpenseReportCategorySerializer(_ExpenseExtraBaseSerializer):
-    category = serializers.CharField()
+class ExpenseReportCategorySerializer(_ExpenseExtraBaseSerializer):
+    category = CustomChoiceField(choices=ExpenseCategory.choices)
 
 
-class _ExpenseReportSourceSerializer(_ExpenseExtraBaseSerializer):
-    source = serializers.CharField()
+class ExpenseReportSourceSerializer(_ExpenseExtraBaseSerializer):
+    source = CustomChoiceField(choices=ExpenseSource.choices)
 
 
-class _ExpenseReportTypeSerializer(_ExpenseExtraBaseSerializer):
-    is_fixed = serializers.CharField()
+class ExpenseReportTypeSerializer(_ExpenseExtraBaseSerializer):
+    type = serializers.SerializerMethodField()
+    is_fixed = serializers.BooleanField()
 
-
-class ExpenseReportSerializer(_ExpenseExtraBaseSerializer):
-    categories = _ExpenseReportCategorySerializer(read_only=True, many=True)
-    sources = _ExpenseReportSourceSerializer(read_only=True, many=True)
-    type = _ExpenseReportTypeSerializer(read_only=True, many=True)
+    def get_type(self, obj: Dict[str, Union[bool, Decimal]]) -> str:
+        return "Fixo" if obj["is_fixed"] is True else "Variável"
 
 
 class ExpenseHistoricSerializer(_ExpenseExtraBaseSerializer):
     month = serializers.DateField(format="%d/%m/%Y")
+
+
+class ExpenseIndicatorsSerializer(ExpenseHistoricSerializer):
+    diff = serializers.DecimalField(max_digits=8, decimal_places=2, rounding=ROUND_UP)
+    diff_percentage = serializers.DecimalField(
+        max_digits=5, decimal_places=2, rounding=ROUND_UP
+    )

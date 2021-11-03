@@ -5,9 +5,12 @@ import NumberFormat from "react-number-format";
 import * as yup from "yup";
 
 import DateFnsUtils from "@date-io/date-fns";
-import { MuiPickersUtilsProvider, KeyboardDatePicker } from "@material-ui/pickers";
+import {
+  MuiPickersUtilsProvider,
+  KeyboardDatePicker,
+} from "@material-ui/pickers";
 
-import Autocomplete from '@material-ui/lab/Autocomplete';
+import Autocomplete from "@material-ui/lab/Autocomplete";
 import Button from "@material-ui/core/Button";
 import CircularProgress from "@material-ui/core/CircularProgress";
 import DialogActions from "@material-ui/core/DialogActions";
@@ -21,250 +24,305 @@ import TextField from "@material-ui/core/TextField";
 import Typography from "@material-ui/core/Typography";
 import { yupResolver } from "@hookform/resolvers/yup";
 
-import { ExpensesCategoriesMapping, ExpensesSourcesMapping } from "../consts.js";
-import getChoiceByLabel from "../helpers.js";
-import { ExpenseApi } from "../api/core.js";
+import {
+  ExpensesCategoriesMapping,
+  ExpensesSourcesMapping,
+} from "../consts.js";
+import { getChoiceByLabel } from "../helpers";
+import { ExpenseApi } from "../api";
 import { FormFeedback } from "../components/FormFeedback";
 
 function NumberFormatCustom(props) {
-    const { inputRef, onChange, ...other } = props;
+  const { inputRef, onChange, ...other } = props;
 
-    return (
-        <NumberFormat
-            {...other}
-            getInputRef={inputRef}
-            onValueChange={values => onChange({
-                target: {
-                    value: values.floatValue
-                }
-            })}
-            thousandSeparator="."
-            decimalSeparator=","
-            decimalScale={2}
-            allowNegative={false}
-            isNumericString
-            prefix="R$ "
-        />
-    );
+  return (
+    <NumberFormat
+      {...other}
+      getInputRef={inputRef}
+      onValueChange={(values) =>
+        onChange({
+          target: {
+            value: values.floatValue,
+          },
+        })
+      }
+      thousandSeparator="."
+      decimalSeparator=","
+      decimalScale={2}
+      allowNegative={false}
+      isNumericString
+      prefix="R$ "
+    />
+  );
 }
 
 const schema = yup.object().shape({
-    description: yup.string().required("A descrição é obrigatória"),
-    price: yup.number().required("O preço é obrigatório").positive("Apenas números positivos"),
-    created_at: yup.date().required("A data é obrigatória").typeError("Data inválida"),
-    is_fixed: yup.boolean().default(false),
-    category: yup.object().shape({
-        label: yup.string().required("A categoria é obrigatória"),
-        value: yup.string().required("A categoria é obrigatória")
-    }).nullable(),
-    source: yup.object().shape({
-        label: yup.string().required("A fonte é obrigatória"),
-        value: yup.string().required("A fonte é obrigatória")
-    }).nullable()
-})
+  description: yup.string().required("A descrição é obrigatória"),
+  price: yup
+    .number()
+    .required("O preço é obrigatório")
+    .positive("Apenas números positivos"),
+  created_at: yup
+    .date()
+    .required("A data é obrigatória")
+    .typeError("Data inválida"),
+  is_fixed: yup.boolean().default(false),
+  category: yup
+    .object()
+    .shape({
+      label: yup.string().required("A categoria é obrigatória"),
+      value: yup.string().required("A categoria é obrigatória"),
+    })
+    .nullable(),
+  source: yup
+    .object()
+    .shape({
+      label: yup.string().required("A fonte é obrigatória"),
+      value: yup.string().required("A fonte é obrigatória"),
+    })
+    .nullable(),
+});
 
-export const ExpenseForm = ({ initialData, handleClose, showSuccessFeedbackForm, reloadTable }) => {
-    const [isLoaded, setIsLoaded] = useState(true);
-    const [showAlert, setShowAlert] = useState(false);
-    const [alertInfos, setAlertInfos] = useState({});
-    // console.log("initialData =", initialData)
+export const ExpenseForm = ({
+  initialData,
+  handleClose,
+  showSuccessFeedbackForm,
+  reloadTable,
+}) => {
+  const [isLoaded, setIsLoaded] = useState(true);
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertInfos, setAlertInfos] = useState({});
+  // console.log("initialData =", initialData)
 
-    const { control, handleSubmit, formState: { errors, isDirty } } = useForm({
-        mode: "all",
-        resolver: yupResolver(schema),
-    });
-    const isCreateForm = Object.keys(initialData).length === 0
-    const onSubmit = data => {
-        let api = new ExpenseApi(initialData.id)
-        const method = isCreateForm ? "post" : "put"
-        const actionVerb = isCreateForm ? "criada" : "editada"
-        if (isDirty) {
-            setIsLoaded(false);
-            api[method]({
-                ...data,
-                created_at: data.created_at.toLocaleDateString("pt-br"),
-                category: data.category.value,
-                source: data.source.value
-            })
-                .then(() => {
-                    showSuccessFeedbackForm(`Despesa ${actionVerb} com sucesso!`);
-                    reloadTable();
-                    handleClose();
-                })
-                .catch(error => {
-                    setAlertInfos({
-                        message: JSON.stringify(error.response.data),
-                        severity: "error"
-                    });
-                    setShowAlert(true);
-                })
-                .finally(() => {
-                    setIsLoaded(true);
-                })
-            return
-        }
-        setAlertInfos({
-            message: "Você precisa alterar pelo menos um campo!",
-            severity: "error"
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isDirty },
+  } = useForm({
+    mode: "all",
+    resolver: yupResolver(schema),
+  });
+  const isCreateForm = Object.keys(initialData).length === 0;
+  const onSubmit = (data) => {
+    let api = new ExpenseApi(initialData.id);
+    const method = isCreateForm ? "post" : "put";
+    const actionVerb = isCreateForm ? "criada" : "editada";
+    if (isDirty) {
+      setIsLoaded(false);
+      api[method]({
+        ...data,
+        created_at: data.created_at.toLocaleDateString("pt-br"),
+        category: data.category.value,
+        source: data.source.value,
+      })
+        .then(() => {
+          showSuccessFeedbackForm(`Despesa ${actionVerb} com sucesso!`);
+          reloadTable();
+          handleClose();
+        })
+        .catch((error) => {
+          setAlertInfos({
+            message: JSON.stringify(error.response.data),
+            severity: "error",
+          });
+          setShowAlert(true);
+        })
+        .finally(() => {
+          setIsLoaded(true);
         });
-        setShowAlert(true);
+      return;
     }
+    setAlertInfos({
+      message: "Você precisa alterar pelo menos um campo!",
+      severity: "error",
+    });
+    setShowAlert(true);
+  };
 
-    return (
-        <>
-            <form>
-                <FormGroup row>
-                    <Controller
-                        name="description"
-                        control={control}
-                        defaultValue={initialData.description}
-                        rules={{ required: true }}
-                        render={({ field }) => (
-                            <TextField
-                                {...field}
-                                label="Descrição"
-                                required
-                                style={{ width: "100%" }}
-                                error={!!errors.description}
-                                helperText={errors.description?.message}
-                            />
-                        )}
-                    />
-                </FormGroup>
-                <FormGroup row style={{ marginTop: "10px" }}>
-                    <Controller
-                        name="price"
-                        control={control}
-                        defaultValue={initialData.price}
-                        render={({ field }) => (
-                            <TextField
-                                {...field}
-                                required
-                                label="Preço"
-                                InputProps={{
-                                    inputComponent: NumberFormatCustom,
-                                }}
-                                style={{ width: "30%", marginRight: "2%" }}
-                                error={!!errors.price}
-                                helperText={errors.price?.message}
-                            />)}
-                    />
-                    <MuiPickersUtilsProvider utils={DateFnsUtils}>
-                        <Controller
-                            name="created_at"
-                            control={control}
-                            defaultValue={initialData.date || null}
-                            render={({ field: { onChange, value } }) => (
-                                <KeyboardDatePicker
-                                    onChange={onChange}
-                                    value={value}
-                                    label="Quando?"
-                                    showTodayButton
-                                    todayLabel={"Hoje"}
-                                    cancelLabel={"Cancelar"}
-                                    clearable
-                                    clearLabel={"Limpar"}
-                                    autoOk
-                                    disableFuture
-                                    required
-                                    format="dd/MM/yyyy"
-                                    style={{ width: "30%", marginRight: "7%" }}
-                                    error={!!errors.created_at}
-                                    helperText={errors.created_at?.message}
-                                />)}
-                        />
-                    </MuiPickersUtilsProvider>
-                    <FormControl required style={{ width: "30%" }}>
-                        <Typography component="div">
-                            <FormLabel>Fixo?</FormLabel>
-                            <Grid component="label" container alignItems="center" spacing={1}>
-                                <Grid item>Não</Grid>
-                                <Grid item>
-                                    <Controller
-                                        name="is_fixed"
-                                        control={control}
-                                        render={({ field }) => (
-                                            <Switch {...field} checked={initialData.isFixed} />
-                                        )}
-                                    />
-                                </Grid>
-                                <Grid item>Sim</Grid>
-                            </Grid>
-                        </Typography>
-                    </FormControl>
-                </FormGroup>
-                <FormGroup row style={{ marginTop: "5px" }}>
-                    <FormControl style={{ width: "48%", marginRight: "2%" }} error={!!errors.category}>
-                        <Controller
-                            name="category"
-                            control={control}
-                            defaultValue={getChoiceByLabel(initialData.category, ExpensesCategoriesMapping)}
-                            render={({ field: { onChange, value } }) => (
-                                <>
-                                    <Autocomplete
-                                        onChange={(_, category) => onChange(category)}
-                                        value={value}
-                                        clearText="Limpar"
-                                        closeText="Fechar"
-                                        options={ExpensesCategoriesMapping}
-                                        getOptionLabel={option => option.label}
-                                        renderInput={params => (
-                                            <TextField
-                                                {...params}
-                                                error={!!errors.category}
-                                                required
-                                                label="Categoria"
-                                            />
-                                        )}
-                                    />
-                                    {errors.category?.value.message && <FormHelperText>{errors.category?.value.message}</FormHelperText>}
-                                </>
-                            )}
-                        />
-                    </FormControl>
-                    <FormControl required style={{ width: "48%" }} error={!!errors.source}>                        <Controller
-                        name="source"
-                        control={control}
-                        defaultValue={getChoiceByLabel(initialData.source, ExpensesSourcesMapping)}
-                        render={({ field: { onChange, value } }) => (
-                            <>
-                                <Autocomplete
-                                    onChange={(_, source) => onChange(source)}
-                                    value={value}
-                                    clearText="Limpar"
-                                    closeText="Fechar"
-                                    options={ExpensesSourcesMapping}
-                                    getOptionLabel={option => option.label}
-                                    renderInput={params => (
-                                        <TextField
-                                            {...params}
-                                            required
-                                            error={!!errors.source}
-                                            label="Fonte"
-                                        />
-                                    )}
-                                />
-                                {errors.source?.value.message && <FormHelperText>{errors.source?.value.message}</FormHelperText>}
-                            </>
-                        )}
-                    />
-                    </FormControl>
-                </FormGroup>
-                <DialogActions>
-                    <Button onClick={handleClose}>
-                        Cancelar
-                    </Button>
-                    <Button onClick={handleSubmit(onSubmit)} color="primary">
-                        {!isLoaded ? <CircularProgress size={24} /> : isCreateForm ? "Adicionar" : "Editar"}
-                    </Button>
-                </DialogActions>
-            </form>
-            <FormFeedback
-                open={showAlert}
-                onClose={() => setShowAlert(false)}
-                message={alertInfos.message}
-                severity={alertInfos.severity}
+  return (
+    <>
+      <form>
+        <FormGroup row>
+          <Controller
+            name="description"
+            control={control}
+            defaultValue={initialData.description}
+            rules={{ required: true }}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Descrição"
+                required
+                style={{ width: "100%" }}
+                error={!!errors.description}
+                helperText={errors.description?.message}
+              />
+            )}
+          />
+        </FormGroup>
+        <FormGroup row style={{ marginTop: "10px" }}>
+          <Controller
+            name="price"
+            control={control}
+            defaultValue={initialData.price}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                required
+                label="Preço"
+                InputProps={{
+                  inputComponent: NumberFormatCustom,
+                }}
+                style={{ width: "30%", marginRight: "2%" }}
+                error={!!errors.price}
+                helperText={errors.price?.message}
+              />
+            )}
+          />
+          <MuiPickersUtilsProvider utils={DateFnsUtils}>
+            <Controller
+              name="created_at"
+              control={control}
+              defaultValue={initialData.date || null}
+              render={({ field: { onChange, value } }) => (
+                <KeyboardDatePicker
+                  onChange={onChange}
+                  value={value}
+                  label="Quando?"
+                  showTodayButton
+                  todayLabel={"Hoje"}
+                  cancelLabel={"Cancelar"}
+                  clearable
+                  clearLabel={"Limpar"}
+                  autoOk
+                  disableFuture
+                  required
+                  format="dd/MM/yyyy"
+                  style={{ width: "30%", marginRight: "7%" }}
+                  error={!!errors.created_at}
+                  helperText={errors.created_at?.message}
+                />
+              )}
             />
-        </>
-    )
-}
+          </MuiPickersUtilsProvider>
+          <FormControl required style={{ width: "30%" }}>
+            <Typography component="div">
+              <FormLabel>Fixo?</FormLabel>
+              <Grid component="label" container alignItems="center" spacing={1}>
+                <Grid item>Não</Grid>
+                <Grid item>
+                  <Controller
+                    name="is_fixed"
+                    control={control}
+                    render={({ field }) => (
+                      <Switch {...field} checked={initialData.isFixed} />
+                    )}
+                  />
+                </Grid>
+                <Grid item>Sim</Grid>
+              </Grid>
+            </Typography>
+          </FormControl>
+        </FormGroup>
+        <FormGroup row style={{ marginTop: "5px" }}>
+          <FormControl
+            style={{ width: "48%", marginRight: "2%" }}
+            error={!!errors.category}
+          >
+            <Controller
+              name="category"
+              control={control}
+              defaultValue={getChoiceByLabel(
+                initialData.category,
+                ExpensesCategoriesMapping
+              )}
+              render={({ field: { onChange, value } }) => (
+                <>
+                  <Autocomplete
+                    onChange={(_, category) => onChange(category)}
+                    value={value}
+                    clearText="Limpar"
+                    closeText="Fechar"
+                    options={ExpensesCategoriesMapping}
+                    getOptionLabel={(option) => option.label}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        error={!!errors.category}
+                        required
+                        label="Categoria"
+                      />
+                    )}
+                  />
+                  {errors.category?.value.message && (
+                    <FormHelperText>
+                      {errors.category?.value.message}
+                    </FormHelperText>
+                  )}
+                </>
+              )}
+            />
+          </FormControl>
+          <FormControl
+            required
+            style={{ width: "48%" }}
+            error={!!errors.source}
+          >
+            {" "}
+            <Controller
+              name="source"
+              control={control}
+              defaultValue={getChoiceByLabel(
+                initialData.source,
+                ExpensesSourcesMapping
+              )}
+              render={({ field: { onChange, value } }) => (
+                <>
+                  <Autocomplete
+                    onChange={(_, source) => onChange(source)}
+                    value={value}
+                    clearText="Limpar"
+                    closeText="Fechar"
+                    options={ExpensesSourcesMapping}
+                    getOptionLabel={(option) => option.label}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        required
+                        error={!!errors.source}
+                        label="Fonte"
+                      />
+                    )}
+                  />
+                  {errors.source?.value.message && (
+                    <FormHelperText>
+                      {errors.source?.value.message}
+                    </FormHelperText>
+                  )}
+                </>
+              )}
+            />
+          </FormControl>
+        </FormGroup>
+        <DialogActions>
+          <Button onClick={handleClose}>Cancelar</Button>
+          <Button onClick={handleSubmit(onSubmit)} color="primary">
+            {!isLoaded ? (
+              <CircularProgress size={24} />
+            ) : isCreateForm ? (
+              "Adicionar"
+            ) : (
+              "Editar"
+            )}
+          </Button>
+        </DialogActions>
+      </form>
+      <FormFeedback
+        open={showAlert}
+        onClose={() => setShowAlert(false)}
+        message={alertInfos.message}
+        severity={alertInfos.severity}
+      />
+    </>
+  );
+};

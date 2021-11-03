@@ -13,9 +13,7 @@ class TransactionQuerySet(QuerySet, SumMixin):
     _sold_filter = Q(action=TransactionActions.sell)
 
     @staticmethod
-    def _get_sum_expression(
-        sum_field_name: Union[str, Iterable[str]]
-    ) -> Dict[str, Sum]:
+    def get_sum_expression(sum_field_name: Union[str, Iterable[str]]) -> Dict[str, Sum]:
         if isinstance(sum_field_name, str):
             return {f"{sum_field_name}_sum": Sum(sum_field_name)}
         return {f"{field_name}_sum": Sum(field_name) for field_name in sum_field_name}
@@ -60,7 +58,7 @@ class TransactionQuerySet(QuerySet, SumMixin):
         if include_quantity:
             expressions = {
                 **expressions,
-                **self._get_sum_expression(sum_field_name="quantity"),
+                **self.get_sum_expression(sum_field_name="quantity"),
             }
         return self.bought().aggregate(**expressions)
 
@@ -78,7 +76,7 @@ class TransactionQuerySet(QuerySet, SumMixin):
 
 class PassiveIncomeQuerySet(QuerySet, SumMixin):
     @staticmethod
-    def _get_sum_expression() -> Dict[str, Sum]:
+    def get_sum_expression() -> Dict[str, Sum]:
         return {"total": Sum("amount")}
 
     def credited(self) -> QuerySet:

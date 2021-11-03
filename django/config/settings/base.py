@@ -36,6 +36,7 @@ LOCAL_APPS = [
     "variable_income_assets.apps.VariableIncomeAssetsConfig",
     "expenses.apps.ExpensesConfig",
     "tasks.apps.TasksConfig",
+    "revenues.apps.RevenuesConfig",
 ]
 
 THIRD_PARTY_APPS = [
@@ -137,7 +138,7 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "DEFAULT_PAGINATION_CLASS": "shared.pagination.CustomPageNumberPagination",
     "DEFAULT_FILTER_BACKENDS": (
         "django_filters.rest_framework.DjangoFilterBackend",
         "rest_framework.filters.OrderingFilter",
@@ -145,7 +146,7 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DATE_INPUT_FORMATS": ["%d/%m/%Y"],
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
-    "PAGE_SIZE": 10,
+    "PAGE_SIZE": 5,
     "COERCE_DECIMAL_TO_STRING": False,
 }
 
