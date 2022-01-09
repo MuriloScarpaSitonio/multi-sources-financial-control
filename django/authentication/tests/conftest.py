@@ -6,6 +6,8 @@ from django.contrib.auth.hashers import make_password
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from ..models import IntegrationSecret
+
 
 class UserFactory(DjangoModelFactory):
     class Meta:
@@ -15,9 +17,19 @@ class UserFactory(DjangoModelFactory):
     is_active = True
 
 
+class IntegrationSecretFactory(DjangoModelFactory):
+    class Meta:
+        model = IntegrationSecret
+
+
 @pytest.fixture
-def user():
-    return UserFactory(username="murilo", cpf="93804358004", cei_password="password")
+def secrets():
+    return IntegrationSecretFactory(cpf="93804358004", cei_password="password")
+
+
+@pytest.fixture
+def user(secrets):
+    return UserFactory(username="murilo", secrets=secrets)
 
 
 @pytest.fixture

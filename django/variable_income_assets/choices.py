@@ -6,10 +6,15 @@ class TransactionActions(DjangoChoices):
     sell = ChoiceItem("SELL", label="Venda")
 
 
+class TransactionCurrencies(DjangoChoices):
+    real = ChoiceItem("BRL", label="Real")
+    dollar = ChoiceItem("USD", label="Dólar")
+
+
 class AssetTypes(DjangoChoices):
     stock = ChoiceItem("STOCK", label="Ação B3")
-    stock_usa = ChoiceItem("STOCK USA", label="Ação EUA")
-    cripto = ChoiceItem("CRIPTO", label="Criptoativos")
+    stock_usa = ChoiceItem("STOCK_USA", label="Ação EUA")
+    crypto = ChoiceItem("CRYPTO", label="Criptoativos")
     fii = ChoiceItem("FII", label="Fundo de Investimento Imobiliário")
 
 
@@ -27,6 +32,11 @@ class PassiveIncomeTypes(DjangoChoices):
     income = ChoiceItem("INCOME", label="Rendimento", valid_assets=(AssetTypes.fii,))
 
 
-"""class ROYTypeChoices(DjangoChoices):
-    profit = ChoiceItem("PROFIT", label="Lucro", filter_expression={"ROI__gt": 0})
-    losss = ChoiceItem("LOSS", label="perda", filter_expression={"ROI__lt": 0})"""
+class PassiveIncomeEventTypes(DjangoChoices):
+    provisioned = ChoiceItem("PROVISIONED", label="Provisionado")
+    credited = ChoiceItem("CREDITED", label="Creditado")
+
+
+# class ROYTypeChoices(DjangoChoices):
+#     profit = ChoiceItem("PROFIT", label="Lucro", filter_expression={"ROI__gt": 0})
+#     losss = ChoiceItem("LOSS", label="perda", filter_expression={"ROI__lt": 0})

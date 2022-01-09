@@ -31,7 +31,7 @@ import Tabs from "@material-ui/core/Tabs";
 import Typography from "@material-ui/core/Typography";
 
 import { Loader } from "../Loaders";
-import { ExpenseApi } from "../../api";
+import { ExpensesApi } from "../../api";
 import { makeStyles } from "@material-ui/core/styles";
 
 const chartWidth = 950;
@@ -133,13 +133,13 @@ const ExpenseHorizontalMultipleBarChart = ({
     <Legend />
     <Bar
       dataKey={lastDateString}
-      barSize={chartBarSize * 2}
+      barSize={dataKey === "category" ? chartBarSize : chartBarSize * 2}
       yAxisId={0}
       fill={lastDataFillCollor}
     />
     <Bar
       dataKey={currentDateString}
-      barSize={chartBarSize}
+      barSize={dataKey === "category" ? chartBarSize / 2 : chartBarSize}
       yAxisId={1}
       fill={currentDataFillColor}
     />
@@ -429,7 +429,7 @@ export const ExpensesReports = () => {
   //const [error, setError] = useState(null);
   const [tabValue, setTabValue] = useState(0);
 
-  let api = new ExpenseApi();
+  let api = new ExpensesApi();
   const [months, years] = getReportPeriod();
   const [currentMonth, lastMonth] = months;
   const [currentYear, lastYear] = years;
@@ -515,7 +515,6 @@ export const ExpensesReports = () => {
         variant="scrollable"
         value={tabValue}
         onChange={handleTabsChange}
-        aria-label="Vertical tabs example"
         className={classes.tabs}
       >
         <Tab label="Histórico" {...getTabProps(0)} />

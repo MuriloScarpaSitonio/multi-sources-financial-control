@@ -9,9 +9,7 @@ from .choices import TaskStates
 class TaskHistory(models.Model):
     id = models.UUIDField(editable=False, primary_key=True)
     name = models.CharField(max_length=50)
-    state = models.CharField(
-        max_length=20, choices=TaskStates.choices, default=TaskStates.pending
-    )
+    state = models.CharField(max_length=20, choices=TaskStates.choices, default=TaskStates.pending)
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
     error = models.TextField(blank=True)
@@ -23,6 +21,11 @@ class TaskHistory(models.Model):
 
     class Meta:
         ordering = ("-finished_at",)
+
+    def __str__(self) -> str:
+        return f"<TaskHistory {self.name} {self.state} ({self.id})>"  # pragma: no cover
+
+    __repr__ = __str__
 
     def start(self) -> None:
         self.started_at = timezone.now()
@@ -36,6 +39,6 @@ class TaskHistory(models.Model):
             self.state = TaskStates.success
         else:
             self.state = TaskStates.failure
-            self. error = error
+            self.error = error
             update_fields += ("error",)
         self.save(update_fields=update_fields)

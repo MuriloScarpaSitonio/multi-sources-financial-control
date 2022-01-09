@@ -1,36 +1,35 @@
-from decimal import Decimal, ROUND_UP
+from decimal import Decimal, ROUND_UP, DecimalException
+from django.utils.functional import cached_property
 
 from rest_framework import serializers
 
 from shared.serializers_utils import CustomChoiceField
 
-from .choices import AssetTypes
-from .models import Asset
+from .choices import AssetTypes, PassiveIncomeEventTypes, PassiveIncomeTypes, TransactionCurrencies
+from .models import Asset, PassiveIncome
 
 
 class AssetSerializer(serializers.ModelSerializer):
     type = CustomChoiceField(choices=AssetTypes.choices)
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
-    avg_price = serializers.DecimalField(
-        max_digits=7,
-        decimal_places=2,
-        read_only=True,
-        rounding=ROUND_UP,
+    quantity_balance = serializers.DecimalField(
+        decimal_places=8, max_digits=15, read_only=True, rounding=ROUND_UP
     )
+    current_price = serializers.SerializerMethodField(read_only=True)
     adjusted_avg_price = serializers.DecimalField(
-        max_digits=7,
-        decimal_places=2,
-        read_only=True,
-        rounding=ROUND_UP,
+        max_digits=10, decimal_places=3, read_only=True, rounding=ROUND_UP
     )
-    ROI = serializers.DecimalField(
-        source="get_ROI",
-        max_digits=7,
-        decimal_places=2,
-        read_only=True,
-        rounding=ROUND_UP,
+    roi = serializers.DecimalField(
+        max_digits=10, decimal_places=3, read_only=True, rounding=ROUND_UP
     )
-    ROI_percentage = serializers.SerializerMethodField()
+    roi_percentage = serializers.DecimalField(
+        max_digits=10, decimal_places=3, read_only=True, rounding=ROUND_UP
+    )
+    total_invested = serializers.DecimalField(
+        max_digits=10, decimal_places=3, read_only=True, rounding=ROUND_UP
+    )
+    percentage_invested = serializers.SerializerMethodField(read_only=True)
+    current_percentage = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Asset
@@ -38,11 +37,82 @@ class AssetSerializer(serializers.ModelSerializer):
             "code",
             "type",
             "user",
-            "avg_price",
+            "quantity_balance",
+            "current_price",
             "adjusted_avg_price",
-            "ROI",
-            "ROI_percentage",
+            "roi",
+            "roi_percentage",
+            "total_invested",
+            "currency",
+            "percentage_invested",
+            "current_percentage",
         )
 
-    def get_ROI_percentage(self, obj) -> Decimal:
-        return obj.get_ROI(percentage=True)
+    @staticmethod
+    def _convert_value(value: Decimal, currency: str) -> Decimal:
+        return (
+            (value or Decimal())
+            if currency == TransactionCurrencies.real
+            # TODO: change this hardcoded conversion to a dynamic one
+            else (value or Decimal()) * Decimal("5.68")
+        )
+
+    def get_current_price(self, obj: Asset) -> Decimal:
+        return self._convert_value(obj.current_price, currency=obj.currency)
+
+    def get_percentage_invested(self, obj: Asset) -> Decimal:
+        return ((obj.avg_price * obj.quantity_balance) / self.context["total_invested"]) * Decimal(
+            "100.0"
+        )
+
+    def get_current_percentage(self, obj: Asset) -> Decimal:
+        try:
+            result = obj.total_invested / self.context["current_total"]
+        except DecimalException:
+            result = Decimal()
+        return result * Decimal("100.0")
+
+
+class AssetRoidIndicatorsSerializer(serializers.Serializer):
+    current_total = serializers.DecimalField(
+        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_UP
+    )
+    ROI = serializers.DecimalField(
+        max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_UP
+    )
+    ROI_opened = serializers.DecimalField(
+        max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_UP
+    )
+    ROI_finished = serializers.DecimalField(
+        max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_UP
+    )
+
+
+class AssetIncomesIndicatorsSerializer(serializers.Serializer):
+    incomes = serializers.DecimalField(
+        max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_UP
+    )
+
+
+class PassiveIncomeSerializer(serializers.ModelSerializer):
+    type = CustomChoiceField(choices=PassiveIncomeTypes.choices)
+    event_type = CustomChoiceField(choices=PassiveIncomeEventTypes.choices)
+
+    class Meta:
+        model = PassiveIncome
+        fields = ("type", "event_type", "operation_date", "amount")
+
+
+class PassiveIncomesIndicatorsSerializer(serializers.Serializer):
+    total = serializers.DecimalField(
+        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_UP
+    )
+    credited_total = serializers.DecimalField(
+        max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_UP
+    )
+    provisioned_total = serializers.DecimalField(
+        max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_UP
+    )
+    diff_percentage = serializers.DecimalField(
+        max_digits=5, decimal_places=2, read_only=True, rounding=ROUND_UP
+    )

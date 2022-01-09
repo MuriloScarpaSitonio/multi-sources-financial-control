@@ -152,7 +152,7 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Multi Sources Financial Control API",
-    "DESCRIPTION": "B3, USA stocks and criptos crawler + expenses tracker",
+    "DESCRIPTION": "B3, USA stocks and cryptos crawler + expenses tracker",
     "VERSION": "1.0.0",
 }
 
@@ -164,17 +164,15 @@ FERNET_KEY = secret(
     default="TFGiLL_iX38XrRzwH9Ya4qEUY2gbAuanHbC3R7ZYwoo=",
 )
 
-CRAWLERS_URL = secret("CRAWLERS_URL", default="http://fastapi:5000/")
+CRAWLERS_URL = secret("CRAWLERS_URL", default="http://localhost:5000/")
 
-CELERY_BROKER_URL = secret(
-    "CELERY_BROKER_URL", default="amqp://guest:guest@rabbitmq:5672"
-)
+CELERY_BROKER_URL = secret("CELERY_BROKER_URL", default="amqp://guest:guest@rabbitmq:5672")
 CELERY_IGNORE_RESULT = True
 CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 1200  # 20min
+CELERY_TASK_TIME_LIMIT = 600  # 10min
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_CREATE_MISSING_QUEUES = True
-CELERY_TASK_ALWAYS_EAGER = False
+CELERY_TASK_ALWAYS_EAGER = True
 CELERY_ACCEPT_CONTENT = ["application/json"]
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TASK_SERIALIZER = "json"

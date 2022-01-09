@@ -14,6 +14,7 @@ class SumMixin:
 
 class IndicatorsMixin:
     def indicators(self) -> QuerySet:
+        date_field_name = getattr(self, "DATE_FIELD_NAME", "created_at")
         today = timezone.now().date()
 
         if today.month == 1:
@@ -25,15 +26,19 @@ class IndicatorsMixin:
         return (
             self.filter(
                 Q(
-                    created_at__month=today.month,
-                    created_at__year=today.year,
+                    **{
+                        f"{date_field_name}__month": today.month,
+                        f"{date_field_name}__year": today.year,
+                    }
                 )
                 | Q(
-                    created_at__month=last_month,
-                    created_at__year=year,
+                    **{
+                        f"{date_field_name}__month": last_month,
+                        f"{date_field_name}__year": year,
+                    }
                 )
             )
-            .annotate(month=TruncMonth("created_at"))
+            .annotate(month=TruncMonth(date_field_name))
             .values("month")
             .annotate_sum()
             .annotate(diff=F("total") - Window(expression=Lag("total")))
@@ -55,7 +60,13 @@ class IndicatorsMixin:
 
 class MonthlyFilterMixin:
     def filter_by_month_and_year(self, month: int, year: int) -> QuerySet:
-        return self.filter(created_at__month=month, created_at__year=year)
+        date_field_name = getattr(self, "DATE_FIELD_NAME", "created_at")
+        return self.filter(
+            **{
+                f"{date_field_name}__month": month,
+                f"{date_field_name}__year": year,
+            }
+        )
 
 
 class CustomQueryset(QuerySet, SumMixin):

@@ -70,7 +70,7 @@ export const Login = (props) => {
           message: "Sucesso! Redirecionando...",
           severity: "success",
         });
-        props.history.push("/expenses");
+        props.history.push("/assets");
       })
       .catch((error) => {
         setAlertInfos({

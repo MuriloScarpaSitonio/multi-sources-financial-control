@@ -10,8 +10,10 @@ import {
 
 import Navbar from "./components/Navbar";
 import { useHideValues } from "./hooks/useHideValues";
+import Assets from "./pages/Assets";
 import Expenses from "./pages/Expenses";
 import { Login } from "./pages/Login";
+
 import { AccessTokenStr } from "./consts";
 
 import "./App.css";
@@ -62,6 +64,9 @@ export default function App() {
       </Switch>
       <Switch>
         <PrivateRoute exact path="/expenses" component={Expenses} />
+      </Switch>
+      <Switch>
+        <PrivateRoute exact path="/assets" component={Assets} />
       </Switch>
     </Router>
   );

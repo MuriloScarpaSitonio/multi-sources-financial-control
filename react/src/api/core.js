@@ -18,7 +18,7 @@ class Api {
   }
 }
 
-export class ExpenseApi extends Api {
+export class ExpensesApi extends Api {
   resource = "expenses";
   constructor(id = null) {
     super({ query: true, post: true, patch: true, delete: true }, id);
@@ -36,7 +36,7 @@ export class ExpenseApi extends Api {
   }
 }
 
-export class RevenueApi extends Api {
+export class RevenuesApi extends Api {
   resource = "revenues";
   constructor(id = null) {
     super({ query: false, post: true, patch: true, delete: true }, id);
@@ -49,5 +49,23 @@ export class AuthenticationApi {
   constructor() {
     this.login = (data) => apiProvider.login(data);
     this.refreshToken = () => apiProvider.refreshToken();
+  }
+}
+
+export class AssetsApi extends Api {
+  resource = "assets";
+  constructor() {
+    super({ query: true, post: false, patch: false, delete: false });
+
+    this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
+  }
+}
+
+export class IncomesApi extends Api {
+  resource = "incomes";
+  constructor(id = null) {
+    super({ query: true, post: true, patch: true, delete: true }, id);
+
+    this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
   }
 }

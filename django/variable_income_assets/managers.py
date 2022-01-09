@@ -1,83 +1,214 @@
 from decimal import Decimal
 from typing import Dict, Iterable, Union
 
-from django.db.models import F, Q, QuerySet, Sum
+from django.db.models import Case, F, OuterRef, Q, Subquery, Sum, Value, When
 from django.db.models.expressions import CombinedExpression
+from django.db.models.functions import Coalesce
+from django.db.models.query import QuerySet
 
-from shared.managers_utils import SumMixin
-from .choices import TransactionActions
+from shared.managers_utils import CustomQueryset, IndicatorsMixin, MonthlyFilterMixin
+from shared.utils import coalesce_sum_expression
+
+from .choices import PassiveIncomeEventTypes, TransactionCurrencies
+from .expressions import GenericQuerySetExpressions
 
 
-class TransactionQuerySet(QuerySet, SumMixin):
-    _bought_filter = Q(action=TransactionActions.buy)
-    _sold_filter = Q(action=TransactionActions.sell)
+class AssetQuerySet(CustomQueryset):
+    expressions = GenericQuerySetExpressions(prefix="transactions")
+    CURRENT_TOTAL_EXPRESSION = Case(
+        When(
+            ~Q(transactions__currency=TransactionCurrencies.real),
+            # TODO: change this hardcoded conversion to a dynamic one
+            then=Coalesce(F("current_price") * Value(Decimal("5.68")), Decimal())
+            * expressions.quantity_balance,
+        ),
+        default=Coalesce(F("current_price"), Decimal()) * expressions.quantity_balance,
+    )
 
     @staticmethod
-    def get_sum_expression(sum_field_name: Union[str, Iterable[str]]) -> Dict[str, Sum]:
-        if isinstance(sum_field_name, str):
-            return {f"{sum_field_name}_sum": Sum(sum_field_name)}
-        return {f"{field_name}_sum": Sum(field_name) for field_name in sum_field_name}
+    def _get_passive_incomes_subquery(
+        field_name: str = "credited_incomes",
+    ) -> "PassiveIncomeQuerySet":
+        from .models import PassiveIncome  # avoid circular ImportError
 
-    def _get_ROI_expression(self, percentage: bool) -> Union[Sum, CombinedExpression]:
-        expression = Sum(
-            (F("price") - F("initial_price")) * F("quantity"),
-            filter=self._sold_filter,
+        return (
+            PassiveIncome.objects.filter(asset=OuterRef("pk"))
+            .values("asset__pk")  # group by as we can't aggregate directly
+            .credited()
+            .annotate(**{field_name: Sum("amount")})
+            .values(field_name)
         )
-        total_invested_expression = Sum(
-            F("price") * F("quantity"),
-            filter=self._bought_filter,
+
+    def _annotate_quantity_balance(self) -> "AssetQuerySet":
+        return self.annotate(quantity_balance=self.expressions.quantity_balance).order_by()
+
+    def opened(self) -> "AssetQuerySet":
+        return self._annotate_quantity_balance().filter(quantity_balance__gt=0)
+
+    def finished(self) -> "AssetQuerySet":
+        return self._annotate_quantity_balance().filter(quantity_balance__lte=0)
+
+    def current_total(self):
+        return self.annotate(total=self.CURRENT_TOTAL_EXPRESSION).aggregate(
+            current_total=Sum("total")
+        )
+
+    def total_invested(self):
+        return self.annotate(
+            total=self.expressions.avg_price * self.expressions.quantity_balance
+        ).aggregate(total_invested=Sum("total"))
+
+    def report(self):
+        from .models import Transaction  # avoid circular ImportError
+
+        subquery = (
+            Transaction.objects.filter(asset=OuterRef("pk"))
+            .values("asset__pk")  # group by as we can't aggregate directly
+            .annotate(balance=TransactionQuerySet.expressions.quantity_balance)
+            .values("balance")
+        )
+
+        return (
+            self.annotate(transactions_balance=Subquery(subquery.values("balance")))
+            .values("type")
+            .annotate(total=Sum(Coalesce("current_price", Decimal()) * F("transactions_balance")))
+            .order_by("-total")
+        )
+
+    def annotate_roi(
+        self, percentage: bool = False, annotate_passive_incomes_subquery: bool = True
+    ) -> "AssetQuerySet":
+        if annotate_passive_incomes_subquery:
+            subquery = self._get_passive_incomes_subquery()
+
+        ROI = self.CURRENT_TOTAL_EXPRESSION - self.expressions.get_total_adjusted(
+            incomes=Coalesce(F("credited_incomes_total"), Decimal())
+        )
+        if percentage:
+            expression = (ROI / self.expressions.total_bought) * Decimal("100.0")
+            field_name = "roi_percentage"
+        else:
+            expression = ROI
+            field_name = "roi"
+
+        return (
+            self.annotate(
+                credited_incomes_total=Subquery(subquery.values("credited_incomes"))
+            ).annotate(**{field_name: Coalesce(expression, Decimal())})
+            if annotate_passive_incomes_subquery
+            else self.annotate(**{field_name: Coalesce(expression, Decimal())})
+        )
+
+    def annotate_adjusted_avg_price(
+        self, annotate_passive_incomes_subquery: bool = True
+    ) -> "AssetQuerySet":
+        if annotate_passive_incomes_subquery:
+            subquery = self._get_passive_incomes_subquery()
+
+        expression = self.expressions.get_adjusted_avg_price(
+            incomes=Coalesce(F("credited_incomes_total"), Decimal())
         )
         return (
-            # models.functions.Cast won't work; cast result to a decimal value
-            (expression * Decimal("1.0")) / total_invested_expression
-            if percentage
-            else expression
+            self.annotate(
+                credited_incomes_total=Subquery(subquery.values("credited_incomes"))
+            ).annotate(adjusted_avg_price=Coalesce(expression, Decimal()))
+            if annotate_passive_incomes_subquery
+            else self.annotate(adjusted_avg_price=Coalesce(expression, Decimal()))
         )
 
-    def bought(self) -> QuerySet:
-        return self.filter(self._bought_filter)
+    def annotate_total_adjusted_invested(self):  # pragma: no cover
+        return self.annotate(
+            total_adjusted_invested=F("adjusted_avg_price") * F("quantity_balance")
+        )
 
-    def sold(self) -> QuerySet:
-        return self.filter(self._sold_filter)
+    def annotate_avg_price(self) -> "AssetQuerySet":
+        return self.annotate(avg_price=self.expressions.avg_price)
 
-    def avg_price(self, include_quantity: bool = False) -> QuerySet:
+    def annotate_total_invested(self):
+        return self.annotate(total_invested=F("avg_price") * F("quantity_balance"))
+
+    def annotate_for_serializer(self) -> "AssetQuerySet":
+        return (
+            self.annotate_roi()
+            .annotate_roi(percentage=True, annotate_passive_incomes_subquery=False)
+            .annotate_adjusted_avg_price(annotate_passive_incomes_subquery=False)
+            .annotate_avg_price()
+            .annotate_total_invested()
+        )
+
+
+class TransactionQuerySet(QuerySet):
+    expressions = GenericQuerySetExpressions()
+    CURRENT_TOTAL_EXPRESSION = Case(
+        When(
+            ~Q(currency=TransactionCurrencies.real),
+            # TODO: change this hardcoded conversion to a dynamic one
+            then=Coalesce(F("asset__current_price") * Value(Decimal("5.68")), Decimal())
+            * expressions.quantity_balance,
+        ),
+        default=Coalesce(F("asset__current_price"), Decimal()) * expressions.quantity_balance,
+    )
+
+    def _get_roi_expression(
+        self, incomes: Decimal, percentage: bool
+    ) -> Union[Sum, CombinedExpression]:
         """
-        Args:
-            include_quantity (bool, optional): True, se devemos incluir a quantidade dos ativos.
-                False, do contrário. Defaults to False.
-                Esse parâmetro é essencial para gerar a property adjusted_avg_price do model.
-        """
-        expressions = {
-            "avg_price": (
-                # models.functions.Cast won't work
-                Sum(F("price") * F("quantity"))
-                * Decimal("1.0")  # cast result to a decimal value
-            )
-            / Sum("quantity")
-        }
-        if include_quantity:
-            expressions = {
-                **expressions,
-                **self.get_sum_expression(sum_field_name="quantity"),
-            }
-        return self.bought().aggregate(**expressions)
+        We are passing the incomes explicity instead of defining a expression such as
+        ```
+        PASSIVE_INCOMES_TOTAL = coalesce_sum_expression(
+            "asset__incomes__amount",
+            filter=Q(asset__incomes__event_type=PassiveIncomeEventTypes.credited),
+            extra=Decimal("1.0"),
+        )
+        ```
+        at `GenericQuerySetExpressions` because we are using SQLite,
+        which does not support the `DISTINCT ON` clause.
 
-    def get_current_quantity(self) -> QuerySet:
+        This means that if we pass `distinct=True` to `coalesce_sum_expression`,
+        we'd get only one income if their `amount`s are equal. In a production environment,
+        ie, using PostgreSQL, we could do something like
+        `self.distinct('asset__incomes').aggregate(...)` to distinct the incomes and avoid
+        the need for this input queried outside of this manager.
+        """
+        ROI = self.CURRENT_TOTAL_EXPRESSION - self.expressions.get_total_adjusted(
+            incomes=Value(incomes)
+        )
+
+        expression = (ROI / self.expressions.total_bought) * Decimal("100.0") if percentage else ROI
+        return Coalesce(expression, Decimal())
+
+    def bought(self) -> "TransactionQuerySet":
+        return self.filter(self.expressions.filters.bought)
+
+    def sold(self) -> "TransactionQuerySet":
+        return self.filter(self.expressions.filters.sold)
+
+    def avg_price(self, incomes: Decimal = Decimal()) -> Dict[str, Decimal]:
+        expression = (
+            self.expressions.get_adjusted_avg_price(incomes=Value(incomes))
+            if incomes
+            else self.expressions.avg_price
+        )
+        return self.aggregate(avg_price=expression)
+
+    def get_current_quantity(self) -> Dict[str, Decimal]:
         """A quantidade ajustada é a diferença entre transações de compra e de venda"""
-        return self.aggregate(
-            quantity=Sum("quantity", filter=self._bought_filter)
-            - Sum("quantity", filter=self._sold_filter)
-        )
+        return self.aggregate(quantity=self.expressions.quantity_balance)
 
-    def roi(self, percentage: bool = False) -> QuerySet:
+    def roi(self, incomes: Decimal, percentage: bool = False) -> Dict[str, Decimal]:
         """ROI: Return On Investment"""
-        return self.aggregate(ROI=self._get_ROI_expression(percentage=percentage))
+        return self.aggregate(ROI=self._get_roi_expression(incomes=incomes, percentage=percentage))
 
 
-class PassiveIncomeQuerySet(QuerySet, SumMixin):
+class PassiveIncomeQuerySet(CustomQueryset, IndicatorsMixin, MonthlyFilterMixin):
+    DATE_FIELD_NAME = "operation_date"
+
     @staticmethod
     def get_sum_expression() -> Dict[str, Sum]:
-        return {"total": Sum("amount")}
+        return {"total": coalesce_sum_expression("amount")}
 
-    def credited(self) -> QuerySet:
-        return self.filter(credited_at__isnull=False)
+    def credited(self) -> "PassiveIncomeQuerySet":
+        return self.filter(event_type=PassiveIncomeEventTypes.credited)
+
+    def provisioned(self) -> "PassiveIncomeQuerySet":
+        return self.filter(event_type=PassiveIncomeEventTypes.provisioned)

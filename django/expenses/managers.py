@@ -2,8 +2,8 @@ from decimal import Decimal
 from typing import Dict, Union
 
 from django.utils import timezone
-from django.db.models import QuerySet, Sum
-from django.db.models.functions import Lag, TruncMonth
+from django.db.models import Sum
+from django.db.models.functions import TruncMonth
 
 from shared.managers_utils import CustomQueryset, IndicatorsMixin, MonthlyFilterMixin
 
@@ -15,7 +15,7 @@ class ExpenseQueryset(CustomQueryset, IndicatorsMixin, MonthlyFilterMixin):
     def get_sum_expression() -> Dict[str, Sum]:
         return {"total": Sum("price")}
 
-    def report(self, of: str) -> Dict[str, Union[QuerySet, Decimal]]:
+    def report(self, of: str) -> Dict[str, Union["ExpenseQueryset", Decimal]]:
         """
         Args:
             of (str): The type of report. For valid choices check ExpenseReportType.choices
@@ -23,12 +23,12 @@ class ExpenseQueryset(CustomQueryset, IndicatorsMixin, MonthlyFilterMixin):
         choice = ExpenseReportType.get_choice(value=of)
         return self.aggregate_field(field_name=choice.field_name)
 
-    def historic(self) -> QuerySet:
+    def historic(self) -> "ExpenseQueryset":
         today = timezone.now().date()
         return (
             self.filter(
-                created_at__month__lte=today.month,
-                created_at__year__lte=today.year,
+                created_at__month__gte=today.month,
+                created_at__year__gte=today.year - 1,
             )
             .annotate(month=TruncMonth("created_at"))
             .values("month")

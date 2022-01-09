@@ -1,4 +1,4 @@
-from random import randint
+from random import randint, choice
 
 import pytest
 from factory.django import DjangoModelFactory
@@ -8,6 +8,7 @@ from django.utils import timezone
 from authentication.tests.conftest import user
 from variable_income_assets.choices import (
     AssetTypes,
+    PassiveIncomeEventTypes,
     PassiveIncomeTypes,
     TransactionActions,
 )
@@ -37,6 +38,21 @@ def celery_always_eager(settings):
 @pytest.fixture
 def simple_asset(user):
     return AssetFactory(code="ALUP11", type=AssetTypes.stock, user=user)
+
+
+@pytest.fixture
+def another_asset(user):
+    return AssetFactory(code="URA", type=AssetTypes.stock_usa, user=user)
+
+
+@pytest.fixture
+def crypto_asset(user):
+    return AssetFactory(code="QRDO", type=AssetTypes.crypto, user=user, current_price=6)
+
+
+@pytest.fixture
+def assets(simple_asset, another_asset, crypto_asset):
+    return simple_asset, another_asset, crypto_asset
 
 
 @pytest.fixture
@@ -70,13 +86,14 @@ def passive_incomes(simple_asset):
         PassiveIncomeFactory(
             type=PassiveIncomeTypes.dividend,
             amount=randint(100, 500),
+            event_type=PassiveIncomeEventTypes.credited,
             asset=simple_asset,
-            credited_at=timezone.now().date(),
+            operation_date=timezone.now().date(),
         )
 
 
 @pytest.fixture
-def cei_crawler_assets_response():
+def cei_transactions_response():
     return [
         {
             "operation_date": "2021-03-03",
@@ -101,3 +118,158 @@ def cei_crawler_assets_response():
             "quotation_factor": 1,
         },
     ]
+
+
+@pytest.fixture
+def fetch_current_assets_prices_response(simple_asset):
+    return {simple_asset.code: 100.78}
+
+
+@pytest.fixture
+def kucoin_transactions_response():
+    return [
+        {
+            "id": "61ae1cf62f3c630001419674",
+            "code": "WILD",
+            "currency": "USDT",
+            "action": "BUY",
+            "price": 2.8424,
+            "quantity": 346.54111418,
+            "created_at": 1638800630.738,
+        },
+        {
+            "id": "61ae1dfa941915000108f0ce",
+            "code": "WILD",
+            "currency": "USDT",
+            "action": "SELL",
+            "price": 4.0424,
+            "quantity": 66.54111418,
+            "created_at": 1638800890.379,
+        },
+        {
+            "id": "61ae1cea70405300010f4d07",
+            "code": "QRDO",
+            "currency": "USDT",
+            "action": "BUY",
+            "price": 5.4408,
+            "quantity": 32.98106896,
+            "created_at": 1638800630.73,
+        },
+    ]
+
+
+@pytest.fixture
+def buy_transaction(simple_asset):
+    return TransactionFactory(
+        action=TransactionActions.buy,
+        price=10,
+        asset=simple_asset,
+        quantity=50,
+    )
+
+
+@pytest.fixture
+def simple_income(simple_asset):
+    return PassiveIncomeFactory(
+        type=PassiveIncomeTypes.dividend,
+        amount=200,
+        event_type=PassiveIncomeEventTypes.credited,
+        asset=simple_asset,
+        operation_date=timezone.now().date(),
+    )
+
+
+# 6 - ativo aberto, apenas transações de compra, lucro
+@pytest.fixture
+def profit_asset_bought_transactions(simple_asset, buy_transaction):
+    simple_asset.current_price = 15
+    simple_asset.save()
+
+
+# 7 - ativo aberto, apenas transações de compra, prejuízo
+@pytest.fixture
+def loss_asset_bought_transactions(simple_asset, buy_transaction):
+    simple_asset.current_price = 5
+    simple_asset.save()
+
+
+# 8 - ativo aberto, apenas transações de compra, lucro + incomes
+@pytest.fixture
+def profit_asset_bought_transactions_incomes(profit_asset_bought_transactions, simple_income):
+    pass
+
+
+# 9 - ativo aberto, apenas transações de compra, prejuízo + incomes = lucro
+@pytest.fixture
+def loss_asset_bought_transactions_incomes_profit(
+    simple_asset, loss_asset_bought_transactions, simple_income
+):
+    PassiveIncomeFactory(
+        type=PassiveIncomeTypes.dividend,
+        amount=200,
+        event_type=PassiveIncomeEventTypes.credited,
+        asset=simple_asset,
+        operation_date=timezone.now().date(),
+    )
+
+
+# 10 - ativo aberto, apenas transações de compra, prejuízo + incomes = prejuízo
+@pytest.fixture
+def loss_asset_bought_transactions_incomes_loss(loss_asset_bought_transactions, simple_income):
+    pass
+
+
+# 11 - ativo aberto, transações de compra e venda, lucro
+@pytest.fixture
+def profit_asset_both_transactions(simple_asset, profit_asset_bought_transactions):
+    TransactionFactory(
+        action=TransactionActions.sell,
+        price=15,
+        initial_price=10,
+        asset=simple_asset,
+        quantity=25,
+    )
+
+
+# 12 - ativo aberto, transações de compra e venda, prejuízo
+@pytest.fixture
+def loss_asset_both_transactions(simple_asset, loss_asset_bought_transactions):
+    TransactionFactory(
+        action=TransactionActions.sell,
+        price=5,
+        initial_price=10,
+        asset=simple_asset,
+        quantity=25,
+    )
+
+
+# 13 - ativo aberto, transações de compra e venda, lucro + incomes
+@pytest.fixture
+def profit_asset_both_transactions_incomes(profit_asset_both_transactions, simple_income):
+    pass
+
+
+# 14 - ativo aberto, transações de compra e venda, prejuízo + incomes = lucro
+@pytest.fixture
+def loss_asset_both_transactions_incomes_profit(
+    simple_asset, loss_asset_both_transactions, simple_income
+):
+    PassiveIncomeFactory(
+        type=PassiveIncomeTypes.dividend,
+        amount=51,
+        event_type=PassiveIncomeEventTypes.credited,
+        asset=simple_asset,
+        operation_date=timezone.now().date(),
+    )
+
+
+# 15 - ativo aberto, transações de compra e venda, prejuízo + incomes = prejuízo
+@pytest.fixture
+def loss_asset_both_transactions_incomes_loss(simple_asset, loss_asset_both_transactions):
+    PassiveIncomeFactory(
+        type=PassiveIncomeTypes.dividend,
+        amount=1,
+        event_type=PassiveIncomeEventTypes.credited,
+        asset=simple_asset,
+        operation_date=timezone.now().date(),
+    )

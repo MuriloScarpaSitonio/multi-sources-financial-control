@@ -12,6 +12,7 @@ services:
     environment: # used only for superuser creation on the first time
       - ADMIN_USERNAME=murilo
       - ADMIN_PASSWORD=test
+      - CRAWLERS_URL=http://fastapi:5000/
     command: python manage.py runserver 0.0.0.0:8000
 
   # react:
@@ -25,7 +26,7 @@ services:
   #     - 3000:3000
   #   depends_on:
   #     - django
-  
+
   fastapi:
     container_name: fastapi
     build:
@@ -35,8 +36,10 @@ services:
       - ./django/db.sqlite3:/app/fastapi/db.sqlite3
     ports:
       - 5000:5000
-    command: uvicorn crawler.main:app --reload --host=0.0.0.0 --port=5000
-  
+    environment:
+      - DATABASE_URL=sqlite:///db.sqlite3
+    command: uvicorn crawlers.main:app --reload --host=0.0.0.0 --port=5000
+
   rabbitmq:
     image: rabbitmq:3.9.5-management
     container_name: rabbitmq

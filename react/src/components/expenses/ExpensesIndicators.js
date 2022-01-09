@@ -16,11 +16,12 @@ import Typography from "@material-ui/core/Typography";
 import Skeleton from "@material-ui/lab/Skeleton";
 
 import AccountBalanceIcon from "@material-ui/icons/AccountBalance";
+import ArrowDownwardIcon from "@material-ui/icons/ArrowDownward";
 import ArrowUpwardIcon from "@material-ui/icons/ArrowUpward";
 import AddIcon from "@material-ui/icons/Add";
 import MonetizationOnIcon from "@material-ui/icons/MonetizationOn";
 
-import { ExpenseApi, RevenueApi } from "../../api";
+import { ExpensesApi, RevenuesApi } from "../../api";
 
 const SUCCESS = "#00c914";
 const DANGER = "#ff0505";
@@ -92,7 +93,7 @@ const LinearProgressWithLabel = (props) => {
   );
 };
 
-const Indicators = ({ title, indicators, icon, color }) => {
+const Indicators = ({ title, indicators, icon, color, secondaryIcon }) => {
   const indicatorsMonth = indicators.month.split("/")[1];
   const currentMonth = new Date().getMonth() + 1;
   const isRevenue = title.includes("RECEITA");
@@ -130,14 +131,12 @@ const Indicators = ({ title, indicators, icon, color }) => {
             display: "flex",
             pt: isRevenue ? 1 : 2,
           }}
+          style={{
+            color: color,
+          }}
         >
-          <ArrowUpwardIcon style={{ color: color }} />
-          <Typography
-            variant="body2"
-            style={{
-              color: color,
-            }}
-          >
+          {secondaryIcon}
+          <Typography variant="body2">
             {`${
               indicators.diff_percentage?.toLocaleString("pt-br", {
                 minimumFractionDigits: 2,
@@ -181,18 +180,18 @@ const Indicators = ({ title, indicators, icon, color }) => {
   );
 };
 
-export const ExpensesProgress = () => {
+export const ExpensesIndicators = () => {
   const [expensesIndicators, setExpensesIndicators] = useState({});
   const [revenuesIndicators, setRevenuesIndicators] = useState({});
   const [isLoaded, setIsLoaded] = useState(false);
 
   function fetchData() {
     setIsLoaded(false);
-    let expenseApi = new ExpenseApi();
-    let revenueApi = new RevenueApi();
+    let expensesApi = new ExpensesApi();
+    let revenuesApi = new RevenuesApi();
 
     axios
-      .all([expenseApi.indicators(), revenueApi.indicators()])
+      .all([expensesApi.indicators(), revenuesApi.indicators()])
       .then(
         axios.spread((...responses) => {
           setExpensesIndicators(responses[0].data);
@@ -219,6 +218,13 @@ export const ExpensesProgress = () => {
                 indicators={expensesIndicators}
                 icon={<MonetizationOnIcon />}
                 color={expensesIndicators.diff > 0 ? DANGER : SUCCESS}
+                secondaryIcon={
+                  expensesIndicators.diff > 0 ? (
+                    <ArrowDownwardIcon />
+                  ) : (
+                    <ArrowUpwardIcon />
+                  )
+                }
               />
             ) : (
               <Skeleton variant="rect" width={340} height={175} />
@@ -231,6 +237,13 @@ export const ExpensesProgress = () => {
                 indicators={revenuesIndicators}
                 icon={<AccountBalanceIcon />}
                 color={revenuesIndicators.diff > 0 ? SUCCESS : DANGER}
+                secondaryIcon={
+                  revenuesIndicators.diff > 0 ? (
+                    <ArrowUpwardIcon />
+                  ) : (
+                    <ArrowDownwardIcon />
+                  )
+                }
               />
             ) : (
               <Skeleton variant="rect" width={340} height={175} />

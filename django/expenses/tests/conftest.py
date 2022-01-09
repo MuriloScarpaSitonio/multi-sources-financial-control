@@ -4,7 +4,7 @@ from datetime import date
 import pytest
 from factory.django import DjangoModelFactory
 
-from authentication.tests.conftest import client, user
+from authentication.tests.conftest import client, secrets, user
 from expenses.choices import ExpenseCategory, ExpenseSource
 from expenses.models import Expense
 

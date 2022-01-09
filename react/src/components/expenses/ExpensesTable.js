@@ -25,7 +25,7 @@ import Container from "@material-ui/core/Container";
 
 import { ExpenseForm } from "../../forms/ExpenseForm";
 import { FormFeedback } from "../FormFeedback";
-import { ExpenseApi } from "../../api";
+import { ExpensesApi } from "../../api";
 import { Loader } from "../Loaders";
 import { getChoiceByLabel } from "../../helpers.js";
 import {
@@ -74,7 +74,7 @@ const ExpenseDeleteDialog = ({
   const [alertInfos, setAlertInfos] = useState({});
 
   const handleClick = () => {
-    let api = new ExpenseApi(id);
+    let api = new ExpensesApi(id);
     api
       .delete()
       .then(() => {
@@ -153,7 +153,7 @@ export const ExpensesTable = () => {
     }` +
     `&end_date=${endDate !== null ? endDate.toLocaleDateString("fr-CA") : ""}` +
     `&${getAdjustedFilters()}`;
-  let api = new ExpenseApi();
+  let api = new ExpensesApi();
   const [data, isLoaded] = api.query(url);
 
   const reload = () => {
@@ -280,7 +280,9 @@ export const ExpensesTable = () => {
         filter: false,
         sort: true,
         customBodyRender: (v) =>
-          `R$ ${v.toFixed(2).toString().replace(".", ",")}`,
+          `R$ ${v?.toLocaleString("pt-br", {
+            minimumFractionDigits: 2,
+          })}`,
       },
     },
     {

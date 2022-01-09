@@ -29,7 +29,7 @@ import {
   ExpensesSourcesMapping,
 } from "../consts.js";
 import { getChoiceByLabel } from "../helpers";
-import { ExpenseApi } from "../api";
+import { ExpensesApi } from "../api";
 import { FormFeedback } from "../components/FormFeedback";
 
 function NumberFormatCustom(props) {
@@ -104,7 +104,7 @@ export const ExpenseForm = ({
   });
   const isCreateForm = Object.keys(initialData).length === 0;
   const onSubmit = (data) => {
-    let api = new ExpenseApi(initialData.id);
+    let api = new ExpensesApi(initialData.id);
     const method = isCreateForm ? "post" : "put";
     const actionVerb = isCreateForm ? "criada" : "editada";
     if (isDirty) {
