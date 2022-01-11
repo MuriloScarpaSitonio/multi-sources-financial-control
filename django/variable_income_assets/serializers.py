@@ -116,3 +116,8 @@ class PassiveIncomesIndicatorsSerializer(serializers.Serializer):
     diff_percentage = serializers.DecimalField(
         max_digits=5, decimal_places=2, read_only=True, rounding=ROUND_UP
     )
+
+
+class AssetReportSerializer(serializers.Serializer):
+    type = CustomChoiceField(choices=AssetTypes.choices)
+    total = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_UP)

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import django_filters as filters
 
 from .choices import AssetTypes
@@ -51,4 +53,25 @@ class AssetFetchCurrentPriceFilterSet(filters.FilterSet):
     def qs(self):
         if self.is_valid():
             return super().qs
+        raise filters.utils.translate_validation(error_dict=self.errors)
+
+
+class AssetReportFilterSet(filters.FilterSet):
+    percentage = filters.BooleanFilter()
+
+    @property
+    def qs(self):
+        _qs = self.queryset.report()
+        if self.is_valid():
+            percentage = self.form.cleaned_data["percentage"]
+            if percentage:
+                current_total = _qs.current_total()["current_total"]
+                return [
+                    {
+                        **result,
+                        "total": (result["total"] / current_total) * Decimal("100.0"),
+                    }
+                    for result in _qs
+                ]
+            return _qs
         raise filters.utils.translate_validation(error_dict=self.errors)

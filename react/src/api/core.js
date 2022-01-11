@@ -58,6 +58,10 @@ export class AssetsApi extends Api {
     super({ query: true, post: false, patch: false, delete: false });
 
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
+    this.report = (isPercentage) =>
+      apiProvider.get(
+        `${this.resource}/report${isPercentage ? "?percentage=true" : ""}`
+      );
   }
 }
 

@@ -1,5 +1,6 @@
 # assets/views.py
 
+from decimal import Decimal
 from django.utils import timezone
 from django.db.models import QuerySet
 
@@ -20,9 +21,10 @@ from variable_income_assets.tasks import (
     fetch_current_assets_prices,
 )
 
-from .filters import AssetFilterSet, AssetFetchCurrentPriceFilterSet
+from .filters import AssetFilterSet, AssetFetchCurrentPriceFilterSet, AssetReportFilterSet
 from .models import Asset, PassiveIncome
 from .serializers import (
+    AssetReportSerializer,
     AssetRoidIndicatorsSerializer,
     AssetSerializer,
     PassiveIncomeSerializer,
@@ -74,6 +76,12 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
             }
         )
 
+        return Response(serializer.data, status=HTTP_200_OK)
+
+    @action(methods=["GET"], detail=False)
+    def report(self, request: Request) -> Response:
+        filterset = AssetReportFilterSet(data=request.GET, queryset=self.get_queryset())
+        serializer = AssetReportSerializer(filterset.qs, many=True)
         return Response(serializer.data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)

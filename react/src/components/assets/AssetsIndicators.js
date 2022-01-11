@@ -191,7 +191,6 @@ export const AssetsIndicators = () => {
       .all([assetsApi.indicators(), incomesApi.indicators()])
       .then(
         axios.spread((...responses) => {
-          console.log(responses[1].data);
           setAssetsIndicators(responses[0].data);
           setIncomesIndicators(responses[1].data);
         })

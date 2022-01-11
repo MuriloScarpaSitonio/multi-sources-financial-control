@@ -13,8 +13,8 @@ from .shared import (
     get_roi_brute_force,
     get_total_bought_brute_force,
 )
-from ..choices import TransactionActions, TransactionCurrencies
-from ..models import Asset, PassiveIncome, Transaction
+from ..choices import AssetTypes, TransactionActions, TransactionCurrencies
+from ..models import Asset, Transaction
 
 
 pytestmark = pytest.mark.django_db
@@ -193,38 +193,9 @@ def test_should_raise_error_if_code_is_not_valid_fetch_current_prices(client):
     }
 
 
-@pytest.mark.usefixtures("transactions", "passive_incomes")
-def test_should_get_indicators(client, simple_asset, another_asset, crypto_asset):
+@pytest.mark.usefixtures("indicators_data")
+def test_should_get_indicators(client):
     # GIVEN
-
-    # set current total
-    simple_asset.current_price = 100
-    simple_asset.save()
-
-    # different currency transaction
-    Transaction.objects.create(
-        action=TransactionActions.buy,
-        price=10,
-        asset=crypto_asset,
-        quantity=50,
-        currency="USDT",
-    )
-
-    # finish an asset
-    Transaction.objects.create(
-        action=TransactionActions.buy,
-        price=10,
-        asset=another_asset,
-        quantity=50,
-    )
-    Transaction.objects.create(
-        action=TransactionActions.sell,
-        initial_price=10,
-        price=20,
-        asset=another_asset,
-        quantity=50,
-    )
-
     current_total = Decimal()
     for asset in Asset.objects.all():
         r = asset.current_price or Decimal()
@@ -233,13 +204,8 @@ def test_should_get_indicators(client, simple_asset, another_asset, crypto_asset
             r *= Decimal("5.68")
         current_total += (r) * asset.quantity_from_transactions
 
-    roi_opened = Decimal()
-    for asset in Asset.objects.opened():
-        roi_opened += get_roi_brute_force(asset=asset)
-
-    roi_finished = Decimal()
-    for asset in Asset.objects.finished():
-        roi_finished += get_roi_brute_force(asset=asset)
+    roi_opened = sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.opened())
+    roi_finished = sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.finished())
 
     # WHEN
     response = client.get(f"{URL}/indicators")
@@ -249,3 +215,29 @@ def test_should_get_indicators(client, simple_asset, another_asset, crypto_asset
     assert response.json()["current_total"] == current_total
     assert response.json()["ROI_opened"] == roi_opened
     assert response.json()["ROI_finished"] == roi_finished
+
+
+@pytest.mark.usefixtures("report_data")
+def test_should_get_report(client):
+    # GIVEN
+    totals = {
+        "stock": sum(
+            asset.current_price * asset.quantity_from_transactions
+            for asset in Asset.objects.stocks().opened()
+        ),
+        "crypto": sum(
+            asset.current_price * asset.quantity_from_transactions
+            for asset in Asset.objects.cryptos().opened()
+        ),
+    }
+
+    # WHEN
+    response = client.get(f"{URL}/report")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    for result in response.json():
+        for choice, label in AssetTypes.labels.items():
+            if label == result["type"]:
+                assert totals[choice] == result["total"]

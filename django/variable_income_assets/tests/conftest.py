@@ -273,3 +273,40 @@ def loss_asset_both_transactions_incomes_loss(simple_asset, loss_asset_both_tran
         asset=simple_asset,
         operation_date=timezone.now().date(),
     )
+
+
+@pytest.fixture
+def indicators_data(simple_asset, another_asset, crypto_asset, transactions, passive_incomes):
+    simple_asset.current_price = 100
+    simple_asset.save()
+
+    # crypto transaction
+    Transaction.objects.create(
+        action=TransactionActions.buy,
+        price=10,
+        asset=crypto_asset,
+        quantity=50,
+        currency="USD",
+    )
+
+    # finish an asset
+    Transaction.objects.create(
+        action=TransactionActions.buy,
+        price=10,
+        asset=another_asset,
+        quantity=50,
+    )
+    Transaction.objects.create(
+        action=TransactionActions.sell,
+        initial_price=10,
+        price=20,
+        asset=another_asset,
+        quantity=50,
+    )
+
+
+@pytest.fixture
+def report_data(indicators_data, another_asset):
+    # set to ensure this asset won't appear on the report as it's finished
+    another_asset.current_price = 100
+    another_asset.save()

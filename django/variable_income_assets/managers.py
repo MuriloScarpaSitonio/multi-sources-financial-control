@@ -9,7 +9,7 @@ from django.db.models.query import QuerySet
 from shared.managers_utils import CustomQueryset, IndicatorsMixin, MonthlyFilterMixin
 from shared.utils import coalesce_sum_expression
 
-from .choices import PassiveIncomeEventTypes, TransactionCurrencies
+from .choices import AssetTypes, PassiveIncomeEventTypes, TransactionCurrencies
 from .expressions import GenericQuerySetExpressions
 
 
@@ -48,6 +48,12 @@ class AssetQuerySet(CustomQueryset):
     def finished(self) -> "AssetQuerySet":
         return self._annotate_quantity_balance().filter(quantity_balance__lte=0)
 
+    def stocks(self):
+        return self.filter(type=AssetTypes.stock)
+
+    def cryptos(self):
+        return self.filter(type=AssetTypes.crypto)
+
     def current_total(self):
         return self.annotate(total=self.CURRENT_TOTAL_EXPRESSION).aggregate(
             current_total=Sum("total")
@@ -57,23 +63,6 @@ class AssetQuerySet(CustomQueryset):
         return self.annotate(
             total=self.expressions.avg_price * self.expressions.quantity_balance
         ).aggregate(total_invested=Sum("total"))
-
-    def report(self):
-        from .models import Transaction  # avoid circular ImportError
-
-        subquery = (
-            Transaction.objects.filter(asset=OuterRef("pk"))
-            .values("asset__pk")  # group by as we can't aggregate directly
-            .annotate(balance=TransactionQuerySet.expressions.quantity_balance)
-            .values("balance")
-        )
-
-        return (
-            self.annotate(transactions_balance=Subquery(subquery.values("balance")))
-            .values("type")
-            .annotate(total=Sum(Coalesce("current_price", Decimal()) * F("transactions_balance")))
-            .order_by("-total")
-        )
 
     def annotate_roi(
         self, percentage: bool = False, annotate_passive_incomes_subquery: bool = True
@@ -134,6 +123,36 @@ class AssetQuerySet(CustomQueryset):
             .annotate_adjusted_avg_price(annotate_passive_incomes_subquery=False)
             .annotate_avg_price()
             .annotate_total_invested()
+        )
+
+    def report(self):
+        from .models import Transaction  # avoid circular ImportError
+
+        subquery = (
+            Transaction.objects.filter(asset=OuterRef("pk"))
+            .values("asset__pk")  # group by as we can't aggregate directly
+            .annotate(balance=TransactionQuerySet.expressions.quantity_balance)
+            .values("balance")
+        )
+
+        # expression = Case(
+        #     When(
+        #         ~Q(transactions__currency=TransactionCurrencies.real),
+        #         # TODO: change this hardcoded conversion to a dynamic one
+        #         then=Sum(
+        #             Coalesce((F("current_price") * Value(Decimal("5.68"))), Decimal())
+        #             * F("transactions_balance")
+        #         ),
+        #     ),
+        #     default=Sum(Coalesce("current_price", Decimal()) * F("transactions_balance")),
+        # )
+
+        return (
+            self.annotate(transactions_balance=Subquery(subquery.values("balance")))
+            .filter(transactions_balance__gt=0)
+            .values("type")
+            .annotate(total=Sum(Coalesce("current_price", Decimal()) * F("transactions_balance")))
+            .order_by("-total")
         )
 
 

@@ -4,7 +4,6 @@ export const useHideValues = () => {
   const [hideValues, setHideValues] = useState("");
 
   const setHide = (value) => {
-    console.log("value =", value);
     window.localStorage.setItem("hideValues", value);
     setHideValues(value);
   };

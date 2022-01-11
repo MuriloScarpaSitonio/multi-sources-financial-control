@@ -94,12 +94,15 @@ const ExpenseHorizontalBarChart = ({ data, dataKey }) => (
     barGap={-30}
   >
     <CartesianGrid stroke="#eee" />
-    <XAxis type="number" tickFormatter={(t) => `R$ ${t}`} />
+    <XAxis
+      type="number"
+      tickFormatter={(t) => `R$ ${t.toLocaleString("pt-br")}`}
+    />
     <YAxis type="category" dataKey={dataKey} />
     <ChartTooltip
       cursor={{ fill: "#f5f5f5" }}
       separator=": "
-      formatter={(value) => `R$ ${value}`.replace(".", ",")}
+      formatter={(value) => `R$ ${value.toLocaleString("pt-br")}`}
       labelFormatter={(_) => ""}
     />
     <Bar dataKey="total" barSize={chartBarSize} fill={currentDataFillColor} />
@@ -121,13 +124,16 @@ const ExpenseHorizontalMultipleBarChart = ({
     barGap={-30}
   >
     <CartesianGrid stroke="#eee" />
-    <XAxis type="number" tickFormatter={(t) => `R$ ${t}`} />
+    <XAxis
+      type="number"
+      tickFormatter={(t) => `R$ ${t.toLocaleString("pt-br")}`}
+    />
     <YAxis type="category" dataKey={dataKey} yAxisId={0} />
     <YAxis type="category" dataKey={dataKey} yAxisId={1} hide />
     <ChartTooltip
       cursor={{ fill: "#f5f5f5" }}
       separator=": "
-      formatter={(value) => `R$ ${value}`.replace(".", ",")}
+      formatter={(value) => `R$ ${value.toLocaleString("pt-br")}`}
       labelFormatter={(_) => ""}
     />
     <Legend />
@@ -209,7 +215,6 @@ const ExpensePieChartComponent = ({ data, fetchReportData, filters }) => {
 
   const handleClick = (event) => setAnchorEl(event.currentTarget);
   const handleClose = (e) => {
-    console.log(e);
     // we haven't changed it yet
     menuText === REPORT_TEXT
       ? fetchReportData("TYPE", filters)
@@ -262,7 +267,9 @@ const ExpensePieChartComponent = ({ data, fetchReportData, filters }) => {
             cy="50%"
             innerRadius={60}
             outerRadius={80}
-            label
+            // if the animation is active the label won't show
+            isAnimationActive={false}
+            label={(l) => `R$ ${l.payload.total.toLocaleString("pt-br")}`}
           >
             <Cell key="cell-0" fill={currentDataFillColor} />
             <Cell key="cell-1" fill={lastDataFillCollor} />
@@ -401,7 +408,7 @@ const ExpenseHistoricChartComponent = ({ data }) => {
           <ChartTooltip
             cursor={{ fill: "#f5f5f5" }}
             separator=": "
-            formatter={(value) => `R$ ${value}`.replace(".", ",")}
+            formatter={(value) => `R$ ${value.toLocaleString("pt-br")}`}
             labelFormatter={(_) => ""}
           />
           <Bar dataKey="total" fill={currentDataFillColor} />
