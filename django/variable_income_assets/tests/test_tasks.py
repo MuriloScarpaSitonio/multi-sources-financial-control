@@ -5,7 +5,14 @@ import pytest
 from django.conf import settings
 
 from shared.utils import build_url
-from authentication.tests.conftest import client, secrets, user
+from authentication.tests.conftest import (
+    client,
+    kucoin_client,
+    kucoin_secrets,
+    secrets,
+    user,
+    user_with_kucoin_integration,
+)
 from config.settings.base import BASE_API_URL
 
 from ..choices import AssetTypes
@@ -140,20 +147,28 @@ def test_should_success_fetch_current_assets_prices_celery_task(
         assert float(asset.current_price) == price
 
 
-@pytest.mark.usefixtures("crypto_asset")
 def test_sync_kucoin_transactions_should_create_asset_and_transaction(
-    user, client, requests_mock, kucoin_transactions_response
+    user_with_kucoin_integration,
+    kucoin_client,
+    crypto_asset,
+    requests_mock,
+    kucoin_transactions_response,
 ):
     # GIVEN
+    crypto_asset.user = user_with_kucoin_integration
+    crypto_asset.save()
+
     requests_mock.get(
         build_url(url=settings.CRAWLERS_URL, parts=("kucoin/", "transactions")),
         json=kucoin_transactions_response,
     )
     # WHEN
-    client.get(f"{URL}/sync_kucoin_transactions")
+    kucoin_client.get(f"{URL}/sync_kucoin_transactions")
 
     # THEN
-    assert Asset.objects.filter(user=user, type=AssetTypes.crypto).count() == 2
+    assert (
+        Asset.objects.filter(user=user_with_kucoin_integration, type=AssetTypes.crypto).count() == 2
+    )
     assert sorted(list(Asset.objects.values_list("code", flat=True))) == sorted(
         list({item["code"] for item in kucoin_transactions_response})
     )
@@ -162,7 +177,7 @@ def test_sync_kucoin_transactions_should_create_asset_and_transaction(
 
     for item in kucoin_transactions_response:
         assert Transaction.objects.filter(
-            asset__user=user,
+            asset__user=user_with_kucoin_integration,
             asset__code=item["code"],
             currency=item["currency"],
             action=item["action"],
@@ -172,9 +187,16 @@ def test_sync_kucoin_transactions_should_create_asset_and_transaction(
 
 @pytest.mark.usefixtures("crypto_asset")
 def test_should_skip_kucoin_transaction_if_already_exists(
-    user, client, requests_mock, kucoin_transactions_response
+    user_with_kucoin_integration,
+    kucoin_client,
+    crypto_asset,
+    requests_mock,
+    kucoin_transactions_response,
 ):
     # GIVEN
+    crypto_asset.user = user_with_kucoin_integration
+    crypto_asset.save()
+
     kucoin_transactions_response[0]["id"] = kucoin_transactions_response[1]["id"]
     requests_mock.get(
         build_url(url=settings.CRAWLERS_URL, parts=("kucoin/", "transactions")),
@@ -182,7 +204,7 @@ def test_should_skip_kucoin_transaction_if_already_exists(
     )
 
     # WHEN
-    client.get(f"{URL}/sync_kucoin_transactions")
+    kucoin_client.get(f"{URL}/sync_kucoin_transactions")
 
     # THEN
     assert Transaction.objects.count() == len(kucoin_transactions_response) - 1

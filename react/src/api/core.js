@@ -3,7 +3,7 @@ import { apiProvider } from "./methods";
 class Api {
   constructor(methods, id = null) {
     if (methods.query) {
-      this.query = (filters) =>
+      this.query = (filters = "") =>
         apiProvider.Query(`${this.resource}?${filters}`);
     }
     if (methods.post) {
@@ -62,6 +62,7 @@ export class AssetsApi extends Api {
       apiProvider.get(
         `${this.resource}/report${isPercentage ? "?percentage=true" : ""}`
       );
+    this.syncAll = () => apiProvider.get(`${this.resource}/sync_all`);
   }
 }
 
@@ -71,5 +72,17 @@ export class IncomesApi extends Api {
     super({ query: true, post: true, patch: true, delete: true }, id);
 
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
+  }
+}
+
+export class TasksApi extends Api {
+  resource = "tasks";
+  constructor(id = null) {
+    super({ query: false, post: false, patch: false, delete: false }, id);
+
+    this.list = () => apiProvider.get(this.resource);
+    this.bulkUpdateNotifiedAt = (ids) =>
+      //apiProvider.post(`${this.resource}/bulk_update_notified_at`, { ids });
+      console.log({ ids });
   }
 }

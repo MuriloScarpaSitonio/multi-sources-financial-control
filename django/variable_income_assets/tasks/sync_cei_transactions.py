@@ -13,6 +13,7 @@ from shared.utils import build_url
 from tasks.bases import TaskWithHistory
 from tasks.models import TaskHistory
 
+from .serializers import CeiTransactionSerializer
 from ..choices import AssetTypes, TransactionActions
 from ..models import Asset, Transaction
 
@@ -27,8 +28,12 @@ def _save_cei_transactions(
     response: requests.models.Response, user: CustomUser, task_history: TaskHistory
 ) -> None:
     assets = dict()
-    for infos in response.json():
-        code = _resolve_code(code=infos["raw_negotiation_code"], market_type=infos["market_type"])
+    for data in response.json():
+        code = _resolve_code(
+            code=data.pop("raw_negotiation_code"), market_type=data.pop("market_type")
+        )
+        serializer = CeiTransactionSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
         asset = assets.get(code)
         if asset is None:
             asset, _ = Asset.objects.get_or_create(
@@ -37,27 +42,13 @@ def _save_cei_transactions(
                 type=AssetTypes.stock,
             )
 
-        transaction, created = Transaction.objects.get_or_create(
-            asset=asset,
-            price=infos["unit_price"],
-            quantity=infos["unit_amount"],
-            created_at=infos["operation_date"],
-            defaults={"action": getattr(TransactionActions, infos["action"])},
-        )
+        transaction = serializer.create(asset=asset, task_history=task_history)
 
-        update_fields = tuple()
         if transaction.action == TransactionActions.sell:
             # we must save each transaction individually to make sure we are setting
             # `initial_price` accorddingly
-            transaction.initial_price = asset.avg_price
-            update_fields += ("initial_price",)
-
-        if created:
-            transaction.fetched_by = task_history
-            update_fields += ("fetched_by",)
-
-        if update_fields:
-            transaction.save(update_fields=update_fields)
+            transaction.initial_price = asset.avg_price_from_transactions
+            transaction.save(update_fields=("initial_price",))
 
 
 @shared_task(bind=True, name="sync_cei_transactions_task", base=TaskWithHistory)

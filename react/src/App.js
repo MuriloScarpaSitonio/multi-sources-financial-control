@@ -8,7 +8,7 @@ import {
   Redirect,
 } from "react-router-dom";
 
-import Navbar from "./components/Navbar";
+import { Navbar } from "./components/Navbar";
 import { useHideValues } from "./hooks/useHideValues";
 import Assets from "./pages/Assets";
 import Expenses from "./pages/Expenses";

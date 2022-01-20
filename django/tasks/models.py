@@ -4,12 +4,14 @@ from django.conf import settings
 from django.utils import timezone
 
 from .choices import TaskStates
+from .managers import TaskHistoryQuerySet
 
 
 class TaskHistory(models.Model):
     id = models.UUIDField(editable=False, primary_key=True)
     name = models.CharField(max_length=50)
     state = models.CharField(max_length=20, choices=TaskStates.choices, default=TaskStates.pending)
+    updated_at = models.DateTimeField(auto_now=True)
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
     error = models.TextField(blank=True)
@@ -18,6 +20,12 @@ class TaskHistory(models.Model):
         on_delete=models.deletion.CASCADE,
         related_name="tasks",
     )
+    # when an user clicks on the notification icon in the frontend
+    notified_at = models.DateTimeField(null=True, blank=True)
+    # when an user visits the task page
+    opened_at = models.DateTimeField(null=True, blank=True)
+
+    objects = TaskHistoryQuerySet.as_manager()
 
     class Meta:
         ordering = ("-finished_at",)

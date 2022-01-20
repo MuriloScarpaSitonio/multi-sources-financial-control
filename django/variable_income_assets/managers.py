@@ -14,16 +14,13 @@ from .expressions import GenericQuerySetExpressions
 
 
 class AssetQuerySet(CustomQueryset):
-    expressions = GenericQuerySetExpressions(prefix="transactions")
-    CURRENT_TOTAL_EXPRESSION = Case(
-        When(
-            ~Q(transactions__currency=TransactionCurrencies.real),
-            # TODO: change this hardcoded conversion to a dynamic one
-            then=Coalesce(F("current_price") * Value(Decimal("5.68")), Decimal())
-            * expressions.quantity_balance,
-        ),
-        default=Coalesce(F("current_price"), Decimal()) * expressions.quantity_balance,
-    )
+    _expressions = GenericQuerySetExpressions(prefix="transactions")
+
+    # total_bought, total_sold, current_total
+    # avg_price
+    @property
+    def expressions(self):
+        return getattr(self, "__expressions", self._expressions)
 
     @staticmethod
     def _get_passive_incomes_subquery(
@@ -55,7 +52,7 @@ class AssetQuerySet(CustomQueryset):
         return self.filter(type=AssetTypes.crypto)
 
     def current_total(self):
-        return self.annotate(total=self.CURRENT_TOTAL_EXPRESSION).aggregate(
+        return self.annotate(total=self.expressions.current_total).aggregate(
             current_total=Sum("total")
         )
 
@@ -70,7 +67,7 @@ class AssetQuerySet(CustomQueryset):
         if annotate_passive_incomes_subquery:
             subquery = self._get_passive_incomes_subquery()
 
-        ROI = self.CURRENT_TOTAL_EXPRESSION - self.expressions.get_total_adjusted(
+        ROI = self.expressions.current_total - self.expressions.get_total_adjusted(
             incomes=Coalesce(F("credited_incomes_total"), Decimal())
         )
         if percentage:
@@ -158,15 +155,6 @@ class AssetQuerySet(CustomQueryset):
 
 class TransactionQuerySet(QuerySet):
     expressions = GenericQuerySetExpressions()
-    CURRENT_TOTAL_EXPRESSION = Case(
-        When(
-            ~Q(currency=TransactionCurrencies.real),
-            # TODO: change this hardcoded conversion to a dynamic one
-            then=Coalesce(F("asset__current_price") * Value(Decimal("5.68")), Decimal())
-            * expressions.quantity_balance,
-        ),
-        default=Coalesce(F("asset__current_price"), Decimal()) * expressions.quantity_balance,
-    )
 
     def _get_roi_expression(
         self, incomes: Decimal, percentage: bool
@@ -189,7 +177,7 @@ class TransactionQuerySet(QuerySet):
         `self.distinct('asset__incomes').aggregate(...)` to distinct the incomes and avoid
         the need for this input queried outside of this manager.
         """
-        ROI = self.CURRENT_TOTAL_EXPRESSION - self.expressions.get_total_adjusted(
+        ROI = self.expressions.current_total - self.expressions.get_total_adjusted(
             incomes=Value(incomes)
         )
 

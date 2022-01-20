@@ -6,7 +6,7 @@ from rest_framework import serializers
 from shared.serializers_utils import CustomChoiceField
 
 from .choices import AssetTypes, PassiveIncomeEventTypes, PassiveIncomeTypes, TransactionCurrencies
-from .models import Asset, PassiveIncome
+from .models import Asset, PassiveIncome, Transaction
 
 
 class AssetSerializer(serializers.ModelSerializer):
@@ -97,10 +97,11 @@ class AssetIncomesIndicatorsSerializer(serializers.Serializer):
 class PassiveIncomeSerializer(serializers.ModelSerializer):
     type = CustomChoiceField(choices=PassiveIncomeTypes.choices)
     event_type = CustomChoiceField(choices=PassiveIncomeEventTypes.choices)
+    code = serializers.CharField(source="asset.code")
 
     class Meta:
         model = PassiveIncome
-        fields = ("type", "event_type", "operation_date", "amount")
+        fields = ("type", "event_type", "operation_date", "amount", "code")
 
 
 class PassiveIncomesIndicatorsSerializer(serializers.Serializer):
@@ -121,3 +122,11 @@ class PassiveIncomesIndicatorsSerializer(serializers.Serializer):
 class AssetReportSerializer(serializers.Serializer):
     type = CustomChoiceField(choices=AssetTypes.choices)
     total = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_UP)
+
+
+class TransactionSerializer(serializers.ModelSerializer):
+    code = serializers.CharField(source="asset.code")
+
+    class Meta:
+        model = Transaction
+        fields = ("action", "price", "currency", "quantity", "created_at", "code")

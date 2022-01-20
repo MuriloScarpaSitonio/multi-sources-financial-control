@@ -16,7 +16,6 @@ def save_crypto_transactions(
 ) -> None:
     assets = dict()
     for data in response.json():
-        print(data)
         code = data.pop("code")
         serializer = CryptoTransactionSerializer(data=data)
         try:

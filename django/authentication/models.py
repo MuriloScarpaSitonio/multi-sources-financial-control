@@ -52,3 +52,22 @@ class CustomUser(AbstractUser):
     secrets = models.OneToOneField(
         IntegrationSecret, on_delete=models.CASCADE, null=True, blank=True, related_name="user"
     )
+    has_asset_price_integration = models.BooleanField(default=True)
+
+    @property
+    def has_cei_integration(self) -> bool:
+        return self.secrets.cei_password is not None and self.secrets.cpf is not None
+
+    @property
+    def has_kucoin_integration(self) -> bool:
+        return (
+            self.secrets.kucoin_api_key is not None
+            and self.secrets.kucoin_api_secret is not None
+            and self.secrets.kucoin_api_passphrase is not None
+        )
+
+    @property
+    def has_binance_integration(self) -> bool:
+        return (
+            self.secrets.binance_api_key is not None and self.secrets.binance_api_secret is not None
+        )

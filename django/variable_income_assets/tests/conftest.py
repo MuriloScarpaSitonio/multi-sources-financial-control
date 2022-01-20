@@ -6,13 +6,15 @@ from factory.django import DjangoModelFactory
 from django.utils import timezone
 
 from authentication.tests.conftest import user
-from variable_income_assets.choices import (
+from tasks.tests.conftest import simple_task_history
+
+from ..choices import (
     AssetTypes,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
     TransactionActions,
 )
-from variable_income_assets.models import Asset, Transaction, PassiveIncome
+from ..models import Asset, Transaction, PassiveIncome
 
 
 class AssetFactory(DjangoModelFactory):
@@ -56,13 +58,14 @@ def assets(simple_asset, another_asset, crypto_asset):
 
 
 @pytest.fixture
-def transactions(simple_asset):
+def transactions(simple_asset, simple_task_history):
     for i in range(1, 4):
         TransactionFactory(
             action=TransactionActions.buy,
             price=randint(5, 10),
             asset=simple_asset,
             quantity=100 * i,
+            fetched_by=simple_task_history,
         )
     TransactionFactory(
         action=TransactionActions.sell,
@@ -70,6 +73,7 @@ def transactions(simple_asset):
         asset=simple_asset,
         quantity=100,
         initial_price=5,
+        fetched_by=simple_task_history,
     )
     TransactionFactory(
         action=TransactionActions.sell,
@@ -77,6 +81,7 @@ def transactions(simple_asset):
         asset=simple_asset,
         quantity=50,
         initial_price=5,
+        fetched_by=simple_task_history,
     )
 
 

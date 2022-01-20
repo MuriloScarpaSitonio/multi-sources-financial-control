@@ -3,9 +3,20 @@ import operator
 
 import pytest
 
-from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
+from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN
 
-from authentication.tests.conftest import client, secrets, user
+from authentication.tests.conftest import (
+    binance_client,
+    client,
+    kucoin_client,
+    binance_secrets,
+    kucoin_secrets,
+    secrets,
+    user,
+    user_with_binance_integration,
+    user_with_kucoin_integration,
+    user_without_assets_price_integration,
+)
 from config.settings.base import BASE_API_URL
 
 from .shared import (
@@ -24,14 +35,14 @@ URL = f"/{BASE_API_URL}" + "assets"
 @pytest.mark.usefixtures("transactions", "passive_incomes")
 @pytest.mark.parametrize(
     "filter_by, count",
-    [
+    (
         ("", 1),
         ("code=ALUP", 1),
         # ("ROI_type=PROFIT", 1),
         # ("ROI_type=LOSS", 0),
         ("type=STOCK", 1),
         ("type=STOCK_USA", 0),
-    ],
+    ),
 )
 def test_should_filter_assets(client, filter_by, count):
     # GIVEN
@@ -104,32 +115,80 @@ def test_should_call_sync_cei_transactions_task_celery_task(client, user, mocker
     assert mocked_task.call_args[1]["kwargs"]["username"] == user.username
 
 
-def test_should_call_sync_kucoin_transactions_celery_task(client, user, mocker):
+def test_should_raise_permission_error_sync_cei_transactions_if_user_has_not_set_credentials(
+    binance_client,
+):
+    # GIVEN
+
+    # WHEN
+    response = binance_client.get(f"{URL}/sync_cei_transactions")
+
+    # THEN
+    assert response.status_code == HTTP_403_FORBIDDEN
+    assert response.json() == {
+        "detail": "User has not set the given credentials for CEI integration"
+    }
+
+
+def test_should_call_sync_kucoin_transactions_celery_task(
+    kucoin_client, user_with_kucoin_integration, mocker
+):
     # GIVEN
     mocked_task = mocker.patch(
         "variable_income_assets.views.sync_kucoin_transactions_task.apply_async"
     )
 
     # WHEN
-    response = client.get(f"{URL}/sync_kucoin_transactions")
+    response = kucoin_client.get(f"{URL}/sync_kucoin_transactions")
 
     # THEN
     assert response.status_code == HTTP_200_OK
-    assert mocked_task.call_args[1]["kwargs"]["username"] == user.username
+    assert mocked_task.call_args[1]["kwargs"]["username"] == user_with_kucoin_integration.username
 
 
-def test_should_call_sync_binance_transactions_task_celery_task(client, user, mocker):
+def test_should_raise_permission_error_sync_kucoin_transactions_if_user_has_not_set_credentials(
+    client,
+):
+    # GIVEN
+
+    # WHEN
+    response = client.get(f"{URL}/sync_kucoin_transactions")
+
+    # THEN
+    assert response.status_code == HTTP_403_FORBIDDEN
+    assert response.json() == {
+        "detail": "User has not set the given credentials for KuCoin integration"
+    }
+
+
+def test_should_call_sync_binance_transactions_task_celery_task(
+    binance_client, user_with_binance_integration, mocker
+):
+
     # GIVEN
     mocked_task = mocker.patch(
         "variable_income_assets.views.sync_binance_transactions_task.apply_async"
     )
 
     # WHEN
-    response = client.get(f"{URL}/sync_binance_transactions")
+    response = binance_client.get(f"{URL}/sync_binance_transactions")
 
     # THEN
     assert response.status_code == HTTP_200_OK
-    assert mocked_task.call_args[1]["kwargs"]["username"] == user.username
+    assert mocked_task.call_args[1]["kwargs"]["username"] == user_with_binance_integration.username
+
+
+def test_should_raise_permission_error_sync_binance_if_user_has_not_set_credentials(client):
+    # GIVEN
+
+    # WHEN
+    response = client.get(f"{URL}/sync_binance_transactions")
+
+    # THEN
+    assert response.status_code == HTTP_403_FORBIDDEN
+    assert response.json() == {
+        "detail": "User has not set the given credentials for Binance integration"
+    }
 
 
 def test_should_call_sync_cei_passive_incomes_task_celery_task(client, user, mocker):
@@ -144,6 +203,21 @@ def test_should_call_sync_cei_passive_incomes_task_celery_task(client, user, moc
     # THEN
     assert response.status_code == HTTP_200_OK
     assert mocked_task.call_args[1]["kwargs"]["username"] == user.username
+
+
+def test_should_raise_permission_error_sync_cei_passive_incomes_if_user_has_not_set_credentials(
+    binance_client,
+):
+    # GIVEN
+
+    # WHEN
+    response = binance_client.get(f"{URL}/sync_cei_passive_incomes")
+
+    # THEN
+    assert response.status_code == HTTP_403_FORBIDDEN
+    assert response.json() == {
+        "detail": "User has not set the given credentials for CEI integration"
+    }
 
 
 @pytest.mark.usefixtures("assets", "transactions")
@@ -163,6 +237,21 @@ def test_should_call_fetch_current_assets_prices_celery_task(client, user, anoth
     assert response.status_code == HTTP_200_OK
     assert mocked_task.call_args[1]["kwargs"]["username"] == user.username
     assert mocked_task.call_args[1]["kwargs"]["codes"] == ["ALUP11", "URA"]
+
+
+def test_should_raise_permission_error_fetch_current_prices_if_user_has_not_set_credentials(
+    binance_client,
+):
+    # GIVEN
+
+    # WHEN
+    response = binance_client.get(f"{URL}/fetch_current_prices")
+
+    # THEN
+    assert response.status_code == HTTP_403_FORBIDDEN
+    assert response.json() == {
+        "detail": "User has not set the given credentials for Assets Prices integration"
+    }
 
 
 @pytest.mark.usefixtures("assets", "transactions")
@@ -241,3 +330,48 @@ def test_should_get_report(client):
         for choice, label in AssetTypes.labels.items():
             if label == result["type"]:
                 assert totals[choice] == result["total"]
+
+
+@pytest.mark.parametrize(
+    "user_fixture_name, client_fixture_name, tasks_to_run",
+    (
+        (
+            "user",
+            "client",
+            (
+                "sync_cei_transactions_task",
+                "sync_cei_passive_incomes_task",
+                "fetch_current_assets_prices",
+            ),
+        ),
+        (
+            "user_without_assets_price_integration",
+            "client",
+            ("sync_cei_transactions_task", "sync_cei_passive_incomes_task"),
+        ),
+        ("user_with_kucoin_integration", "kucoin_client", ("sync_kucoin_transactions_task",)),
+        ("user_with_binance_integration", "binance_client", ("sync_binance_transactions_task",)),
+    ),
+)
+def test_should_sync_all(request, user_fixture_name, client_fixture_name, tasks_to_run, mocker):
+    # GIVEN
+    path = "variable_income_assets.views.{}.apply_async"
+    client = request.getfixturevalue(client_fixture_name)
+    user = request.getfixturevalue(user_fixture_name)
+    kwargs = {"username": user.username}
+    mocked_tasks = [mocker.patch(path.format(task_name)) for task_name in tasks_to_run]
+
+    # WHEN
+    response = client.get(f"{URL}/sync_all")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert all(task_name in response.json() for task_name in tasks_to_run)
+    for task_name, mocked_task in zip(tasks_to_run, mocked_tasks):
+        extra_kwargs = (
+            {"codes": list(Asset.objects.filter(user=user).opened().values_list("code", flat=True))}
+            if task_name == "fetch_current_assets_prices"
+            else {}
+        )
+
+        assert mocked_task.call_args[1]["kwargs"] == {**kwargs, **extra_kwargs}

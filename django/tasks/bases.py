@@ -1,10 +1,13 @@
 from datetime import datetime, timedelta
-from typing import Dict, Union
-from uuid import uuid4
+from typing import Any, Dict, Union
+
+from django.db.models import QuerySet
 
 from celery import Task
 from billiard.einfo import ExceptionInfo
 from requests.exceptions import RequestException
+
+from variable_income_assets.models import Asset
 
 from .choices import TaskStates
 from .models import TaskHistory
@@ -38,3 +41,11 @@ class TaskWithHistory(Task):
     def on_success(self, retval, task_id, args, kwargs):
         TaskHistory.objects.get(pk=task_id).finish()
         super().on_success(retval, task_id, args, kwargs)
+
+    def get_extra_kwargs_from_queryset(self, queryset: QuerySet) -> Dict[str, Any]:
+        # in a bigger project we'd store this kind of configuration on the DB
+        return (
+            {"codes": list(queryset.opened().values_list("code", flat=True))}
+            if self.name == "fetch_current_assets_prices"
+            else {}
+        )
