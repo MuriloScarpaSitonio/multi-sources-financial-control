@@ -21,7 +21,7 @@ class RevenueViewSet(ModelViewSet):
             return self.request.user.revenues.all()
         return Revenue.objects.none()  # pragma: no cover -- drf-spectatular
 
-    @action(methods=["GET"], detail=False)
+    @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:
         qs = self.get_queryset().indicators()
         serializer = RevenueIndicatorsSerializer(qs[0])

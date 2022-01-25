@@ -81,6 +81,19 @@ const schema = yup.object().shape({
       value: yup.string().required("A fonte é obrigatória"),
     })
     .nullable(),
+  installments: yup.number().when("is_fixed", {
+    is: true,
+    then: yup
+      .number()
+      .positive("Apenas números positivos")
+      .min(1, "Despesas fixas não podem ser parceladas")
+      .max(1, "Despesas fixas não podem ser parceladas")
+      .typeError("Por favor, inclua um valor"),
+    otherwise: yup
+      .number()
+      .positive("Apenas números positivos")
+      .typeError("Por favor, inclua um valor"),
+  }),
 });
 
 export const ExpenseForm = ({
@@ -198,16 +211,16 @@ export const ExpenseForm = ({
                   disableFuture
                   required
                   format="dd/MM/yyyy"
-                  style={{ width: "30%", marginRight: "7%" }}
+                  style={{ width: "30%", marginRight: "2%" }}
                   error={!!errors.created_at}
                   helperText={errors.created_at?.message}
                 />
               )}
             />
           </MuiPickersUtilsProvider>
-          <FormControl required style={{ width: "30%" }}>
+          <FormControl required style={{ width: "30%", marginLeft: "6%" }}>
             <Typography component="div">
-              <FormLabel>Fixo?</FormLabel>
+              <FormLabel style={{ marginLeft: "28%" }}>Fixo?</FormLabel>
               <Grid component="label" container alignItems="center" spacing={1}>
                 <Grid item>Não</Grid>
                 <Grid item>
@@ -226,7 +239,7 @@ export const ExpenseForm = ({
         </FormGroup>
         <FormGroup row style={{ marginTop: "5px" }}>
           <FormControl
-            style={{ width: "48%", marginRight: "2%" }}
+            style={{ width: "30%", marginRight: "2%" }}
             error={!!errors.category}
           >
             <Controller
@@ -265,7 +278,7 @@ export const ExpenseForm = ({
           </FormControl>
           <FormControl
             required
-            style={{ width: "48%" }}
+            style={{ width: "42%", marginRight: "2%" }}
             error={!!errors.source}
           >
             {" "}
@@ -303,6 +316,25 @@ export const ExpenseForm = ({
               )}
             />
           </FormControl>
+          {/* <Tooltip title="Se maior que 1, criará N despesas, uma para cada mês"> */}
+          <FormControl style={{ width: "18%" }}>
+            <Controller
+              name="installments"
+              control={control}
+              defaultValue={1}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Parcelas"
+                  type="number"
+                  InputProps={{ inputProps: { min: 1 } }}
+                  error={!!errors.installments}
+                  helperText={errors.installments?.message}
+                />
+              )}
+            />
+          </FormControl>
+          {/* </Tooltip> */}
         </FormGroup>
         <DialogActions>
           <Button onClick={handleClose}>Cancelar</Button>

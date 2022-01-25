@@ -2,6 +2,8 @@ from django.utils import timezone
 from django.db.models import F, Q, QuerySet, Sum, Window
 from django.db.models.functions import Lag, TruncMonth
 
+from dateutil.relativedelta import relativedelta
+
 
 class SumMixin:
     @staticmethod
@@ -16,13 +18,7 @@ class IndicatorsMixin:
     def indicators(self) -> QuerySet:
         date_field_name = getattr(self, "DATE_FIELD_NAME", "created_at")
         today = timezone.now().date()
-
-        if today.month == 1:
-            last_month = 12
-            year = today.year - 1
-        else:
-            last_month = today.month - 1
-            year = today.year
+        one_month_before = today - relativedelta(months=1)
         return (
             self.filter(
                 Q(
@@ -33,8 +29,8 @@ class IndicatorsMixin:
                 )
                 | Q(
                     **{
-                        f"{date_field_name}__month": last_month,
-                        f"{date_field_name}__year": year,
+                        f"{date_field_name}__month": one_month_before.month,
+                        f"{date_field_name}__year": one_month_before.year,
                     }
                 )
             )

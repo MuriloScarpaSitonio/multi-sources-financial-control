@@ -188,6 +188,20 @@ export const ExpensesTable = () => {
     setEditCreateExpenseDialogIsOpened(true);
   };
 
+  const handleBulkCreate = () => {
+    // api
+    //   .list(
+    //     "page_size=100&start_date=2021-12-01&end_date=2021-12-31&is_fixed=true"
+    //   )
+    //   .then((response) => console.log(response.data));
+    api.bulkCreateFixed().then((response) => {
+      showSuccessFeedbackForm(
+        `${response.data.length} despesas criada com sucesso!`
+      );
+      reload();
+    });
+  };
+
   const options = {
     filterType: "multiselect",
     serverSide: true,
@@ -247,7 +261,7 @@ export const ExpensesTable = () => {
             </IconButton>
           </Tooltip>
           <Tooltip title="Adicionar gastos fixos do mês">
-            <IconButton onClick={() => handleCreateEdit({})}>
+            <IconButton onClick={() => handleBulkCreate()}>
               <AddIcon />
             </IconButton>
           </Tooltip>

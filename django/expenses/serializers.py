@@ -1,7 +1,10 @@
 from decimal import ROUND_UP, Decimal
-from typing import Dict, Union
+from typing import Any, Dict, List, Union, OrderedDict
 
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
+
+from dateutil.relativedelta import relativedelta
 
 from shared.serializers_utils import CustomChoiceField
 
@@ -13,6 +16,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
     source = CustomChoiceField(choices=ExpenseSource.choices)
     category = CustomChoiceField(choices=ExpenseCategory.choices)
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    installments = serializers.IntegerField(default=1, write_only=True, allow_null=True)
 
     class Meta:
         model = Expense
@@ -25,7 +29,31 @@ class ExpenseSerializer(serializers.ModelSerializer):
             "source",
             "is_fixed",
             "user",
+            "installments",
         )
+
+    def validate(self, attrs: OrderedDict[str, Any]) -> OrderedDict[str, Any]:
+        installments = attrs.get("installments") or 1
+        if attrs.get("is_fixed", False) and installments > 1:
+            raise ValidationError("Fixed expense with installments is not permitted")
+        return attrs
+
+    def create(self, validated_data: Dict[str, Any]) -> Expense:
+        installments = validated_data.pop("installments") or 1
+        if installments > 1:
+            created_at = validated_data.pop("created_at")
+            description = validated_data.pop("description")
+            return Expense.objects.bulk_create(
+                objs=(
+                    Expense(
+                        description=f"{description} ({i+1}/{installments})",
+                        created_at=created_at + relativedelta(months=i),
+                        **validated_data,
+                    )
+                    for i in range(installments)
+                )
+            )[0]
+        return super().create(validated_data)
 
 
 class _ExpenseExtraBaseSerializer(serializers.Serializer):
@@ -54,6 +82,4 @@ class ExpenseHistoricSerializer(_ExpenseExtraBaseSerializer):
 
 class ExpenseIndicatorsSerializer(ExpenseHistoricSerializer):
     diff = serializers.DecimalField(max_digits=8, decimal_places=2, rounding=ROUND_UP)
-    diff_percentage = serializers.DecimalField(
-        max_digits=5, decimal_places=2, rounding=ROUND_UP
-    )
+    diff_percentage = serializers.DecimalField(max_digits=5, decimal_places=2, rounding=ROUND_UP)

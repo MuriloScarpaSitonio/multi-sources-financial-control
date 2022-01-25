@@ -33,6 +33,12 @@ export class ExpensesApi extends Api {
     this.historic = () => apiProvider.get(`${this.resource}/historic`);
 
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
+
+    this.list = (filters = "") =>
+      apiProvider.get(`${this.resource}?${filters}`);
+
+    this.bulkCreateFixed = () =>
+      apiProvider.post(`${this.resource}/fixed_from_last_month`);
   }
 }
 

@@ -50,7 +50,7 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
         qs = self.get_queryset()
         return {**qs.total_invested(), **qs.current_total()}
 
-    @action(methods=["GET"], detail=False)
+    @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:
         qs = self.get_queryset()
         current_total = qs.current_total()["current_total"]
@@ -76,7 +76,7 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
 
         return Response(serializer.data, status=HTTP_200_OK)
 
-    @action(methods=["GET"], detail=False)
+    @action(methods=("GET",), detail=False)
     def report(self, request: Request) -> Response:
         filterset = AssetReportFilterSet(data=request.GET, queryset=self.get_queryset())
         serializer = AssetReportSerializer(filterset.qs, many=True)
@@ -151,7 +151,7 @@ class PassiveIncomeViewSet(ModelViewSet):
             else PassiveIncome.objects.none()  # drf-spectatular
         )
 
-    @action(methods=["GET"], detail=False)
+    @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:
         today = timezone.now().date()
         qs = self.get_queryset()

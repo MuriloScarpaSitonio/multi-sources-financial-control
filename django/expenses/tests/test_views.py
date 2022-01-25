@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 import pytest
@@ -248,3 +248,113 @@ def test_should_get_indicators(client):
     #     response_json["diff_percentage"]
     #     == (((past_month_total + response_json["diff"]) / past_month_total) - 1) * 100
     # )
+
+
+def test_should_create_multiple_expenses_if_installments(client):
+    # GIVEN
+    INSTALLMENTS = 3
+    data = {
+        "price": 12.00,
+        "description": "Test",
+        "category": ExpenseCategory.house,
+        "created_at": "01/01/2021",
+        "source": ExpenseSource.bank_slip,
+        "installments": INSTALLMENTS,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+    assert Expense.objects.count() == INSTALLMENTS
+    for i, expense in enumerate(Expense.objects.all().order_by("created_at")):
+        assert expense.created_at.month == i + 1
+        assert f"({i+1}/{INSTALLMENTS})" in expense.description
+
+
+def test_should_create_one_expenses_if_installments_is_none(client):
+    # GIVEN
+    data = {
+        "price": 12.00,
+        "description": "Test",
+        "category": ExpenseCategory.house,
+        "created_at": "01/01/2021",
+        "source": ExpenseSource.bank_slip,
+        "installments": None,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+    assert Expense.objects.count() == 1
+
+
+def test_should_raise_error_if_installments_gt_1_and_is_fixed(client):
+    # GIVEN
+    data = {
+        "price": 12.00,
+        "description": "Test",
+        "category": ExpenseCategory.house,
+        "created_at": "01/01/2021",
+        "source": ExpenseSource.bank_slip,
+        "installments": 2,
+        "is_fixed": True,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "non_field_errors": ["Fixed expense with installments is not permitted"]
+    }
+
+
+def test_should_create_expense_if_installments_none_and_is_fixed(client):
+    # GIVEN
+    data = {
+        "price": 12.00,
+        "description": "Test",
+        "category": ExpenseCategory.house,
+        "created_at": "01/01/2021",
+        "source": ExpenseSource.bank_slip,
+        "installments": None,
+        "is_fixed": True,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+    assert Expense.objects.count() == 1
+
+
+@freeze_time("2021-10-01")
+@pytest.mark.usefixtures("expenses")
+def test_should_create_fixed_expenses_from_last_month(client, user):
+    # GIVEN
+    Expense.objects.create(
+        price=12,
+        description="Test expense (09/21)",
+        category=ExpenseCategory.recreation,
+        source=ExpenseSource.money,
+        created_at=date(2021, 9, 10),
+        is_fixed=True,
+        user=user,
+    )
+    qs = Expense.objects.filter_by_month_and_year(month=9, year=2021).filter(is_fixed=True)
+
+    # WHEN
+    response = client.post(f"{URL}/fixed_from_last_month")
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+    assert len(response.json()) == qs.count()
+    assert response.json()[0]["created_at"] == "2021-10-10"
+    assert response.json()[1]["created_at"] == "2021-10-01"
+    assert all("(10/21)" in expense["description"] for expense in response.json())

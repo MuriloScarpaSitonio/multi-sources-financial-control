@@ -4,9 +4,10 @@ from rest_framework.status import HTTP_200_OK
 
 from authentication.tests.conftest import client, secrets, user
 from config.settings.base import BASE_API_URL
-from django.variable_income_assets.models import Transaction
-from django.tasks.models import TaskHistory
+from variable_income_assets.models import Transaction
 from variable_income_assets.tests.conftest import simple_asset, transactions
+
+from ..models import TaskHistory
 
 
 pytestmark = pytest.mark.django_db
