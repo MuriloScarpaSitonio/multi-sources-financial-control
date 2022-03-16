@@ -161,7 +161,6 @@ class PassiveIncomeViewSet(ModelViewSet):
             .sum()["total"]
         )
         provisioned_total = qs.provisioned().sum()["total"]
-
         serializer = PassiveIncomesIndicatorsSerializer(
             {
                 "total": credited_total + provisioned_total,

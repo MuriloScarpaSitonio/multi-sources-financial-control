@@ -69,6 +69,16 @@ export class AssetsApi extends Api {
         `${this.resource}/report${isPercentage ? "?percentage=true" : ""}`
       );
     this.syncAll = () => apiProvider.get(`${this.resource}/sync_all`);
+    this.syncCeiTransactions = () =>
+      apiProvider.get(`${this.resource}/sync_cei_transactions`);
+    this.syncCeiPassiveIncomes = () =>
+      apiProvider.get(`${this.resource}/sync_cei_passive_incomes`);
+    this.syncKuCoinTransactions = () =>
+      apiProvider.get(`${this.resource}/sync_kucoin_transactions`);
+    this.syncBinanceTransactions = () =>
+      apiProvider.get(`${this.resource}/sync_binance_transactions`);
+    this.syncPrices = () =>
+      apiProvider.get(`${this.resource}/fetch_current_prices`);
   }
 }
 
@@ -86,9 +96,13 @@ export class TasksApi extends Api {
   constructor(id = null) {
     super({ query: false, post: false, patch: false, delete: false }, id);
 
-    this.list = () => apiProvider.get(this.resource);
+    this.infiniteScroll = (filters = "") =>
+      apiProvider.QueryWithInfiteScroll(`${this.resource}?${filters}`);
+    this.count = (filters) =>
+      apiProvider.get(
+        `${this.resource}/count?${new URLSearchParams(filters).toString()}`
+      );
     this.bulkUpdateNotifiedAt = (ids) =>
-      //apiProvider.post(`${this.resource}/bulk_update_notified_at`, { ids });
-      console.log({ ids });
+      apiProvider.post(`${this.resource}/bulk_update_notified_at`, { ids });
   }
 }

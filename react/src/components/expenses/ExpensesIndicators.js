@@ -7,6 +7,9 @@ import Box from "@material-ui/core/Box";
 import Card from "@material-ui/core/Card";
 import CardContent from "@material-ui/core/CardContent";
 import Container from "@material-ui/core/Container";
+import Dialog from "@material-ui/core/Dialog";
+import DialogContent from "@material-ui/core/DialogContent";
+import DialogTitle from "@material-ui/core/DialogTitle";
 import Grid from "@material-ui/core/Grid";
 import IconButton from "@material-ui/core/IconButton";
 import LinearProgress from "@material-ui/core/LinearProgress";
@@ -22,6 +25,8 @@ import AddIcon from "@material-ui/icons/Add";
 import MonetizationOnIcon from "@material-ui/icons/MonetizationOn";
 
 import { ExpensesApi, RevenuesApi } from "../../api";
+import { RevenuesForm } from "../../forms/RevenuesForm";
+import { FormFeedback } from "../FormFeedback";
 
 const SUCCESS = "#00c914";
 const DANGER = "#ff0505";
@@ -93,7 +98,42 @@ const LinearProgressWithLabel = (props) => {
   );
 };
 
-const Indicators = ({ title, indicators, icon, color, secondaryIcon }) => {
+const RevenuesCreateDialog = ({
+  data,
+  open,
+  onClose,
+  showSuccessFeedbackForm,
+}) => {
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      aria-labelledby="revenue-form-dialog-title"
+    >
+      <DialogTitle id="revenue-form-dialog-title">
+        {data && Object.keys(data).length > 0
+          ? "Editar receita"
+          : "Criar receita"}
+      </DialogTitle>
+      <DialogContent>
+        <RevenuesForm
+          initialData={data}
+          handleClose={onClose}
+          showSuccessFeedbackForm={showSuccessFeedbackForm}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const Indicators = ({
+  title,
+  indicators,
+  icon,
+  color,
+  secondaryIcon,
+  setCreateRevenueDialogIsOpened = null,
+}) => {
   const indicatorsMonth = indicators.month.split("/")[1];
   const currentMonth = new Date().getMonth() + 1;
   const isRevenue = title.includes("RECEITA");
@@ -153,7 +193,10 @@ const Indicators = ({ title, indicators, icon, color, secondaryIcon }) => {
           {isRevenue && (
             <Box sx={{ ml: 1 }}>
               <IconButton>
-                <AddIcon fontSize="small" />
+                <AddIcon
+                  fontSize="small"
+                  onClick={() => setCreateRevenueDialogIsOpened(true)}
+                />
               </IconButton>
             </Box>
           )}
@@ -183,7 +226,16 @@ const Indicators = ({ title, indicators, icon, color, secondaryIcon }) => {
 export const ExpensesIndicators = () => {
   const [expensesIndicators, setExpensesIndicators] = useState({});
   const [revenuesIndicators, setRevenuesIndicators] = useState({});
+  const [createRevenueDialogIsOpened, setCreateRevenueDialogIsOpened] =
+    useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertInfos, setAlertInfos] = useState({});
+
+  const showSuccessFeedbackForm = (message) => {
+    setAlertInfos({ message: message, severity: "success" });
+    setShowAlert(true);
+  };
 
   function fetchData() {
     setIsLoaded(false);
@@ -203,7 +255,6 @@ export const ExpensesIndicators = () => {
   }
 
   useEffect(() => fetchData(), []);
-
   return (
     <>
       <Container
@@ -214,15 +265,15 @@ export const ExpensesIndicators = () => {
           <Grid item>
             {isLoaded ? (
               <Indicators
-                title={"DESPESAS MENSAIS"}
+                title="DESPESAS MENSAIS"
                 indicators={expensesIndicators}
                 icon={<MonetizationOnIcon />}
                 color={expensesIndicators.diff > 0 ? DANGER : SUCCESS}
                 secondaryIcon={
                   expensesIndicators.diff > 0 ? (
-                    <ArrowDownwardIcon />
-                  ) : (
                     <ArrowUpwardIcon />
+                  ) : (
+                    <ArrowDownwardIcon />
                   )
                 }
               />
@@ -233,7 +284,7 @@ export const ExpensesIndicators = () => {
           <Grid item>
             {isLoaded ? (
               <Indicators
-                title={"RECEITA MENSAL"}
+                title="RECEITA MENSAL"
                 indicators={revenuesIndicators}
                 icon={<AccountBalanceIcon />}
                 color={revenuesIndicators.diff > 0 ? SUCCESS : DANGER}
@@ -244,6 +295,7 @@ export const ExpensesIndicators = () => {
                     <ArrowDownwardIcon />
                   )
                 }
+                setCreateRevenueDialogIsOpened={setCreateRevenueDialogIsOpened}
               />
             ) : (
               <Skeleton variant="rect" width={340} height={175} />
@@ -263,6 +315,18 @@ export const ExpensesIndicators = () => {
           <Skeleton />
         )}
       </Container>
+      <RevenuesCreateDialog
+        data={{}}
+        open={createRevenueDialogIsOpened}
+        onClose={() => setCreateRevenueDialogIsOpened(false)}
+        showSuccessFeedbackForm={showSuccessFeedbackForm}
+      />
+      <FormFeedback
+        open={showAlert}
+        onClose={() => setShowAlert(false)}
+        message={alertInfos.message}
+        severity={alertInfos.severity}
+      />
     </>
   );
 };

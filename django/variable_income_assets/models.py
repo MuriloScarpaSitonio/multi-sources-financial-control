@@ -78,7 +78,7 @@ class Asset(models.Model):
 class Transaction(models.Model):
     external_id = models.CharField(max_length=100, blank=True, null=True)
     action = models.CharField(max_length=4, choices=TransactionActions.choices)
-    price = models.DecimalField(decimal_places=6, max_digits=13)
+    price = models.DecimalField(decimal_places=8, max_digits=15)
     currency = models.CharField(
         max_length=6, choices=TransactionCurrencies.choices, default=TransactionCurrencies.real
     )

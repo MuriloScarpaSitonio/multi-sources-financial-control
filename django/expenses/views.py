@@ -97,6 +97,7 @@ class ExpenseViewSet(ModelViewSet):
         for expense in queryset:
             del expense["id"]
             description = expense.pop("description")
+            # TODO: change to regex
             description = (
                 f"{description} ({today_date_str})"
                 if f"{one_month_before_date_str}" not in description

@@ -27,7 +27,7 @@ def celery_always_eager(settings):
 def simple_task_history(user):
     return TaskHistoryFactory(
         id=uuid4(),
-        name="test_task",
+        name="fetch_current_assets_prices",
         started_at=timezone.now(),
         finished_at=timezone.now(),
         created_by=user,

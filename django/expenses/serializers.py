@@ -41,6 +41,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
     def create(self, validated_data: Dict[str, Any]) -> Expense:
         installments = validated_data.pop("installments") or 1
         if installments > 1:
+            validated_data["price"] /= installments
             created_at = validated_data.pop("created_at")
             description = validated_data.pop("description")
             return Expense.objects.bulk_create(

@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, IntEnum
 
 
 class AssetTypes(Enum):
@@ -7,4 +7,10 @@ class AssetTypes(Enum):
     CRYPTO = "CRYPTO"
 
 
+class BinanceFiatPaymentTransactionType(IntEnum):
+    BUY = 0
+    SELL = 1
+
+
 DEFAULT_BINANCE_CURRENCY = "BRL"
+BINANCE_FIAT_CURRENCY_TO_SKIP = "USDT"

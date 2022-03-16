@@ -1,10 +1,13 @@
 from copy import deepcopy
 from rest_framework import ISO_8601, serializers
 
+from shared.serializers_utils import CustomChoiceField
 from tasks.models import TaskHistory
+
 from .fields import CeiTransactionChoiceField, TimeStampToDateField
-from ...choices import TransactionActions
+from ...choices import TransactionActions, TransactionCurrencies
 from ...models import Asset, Transaction
+
 
 class CryptoTransactionAlreadyExistsException(Exception):
     pass
@@ -12,8 +15,8 @@ class CryptoTransactionAlreadyExistsException(Exception):
 
 class CryptoTransactionSerializer(serializers.Serializer):
     id = serializers.CharField()
-    currency = serializers.CharField()
-    price = serializers.DecimalField(decimal_places=6, max_digits=13)
+    currency = CustomChoiceField(choices=TransactionCurrencies.choices)
+    price = serializers.DecimalField(decimal_places=8, max_digits=15)
     quantity = serializers.DecimalField(decimal_places=8, max_digits=15)
     created_at = TimeStampToDateField()
     action = serializers.ChoiceField(choices=TransactionActions.choices)
@@ -32,7 +35,7 @@ class CryptoTransactionSerializer(serializers.Serializer):
 
 
 class CeiTransactionSerializer(serializers.Serializer):
-    unit_price = serializers.DecimalField(decimal_places=6, max_digits=13)
+    unit_price = serializers.DecimalField(decimal_places=8, max_digits=15)
     unit_amount = serializers.DecimalField(decimal_places=8, max_digits=15)
     operation_date = serializers.DateField(input_formats=(ISO_8601,))
     action = CeiTransactionChoiceField(choices=TransactionActions.choices)

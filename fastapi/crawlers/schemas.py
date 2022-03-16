@@ -1,6 +1,6 @@
 from datetime import date
 from decimal import Decimal, DecimalException
-from typing import Dict, Optional, Union, TYPE_CHECKING
+from typing import Dict, Literal, Optional, Union, TYPE_CHECKING
 
 from pydantic import BaseModel, condecimal, Field, validator
 from cei_crawler.models import (
@@ -109,7 +109,7 @@ class KuCoinOrder(BaseModel):
         return v / 1000
 
 
-class BianceOrder(BaseModel):
+class BinanceTradeTransaction(BaseModel):
     clientOrderId: str = Field(alias="id")
     symbol: str
     code: Optional[str]
@@ -129,6 +129,8 @@ class BianceOrder(BaseModel):
         kwargs["exclude"] = (
             kwargs["exclude"] + exclude if kwargs["exclude"] is not None else exclude
         )
+        # exclude |= kwargs.get("exclude", set())
+        # kwargs["exclude"] = exclude
         return super().dict(**kwargs)
 
     @validator("clientOrderId")
@@ -157,3 +159,31 @@ class BianceOrder(BaseModel):
     def convert_time(cls, v: int) -> float:
         # divide by 1000 to convert from milliseconds to seconds
         return v / 1000
+
+
+class BinanceFiatTransaction(BaseModel):
+    orderNo: str = Field(alias="id")
+    cryptoCurrency: str = Field(alias="code")
+    fiatCurrency: str = Field(alias="currency")
+    obtainAmount: Decimal = Field(alias="quantity")
+    price: Decimal
+    action: str
+    createTime: float = Field(alias="created_at")
+
+    class Config:
+        allow_population_by_field_name = True
+
+    @validator("createTime")
+    def convert_time(cls, v: int) -> float:
+        # divide by 1000 to convert from milliseconds to seconds
+        return v / 1000
+
+
+class BinanceTransaction(BaseModel):
+    id: str
+    code: str
+    currency: str
+    quantity: Decimal
+    price: Decimal
+    action: Literal["BUY", "SELL"]
+    created_at: float

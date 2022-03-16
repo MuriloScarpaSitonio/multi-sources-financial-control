@@ -21,6 +21,7 @@ import FormLabel from "@material-ui/core/FormLabel";
 import Grid from "@material-ui/core/Grid";
 import Switch from "@material-ui/core/Switch";
 import TextField from "@material-ui/core/TextField";
+import Tooltip from "@material-ui/core/Tooltip";
 import Typography from "@material-ui/core/Typography";
 import { yupResolver } from "@hookform/resolvers/yup";
 
@@ -196,7 +197,7 @@ export const ExpenseForm = ({
             <Controller
               name="created_at"
               control={control}
-              defaultValue={initialData.date || null}
+              defaultValue={initialData.date || new Date()}
               render={({ field: { onChange, value } }) => (
                 <KeyboardDatePicker
                   onChange={onChange}
@@ -316,25 +317,25 @@ export const ExpenseForm = ({
               )}
             />
           </FormControl>
-          {/* <Tooltip title="Se maior que 1, criará N despesas, uma para cada mês"> */}
-          <FormControl style={{ width: "18%" }}>
-            <Controller
-              name="installments"
-              control={control}
-              defaultValue={1}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="Parcelas"
-                  type="number"
-                  InputProps={{ inputProps: { min: 1 } }}
-                  error={!!errors.installments}
-                  helperText={errors.installments?.message}
-                />
-              )}
-            />
-          </FormControl>
-          {/* </Tooltip> */}
+          <Tooltip title="Se for uma despesa parcelada, coloque o valor completo da compra (e não da parcela)">
+            <FormControl style={{ width: "18%" }}>
+              <Controller
+                name="installments"
+                control={control}
+                defaultValue={1}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Parcelas"
+                    type="number"
+                    InputProps={{ inputProps: { min: 1 } }}
+                    error={!!errors.installments}
+                    helperText={errors.installments?.message}
+                  />
+                )}
+              />
+            </FormControl>
+          </Tooltip>
         </FormGroup>
         <DialogActions>
           <Button onClick={handleClose}>Cancelar</Button>

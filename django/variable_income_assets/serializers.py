@@ -115,7 +115,7 @@ class PassiveIncomesIndicatorsSerializer(serializers.Serializer):
         max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_UP
     )
     diff_percentage = serializers.DecimalField(
-        max_digits=5, decimal_places=2, read_only=True, rounding=ROUND_UP
+        max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_UP
     )
 
 

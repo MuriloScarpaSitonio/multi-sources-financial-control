@@ -13,7 +13,11 @@ from tasks.bases import TaskWithHistory
 from ..models import Asset
 
 
-@shared_task(name="fetch_current_assets_prices", base=TaskWithHistory)
+@shared_task(
+    name="fetch_current_assets_prices",
+    base=TaskWithHistory,
+    notification_display="Atualização de preços",
+)
 def fetch_current_assets_prices(codes: List[str], username: str) -> None:
     url = build_url(
         url=settings.CRAWLERS_URL, parts=("prices",), query_params={"username": username}

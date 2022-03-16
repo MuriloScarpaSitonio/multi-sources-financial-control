@@ -8,12 +8,14 @@ from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK
 from rest_framework.viewsets import GenericViewSet
 
+from .filters import TaskHistoryFilterSet
 from .models import TaskHistory
 from .serializers import TaskHistoryBulkSaveAsNotifiedSerializer, TaskHistorySerializer
 
 
 class TaskHistoryViewSet(GenericViewSet, ListModelMixin):
     serializer_class = TaskHistorySerializer
+    filterset_class = TaskHistoryFilterSet
 
     def get_queryset(self) -> QuerySet[TaskHistory]:
         return (
@@ -29,3 +31,9 @@ class TaskHistoryViewSet(GenericViewSet, ListModelMixin):
         serializer.is_valid(raise_exception=True)
         serializer.bulk_update(queryset=self.get_queryset())
         return Response(status=HTTP_200_OK)
+
+    @action(methods=("GET",), detail=False)
+    def count(self, _: Request) -> Response:
+        return Response(
+            {"total": self.filter_queryset(self.get_queryset()).count()}, status=HTTP_200_OK
+        )

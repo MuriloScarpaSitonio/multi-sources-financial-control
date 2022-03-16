@@ -254,7 +254,7 @@ def test_should_create_multiple_expenses_if_installments(client):
     # GIVEN
     INSTALLMENTS = 3
     data = {
-        "price": 12.00,
+        "price": 10.00,
         "description": "Test",
         "category": ExpenseCategory.house,
         "created_at": "01/01/2021",
@@ -271,6 +271,7 @@ def test_should_create_multiple_expenses_if_installments(client):
     for i, expense in enumerate(Expense.objects.all().order_by("created_at")):
         assert expense.created_at.month == i + 1
         assert f"({i+1}/{INSTALLMENTS})" in expense.description
+        assert round(float(expense.price), 2) == round(data["price"] / INSTALLMENTS, 2)
 
 
 def test_should_create_one_expenses_if_installments_is_none(client):

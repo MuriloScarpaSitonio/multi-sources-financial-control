@@ -27,7 +27,6 @@ class ExpenseQueryset(CustomQueryset, IndicatorsMixin, MonthlyFilterMixin):
         today = timezone.now().date()
         return (
             self.filter(
-                created_at__month__gte=today.month,
                 created_at__year__gte=today.year - 1,
             )
             .annotate(month=TruncMonth("created_at"))

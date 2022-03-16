@@ -3,12 +3,16 @@ from datetime import datetime, timedelta
 from hashlib import sha256
 from hmac import new as hmac_new
 from time import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from aiohttp import ClientSession, ClientTimeout, TCPConnector, ClientResponse
 from aiohttp.client_exceptions import ClientError
 
-from ..constants import DEFAULT_BINANCE_CURRENCY
+from ..constants import (
+    BINANCE_FIAT_CURRENCY_TO_SKIP,
+    BinanceFiatPaymentTransactionType,
+    DEFAULT_BINANCE_CURRENCY,
+)
 from ..schemas import AssetFetchCurrentPriceFilterSet
 from ..database.models import User
 from ..database.utils import decrypt
@@ -93,6 +97,7 @@ class BinanceClient:
 
     async def get_prices(
         self,
+        *,
         assets: Optional[List[AssetFetchCurrentPriceFilterSet]] = None,
         codes: Optional[List[str]] = None,
     ) -> Dict[str, str]:
@@ -118,19 +123,7 @@ class BinanceClient:
                 if not isinstance(price, ClientError)
             }
 
-    async def _get_symbol_orders(self, symbol: str, start_timestamp: Optional[int] = None):
-        response = await self._get(
-            path="allOrders",
-            params={
-                "symbol": symbol,
-                "startTime": int((datetime.now() - timedelta(days=2)).timestamp()) * 1000,
-            },
-            signed=True,
-        )
-        result = await response.json()
-        return result
-
-    async def get_orders(self, account_type: str = "SPOT", start_timestamp: Optional[int] = None):
+    async def _get_all_filled_trade_orders(self, account_type: str, start_timestamp: int):
         response = await self._get(
             path="accountSnapshot",
             is_margin_api=True,
@@ -139,7 +132,7 @@ class BinanceClient:
         )
         result = await response.json()
         tasks = [
-            self._get_symbol_orders(
+            self.get_symbol_trade_orders(
                 symbol="{}{}".format(infos["asset"], DEFAULT_BINANCE_CURRENCY),
                 start_timestamp=start_timestamp,
             )
@@ -151,4 +144,51 @@ class BinanceClient:
             for result in await asyncio.gather(*tasks)
             for order in result
             if order["status"] == "FILLED"
+        ]
+
+    async def get_symbol_trade_orders(self, symbol: str, start_timestamp: int = 0):
+        response = await self._get(
+            path="allOrders",
+            params={
+                "symbol": symbol,
+                "startTime": start_timestamp,
+                # "startTime": int((datetime.now() - timedelta(days=2)).timestamp()) * 1000,
+            },
+            signed=True,
+        )
+        result = await response.json()
+        return result
+
+    async def get_orders(self, account_type: str = "SPOT", start_timestamp: int = 0):
+        tasks = [
+            self._get_all_filled_trade_orders(
+                account_type=account_type, start_timestamp=start_timestamp
+            ),
+            self.get_fiat_payments_order(
+                transaction_type=BinanceFiatPaymentTransactionType.BUY.value,
+                start_timestamp=start_timestamp,
+            ),
+            self.get_fiat_payments_order(
+                transaction_type=BinanceFiatPaymentTransactionType.SELL.value,
+                start_timestamp=start_timestamp,
+            ),
+        ]
+        return await asyncio.gather(*tasks)
+
+    async def get_fiat_payments_order(
+        self,
+        transaction_type: int,
+        start_timestamp: int = 0,
+    ):
+        response = await self._get(
+            path="fiat/payments",
+            is_margin_api=True,
+            signed=True,
+            params={"transactionType": transaction_type, "beginTime": start_timestamp},
+        )
+        result = await response.json()
+        return [
+            r
+            for r in result["data"]
+            if r["cryptoCurrency"] != BINANCE_FIAT_CURRENCY_TO_SKIP and r["status"] == "Completed"
         ]

@@ -44,8 +44,8 @@ const ExpenseCreateEditDialog = ({
   reloadTable,
 }) => {
   return (
-    <Dialog open={open} onClose={onClose} aria-labelledby="form-dialog-title">
-      <DialogTitle id="form-dialog-title">
+    <Dialog open={open} onClose={onClose} aria-labelledby="expense-form-dialog-title">
+      <DialogTitle id="expsense-form-dialog-title">
         {data && Object.keys(data).length > 0
           ? "Editar despesa"
           : "Criar despesa"}
@@ -95,8 +95,8 @@ const ExpenseDeleteDialog = ({
   };
   return (
     <>
-      <Dialog open={open} onClose={onClose} aria-labelledby="form-dialog-title">
-        <DialogTitle id="form-dialog-title">
+      <Dialog open={open} onClose={onClose} aria-labelledby="expense-delete-form-dialog-title">
+        <DialogTitle id="expense-delete-form-dialog-title">
           Tem certeza que deseja deletar essa despesa?
         </DialogTitle>
         <DialogContent>
@@ -119,13 +119,15 @@ const ExpenseDeleteDialog = ({
 };
 
 export const ExpensesTable = () => {
-  const [filters, setFilters] = useState({});
-  const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
-  const [ordering, setOrdering] = useState("");
-  const [search, setSearch] = useState("");
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
+  const [filters, setFilters] = useState({
+    page: 1,
+    ordering: "",
+    description: "",
+    is_fixed: "",
+  });
   const [expenseIdToDelete, setExpenseIdToDelete] = useState({});
 
   const [expenseEditData, setExpenseEditData] = useState({});
@@ -139,26 +141,41 @@ export const ExpensesTable = () => {
   const [alertInfos, setAlertInfos] = useState({});
 
   const getAdjustedFilters = () => {
-    let _filters = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) =>
+    let multipleChoiceFilters = {
+      category: filters.category || [],
+      source: filters.source || [],
+    };
+
+    let _filters = new URLSearchParams({
+      page: filters.page,
+      ordering: filters.ordering,
+      description: filters.description,
+      is_fixed: filters.is_fixed,
+      page_size: pageSize,
+      start_date:
+        startDate !== null ? startDate.toLocaleDateString("fr-CA") : "",
+      end_date: endDate !== null ? endDate.toLocaleDateString("fr-CA") : "",
+    });
+
+    Object.entries(multipleChoiceFilters).forEach(([key, value]) =>
       value.map((v) => _filters.append(key, v))
     );
+
     return _filters.toString();
   };
 
-  let url =
-    `page=${page}&page_size=${pageSize}&ordering=${ordering}&description=${search}` +
-    `&start_date=${
-      startDate !== null ? startDate.toLocaleDateString("fr-CA") : ""
-    }` +
-    `&end_date=${endDate !== null ? endDate.toLocaleDateString("fr-CA") : ""}` +
-    `&${getAdjustedFilters()}`;
   let api = new ExpensesApi();
-  const [data, isLoaded] = api.query(url);
+  const [data, isLoaded] = api.query(getAdjustedFilters());
 
   const reload = () => {
-    if (Object.keys(filters).length === 0) setFilters({ description: [""] });
-    else setFilters({});
+    if (
+      filters.page === 1 &&
+      filters.ordering === "" &&
+      filters.description === "" &&
+      filters.is_fixed === ""
+    )
+      setFilters({ page: 1, ordering: "", description: " ", is_fixed: "" });
+    else setFilters({ page: 1, ordering: "", description: "", is_fixed: "" });
   };
 
   const showSuccessFeedbackForm = (message) => {
@@ -194,12 +211,12 @@ export const ExpensesTable = () => {
     //     "page_size=100&start_date=2021-12-01&end_date=2021-12-31&is_fixed=true"
     //   )
     //   .then((response) => console.log(response.data));
-    api.bulkCreateFixed().then((response) => {
-      showSuccessFeedbackForm(
-        `${response.data.length} despesas criada com sucesso!`
-      );
-      reload();
-    });
+    // api.bulkCreateFixed().then((response) => {
+    //   showSuccessFeedbackForm(
+    //     `${response.data.length} despesas criada com sucesso!`
+    //   );
+    //   reload();
+    // });
   };
 
   const options = {
@@ -225,15 +242,17 @@ export const ExpensesTable = () => {
     },
     download: false,
     print: false,
-    onChangePage: (p) => setPage(p + 1),
     onChangeRowsPerPage: (p) => setPageSize(p),
+    onChangePage: (p) => setFilters({ ...filters, page: p + 1 }),
     onColumnSortChange: (column, direction) => {
       let orderingDirectionMapping = { asc: "", desc: "-" };
-      setOrdering(orderingDirectionMapping[direction] + column);
+      setFilters({
+        ...filters,
+        ordering: orderingDirectionMapping[direction] + column,
+      });
     },
     onSearchChange: (text) => {
-      if (text) setSearch(text);
-      else setSearch("");
+      setFilters({ ...filters, description: Boolean(text) ? text : "" });
     },
     onFilterChange: (column, filterList, _, changedColumnIndex) => {
       if (column === "created_at") return;
@@ -249,8 +268,7 @@ export const ExpensesTable = () => {
       let _filters = filterList[changedColumnIndex].map(
         (f) => getChoiceByLabel(f, mapping).value
       );
-      setFilters({ ...filters, [column]: _filters });
-      setPage(1);
+      setFilters({ ...filters, [column]: _filters, page: 1 });
     },
     customToolbar: () => {
       return (
@@ -348,7 +366,6 @@ export const ExpensesTable = () => {
                   label="Início"
                   value={startDate}
                   autoOk
-                  disableFuture
                   onChange={(date) => {
                     if (date instanceof Date && !isNaN(date)) {
                       filterList[index][0] = date.toLocaleDateString("pt-br");
@@ -365,7 +382,6 @@ export const ExpensesTable = () => {
                   label="Fim"
                   value={endDate}
                   autoOk
-                  disableFuture
                   onChange={(date) => {
                     if (date instanceof Date && !isNaN(date)) {
                       filterList[index][1] = date.toLocaleDateString("pt-br");

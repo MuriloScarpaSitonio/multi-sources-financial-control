@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import AppBar from "@material-ui/core/AppBar";
 import Box from "@material-ui/core/Box";
+import ListItemText from "@material-ui/core/ListItemText";
 import Toolbar from "@material-ui/core/Toolbar";
 import IconButton from "@material-ui/core/IconButton";
 import Badge from "@material-ui/core/Badge";
@@ -18,143 +19,275 @@ import AccountBalanceIcon from "@material-ui/icons/AccountBalance";
 import MonetizationOnIcon from "@material-ui/icons/MonetizationOn";
 import TrendingUpIcon from "@material-ui/icons/TrendingUp";
 import SyncIcon from "@material-ui/icons/Sync";
+import MoreVertIcon from "@material-ui/icons/MoreVert";
 
 import { AssetsApi, TasksApi } from "../api";
 import { FormFeedback } from "./FormFeedback";
+import { getDateDiffString } from "../helpers.js";
+import { makeStyles } from "@material-ui/core/styles";
 
-const NOTIFICATION_STATE_MAP = {
-  STARTED: "iniciada",
-  SUCCESS: "finalizada",
-  FAILURE: "falhou",
-};
+const useStyles = makeStyles({
+  root: {
+    backgroundColor: "#f0f0f0",
+    "&:hover": {
+      backgroundColor: "#e8e8e8",
+    },
+  },
+  /* Pseudo-class applied to the root element if `selected={true}`. */
+});
 
-const NOTIFICATION_TASK_NAME_MAP = {
-  sync_cei_transactions_task: "Transações do CEI",
-  sync_cei_passive_incomes_task: "Renda passiva do CEI",
-  sync_kucoin_transactions_task: "Transações da KuCoin",
-  sync_binance_transactions_task: "Transações da Binance",
-  fetch_current_assets_prices: "Atualização de preços",
-};
+const Notifications = () => {
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [totalTasksUnnotified, setTotalTasksUnnotified] = useState(0);
+  const [page, setPage] = useState(1);
 
-function getNotificationTitle(state, name) {
-  console.log(state);
-  return `Integração '${NOTIFICATION_TASK_NAME_MAP[name]}' ${
-    NOTIFICATION_STATE_MAP[state] || "em estado desconhecido"
-  }`;
-}
+  let api = new TasksApi();
+  const menuId = "navbar-menu";
+  const observer = useRef();
+  const classes = useStyles();
 
-function getNotificationInfos(title, transactionsCount, incomesCount) {
-  if (title.includes("falhou")) {
-    return "Por favor, clique para visitar a página da tarefa e ver o erro completo.";
-  }
-  if (title.includes("iniciada")) {
-    return "";
-  }
-  if (title.includes("Transações")) {
-    return `${transactionsCount} transações encontradas!`;
-  }
-  if (title.includes("Renda passiva")) {
-    return `${incomesCount} rendimentos passivos encontrados!`;
-  }
-  if (title.includes("preços")) {
-    return `Preços atualizados!`;
-  }
-}
-
-const Notification = ({ task, handleClose }) => {
-  let title = getNotificationTitle(task.state, task.name);
-  let infos = getNotificationInfos(
-    title,
-    task.transactions.length,
-    task.incomes.length
+  const [data, isLoaded, hasMore] = api.infiniteScroll(
+    new URLSearchParams({ page_size: 10, page: page }).toString()
   );
+
+  const lastTaskRef = useCallback(
+    (node) => {
+      if (!isLoaded) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          setPage((prevPage) => prevPage + 1);
+        }
+      });
+      if (node) observer.current.observe(node);
+    },
+    [isLoaded, hasMore]
+  );
+
+  const bulkUpdateNotifiedAt = (tasks) => {
+    let tasksIds = tasks
+      .filter((task) => new Date(task.updated_at) > new Date(task.notified_at))
+      .map((task) => task.id);
+    if (tasksIds.length > 0) {
+      api.bulkUpdateNotifiedAt(tasksIds);
+      getTotalTasksUnnotified();
+    }
+  };
+
+  const getTotalTasksUnnotified = () => {
+    api.count({ notified: false }).then((response) => {
+      setTotalTasksUnnotified(response.data.total);
+    });
+  };
+  useEffect(() => getTotalTasksUnnotified(), []);
+
+  useEffect(() => {
+    if (anchorEl !== null) bulkUpdateNotifiedAt(data);
+  }, [data]);
+
+  const handleClick = (e) => {
+    setAnchorEl(e.currentTarget);
+    bulkUpdateNotifiedAt(data);
+  };
+
   return (
-    <MenuItem onClick={handleClose}>
-      {title} + {infos}
-    </MenuItem>
+    <>
+      <IconButton
+        size="large"
+        color="black"
+        aria-controls={menuId}
+        onClick={handleClick}
+      >
+        <Badge badgeContent={totalTasksUnnotified} color="error">
+          <NotificationsIcon />
+        </Badge>
+      </IconButton>
+      <Menu
+        anchorEl={anchorEl}
+        anchorOrigin={{
+          vertical: "top",
+          horizontal: "right",
+        }}
+        id={menuId}
+        keepMounted
+        transformOrigin={{
+          vertical: "top",
+          horizontal: "right",
+        }}
+        open={Boolean(anchorEl)}
+        onClose={() => setAnchorEl(null)}
+      >
+        {data.map((task, index) => (
+          <>
+            <MenuItem
+              onClick={() => setAnchorEl(null)}
+              ref={data.length === index + 1 ? lastTaskRef : undefined}
+              divider
+              classes={task.opened_at === null ? { root: classes.root } : {}}
+            >
+              <ListItemText
+                primary={task.notification_display_title}
+                secondary={task.notification_display_text}
+              />
+              <p style={{ fontSize: "11px" }}>
+                há ± {getDateDiffString(new Date(task.updated_at), new Date())}
+              </p>
+            </MenuItem>
+          </>
+        ))}
+        {!hasMore && (
+          <MenuItem>
+            <ListItemText
+              secondary="Não há mais notificações para carregar"
+              secondaryTypographyProps={{ align: "center" }}
+            />
+          </MenuItem>
+        )}
+      </Menu>
+    </>
   );
 };
 
-const Notifications = ({ id, anchorEl, tasks, handleClose }) => (
-  <Menu
-    anchorEl={anchorEl}
-    anchorOrigin={{
-      vertical: "top",
-      horizontal: "right",
-    }}
-    id={id}
-    keepMounted
-    transformOrigin={{
-      vertical: "top",
-      horizontal: "right",
-    }}
-    open={Boolean(anchorEl)}
-    onClose={handleClose}
-  >
-    {tasks.map((task) => (
-      <Notification task={task} handleClose={handleClose} />
-    ))}
-  </Menu>
-);
+const Sync = () => {
+  const [showAlert, setShowAlert] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+
+  const open = Boolean(anchorEl);
+
+  let api = new AssetsApi();
+  const sync = (method, message, shouldCloseMenu) => {
+    api[method]().then(() => {
+      setShowAlert(true);
+      setFeedbackMessage(message);
+    });
+    if (shouldCloseMenu) {
+      setAnchorEl(null);
+    }
+  };
+
+  return (
+    <>
+      <Typography style={{ flexGrow: 1, textAlign: "center" }}>
+        <Tooltip title="Sincronizar preços, transferências e renda passiva">
+          <IconButton size="large" color="black">
+            <SyncIcon
+              onClick={() => sync("syncAll", "Sincronizações em antamento!")}
+            />
+          </IconButton>
+        </Tooltip>
+        <IconButton
+          aria-label="more"
+          id="long-button"
+          aria-controls={open ? "long-menu" : undefined}
+          aria-expanded={open ? "true" : undefined}
+          aria-haspopup="true"
+          onClick={(e) => setAnchorEl(e.currentTarget)}
+        >
+          <MoreVertIcon />
+        </IconButton>
+        <Menu
+          id="long-menu"
+          MenuListProps={{
+            "aria-labelledby": "long-button",
+          }}
+          anchorEl={anchorEl}
+          open={open}
+          onClose={() => setAnchorEl(null)}
+        >
+          <MenuItem
+            onClick={() =>
+              sync("syncPrices", "Sincronização de preços em antamento!", true)
+            }
+          >
+            Atualizar preços
+          </MenuItem>
+          <MenuItem
+            onClick={() =>
+              sync(
+                "syncCeiTransactions",
+                "Sincronização das transações do CEI em andamento!",
+                true
+              )
+            }
+          >
+            Sincronizar transações do CEI
+          </MenuItem>
+          <MenuItem
+            onClick={() =>
+              sync(
+                "syncCeiPassiveIncomes",
+                "Sincronização da renda passiva do CEI em andamento!",
+                true
+              )
+            }
+          >
+            Sincronizar renda passiva do CEI
+          </MenuItem>
+          <MenuItem
+            onClick={() =>
+              sync(
+                "syncKuCoinTransactions",
+                "Sincronização das transações da KuCoin em andamento!",
+                true
+              )
+            }
+          >
+            Sincronizar transações da KuCoin
+          </MenuItem>
+          <MenuItem
+            onClick={() =>
+              sync(
+                "syncBinanceTransactions",
+                "Sincronização das transações da Binance em andamento!",
+                true
+              )
+            }
+          >
+            Sincronizar transações da Binance
+          </MenuItem>
+        </Menu>
+      </Typography>
+      <FormFeedback
+        open={showAlert}
+        onClose={() => setShowAlert(false)}
+        message={feedbackMessage}
+        severity="success"
+      />
+    </>
+  );
+};
 
 export const Navbar = ({ hideValuesToggler }) => {
   const [hideValues, setHideValues] = useState(
     Boolean(window.localStorage.getItem("hideValues"))
   );
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [showAlert, setShowAlert] = useState(false);
-  const [totalTasksUnseen, setTotalTasksUnseen] = useState(0);
-  const [tasks, setTasks] = useState([]);
-
-  const handleNotificationsClose = () => {
-    setAnchorEl(null);
-  };
-
-  const menuId = "primary-search-account-menu";
-
-  let api = new TasksApi();
-  useEffect(
-    () =>
-      api.list().then((response) => {
-        setTasks(response.data.results);
-        setTotalTasksUnseen(response.data.count);
-      }),
-    []
-  );
-  const handleProfileMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-    api.bulkUpdateNotifiedAt(tasks.map((task) => task.id));
-  };
-
-  const syncAll = () =>
-    new AssetsApi().syncAll().then(() => setShowAlert(true));
 
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static" style={{ backgroundColor: "transparent" }}>
         <Toolbar variant="dense">
           <Tooltip title="Minhas despesas">
-            <IconButton edge="start" size="large" color="black">
-              <AccountBalanceIcon />
+            <IconButton
+              edge="start"
+              size="large"
+              color="black"
+              href="/expenses"
+            >
+              <MonetizationOnIcon />
             </IconButton>
           </Tooltip>
           <Tooltip title="Minhas receitas">
             <IconButton size="large" color="black">
-              <MonetizationOnIcon />
+              <AccountBalanceIcon />
             </IconButton>
           </Tooltip>
           <Tooltip title="Meus ativos">
-            <IconButton size="large" color="black">
+            <IconButton size="large" color="black" href="/assets">
               <TrendingUpIcon />
             </IconButton>
           </Tooltip>
-          <Typography style={{ flexGrow: 1, textAlign: "center" }}>
-            <Tooltip title="Sincronizar preços, transferências e renda passiva">
-              <IconButton size="large" color="black">
-                <SyncIcon onClick={() => syncAll()} />
-              </IconButton>
-            </Tooltip>
-          </Typography>
+          <Sync />
           <Box>
             <Tooltip title={hideValues ? "Ocultar valores " : "Exibir valores"}>
               <IconButton
@@ -168,16 +301,7 @@ export const Navbar = ({ hideValuesToggler }) => {
                 {hideValues ? <VisibilityIcon /> : <VisibilityOffIcon />}
               </IconButton>
             </Tooltip>
-            <IconButton
-              size="large"
-              color="black"
-              aria-controls={menuId}
-              onClick={handleProfileMenuOpen}
-            >
-              <Badge badgeContent={totalTasksUnseen} color="error">
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
+            <Notifications />
             <Tooltip title="Meu perfil">
               <IconButton size="large" edge="end" color="black">
                 <AccountCircle />
@@ -186,18 +310,6 @@ export const Navbar = ({ hideValuesToggler }) => {
           </Box>
         </Toolbar>
       </AppBar>
-      <FormFeedback
-        open={showAlert}
-        onClose={() => setShowAlert(false)}
-        message="Yes"
-        severity="success"
-      />
-      <Notifications
-        id={menuId}
-        anchorEl={anchorEl}
-        tasks={tasks}
-        handleClose={handleNotificationsClose}
-      />
     </Box>
   );
 };

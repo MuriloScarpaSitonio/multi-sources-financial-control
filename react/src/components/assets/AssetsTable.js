@@ -8,18 +8,34 @@ import { AssetsApi } from "../../api";
 import { Loader } from "../Loaders";
 
 export const AssetsTable = () => {
-  const [typeFilter, setTypeFilter] = useState("");
-  const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
-  const [ordering, setOrdering] = useState("");
-  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState({
+    page: 1,
+    ordering: "",
+    code: "",
+  });
 
-  let url =
-    `page=${page}&page_size=${pageSize}&ordering=${ordering}` +
-    `&code=${search}&${typeFilter}`;
+  function getAdjustedFilters() {
+    let multipleChoiceFilters = {
+      category: filters.type || [],
+    };
+
+    let _filters = new URLSearchParams({
+      page: filters.page,
+      ordering: filters.ordering,
+      description: filters.code,
+      page_size: pageSize,
+    });
+
+    Object.entries(multipleChoiceFilters).forEach(([key, value]) =>
+      value.map((v) => _filters.append(key, v))
+    );
+
+    return _filters.toString();
+  }
 
   let api = new AssetsApi();
-  const [data, isLoaded] = api.query(url);
+  const [data, isLoaded] = api.query(getAdjustedFilters());
 
   const options = {
     filterType: "multiselect",
@@ -56,24 +72,22 @@ export const AssetsTable = () => {
         displayRows: "de",
       },
     },
-    download: false,
-    print: false,
-    onChangePage: (p) => setPage(p + 1),
+    download: true,
+    print: true,
     onChangeRowsPerPage: (p) => setPageSize(p),
+    onChangePage: (p) => setFilters({ ...filters, page: p + 1 }),
     onColumnSortChange: (column, direction) => {
       let orderingDirectionMapping = { asc: "", desc: "-" };
-      setOrdering(orderingDirectionMapping[direction] + column);
+      setFilters({
+        ...filters,
+        ordering: orderingDirectionMapping[direction] + column,
+      });
     },
     onSearchChange: (text) => {
-      if (text) setSearch(text);
-      else setSearch("");
+      setFilters({ ...filters, code: Boolean(text) ? text : "" });
     },
     onFilterChange: (_, filterList, __, changedColumnIndex) => {
-      let filters = new URLSearchParams();
-      filterList[changedColumnIndex].map((type) =>
-        filters.append("type", type)
-      );
-      setTypeFilter(filters.toString());
+      setFilters({ ...filters, type: filterList[changedColumnIndex], page: 1 });
     },
   };
 
@@ -101,7 +115,7 @@ export const AssetsTable = () => {
         filter: true,
         sort: true,
         filterOptions: {
-          names: ["STOCK", "STOCK_USA", "CRIPTO", "FII"],
+          names: ["STOCK", "STOCK_USA", "CRYPTO", "FII"],
         },
         customFilterListOptions: {
           render: (v) => `Tipo: ${v}`,

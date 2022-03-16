@@ -179,7 +179,7 @@ def test_sync_kucoin_transactions_should_create_asset_and_transaction(
         assert Transaction.objects.filter(
             asset__user=user_with_kucoin_integration,
             asset__code=item["code"],
-            currency=item["currency"],
+            currency="USD" if item["currency"] == "USDT" else item["currency"],
             action=item["action"],
             price=Decimal(item["price"]),
         ).exists()

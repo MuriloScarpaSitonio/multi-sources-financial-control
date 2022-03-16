@@ -24,6 +24,10 @@ def _save_cei_passive_incomes(
 ) -> None:
     assets = dict()
     for passive_income in response.json():
+        income_type = passive_income["income_type"]
+        # TODO: change this on FastAPI
+        if income_type == "FII yield":
+            income_type = "income"
         code = passive_income["raw_negotiation_code"]
         asset = assets.get(code)
         if asset is None:
@@ -34,7 +38,7 @@ def _save_cei_passive_incomes(
             )
         income, created = PassiveIncome.objects.update_or_create(
             asset=asset,
-            type=getattr(PassiveIncomeTypes, passive_income["income_type"]),
+            type=getattr(PassiveIncomeTypes, income_type),
             amount=passive_income["net_value"],
             operation_date=passive_income["operation_date"],
             defaults={"event_type": getattr(PassiveIncomeEventTypes, passive_income["event_type"])},
@@ -45,7 +49,12 @@ def _save_cei_passive_incomes(
             income.save(update_fields=("fetched_by",))
 
 
-@shared_task(bind=True, name="sync_cei_passive_incomes_task", base=TaskWithHistory)
+@shared_task(
+    bind=True,
+    name="sync_cei_passive_incomes_task",
+    base=TaskWithHistory,
+    notification_display="Renda passiva do CEI",
+)
 def sync_cei_passive_incomes_task(self, username: str) -> int:
     url = build_url(
         url=settings.CRAWLERS_URL,

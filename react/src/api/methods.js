@@ -1,9 +1,12 @@
 import { privateAxios, publicAxios } from "./instances";
 
 import { useQuery } from "../hooks/useQuery";
+import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
 import { AccessTokenStr, RefreshTokenStr } from "../consts";
 
 const Query = (url) => useQuery(privateAxios, url);
+
+const QueryWithInfiteScroll = (url) => useInfiniteScroll(privateAxios, url);
 
 const get = (url) => privateAxios.get(url);
 
@@ -28,6 +31,7 @@ const refreshToken = async () => {
 
 export const apiProvider = {
   Query,
+  QueryWithInfiteScroll,
   login,
   post,
   put,

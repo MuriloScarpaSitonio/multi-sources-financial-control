@@ -29,7 +29,9 @@ class PassiveIncomeTypes(DjangoChoices):
         label="Juros sobre capital próprio",
         valid_assets=(AssetTypes.stock,),
     )
-    income = ChoiceItem("INCOME", label="Rendimento", valid_assets=(AssetTypes.fii,))
+    income = ChoiceItem(
+        "INCOME", label="Rendimento", valid_assets=(AssetTypes.fii, AssetTypes.stock)
+    )
 
 
 class PassiveIncomeEventTypes(DjangoChoices):

@@ -51,7 +51,12 @@ def _save_cei_transactions(
             transaction.save(update_fields=("initial_price",))
 
 
-@shared_task(bind=True, name="sync_cei_transactions_task", base=TaskWithHistory)
+@shared_task(
+    bind=True,
+    name="sync_cei_transactions_task",
+    base=TaskWithHistory,
+    notification_display="Transações do CEI",
+)
 def sync_cei_transactions_task(self, username: str) -> int:
     url = build_url(
         url=settings.CRAWLERS_URL,
@@ -60,7 +65,7 @@ def sync_cei_transactions_task(self, username: str) -> int:
             "username": username,
             # there's one day delay for transactions to appear at CEI
             "start_date": self.get_last_run(
-                username=username, as_date=True, timedelta_kwargs={"days": 1}
+                username=username, as_date=True, timedelta_kwargs={"days": 2}
             ),
             "end_date": timezone.now().date() - timedelta(days=1),
         },

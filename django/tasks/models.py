@@ -1,4 +1,5 @@
 from typing import Optional
+
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
@@ -35,13 +36,36 @@ class TaskHistory(models.Model):
 
     __repr__ = __str__
 
+    @property
+    def is_transaction_task(self):
+        # in a bigger project we'd store this kind of configuration in the DB
+        return self.name in (
+            "sync_cei_transactions_task",
+            "sync_binance_transactions_task",
+            "sync_kucoin_transactions_task",
+        )
+
+    @property
+    def is_passive_incomes_task(self):
+        # in a bigger project we'd store this kind of configuration in the DB
+        return self.name in ("sync_cei_passive_incomes_task",)
+
+    @property
+    def is_prices_task(self):
+        # in a bigger project we'd store this kind of configuration in the DB
+        return self.name in ("fetch_current_assets_prices",)
+
+    @property
+    def is_failed_task(self):
+        return self.state == TaskStates.failure
+
     def start(self) -> None:
         self.started_at = timezone.now()
         self.state = TaskStates.started
-        self.save(update_fields=("started_at", "state"))
+        self.save(update_fields=("started_at", "state", "updated_at"))
 
     def finish(self, error: Optional[str] = None) -> None:
-        update_fields = ("finished_at", "state")
+        update_fields = ("finished_at", "state", "updated_at")
         self.finished_at = timezone.now()
         if error is None:
             self.state = TaskStates.success

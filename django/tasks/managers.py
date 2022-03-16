@@ -1,6 +1,6 @@
-from django.db.models import F, QuerySet
+from django.db.models import F, Q, QuerySet
 
 
 class TaskHistoryQuerySet(QuerySet):
-    def to_notify(self):
-        return self.filter(notified_at__lt=F("updated_at"))
+    def was_updated_after_notified(self):
+        return self.filter(Q(notified_at__lt=F("updated_at")) | Q(notified_at__isnull=True))

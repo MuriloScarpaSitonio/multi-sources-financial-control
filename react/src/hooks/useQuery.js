@@ -17,6 +17,5 @@ export const useQuery = (instance, url) => {
     return () => clearTimeout(typingDelay);
   }, [url, instance]);
 
-  // console.log('useQuery =', data)
   return [data, isLoaded, error];
 };

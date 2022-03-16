@@ -7,8 +7,6 @@ from celery import Task
 from billiard.einfo import ExceptionInfo
 from requests.exceptions import RequestException
 
-from variable_income_assets.models import Asset
-
 from .choices import TaskStates
 from .models import TaskHistory
 
@@ -18,6 +16,14 @@ class TaskWithHistory(Task):
     max_retries = 5
     retry_backoff = True
     retry_backoff_max = 300  # 5min
+
+    @classmethod
+    def get_notification_display_map(cls):
+        return {
+            task_name: task.notification_display
+            for task_name, task in cls.app.tasks.items()
+            if getattr(task, "notification_display", None) is not None
+        }
 
     def get_last_run(
         self, username: str, as_date: bool = False, timedelta_kwargs: Dict[str, int] = dict()
@@ -43,7 +49,7 @@ class TaskWithHistory(Task):
         super().on_success(retval, task_id, args, kwargs)
 
     def get_extra_kwargs_from_queryset(self, queryset: QuerySet) -> Dict[str, Any]:
-        # in a bigger project we'd store this kind of configuration on the DB
+        # in a bigger project we'd store this kind of configuration in the DB
         return (
             {"codes": list(queryset.opened().values_list("code", flat=True))}
             if self.name == "fetch_current_assets_prices"
