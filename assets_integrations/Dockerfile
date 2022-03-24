@@ -6,7 +6,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential gcc
 
-WORKDIR /app/fastapi
+WORKDIR /app/assets_integrations
 COPY pyproject.toml poetry.lock ./
 
 RUN pip install poetry

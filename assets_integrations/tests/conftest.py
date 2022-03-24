@@ -9,9 +9,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlmodel import SQLModel
 
-from crawlers.database import Base
-from crawlers.database.models import User
-from crawlers.main import app, get_db
+from src.database import Base
+from src.database.models import User
+from src.main import app, get_db
 
 
 engine = create_engine(

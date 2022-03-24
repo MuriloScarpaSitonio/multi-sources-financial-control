@@ -27,18 +27,18 @@ services:
   #   depends_on:
   #     - django
 
-  fastapi:
-    container_name: fastapi
+  assets_integrations:
+    container_name: assets_integrations
     build:
-      context: ./fastapi
+      context: ./assets_integrations
     volumes:
-      - ./fastapi:/app/fastapi
-      - ./django/db.sqlite3:/app/fastapi/db.sqlite3
+      - ./assets_integrations:/app/assets_integrations
+      - ./django/db.sqlite3:/app/assets_integrations/db.sqlite3
     ports:
       - 5000:5000
     environment:
       - DATABASE_URL=sqlite:///db.sqlite3
-    command: uvicorn crawlers.main:app --reload --host=0.0.0.0 --port=5000
+    command: uvicorn src.main:app --reload --host=0.0.0.0 --port=5000
 
   rabbitmq:
     image: rabbitmq:3.9.5-management
