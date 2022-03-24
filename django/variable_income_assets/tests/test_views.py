@@ -20,6 +20,7 @@ from authentication.tests.conftest import (
 from config.settings.base import BASE_API_URL
 
 from .shared import (
+    convert_to_percentage_and_quantitize,
     get_adjusted_avg_price_brute_forte,
     get_roi_brute_force,
     get_total_bought_brute_force,
@@ -330,6 +331,39 @@ def test_should_get_report(client):
         for choice, label in AssetTypes.labels.items():
             if label == result["type"]:
                 assert totals[choice] == result["total"]
+
+
+@pytest.mark.usefixtures("report_data")
+def test_should_get_report_as_percentage(client):
+    # GIVEN
+    current_total = Asset.objects.current_total()["current_total"]
+    totals = {
+        "stock": sum(
+            asset.current_price * asset.quantity_from_transactions
+            for asset in Asset.objects.stocks().opened()
+        ),
+        "crypto": sum(
+            asset.current_price * asset.quantity_from_transactions
+            for asset in Asset.objects.cryptos().opened()
+        ),
+    }
+
+    # WHEN
+    response = client.get(f"{URL}/report?percentage=true")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    for result in response.json():
+        for choice, label in AssetTypes.labels.items():
+            if label == result["type"]:
+                assert (
+                    float(
+                        convert_to_percentage_and_quantitize(
+                            value=totals[choice], total=current_total
+                        )
+                    )
+                    == result["total"]
+                )
 
 
 @pytest.mark.parametrize(

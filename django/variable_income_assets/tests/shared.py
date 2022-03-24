@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from ..choices import TransactionCurrencies
 from ..models import Asset
@@ -84,3 +84,10 @@ def get_roi_brute_force(asset: Asset):
     return (price * adjusted_quantity) - (
         (avg_price * adjusted_quantity) - total_incomes - total_sold
     )
+
+
+def convert_to_percentage_and_quantitize(
+    value: Decimal, total: Decimal, decimal_places: int = 2, rounding: str = ROUND_HALF_UP
+) -> Decimal:
+    value = (value / total) * Decimal("100.0")
+    return value.quantize(Decimal(".1") ** decimal_places, rounding=rounding)

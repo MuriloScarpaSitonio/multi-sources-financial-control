@@ -43,6 +43,8 @@ class TaskHistorySerializer(serializers.ModelSerializer):
         )
 
     def get_notification_display_text(self, obj: TaskHistory) -> str:
+        text = ""
+
         # in a bigger project we'd store this kind of configuration in the DB
         if obj.is_failed_task:
             text = "Por favor, clique para visitar a página da tarefa e ver o erro completo"
@@ -52,8 +54,6 @@ class TaskHistorySerializer(serializers.ModelSerializer):
             text = f"{obj.incomes.count()} rendimentos passivos encontrados"
         elif obj.is_prices_task:
             text = "Preços atualizados"
-        else:
-            text = ""
 
         return text
 

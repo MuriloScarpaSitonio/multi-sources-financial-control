@@ -36,12 +36,16 @@ def _save_cei_passive_incomes(
                 code=code,
                 type=AssetTypes.stock,
             )
+
+        # TODO: fix PassiveIncome.MultipleObjectsReturned
         income, created = PassiveIncome.objects.update_or_create(
             asset=asset,
             type=getattr(PassiveIncomeTypes, income_type),
             amount=passive_income["net_value"],
-            operation_date=passive_income["operation_date"],
-            defaults={"event_type": getattr(PassiveIncomeEventTypes, passive_income["event_type"])},
+            defaults={
+                "operation_date": passive_income["operation_date"],
+                "event_type": getattr(PassiveIncomeEventTypes, passive_income["event_type"]),
+            },
         )
 
         if created:

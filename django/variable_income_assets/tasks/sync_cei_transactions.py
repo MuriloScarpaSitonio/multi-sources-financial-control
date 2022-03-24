@@ -42,13 +42,21 @@ def _save_cei_transactions(
                 type=AssetTypes.stock,
             )
 
-        transaction = serializer.create(asset=asset, task_history=task_history)
+        transaction, created = serializer.get_or_create(asset=asset)
 
+        update_fields = []
         if transaction.action == TransactionActions.sell:
             # we must save each transaction individually to make sure we are setting
             # `initial_price` accorddingly
             transaction.initial_price = asset.avg_price_from_transactions
-            transaction.save(update_fields=("initial_price",))
+            update_fields.append("initial_price")
+
+        if created:
+            transaction.fetched_by = task_history
+            update_fields.append("fetched_by")
+
+        if update_fields:
+            transaction.save(update_fields=update_fields)
 
 
 @shared_task(

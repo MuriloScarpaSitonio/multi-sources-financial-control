@@ -1,10 +1,9 @@
-from typing import Any, Union
+from typing import Any, Optional
 
 from cryptography.fernet import Fernet
 
 from django.conf import settings
 from django.db import models
-from django.utils import encoding
 from django.utils.encoding import force_bytes, force_str
 from django.utils.functional import cached_property
 from django.db.backends.base.base import BaseDatabaseWrapper
@@ -24,15 +23,13 @@ class EncryptedField(models.CharField):
     def get_internal_type(self) -> str:
         return "BinaryField"
 
-    def get_db_prep_save(
-        self, value: Any, connection: BaseDatabaseWrapper
-    ) -> Union[memoryview, None]:
+    def get_db_prep_save(self, value: Any, connection: BaseDatabaseWrapper) -> Optional[memoryview]:
         value = super().get_db_prep_save(value, connection)
         if value is not None:
             encrypted_value = self.fernet.encrypt(data=force_bytes(s=value))
             return connection.Database.Binary(encrypted_value)
 
-    def from_db_value(self, value: bytes, *args) -> Union[str, None]:
+    def from_db_value(self, value: bytes, *_) -> Optional[str]:
         if value is not None:
             decrypted_value = self.fernet.decrypt(token=value)
             return force_str(s=decrypted_value)

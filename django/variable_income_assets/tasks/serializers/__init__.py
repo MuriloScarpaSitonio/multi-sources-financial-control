@@ -1,4 +1,6 @@
 from copy import deepcopy
+from typing import Tuple
+
 from rest_framework import ISO_8601, serializers
 
 from shared.serializers_utils import CustomChoiceField
@@ -40,13 +42,11 @@ class CeiTransactionSerializer(serializers.Serializer):
     operation_date = serializers.DateField(input_formats=(ISO_8601,))
     action = CeiTransactionChoiceField(choices=TransactionActions.choices)
 
-    def create(self, asset: Asset, task_history: TaskHistory) -> Transaction:
-        data = deepcopy(self.validated_data)
-        data.update(
-            {
-                "price": data.pop("unit_price"),
-                "quantity": data.pop("unit_amount"),
-                "created_at": data.pop("operation_date"),
-            }
+    def get_or_create(self, asset: Asset) -> Tuple[Transaction, bool]:
+        return Transaction.objects.get_or_create(
+            asset=asset,
+            price=self.validated_data["unit_price"],
+            quantity=self.validated_data["unit_amount"],
+            created_at=self.validated_data["operation_date"],
+            defaults={"action": getattr(TransactionActions, self.validated_data["action"])},
         )
-        return Transaction.objects.create(asset=asset, fetched_by=task_history, **data)
