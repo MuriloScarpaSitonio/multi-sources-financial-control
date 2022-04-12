@@ -128,7 +128,8 @@ const ExpenseHorizontalMultipleBarChart = ({
       type="number"
       tickFormatter={(t) => `R$ ${t.toLocaleString("pt-br")}`}
     />
-    <YAxis type="category" dataKey={dataKey} yAxisId={0} />
+    {/* minTickGap is required in order to show all labels. Default is 5  */}
+    <YAxis minTickGap={4} type="category" dataKey={dataKey} yAxisId={0} />
     <YAxis type="category" dataKey={dataKey} yAxisId={1} hide />
     <ChartTooltip
       cursor={{ fill: "#f5f5f5" }}

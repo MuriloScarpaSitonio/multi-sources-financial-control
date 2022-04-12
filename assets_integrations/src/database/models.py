@@ -1,7 +1,6 @@
 from typing import Optional
-from sqlalchemy.orm.relationships import RelationshipProperty
 
-from sqlmodel import Column, Field, ForeignKey, SQLModel, Relationship
+from sqlmodel import Field, SQLModel, Relationship
 from pydantic import SecretBytes
 
 

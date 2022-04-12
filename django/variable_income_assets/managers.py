@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Dict, Iterable, Union
+from typing import Dict, Union
 
 from django.db.models import Case, F, OuterRef, Q, Subquery, Sum, Value, When
 from django.db.models.expressions import CombinedExpression
@@ -14,13 +14,7 @@ from .expressions import GenericQuerySetExpressions
 
 
 class AssetQuerySet(CustomQueryset):
-    _expressions = GenericQuerySetExpressions(prefix="transactions")
-
-    # total_bought, total_sold, current_total
-    # avg_price
-    @property
-    def expressions(self):
-        return getattr(self, "__expressions", self._expressions)
+    expressions = GenericQuerySetExpressions(prefix="transactions")
 
     @staticmethod
     def _get_passive_incomes_subquery(
@@ -129,7 +123,6 @@ class AssetQuerySet(CustomQueryset):
             Transaction.objects.filter(asset=OuterRef("pk"))
             .values("asset__pk")  # group by as we can't aggregate directly
             .annotate(balance=TransactionQuerySet.expressions.quantity_balance)
-            .values("balance")
         )
 
         # expression = Case(

@@ -278,7 +278,7 @@ export const Navbar = ({ hideValuesToggler }) => {
             </IconButton>
           </Tooltip>
           <Tooltip title="Minhas receitas">
-            <IconButton size="large" color="black">
+            <IconButton size="large" color="black" href="/revenues">
               <AccountBalanceIcon />
             </IconButton>
           </Tooltip>

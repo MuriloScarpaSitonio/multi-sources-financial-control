@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "revenues"
+version = "0.1.0"
+description = ""
+authors = ["MuriloScarpaSitonio <muriloscarpa@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+fastapi = "^0.75.0"
+uvicorn = {extras = ["standard"], version = "^0.17.6"}
+sqlmodel = "^0.0.6"
+python-decouple = "^3.6"
+fastapi-pagination = {extras = ["sqlalchemy"], version = "^0.9.1"}
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+black = "^22.1.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88

@@ -13,6 +13,7 @@ import { useHideValues } from "./hooks/useHideValues";
 import Assets from "./pages/Assets";
 import Expenses from "./pages/Expenses";
 import { Login } from "./pages/Login";
+import Revenues from "./pages/Revenues";
 
 import { AccessTokenStr } from "./consts";
 
@@ -67,6 +68,9 @@ export default function App() {
       </Switch>
       <Switch>
         <PrivateRoute exact path="/assets" component={Assets} />
+      </Switch>
+      <Switch>
+        <PrivateRoute exact path="/revenues" component={Revenues} />
       </Switch>
     </Router>
   );

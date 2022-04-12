@@ -51,6 +51,15 @@ export class RevenuesApi extends Api {
   }
 }
 
+export class FastApiRevenue {
+  constructor() {
+    this.indicators = () => apiProvider.getRevenues("indicators");
+    this.list = () => apiProvider.getRevenues("revenues");
+    this.delete = (id) => apiProvider.deleteRevenue(`revenues/${id}`);
+    this.historic = () => apiProvider.getRevenues("historic");
+  }
+}
+
 export class AuthenticationApi {
   constructor() {
     this.login = (data) => apiProvider.login(data);

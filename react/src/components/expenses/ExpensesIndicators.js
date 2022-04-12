@@ -24,7 +24,7 @@ import ArrowUpwardIcon from "@material-ui/icons/ArrowUpward";
 import AddIcon from "@material-ui/icons/Add";
 import MonetizationOnIcon from "@material-ui/icons/MonetizationOn";
 
-import { ExpensesApi, RevenuesApi } from "../../api";
+import { ExpensesApi, FastApiRevenue, RevenuesApi } from "../../api";
 import { RevenuesForm } from "../../forms/RevenuesForm";
 import { FormFeedback } from "../FormFeedback";
 
@@ -134,10 +134,10 @@ const Indicators = ({
   secondaryIcon,
   setCreateRevenueDialogIsOpened = null,
 }) => {
-  const indicatorsMonth = indicators.month.split("/")[1];
   const currentMonth = new Date().getMonth() + 1;
   const isRevenue = title.includes("RECEITA");
-  const isPastRevenue = isRevenue && parseInt(indicatorsMonth) !== currentMonth;
+  const indicatorsMonth = isRevenue && indicators.month;
+  const isPastRevenue = isRevenue && indicatorsMonth !== currentMonth;
   const borderStyle = isPastRevenue ? "1px solid red" : "1px solid white";
   const hideValues = Boolean(window.localStorage.getItem("hideValues"));
 
@@ -178,7 +178,7 @@ const Indicators = ({
           {secondaryIcon}
           <Typography variant="body2">
             {`${
-              indicators.diff_percentage?.toLocaleString("pt-br", {
+              indicators.diff?.toLocaleString("pt-br", {
                 minimumFractionDigits: 2,
               }) || 0
             }%`}
@@ -188,7 +188,11 @@ const Indicators = ({
             variant="body2"
             style={{ marginLeft: "8px" }}
           >
-            Em relação ao último mês
+            Em relação a média (
+            {`R$ ${indicators.avg?.toLocaleString("pt-br", {
+              minimumFractionDigits: 2,
+            })}`}
+            )
           </Typography>
           {isRevenue && (
             <Box sx={{ ml: 1 }}>
@@ -240,7 +244,7 @@ export const ExpensesIndicators = () => {
   function fetchData() {
     setIsLoaded(false);
     let expensesApi = new ExpensesApi();
-    let revenuesApi = new RevenuesApi();
+    let revenuesApi = new FastApiRevenue();
 
     axios
       .all([expensesApi.indicators(), revenuesApi.indicators()])

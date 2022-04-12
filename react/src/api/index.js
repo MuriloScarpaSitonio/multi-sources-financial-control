@@ -4,3 +4,4 @@ export { ExpensesApi } from "./core";
 export { IncomesApi } from "./core";
 export { RevenuesApi } from "./core";
 export { TasksApi } from "./core";
+export { FastApiRevenue } from "./core";

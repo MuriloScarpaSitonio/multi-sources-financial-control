@@ -9,3 +9,6 @@ incomes_router = DefaultRouter(trailing_slash=False)
 incomes_router.register(prefix="incomes", viewset=PassiveIncomeViewSet, basename="incomes")
 
 urlpatterns = assets_router.urls + incomes_router.urls
+
+# from variable_income_assets.scripts import generate_irpf
+# generate_irpf()
