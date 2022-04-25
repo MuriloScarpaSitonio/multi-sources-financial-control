@@ -3,6 +3,7 @@ import operator
 
 import pytest
 
+
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN
 
 from authentication.tests.conftest import (
@@ -17,7 +18,7 @@ from authentication.tests.conftest import (
     user_with_kucoin_integration,
     user_without_assets_price_integration,
 )
-from config.settings.base import BASE_API_URL
+from config.settings.base import BASE_API_URL, DOLLAR_CONVERSION_RATE
 
 from .shared import (
     convert_to_percentage_and_quantitize,
@@ -291,7 +292,7 @@ def test_should_get_indicators(client):
         r = asset.current_price or Decimal()
         if asset.currency != TransactionCurrencies.real:
             # TODO: change this hardcoded conversion to a dynamic one
-            r *= Decimal("5.68")
+            r *= DOLLAR_CONVERSION_RATE
         current_total += (r) * asset.quantity_from_transactions
 
     roi_opened = sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.opened())

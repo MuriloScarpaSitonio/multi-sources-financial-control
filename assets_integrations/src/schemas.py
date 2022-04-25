@@ -83,7 +83,7 @@ class KuCoinOrder(BaseModel):
     def dict(self, **kwargs) -> Dict[str, Union[str, Decimal, int]]:
         exclude = getattr(self.Config, "exclude", None)
         kwargs["exclude"] = (
-            kwargs["exclude"] + exclude if kwargs["exclude"] is not None else exclude
+            kwargs["exclude"] + exclude if kwargs.get("exclude") is not None else exclude
         )
         return super().dict(**kwargs)
 
@@ -127,10 +127,8 @@ class BinanceTradeTransaction(BaseModel):
     def dict(self, **kwargs) -> Dict[str, Union[str, Decimal, int]]:
         exclude = getattr(self.Config, "exclude", None)
         kwargs["exclude"] = (
-            kwargs["exclude"] + exclude if kwargs["exclude"] is not None else exclude
+            kwargs["exclude"] + exclude if kwargs.get("exclude") is not None else exclude
         )
-        # exclude |= kwargs.get("exclude", set())
-        # kwargs["exclude"] = exclude
         return super().dict(**kwargs)
 
     @validator("clientOrderId")

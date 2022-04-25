@@ -1,5 +1,7 @@
 from decimal import Decimal, ROUND_HALF_UP
 
+from config.settings.base import DOLLAR_CONVERSION_RATE
+
 from ..choices import TransactionCurrencies
 from ..models import Asset
 
@@ -13,7 +15,7 @@ def _get_total_sold_brute_force(asset: Asset):
     )
     if asset.currency != TransactionCurrencies.real:
         # TODO: change this hardcoded conversion to a dynamic one
-        result *= Decimal("5.68")
+        result *= DOLLAR_CONVERSION_RATE
     return result
 
 
@@ -23,7 +25,7 @@ def get_total_bought_brute_force(asset: Asset):
     )
     if asset.currency != TransactionCurrencies.real:
         # TODO: change this hardcoded conversion to a dynamic one
-        result *= Decimal("5.68")
+        result *= DOLLAR_CONVERSION_RATE
     return result
 
 
@@ -37,7 +39,7 @@ def get_avg_price_bute_force(asset: Asset):
     weights = sum(weights)
     if asset.currency != TransactionCurrencies.real:
         # TODO: change this hardcoded conversion to a dynamic one
-        weights *= Decimal("5.68")
+        weights *= DOLLAR_CONVERSION_RATE
 
     return weights / sum(quantities)
 
@@ -65,7 +67,7 @@ def get_adjusted_avg_price_brute_forte(asset: Asset):
     weights = sum(weights)
     if asset.currency != TransactionCurrencies.real:
         # TODO: change this hardcoded conversion to a dynamic one
-        weights *= Decimal("5.68")
+        weights *= DOLLAR_CONVERSION_RATE
     avg_price = weights / sum(quantities)
     incomes_sum = sum((income.amount for income in asset.incomes.credited()))
     return ((avg_price * adjusted_quantity) - incomes_sum) / adjusted_quantity
@@ -80,7 +82,7 @@ def get_roi_brute_force(asset: Asset):
     price = asset.current_price or Decimal()
     if asset.currency != TransactionCurrencies.real:
         # TODO: change this hardcoded conversion to a dynamic one
-        price *= Decimal("5.68")
+        price *= DOLLAR_CONVERSION_RATE
     return (price * adjusted_quantity) - (
         (avg_price * adjusted_quantity) - total_incomes - total_sold
     )

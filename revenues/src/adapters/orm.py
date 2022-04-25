@@ -1,5 +1,3 @@
-from typing import List
-
 from sqlmodel import (
     Column,
     create_engine,
@@ -8,7 +6,6 @@ from sqlmodel import (
     ForeignKey,
     Integer,
     Numeric,
-    Relationship,
     SQLModel,
     String,
     Table,
@@ -44,5 +41,5 @@ def start_mappers() -> None:
     mapper(Revenue, revenues)
 
 
-def create_tables() -> None:
+def create_tables() -> None:  # pragma: no cover
     SQLModel.metadata.create_all(engine)

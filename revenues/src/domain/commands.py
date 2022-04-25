@@ -1,16 +1,16 @@
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
-from typing import Optional
-from dataclasses import dataclass, field
+
+from .models import Revenue
+from .utils import generate_pydantic_model
 
 
 class Command:
     pass
 
 
-@dataclass
-class CreateRevenue(Command):
-    value: Decimal
-    description: str
-    user_id: int
-    created_at: date = datetime.now().date()
+RevenuePydanticModel = generate_pydantic_model(Revenue)
+
+
+class CreateRevenue(RevenuePydanticModel, Command):
+    pass

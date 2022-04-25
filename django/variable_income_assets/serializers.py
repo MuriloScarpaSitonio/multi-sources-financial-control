@@ -2,6 +2,7 @@ from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_UP, DecimalException
 
 from rest_framework import serializers
 
+from config.settings.base import DOLLAR_CONVERSION_RATE
 from shared.serializers_utils import CustomChoiceField
 
 from .choices import AssetTypes, PassiveIncomeEventTypes, PassiveIncomeTypes, TransactionCurrencies
@@ -53,7 +54,7 @@ class AssetSerializer(serializers.ModelSerializer):
             (value or Decimal())
             if currency == TransactionCurrencies.real
             # TODO: change this hardcoded conversion to a dynamic one
-            else (value or Decimal()) * Decimal("5.68")
+            else (value or Decimal()) * DOLLAR_CONVERSION_RATE
         )
 
     def get_current_price(self, obj: Asset) -> Decimal:

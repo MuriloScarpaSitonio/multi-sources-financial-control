@@ -1,12 +1,15 @@
 from decimal import Decimal
 from typing import Optional, Union
 
+
 from django.db.models import Case, Expression, F, Q, Value, When
 from django.db.models.expressions import CombinedExpression
 from django.utils.functional import cached_property
 from django.db.models.functions import Coalesce
 
+from config.settings.base import DOLLAR_CONVERSION_RATE
 from shared.utils import coalesce_sum_expression
+
 from .choices import TransactionActions, TransactionCurrencies
 
 
@@ -27,7 +30,9 @@ class GenericQuerySetFilters(_GenericQuerySetMixin):
 
 class GenericQuerySetExpressions(_GenericQuerySetMixin):
     def __init__(
-        self, prefix: Optional[str] = None, dollar_conversion_rate: Decimal = Decimal("5.68")
+        self,
+        prefix: Optional[str] = None,
+        dollar_conversion_rate: Decimal = DOLLAR_CONVERSION_RATE,
     ) -> None:
         super().__init__(prefix=prefix)
         self.dollar_conversion_rate = Value(dollar_conversion_rate)

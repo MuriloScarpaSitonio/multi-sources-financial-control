@@ -31,14 +31,13 @@ class TaskWithHistory(Task):
         last_history = TaskHistory.objects.filter(
             name=self.name, state=TaskStates.success, created_by__username=username
         ).first()
-        if last_history is not None:
-            finished_at = last_history.finished_at
-            if finished_at is not None:
-                return (
-                    finished_at.date() - timedelta(**timedelta_kwargs)
-                    if as_date
-                    else finished_at - timedelta(**timedelta_kwargs)
-                )
+        finished_at = last_history.finished_at if last_history is not None else None
+        if finished_at is not None:
+            return (
+                finished_at.date() - timedelta(**timedelta_kwargs)
+                if as_date
+                else finished_at - timedelta(**timedelta_kwargs)
+            )
 
     def on_failure(self, exc, task_id, args, kwargs, einfo: ExceptionInfo) -> None:
         TaskHistory.objects.get(pk=task_id).finish(error=str(einfo.exception))

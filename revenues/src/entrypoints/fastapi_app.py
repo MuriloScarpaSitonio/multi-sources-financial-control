@@ -1,15 +1,17 @@
-from typing import Any, Dict, Iterator, Optional, Tuple, Type
+from decimal import Decimal
+from typing import Iterator, List
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import create_model
 
 from sqlmodel import Session, SQLModel
 from fastapi_pagination import Page, add_pagination
 from fastapi_pagination.ext.sqlalchemy import paginate
 
 from ..adapters import orm
-from ..domain.commands import CreateRevenue as CreateRevenueCommand
+from ..adapters.repository import HistoricResponseType, IndicatorsResponseType
+from ..domain.commands import CreateRevenue
 from ..domain.models import Revenue
+from ..domain.utils import generate_pydantic_model
 from ..service_layer import messagebus
 from ..service_layer.unit_of_work import SqlModelUnitOfWork
 
@@ -24,12 +26,12 @@ app.add_middleware(
 
 
 @app.on_event("startup")
-def on_startup():
+def on_startup():  # pragma: no cover
     orm.create_tables()
     orm.start_mappers()
 
 
-def get_session() -> Iterator[Session]:
+def get_session() -> Iterator[Session]:  # pragma: no cover
     with Session(orm.engine) as session:
         yield session
 
@@ -38,37 +40,25 @@ def get_user_id() -> int:
     return 1
 
 
-def generate_response_model(
-    clas: Type[Any],
-    default_field_definitions: Optional[Dict[str, Tuple[type, Any]]] = None,
-    model_name_suffix: str = "ReadModel",
-) -> Type[SQLModel]:
-    field_definitions = default_field_definitions if default_field_definitions is not None else {}
-    for name, annotation in clas.__init__.__annotations__.items():
-        field_definitions[name] = (annotation, clas.__init__.__kwdefaults__.get(name, ...))
-    new_class = create_model(
-        clas.__name__ + model_name_suffix, __base__=SQLModel, **field_definitions
-    )
-    return new_class
-
-
-RevenueReadModel = generate_response_model(Revenue, default_field_definitions={"id": (int, ...)})
-
-
-@app.get("/indicators/")
+@app.get("/indicators/", response_model=IndicatorsResponseType)
 def revenue_indicators_endpoint(
     user_id: int = Depends(get_user_id), session: Session = Depends(get_session)
 ):
     with SqlModelUnitOfWork(user_id=user_id, session=session) as uow:
-        return uow.revenues.indicators()
+        return uow.revenues.query.indicators()
 
 
-@app.get("/historic/")
-def revenue_indicators_endpoint(
+@app.get("/historic/", response_model=List[HistoricResponseType])
+def revenue_historic_endpoint(
     user_id: int = Depends(get_user_id), session: Session = Depends(get_session)
 ):
     with SqlModelUnitOfWork(user_id=user_id, session=session) as uow:
-        return uow.revenues.historic()
+        return uow.revenues.query.historic()
+
+
+RevenueReadModel = generate_pydantic_model(
+    Revenue, __base__=SQLModel, default_field_definitions={"id": (int, ...)}
+)
 
 
 @app.get("/revenues/{revenue_id}", response_model=RevenueReadModel)
@@ -76,10 +66,21 @@ def get_revenue_endpoint(
     revenue_id: int, user_id: int = Depends(get_user_id), session: Session = Depends(get_session)
 ):
     with SqlModelUnitOfWork(user_id=user_id, session=session) as uow:
-        revenue = uow.revenues.get(revenue_id=revenue_id)
+        revenue = uow.revenues.query.get(revenue_id=revenue_id)
         if revenue is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Revenue not found")
-        return revenue
+        # else:
+        #     # without `__dict__` we get `sqlalchemy.orm.exc.DetachedInstanceError`
+        #     # we also can't return directly because we get a strange
+        #     # `pydantic.error_wrappers.ValidationError` for `id`, `value` and `description`
+        #     revenue = revenue.__dict__
+
+        return {
+            "id": revenue.id,
+            "value": revenue.value,
+            "description": revenue.description,
+            "created_at": revenue.created_at,
+        }
 
 
 @app.get("/revenues/", response_model=Page[RevenueReadModel])
@@ -87,7 +88,7 @@ def list_revenue_endpoint(
     user_id: int = Depends(get_user_id), session: Session = Depends(get_session)
 ):
     with SqlModelUnitOfWork(user_id=user_id, session=session) as uow:
-        return paginate(uow.revenues.list())
+        return paginate(uow.revenues.query.list())
 
 
 @app.delete("/revenues/{revenue_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -101,17 +102,23 @@ def delete_revenue_endpoint(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Revenue not found")
 
 
-RevenueWriteModel = generate_response_model(Revenue, model_name_suffix="WriteModel")
+RevenueWriteModel = generate_pydantic_model(
+    Revenue, __base__=SQLModel, model_name_suffix="PydanticWriteModel"
+)
 
 
-@app.post("/revenues/")
+@app.post("/revenues/", status_code=status.HTTP_204_NO_CONTENT)
 def create_revenue_endpoint(
     revenue: RevenueWriteModel,
     user_id: int = Depends(get_user_id),
     session: Session = Depends(get_session),
 ):
-    cmd = CreateRevenueCommand(user_id=user_id, **revenue.dict())
-    messagebus.handle(cmd, SqlModelUnitOfWork(session=session))
+    messagebus.handle(
+        message=CreateRevenue(**revenue.dict()),
+        uow=SqlModelUnitOfWork(user_id=user_id, session=session),
+    )
 
 
 add_pagination(app)
+
+# TODO: onde emitir `RevenueCreated`?

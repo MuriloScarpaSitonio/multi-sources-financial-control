@@ -59,7 +59,6 @@ def save_crypto_transactions(
 ) -> None:
     assets = dict()
     for data in response.json():
-        print(data)
         code = data.pop("code")
         if data["currency"] == "USDT":
             data.update(currency="USD")

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from pathlib import Path
 
 from decouple import Csv, config as secret
@@ -176,3 +177,5 @@ CELERY_TASK_ALWAYS_EAGER = True
 CELERY_ACCEPT_CONTENT = ["application/json"]
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TASK_SERIALIZER = "json"
+
+DOLLAR_CONVERSION_RATE = Decimal("4.80")
