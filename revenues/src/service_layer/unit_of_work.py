@@ -3,9 +3,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Iterator
 
-from sqlmodel import Session
+from pymongo.client_session import ClientSession as MongoSession
 
-from ..adapters.repository import AbstractCommandRepository, SqlModelCommandRepository
+from ..adapters.repository import AbstractCommandRepository, MongoCommandRepository
 from ..domain.models import Revenue
 
 
@@ -38,23 +38,23 @@ class AbstractUnitOfWork(ABC):
         raise NotImplementedError
 
 
-class SqlModelUnitOfWork(AbstractUnitOfWork):
-    revenues: SqlModelCommandRepository
+#! Mongo does not support transactions on a single process, only in replicasets
+class MongoUnitOfWork(AbstractUnitOfWork):
+    revenues: MongoCommandRepository
 
-    def __init__(self, *, user_id: int, session: Session):
+    def __init__(self, *, user_id: int, session: MongoSession):
         super().__init__(user_id=user_id)
         self.session = session
 
-    def __enter__(self) -> SqlModelUnitOfWork:
-        self.revenues = SqlModelCommandRepository(user_id=self.user_id, session=self.session)
+    def __enter__(self) -> MongoUnitOfWork:
+        # self.session.start_transaction()
+        self.revenues = MongoCommandRepository(user_id=self.user_id, session=self.session)
         return super().__enter__()
 
-    def __exit__(self, *args):
-        super().__exit__(*args)
-        self.session.close()
-
     def _commit(self):
-        self.session.commit()
+        # self.session.commit_transaction()
+        pass
 
     def rollback(self):
-        self.session.rollback()
+        # self.session.abort_transaction()
+        pass

@@ -2,87 +2,61 @@ from decimal import Decimal
 from typing import Tuple
 import pytest
 
-from factory.alchemy import SQLAlchemyModelFactory
 from fastapi.testclient import TestClient
-from sqlmodel import SQLModel
-from sqlalchemy import create_engine
-from sqlalchemy.orm import clear_mappers, sessionmaker
+from mongomock import MongoClient as MockedMongoClient
 
-from src.adapters.orm import start_mappers
-from src.entrypoints.fastapi_app import app, get_session
+from src.adapters.mongo import mongo
+from src.entrypoints.fastapi_app import app
 from src.domain.models import Revenue
-
-
-class RevenueFactory(SQLAlchemyModelFactory):
-    class Meta:
-        model = Revenue
+from src.settings import COLLECTION_NAME, DATABASE_NAME
 
 
 @pytest.fixture
-def in_memory_db():
-    engine = create_engine("sqlite:///:memory:")
-    SQLModel.metadata.create_all(engine)
-    return engine
+def mongo_client():
+    class CustomMockedMongoClient(MockedMongoClient):
+        def start_session(self, **_):
+            class Session:
+                def __init__(self, client) -> None:
+                    self._client = client
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *_, **__):
+                    pass
+
+            return Session(client=self)
+
+    return CustomMockedMongoClient()
 
 
 @pytest.fixture
-def sql_session_factory(in_memory_db):
-    start_mappers()
-    yield sessionmaker(bind=in_memory_db)
-    clear_mappers()
+def mongo_session(mongo_client):
+    with mongo_client.start_session() as s:
+        yield s
 
 
 @pytest.fixture
-def sqlite_session(sql_session_factory):
-    return sql_session_factory()
-
-
-@pytest.fixture
-def fastapi_db():
-    engine = create_engine("sqlite:///testdb.sqlite3", connect_args={"check_same_thread": False})
-    SQLModel.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture
-def fastapi_sql_session_factory(fastapi_db):
-    start_mappers()
-    yield sessionmaker(bind=fastapi_db)
-    clear_mappers()
-    SQLModel.metadata.drop_all(fastapi_db)
-
-
-@pytest.fixture
-def fastapi_sqlite_session(fastapi_sql_session_factory):
-    return fastapi_sql_session_factory()
-
-
-@pytest.fixture
-def client(fastapi_sqlite_session):
-    def override_session():
-        return fastapi_sqlite_session
-
-    app.dependency_overrides[get_session] = override_session
-
+def client(mongo_client):
+    mongo.client = mongo_client
     return TestClient(app)
 
 
 @pytest.fixture
-def revenue(fastapi_sqlite_session) -> RevenueFactory:
-    RevenueFactory._meta.sqlalchemy_session = fastapi_sqlite_session
-    rev = RevenueFactory(value=Decimal("100.0"), description="Revenue 01")
-    rev.user_id = 1
-    fastapi_sqlite_session.add(rev)
-    fastapi_sqlite_session.commit()
-    fastapi_sqlite_session.refresh(rev)
+def revenue(mongo_session):
+    rev = Revenue(value=Decimal("100.0"), description="Revenue 01")
+    result = mongo_session._client[DATABASE_NAME][COLLECTION_NAME].insert_one(
+        mongo.convert_to_mongo_doc(revenue=rev, user_id=1)
+    )
+    rev.id = result.inserted_id
     return rev
 
 
 @pytest.fixture
-def revenues(fastapi_sqlite_session, revenue) -> Tuple[RevenueFactory, RevenueFactory]:
-    rev = RevenueFactory(value=Decimal("200.0"), description="Revenue 02")
-    rev.user_id = 1
-    fastapi_sqlite_session.add(rev)
-    fastapi_sqlite_session.commit()
-    fastapi_sqlite_session.refresh(rev)
+def revenues(mongo_session, revenue) -> Tuple[Revenue, Revenue]:
+    rev = Revenue(value=Decimal("200.0"), description="Revenue 02")
+    result = mongo_session._client[DATABASE_NAME][COLLECTION_NAME].insert_one(
+        mongo.convert_to_mongo_doc(revenue=rev, user_id=1)
+    )
+    rev.id = result.inserted_id
     return revenue, rev

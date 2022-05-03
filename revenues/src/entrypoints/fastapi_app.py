@@ -1,19 +1,24 @@
-from decimal import Decimal
-from typing import Iterator, List
-from fastapi import Depends, FastAPI, HTTPException, status
+from typing import Generic, Iterator, List, Sequence, TypeVar
+
+from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 
-from sqlmodel import Session, SQLModel
-from fastapi_pagination import Page, add_pagination
-from fastapi_pagination.ext.sqlalchemy import paginate
+from bson.objectid import ObjectId
+from pydantic import conint, Field
+from pydantic.generics import GenericModel
+from pymongo import MongoClient
+from pymongo.client_session import ClientSession as MongoSession
 
-from ..adapters import orm
+from ..adapters.mongo import mongo, PyObjectId
 from ..adapters.repository import HistoricResponseType, IndicatorsResponseType
 from ..domain.commands import CreateRevenue
 from ..domain.models import Revenue
 from ..domain.utils import generate_pydantic_model
 from ..service_layer import messagebus
-from ..service_layer.unit_of_work import SqlModelUnitOfWork
+from ..service_layer.unit_of_work import MongoUnitOfWork
+from ..settings import DATABASE_URL
+
+# region: app definitions
 
 app = FastAPI()
 app.add_middleware(
@@ -27,12 +32,40 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup():  # pragma: no cover
-    orm.create_tables()
-    orm.start_mappers()
+    mongo.client = MongoClient(host=DATABASE_URL)
 
 
-def get_session() -> Iterator[Session]:  # pragma: no cover
-    with Session(orm.engine) as session:
+@app.on_event("shutdown")
+def on_startup():  # pragma: no cover
+    mongo.client.close()
+
+
+# endregion: app definitions
+
+# region: typing
+
+RevenueReadModel = generate_pydantic_model(
+    Revenue, default_field_definitions={"id": (PyObjectId, Field(alias="_id"))}
+)
+RevenueReadModel.Config.json_encoders = {ObjectId: lambda oid: str(oid)}
+
+T = TypeVar("T")
+
+
+class Page(GenericModel, Generic[T]):
+    items: Sequence[T]
+    total: conint(ge=0)  # type: ignore
+    page: conint(ge=1)  # type: ignore
+    size: conint(ge=1)  # type: ignore
+
+
+# endregion: typing
+
+# region: dependencies
+
+
+def get_session() -> Iterator[MongoSession]:  # pragma: no cover
+    with mongo.client.start_session() as session:
         yield session
 
 
@@ -40,85 +73,73 @@ def get_user_id() -> int:
     return 1
 
 
-@app.get("/indicators/", response_model=IndicatorsResponseType)
-def revenue_indicators_endpoint(
-    user_id: int = Depends(get_user_id), session: Session = Depends(get_session)
-):
-    with SqlModelUnitOfWork(user_id=user_id, session=session) as uow:
-        return uow.revenues.query.indicators()
+# endregion: dependencies
+
+# region: endpoints
 
 
 @app.get("/historic/", response_model=List[HistoricResponseType])
 def revenue_historic_endpoint(
-    user_id: int = Depends(get_user_id), session: Session = Depends(get_session)
+    user_id: int = Depends(get_user_id), session: MongoSession = Depends(get_session)
 ):
-    with SqlModelUnitOfWork(user_id=user_id, session=session) as uow:
+    with MongoUnitOfWork(user_id=user_id, session=session) as uow:
         return uow.revenues.query.historic()
 
 
-RevenueReadModel = generate_pydantic_model(
-    Revenue, __base__=SQLModel, default_field_definitions={"id": (int, ...)}
-)
+@app.get("/indicators/", response_model=IndicatorsResponseType)
+def revenue_indicators_endpoint(
+    user_id: int = Depends(get_user_id), session: MongoSession = Depends(get_session)
+):
+    with MongoUnitOfWork(user_id=user_id, session=session) as uow:
+        return uow.revenues.query.indicators()
 
 
 @app.get("/revenues/{revenue_id}", response_model=RevenueReadModel)
 def get_revenue_endpoint(
-    revenue_id: int, user_id: int = Depends(get_user_id), session: Session = Depends(get_session)
+    revenue_id: PyObjectId,
+    user_id: int = Depends(get_user_id),
+    session: MongoSession = Depends(get_session),
 ):
-    with SqlModelUnitOfWork(user_id=user_id, session=session) as uow:
+    with MongoUnitOfWork(user_id=user_id, session=session) as uow:
         revenue = uow.revenues.query.get(revenue_id=revenue_id)
         if revenue is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Revenue not found")
-        # else:
-        #     # without `__dict__` we get `sqlalchemy.orm.exc.DetachedInstanceError`
-        #     # we also can't return directly because we get a strange
-        #     # `pydantic.error_wrappers.ValidationError` for `id`, `value` and `description`
-        #     revenue = revenue.__dict__
 
-        return {
-            "id": revenue.id,
-            "value": revenue.value,
-            "description": revenue.description,
-            "created_at": revenue.created_at,
-        }
+        return revenue
 
 
 @app.get("/revenues/", response_model=Page[RevenueReadModel])
 def list_revenue_endpoint(
-    user_id: int = Depends(get_user_id), session: Session = Depends(get_session)
+    user_id: int = Depends(get_user_id),
+    session: MongoSession = Depends(get_session),
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=50, ge=1, le=100),
 ):
-    with SqlModelUnitOfWork(user_id=user_id, session=session) as uow:
-        return paginate(uow.revenues.query.list())
+    with MongoUnitOfWork(user_id=user_id, session=session) as uow:
+        cursor = uow.revenues.query.list()
+        return mongo.paginate(cursor=cursor, total=uow.revenues.query.count(), page=page, size=size)
 
 
 @app.delete("/revenues/{revenue_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_revenue_endpoint(
-    revenue_id: int, user_id: int = Depends(get_user_id), session: Session = Depends(get_session)
+    revenue_id: PyObjectId,
+    user_id: int = Depends(get_user_id),
+    session: MongoSession = Depends(get_session),
 ):
-    with SqlModelUnitOfWork(user_id=user_id, session=session) as uow:
+    with MongoUnitOfWork(user_id=user_id, session=session) as uow:
         result = uow.revenues.delete(revenue_id=revenue_id)
         uow.commit()
         if not result:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Revenue not found")
 
 
-RevenueWriteModel = generate_pydantic_model(
-    Revenue, __base__=SQLModel, model_name_suffix="PydanticWriteModel"
-)
-
-
 @app.post("/revenues/", status_code=status.HTTP_204_NO_CONTENT)
-def create_revenue_endpoint(
-    revenue: RevenueWriteModel,
+async def create_revenue_endpoint(
+    revenue: CreateRevenue,
     user_id: int = Depends(get_user_id),
-    session: Session = Depends(get_session),
+    session: MongoSession = Depends(get_session),
 ):
-    messagebus.handle(
-        message=CreateRevenue(**revenue.dict()),
-        uow=SqlModelUnitOfWork(user_id=user_id, session=session),
-    )
+    messagebus.handle(message=revenue, uow=MongoUnitOfWork(user_id=user_id, session=session))
 
 
-add_pagination(app)
-
-# TODO: onde emitir `RevenueCreated`?
+# endregion: endpoints

@@ -3,16 +3,12 @@ from decimal import Decimal
 
 import pytest
 
+from src.settings import COLLECTION_NAME, DATABASE_NAME
 
-def test_get_revenue(client, revenue, fastapi_sql_session_factory):
+
+def test_get_revenue(client, revenue, mongo_session):
     # GIVEN
-    new_session = fastapi_sql_session_factory()
-    rev = dict(
-        new_session.execute(
-            'SELECT * FROM "revenues_revenue" WHERE id = :revenue_id',
-            dict(revenue_id=revenue.id),
-        ).first()
-    )
+    rev = mongo_session._client[DATABASE_NAME][COLLECTION_NAME].find_one({"_id": revenue.id})
 
     # WHEN
     response = client.get(f"/revenues/{revenue.id}")
@@ -20,17 +16,17 @@ def test_get_revenue(client, revenue, fastapi_sql_session_factory):
 
     # THEN
     assert response.status_code == 200
-    assert sorted(response_json.keys()) == ["created_at", "description", "id", "value"]
-    assert response_json["created_at"] == rev["created_at"]
+    assert sorted(response_json.keys()) == ["_id", "created_at", "description", "value"]
+    assert response_json["created_at"] == str(rev["created_at"].date())
     assert response_json["description"] == rev["description"]
-    assert Decimal(response_json["value"]) == Decimal(rev["value"])
+    assert Decimal(response_json["value"]) == rev["value"].to_decimal()
 
 
 def test_should_raise_404_get_revenue_not_found(client):
     # GIVEN
 
     # WHEN
-    response = client.get("/revenues/1111111")
+    response = client.get("/revenues/62707d8ddab7d67bc190e9ca")
 
     # THEN
     assert response.status_code == 404
@@ -64,18 +60,26 @@ def test_should_raise_404_delete_revenue_not_found(client):
     # GIVEN
 
     # WHEN
-    response = client.delete("/revenues/1111111")
+    response = client.delete("/revenues/62707d8ddab7d67bc190e9ca")
 
     # THEN
     assert response.status_code == 404
 
 
 @pytest.mark.usefixtures("revenues")
-def test_revenues_historic(client, fastapi_sql_session_factory):
+def test_revenues_historic(client, mongo_session):
     # GIVEN
     today = date.today()
-    new_session = fastapi_sql_session_factory()
-    [total] = new_session.execute('SELECT SUM(value) FROM "revenues_revenue"').first()
+    total = (
+        mongo_session._client[DATABASE_NAME][COLLECTION_NAME]
+        .aggregate(
+            [
+                {"$group": {"_id": None, "total": {"$sum": "$value"}}},
+                {"$project": {"_id": 0, "total": 1}},
+            ],
+        )
+        .next()
+    )["total"]
 
     # WHEN
     response = client.get("/historic")
@@ -86,15 +90,23 @@ def test_revenues_historic(client, fastapi_sql_session_factory):
     assert len(response_json) == 1
     assert sorted(response_json[0].keys()) == ["date", "total"]
     assert response_json[0]["date"] == f"{today.month}/{today.year}"
-    assert response_json[0]["total"] == total
+    assert str(response_json[0]["total"]) == str(total)
 
 
 @pytest.mark.usefixtures("revenues")
-def test_revenues_indicators(client, fastapi_sql_session_factory):
+def test_revenues_indicators(client, mongo_session):
     # GIVEN
     today = date.today()
-    new_session = fastapi_sql_session_factory()
-    [total] = new_session.execute('SELECT SUM(value) FROM "revenues_revenue"').first()
+    total = (
+        mongo_session._client[DATABASE_NAME][COLLECTION_NAME]
+        .aggregate(
+            [
+                {"$group": {"_id": None, "total": {"$sum": "$value"}}},
+                {"$project": {"_id": 0, "total": 1}},
+            ],
+        )
+        .next()
+    )["total"]
 
     # WHEN
     response = client.get("/indicators")
@@ -103,7 +115,7 @@ def test_revenues_indicators(client, fastapi_sql_session_factory):
     # THEN
     assert response.status_code == 200
     assert sorted(response_json.keys()) == ["avg", "diff", "month", "total", "year"]
-    assert response_json["avg"] == response_json["total"] == total
+    assert str(response_json["avg"]) == str(response_json["total"]) == str(total)
     assert response_json["diff"] == 0
     assert response_json["month"] == today.month
     assert response_json["year"] == today.year

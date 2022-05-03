@@ -1,66 +1,70 @@
-from decimal import Decimal
+from datetime import datetime
+from bson import Decimal128
 
+from freezegun import freeze_time
 import pytest
 
-from src.service_layer.unit_of_work import SqlModelUnitOfWork
+from src.domain.models import Revenue
+from src.service_layer.unit_of_work import MongoUnitOfWork
+from src.settings import COLLECTION_NAME, DATABASE_NAME
 
 
-def insert_revenue(session, value, description, user_id: int = 1):
-    r = session.execute(
-        """
-        INSERT INTO revenues_revenue (user_id, value, description) 
-        VALUES (:user_id, :value, :description)
-        """,
-        dict(user_id=user_id, value=float(value), description=description),
+def insert_revenue(session, value, description, created_at, user_id: int = 1):
+    result = session._client[DATABASE_NAME][COLLECTION_NAME].insert_one(
+        {"user_id": user_id, "value": value, "description": description, "created_at": created_at}
     )
-    return r.lastrowid
+    return result.inserted_id
 
 
-def test_uow_can_retrieve_a_revenue(sql_session_factory):
+@freeze_time("2022-01-01")
+def test_uow_can_retrieve_revenue(mongo_session):
     # GIVEN
-    session = sql_session_factory()
-    value = Decimal("100.0")
+    value = Decimal128("100.0")
     description = "Revenue 01"
+    created_at = datetime.today()
 
-    pk = insert_revenue(session=session, value=value, description=description)
-    session.commit()
+    pk = insert_revenue(
+        session=mongo_session, value=value, description=description, created_at=created_at
+    )
 
     # WHEN
-    with SqlModelUnitOfWork(user_id=1, session=session) as uow:
+    with MongoUnitOfWork(user_id=1, session=mongo_session) as uow:
         revenue = uow.revenues.query.get(revenue_id=pk)
 
         # THEN
-        assert revenue.value == value
-        assert revenue.description == description
-        assert revenue.created_at is None
+        assert revenue["value"] == value
+        assert revenue["description"] == description
+        assert revenue["created_at"] == created_at
 
 
-def test_uow_rolls_back_by_default(sql_session_factory):
+@pytest.mark.skip("Mongo does not support transaction without replicasets")
+def test_uow_rolls_back_by_default(mongo_session):
     # GIVEN
-    session = sql_session_factory()
+    value = Decimal128("100.0")
+    description = "Revenue 01"
 
     # WHEN
-    with SqlModelUnitOfWork(user_id=1, session=session):
-        insert_revenue(session=session, value=Decimal("100.0"), description="Revenue 01")
+    with MongoUnitOfWork(user_id=1, session=mongo_session) as uow:
+        uow.revenues.add(revenue=Revenue(value=value, description=description))
 
     # THEN
-    new_session = sql_session_factory()
-    assert list(new_session.execute('SELECT * FROM "revenues_revenue"')) == []
+    assert list(mongo_session._client[DATABASE_NAME][COLLECTION_NAME].find()) == []
 
 
-def test_uow_rolls_back_on_error(sql_session_factory):
+@pytest.mark.skip("Mongo does not support transaction without replicasets")
+def test_uow_rolls_back_on_error(mongo_session):
     # GIVEN
-    session = sql_session_factory()
+    value = Decimal128("100.0")
+    description = "Revenue 01"
 
     class MyException(Exception):
         pass
 
     # WHEN
     with pytest.raises(MyException):
-        with SqlModelUnitOfWork(user_id=1, session=session):
-            insert_revenue(session=session, value=Decimal("100.0"), description="Revenue 01")
+        with MongoUnitOfWork(user_id=1, session=mongo_session) as uow:
+            uow.revenues.add(revenue=Revenue(value=value, description=description))
             raise MyException()
 
     # THEN
-    new_session = sql_session_factory()
-    assert list(new_session.execute('SELECT * FROM "revenues_revenue"')) == []
+    assert list(mongo_session._client[DATABASE_NAME][COLLECTION_NAME].find()) == []

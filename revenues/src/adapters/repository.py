@@ -1,18 +1,25 @@
 from abc import ABC, abstractmethod
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
-from typing import Iterable, List, Optional, Set, Union
+from typing import Dict, Iterable, List, Optional, Set
 from typing_extensions import TypedDict
+from bson import Decimal128, ObjectId
 
-from sqlmodel import Session
-from sqlalchemy import and_, desc, extract, func
-from sqlalchemy.orm.query import Query
+from pymongo import ASCENDING, DESCENDING
+from pymongo.client_session import ClientSession as MongoSession
+from pymongo.collection import Collection
+from pymongo.cursor import Cursor
 
+from ..adapters.mongo import mongo, RevenueMongoDoc as RevenueMongoDocType
 from ..domain.events import RevenueCreated
 from ..domain.models import Revenue
-
+from ..settings import COLLECTION_NAME, DATABASE_NAME
 
 # region: types
+
+
+class RevenueMongoDoc(RevenueMongoDocType):
+    _id: ObjectId
 
 
 class HistoricResponseType(TypedDict):
@@ -38,7 +45,7 @@ class AbstractQueryRepository(ABC):
         self.user_id = user_id
 
     @abstractmethod
-    def get(self, revenue_id: int) -> Revenue:  # pragma: no cover
+    def get(self, revenue_id: int) -> Optional[RevenueMongoDoc]:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
@@ -54,12 +61,6 @@ class AbstractQueryRepository(ABC):
         raise NotImplementedError
 
 
-# endregion: abstract classes
-
-
-# region: repository classes
-
-
 class AbstractCommandRepository(ABC):
     query: AbstractQueryRepository
 
@@ -68,13 +69,13 @@ class AbstractCommandRepository(ABC):
         self.seen: Set[Revenue] = set()
 
     def add(self, revenue: Revenue) -> None:
-        revenue.user_id = self.user_id
-        self._add(revenue=revenue)
+        _id = self._add(revenue=revenue)
+        revenue.id = _id
         revenue.events.append(RevenueCreated(value=revenue.value, description=revenue.description))
         self.seen.add(revenue)
 
     @abstractmethod
-    def _add(self, revenue: Revenue) -> None:  # pragma: no cover
+    def _add(self, revenue: Revenue) -> ObjectId:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
@@ -82,95 +83,145 @@ class AbstractCommandRepository(ABC):
         raise NotImplementedError
 
 
-class SqlModelQueryRepository(AbstractQueryRepository):
-    def __init__(self, *, user_id: int, session: Session) -> None:
+# endregion: abstract classes
+
+
+# region: repository classes
+
+
+class MongoQueryRepository(AbstractQueryRepository):
+    def __init__(self, *, user_id: int, session: MongoSession) -> None:
         super().__init__(user_id=user_id)
         self.session = session
+        self._collection: Collection = self.session._client[DATABASE_NAME][COLLECTION_NAME]
 
-    def get(self, revenue_id: int) -> Optional[Revenue]:
-        return self.session.query(Revenue).filter_by(id=revenue_id, user_id=self.user_id).first()
-
-    def list(self) -> Query:
-        return (
-            self.session.query(Revenue).filter_by(user_id=self.user_id).order_by(desc("created_at"))
-        )
-
-    def historic(self, as_query: bool = False) -> Union[Query, List[HistoricResponseType]]:
+    @property
+    def _historic_pipeline(self) -> List[Dict[str, str]]:
         today = date.today()
-        qs = (
-            self.session.query(
-                extract("year", Revenue.created_at).label("year"),
-                extract("month", Revenue.created_at).label("month"),
-                func.sum(Revenue.value).label("total"),
-            )
-            .filter(
-                and_(
-                    extract("month", Revenue.created_at) >= today.month,
-                    extract("year", Revenue.created_at) == today.year - 1,
-                )
-                | and_(
-                    extract("month", Revenue.created_at) <= today.month,
-                    extract("year", Revenue.created_at) == today.year,
-                ),
-            )
-            .filter_by(user_id=self.user_id)
-            .group_by("year", "month")
-            .order_by("year", "month")
-        )
-        if as_query:
-            return qs
+        return [
+            {"$match": {"user_id": self.user_id}},
+            {
+                "$group": {
+                    "_id": {
+                        "month": {
+                            "$month": {"$dateTrunc": {"date": "$created_at", "unit": "month"}}
+                        },
+                        "year": {"$year": {"$dateTrunc": {"date": "$created_at", "unit": "year"}}},
+                    },
+                    "total": {"$sum": "$value"},
+                }
+            },
+            {
+                "$match": {
+                    "$or": [
+                        {
+                            "$and": [
+                                {"_id.month": {"$gte": today.month}},
+                                {"_id.year": {"$eq": today.year - 1}},
+                            ]
+                        },
+                        {
+                            "$and": [
+                                {"_id.month": {"$lte": today.month}},
+                                {"_id.year": {"$eq": today.year}},
+                            ]
+                        },
+                    ]
+                }
+            },
+        ]
 
-        # TODO: do this via the ORM
-        # NOTE: SQLite does not have a `concat` func
-        results = []
-        for row in qs:
-            d = dict(row)
-            results.append({"date": f"{d.pop('month')}/{d.pop('year'):02d}", **d})
-        return results
+    def get(self, revenue_id: int) -> Optional[RevenueMongoDoc]:
+        return self._collection.find_one(filter={"_id": revenue_id})
+
+    def list(self) -> Cursor:
+        return self._collection.find(filter={"user_id": self.user_id}).sort(
+            "created_at", direction=DESCENDING
+        )
+
+    def count(self) -> int:
+        return self._collection.count_documents(filter={"user_id": self.user_id})
+
+    def historic(self) -> List[HistoricResponseType]:
+        cursor = self._collection.aggregate(
+            pipeline=[
+                *self._historic_pipeline,
+                {"$sort": {"_id.year": ASCENDING, "_id.month": ASCENDING}},
+            ]
+        )
+        # TODO: do this at the DB level
+        return [
+            {"date": f"{doc['_id']['month']}/{doc['_id']['year']}", "total": doc["total"]}
+            for doc in cursor
+        ]
 
     def indicators(self) -> IndicatorsResponseType:
-        historic_query = self.historic(as_query=True)
         today = date.today()
 
         # region: Avg query
-        avg_query = self.session.query(func.avg(historic_query.subquery().c.total).label("avg"))
+        avg_cursor = self._collection.aggregate(
+            pipeline=[
+                *self._historic_pipeline,
+                {"$group": {"_id": 0, "avg": {"$avg": "$total"}}},
+                {"$project": {"_id": 0}},
+            ]
+        )
         # endregion: Avg query
 
         # region: Last month total query
-        last_month_total_subquery = historic_query.filter(
-            extract("month", Revenue.created_at).label("month").in_((today.month - 1, today.month)),
-            extract("year", Revenue.created_at) == today.year,
-        ).subquery()
-        last_month_total_query = self.session.query(
-            last_month_total_subquery.c.total,
-            last_month_total_subquery.c.year,
-            last_month_total_subquery.c.month,
-        ).order_by(desc("month"))
+        last_month_total_cursor = self._collection.aggregate(
+            pipeline=[
+                *self._historic_pipeline,
+                {"$sort": {"_id.year": ASCENDING, "_id.month": DESCENDING}},
+                {
+                    "$match": {
+                        "_id.month": {"$in": [today.month - 1, today.month]},
+                        "_id.year": today.year,
+                    }
+                },
+                {
+                    "$project": {
+                        "month": "$_id.month",
+                        "year": "$_id.year",
+                        "_id": 0,
+                        "total": 1,
+                    }
+                },
+            ]
+        )
         # endregion: Last month total query
 
         # region: Calculate percentage
-        avg_dict = dict(avg_query.first())
-        avg_dict["avg"] = Decimal(avg_dict["avg"])
-        last_month_total_dict = dict(last_month_total_query.first())
-        percentage = (
-            (last_month_total_dict["total"] / avg_dict["avg"]) - Decimal("1.0")
-        ) * Decimal("100.0")
+        avg = next(avg_cursor)["avg"].to_decimal()
+        last_month_total_dict = next(last_month_total_cursor)
+        total = last_month_total_dict["total"].to_decimal()
+        percentage = ((total / avg) - Decimal("1.0")) * Decimal("100.0")
         # endregion: Calculate percentage
 
-        return {**avg_dict, **last_month_total_dict, "diff": percentage}
+        return {
+            "avg": avg,
+            "total": last_month_total_dict["total"],
+            "diff": percentage,
+            "year": last_month_total_dict["year"],
+            "month": last_month_total_dict["month"],
+        }
 
 
-class SqlModelCommandRepository(AbstractCommandRepository):
-    def __init__(self, *, user_id: int, session: Session) -> None:
+class MongoCommandRepository(AbstractCommandRepository):
+    def __init__(self, *, user_id: int, session: MongoSession) -> None:
         super().__init__(user_id=user_id)
         self.session = session
-        self.query = SqlModelQueryRepository(user_id=user_id, session=session)
+        self.query = MongoQueryRepository(user_id=user_id, session=session)
+        self._collection: Collection = self.session._client[DATABASE_NAME][COLLECTION_NAME]
 
-    def _add(self, revenue: Revenue) -> None:
-        self.session.add(revenue)
+    def _add(self, revenue: Revenue) -> ObjectId:
+        return self._collection.insert_one(
+            mongo.convert_to_mongo_doc(revenue=revenue, user_id=self.user_id)
+        ).inserted_id
 
     def delete(self, revenue_id: int) -> int:
-        return self.session.query(Revenue).filter_by(id=revenue_id, user_id=self.user_id).delete()
+        result = self._collection.delete_one(filter={"_id": revenue_id, "user_id": self.user_id})
+        return result.deleted_count
 
 
 # endregion: repository classes
