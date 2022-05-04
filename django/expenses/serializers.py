@@ -84,3 +84,4 @@ class ExpenseHistoricSerializer(_ExpenseExtraBaseSerializer):
 class ExpenseIndicatorsSerializer(_ExpenseExtraBaseSerializer):
     avg = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_UP)
     diff = serializers.DecimalField(max_digits=8, decimal_places=2, rounding=ROUND_UP)
+    future = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_UP)

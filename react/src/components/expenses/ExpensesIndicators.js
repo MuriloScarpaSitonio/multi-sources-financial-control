@@ -23,6 +23,7 @@ import ArrowDownwardIcon from "@material-ui/icons/ArrowDownward";
 import ArrowUpwardIcon from "@material-ui/icons/ArrowUpward";
 import AddIcon from "@material-ui/icons/Add";
 import MonetizationOnIcon from "@material-ui/icons/MonetizationOn";
+import MoneyOff from "@material-ui/icons/MoneyOff";
 
 import { ExpensesApi, FastApiRevenue, RevenuesApi } from "../../api";
 import { RevenuesForm } from "../../forms/RevenuesForm";
@@ -155,7 +156,7 @@ const Indicators = ({
                   minimumFractionDigits: 2,
                 })}`
               ) : (
-                <Skeleton animation={false} width={250} />
+                <Skeleton animation={false} width={280} />
               )}
             </Typography>
           </Grid>
@@ -165,6 +166,27 @@ const Indicators = ({
             </Avatar>
           </Grid>
         </Grid>
+        {!isRevenue && (
+          <Box
+            sx={{
+              alignItems: "center",
+              display: "flex",
+            }}
+          >
+            {hideValues ? (
+              <>
+                <AddIcon color="disabled" />
+                <Typography color="textSecondary" variant="body2">
+                  {`R$ ${indicators.future?.toLocaleString("pt-br", {
+                    minimumFractionDigits: 2,
+                  })} à pagar`}
+                </Typography>
+              </>
+            ) : (
+              <Skeleton animation={false} width={150} />
+            )}
+          </Box>
+        )}
         <Box
           sx={{
             alignItems: "center",
@@ -175,25 +197,31 @@ const Indicators = ({
             color: color,
           }}
         >
-          {secondaryIcon}
-          <Typography variant="body2">
-            {`${
-              indicators.diff?.toLocaleString("pt-br", {
-                minimumFractionDigits: 2,
-              }) || 0
-            }%`}
-          </Typography>
-          <Typography
-            color="textSecondary"
-            variant="body2"
-            style={{ marginLeft: "8px" }}
-          >
-            Em relação a média (
-            {`R$ ${indicators.avg?.toLocaleString("pt-br", {
-              minimumFractionDigits: 2,
-            })}`}
-            )
-          </Typography>
+          {hideValues ? (
+            <>
+              {secondaryIcon}
+              <Typography variant="body2">
+                {`${
+                  indicators.diff?.toLocaleString("pt-br", {
+                    minimumFractionDigits: 2,
+                  }) || 0
+                }%`}
+              </Typography>
+              <Typography
+                color="textSecondary"
+                variant="body2"
+                style={{ marginLeft: "8px" }}
+              >
+                Em relação a média (
+                {`R$ ${indicators.avg?.toLocaleString("pt-br", {
+                  minimumFractionDigits: 2,
+                })}`}
+                )
+              </Typography>
+            </>
+          ) : (
+            <Skeleton animation={false} width={300} />
+          )}
           {isRevenue && (
             <Box sx={{ ml: 1 }}>
               <IconButton>

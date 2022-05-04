@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import List, Type
 
 from django.utils import timezone
-from django.db.models import Q, QuerySet
+from django.db.models import Avg, Q, QuerySet, Sum
 
 from django_filters import FilterSet
 from dateutil.relativedelta import relativedelta
@@ -33,13 +33,13 @@ class ExpenseViewSet(ModelViewSet):
     def get_queryset(self) -> QuerySet:
         if self.request.user.is_authenticated:
             today = timezone.now().date()
-            # self.request.user.expenses.filter(
-            #     created_at__month__lte=today.month,
-            #     created_at__year__range=(today.year - 1, today.year),
-            # )
-            return self.request.user.expenses.filter(
-                Q(created_at__month__gte=today.month, created_at__year=today.year - 1)
-                | Q(created_at__month__lte=today.month, created_at__year=today.year),
+            return (
+                self.request.user.expenses.filter(
+                    Q(created_at__month__gte=today.month, created_at__year=today.year - 1)
+                    | Q(created_at__month__lte=today.month, created_at__year=today.year),
+                )
+                if self.action != "indicators"
+                else self.request.user.expenses.all()
             )
         return Expense.objects.none()  # pragma: no cover -- drf-spectatular
 
@@ -71,8 +71,33 @@ class ExpenseViewSet(ModelViewSet):
     def indicators(self, _: Request) -> Response:
         today = timezone.now().date()
         qs = self.get_queryset()
-        avg_dict = qs.trunc_months().avg()
-        total_dict = qs.filter_by_month_and_year(month=today.month, year=today.year).sum()
+
+        # calculate the avg from the past months in the last 12 months
+        avg_dict = (
+            qs.filter(
+                Q(created_at__month__gte=today.month, created_at__year=today.year - 1)
+                | Q(created_at__month__lt=today.month, created_at__year=today.year),
+            )
+            .trunc_months()
+            .avg()
+        )
+        total_dict = qs.aggregate(
+            total=Sum(
+                "price", filter=Q(created_at__month=today.month, created_at__year=today.year)
+            ),
+            future=Sum(
+                "price",
+                filter=Q(created_at__month__gt=today.month, created_at__year=today.year)
+                | Q(created_at__year__gt=today.year),
+            ),
+            # avg=Avg(
+            #     "price",
+            #     filter=Q(created_at__month__gte=today.month, created_at__year=today.year - 1)
+            #     | Q(created_at__month__lt=today.month, created_at__year=today.year),
+            # ),
+        )
+
+        # TODO: do this via SQL by trying to merge both querysets above
         percentage = ((total_dict["total"] / Decimal(avg_dict["avg"])) - Decimal("1.0")) * Decimal(
             "100.0"
         )

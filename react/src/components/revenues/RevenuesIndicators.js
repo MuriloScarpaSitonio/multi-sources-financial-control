@@ -52,7 +52,7 @@ const Indicators = ({ title, indicators, icon, color, secondaryIcon }) => {
                   minimumFractionDigits: 2,
                 })}`
               ) : (
-                <Skeleton animation={false} width={250} />
+                <Skeleton animation={false} width={280} />
               )}
             </Typography>
           </Grid>
@@ -72,25 +72,31 @@ const Indicators = ({ title, indicators, icon, color, secondaryIcon }) => {
             color: color,
           }}
         >
-          {secondaryIcon}
-          <Typography variant="body2">
-            {`${
-              indicators.diff?.toLocaleString("pt-br", {
-                minimumFractionDigits: 2,
-              }) || 0
-            }%`}
-          </Typography>
-          <Typography
-            color="textSecondary"
-            variant="body2"
-            style={{ marginLeft: "8px" }}
-          >
-            Em relação a média (
-            {`R$ ${indicators.avg?.toLocaleString("pt-br", {
-              minimumFractionDigits: 2,
-            })}`}
-            )
-          </Typography>
+          {hideValues ? (
+            <>
+              {secondaryIcon}
+              <Typography variant="body2">
+                {`${
+                  indicators.diff?.toLocaleString("pt-br", {
+                    minimumFractionDigits: 2,
+                  }) || 0
+                }%`}
+              </Typography>
+              <Typography
+                color="textSecondary"
+                variant="body2"
+                style={{ marginLeft: "8px" }}
+              >
+                Em relação a média (
+                {`R$ ${indicators.avg?.toLocaleString("pt-br", {
+                  minimumFractionDigits: 2,
+                })}`}
+                )
+              </Typography>
+            </>
+          ) : (
+            <Skeleton animation={false} width={300} />
+          )}
         </Box>
       </CardContent>
     </Card>
@@ -103,7 +109,7 @@ const Indicators = ({ title, indicators, icon, color, secondaryIcon }) => {
           <Typography color="inherit">
             Você não cadastrou nenhuma receita este mês!
           </Typography>
-          Clique no botão + da tabela abaixo para adicionar
+          Clique no botão +1 da tabela abaixo para adicionar
         </>
       }
     >
