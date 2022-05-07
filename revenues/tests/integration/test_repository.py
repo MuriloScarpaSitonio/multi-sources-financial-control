@@ -5,6 +5,8 @@ from statistics import fmean
 from bson import Decimal128
 
 from dateutil.relativedelta import relativedelta
+from pymongo.collection import ReturnDocument
+import pytest
 
 from src.adapters.repository import MongoCommandRepository
 from src.domain.models import Revenue
@@ -98,6 +100,17 @@ def test_repository_historic(mongo_session):
         assert date_revenues_sum_map[infos["date"]] == infos["total"].to_decimal()
 
 
+def test_repository_historic_without_revenues(mongo_session):
+    # GIVEN
+    repo = MongoCommandRepository(user_id=1, session=mongo_session)
+
+    # WHEN
+    historic = repo.query.historic()
+
+    # THEN
+    assert historic == []
+
+
 def test_repository_indicators(mongo_session):
     # GIVEN
     repo = MongoCommandRepository(user_id=1, session=mongo_session)
@@ -130,10 +143,65 @@ def test_repository_indicators(mongo_session):
     )
 
 
-def test_repository_indicators_if_no_revenue_in_the_current_month(mongo_session):
+def test_repository_indicators_if_no_revenue_in_the_current_month(mongo_session, revenue):
     # GIVEN
-    pass
+    doc = mongo_session._client[DATABASE_NAME][COLLECTION_NAME].find_one_and_update(
+        filter={},
+        update={
+            "$set": {
+                "created_at": datetime.combine(
+                    revenue.created_at - relativedelta(months=7), datetime.min.time()
+                )
+            }
+        },
+        return_document=ReturnDocument.AFTER,
+    )
+
+    repo = MongoCommandRepository(user_id=1, session=mongo_session)
 
     # WHEN
+    indicators = repo.query.indicators()
 
     # THEN
+    assert indicators["year"] == doc["created_at"].year
+    assert indicators["month"] == doc["created_at"].month
+
+
+def test_repository_indicators_without_revenues(mongo_session):
+    # GIVEN
+    repo = MongoCommandRepository(user_id=1, session=mongo_session)
+
+    # WHEN
+    indicators = repo.query.indicators()
+
+    # THEN
+    assert indicators == {
+        "avg": Decimal("0.0"),
+        "total": Decimal("0.0"),
+        "diff": Decimal("0.0"),
+        "year": None,
+        "month": None,
+    }
+
+
+@pytest.mark.usefixtures("revenues")
+def test_repository_count(mongo_session):
+    # GIVEN
+    repo = MongoCommandRepository(user_id=1, session=mongo_session)
+
+    # WHEN
+    count = repo.query.count()
+
+    # THEN
+    assert count == 2
+
+
+def test_repository_count_without_revenues(mongo_session):
+    # GIVEN
+    repo = MongoCommandRepository(user_id=1, session=mongo_session)
+
+    # WHEN
+    count = repo.query.count()
+
+    # THEN
+    assert count == 0

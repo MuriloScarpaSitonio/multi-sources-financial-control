@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from datetime import date, datetime
-from decimal import Decimal
+from datetime import date
+from decimal import Decimal, DecimalException
 from typing import Dict, Iterable, List, Optional, Set
 from typing_extensions import TypedDict
 from bson import Decimal128, ObjectId
@@ -31,8 +31,8 @@ class IndicatorsResponseType(TypedDict):
     avg: Decimal
     total: Decimal
     diff: Decimal
-    year: int
-    month: int
+    year: Optional[int]
+    month: Optional[int]
 
 
 # endregion: types
@@ -156,14 +156,12 @@ class MongoQueryRepository(AbstractQueryRepository):
         ]
 
     def indicators(self) -> IndicatorsResponseType:
-        today = date.today()
-
         # region: Avg query
         avg_cursor = self._collection.aggregate(
             pipeline=[
                 *self._historic_pipeline,
                 {"$group": {"_id": 0, "avg": {"$avg": "$total"}}},
-                {"$project": {"_id": 0}},
+                {"$project": {"_id": 0, "avg": {"$ifNull": ["$avg", Decimal128("0.0")]}}},
             ]
         )
         # endregion: Avg query
@@ -172,13 +170,7 @@ class MongoQueryRepository(AbstractQueryRepository):
         last_month_total_cursor = self._collection.aggregate(
             pipeline=[
                 *self._historic_pipeline,
-                {"$sort": {"_id.year": ASCENDING, "_id.month": DESCENDING}},
-                {
-                    "$match": {
-                        "_id.month": {"$in": [today.month - 1, today.month]},
-                        "_id.year": today.year,
-                    }
-                },
+                {"$sort": {"_id.year": DESCENDING, "_id.month": DESCENDING}},
                 {
                     "$project": {
                         "month": "$_id.month",
@@ -192,18 +184,24 @@ class MongoQueryRepository(AbstractQueryRepository):
         # endregion: Last month total query
 
         # region: Calculate percentage
-        avg = next(avg_cursor)["avg"].to_decimal()
-        last_month_total_dict = next(last_month_total_cursor)
+        avg = avg_cursor.next()["avg"].to_decimal()
+        try:
+            last_month_total_dict = last_month_total_cursor.next()
+        except StopIteration:
+            last_month_total_dict = {"total": Decimal128("0.0")}
         total = last_month_total_dict["total"].to_decimal()
-        percentage = ((total / avg) - Decimal("1.0")) * Decimal("100.0")
+        try:
+            percentage = ((total / avg) - Decimal("1.0")) * Decimal("100.0")
+        except DecimalException:
+            percentage = Decimal("0.0")
         # endregion: Calculate percentage
 
         return {
             "avg": avg,
-            "total": last_month_total_dict["total"],
+            "total": total,
             "diff": percentage,
-            "year": last_month_total_dict["year"],
-            "month": last_month_total_dict["month"],
+            "year": last_month_total_dict.get("year"),
+            "month": last_month_total_dict.get("month"),
         }
 
 
