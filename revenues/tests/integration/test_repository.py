@@ -86,8 +86,8 @@ def test_repository_historic(mongo_session):
     date_revenues_sum_map = {}
     for i in range(25):
         d = one_year_before + relativedelta(months=i)
-        rev1 = Revenue(value=randint(100, 10000), description="Revenue", created_at=d)
-        rev2 = Revenue(value=randint(100, 10000), description="Revenue", created_at=d)
+        rev1 = Revenue(value=Decimal(str(randint(100, 10000))), description="Revenue", created_at=d)
+        rev2 = Revenue(value=Decimal(str(randint(100, 10000))), description="Revenue", created_at=d)
         date_revenues_sum_map[f"{d.month}/{d.year}"] = rev1.value + rev2.value
         repo.add(rev1)
         repo.add(rev2)

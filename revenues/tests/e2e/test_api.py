@@ -133,6 +133,22 @@ def test_create_revenue(client, mocker):
     )
 
     # THEN
-    assert response.status_code == 204
+    assert response.status_code == 202
     assert mock_send_mail.call_count == 1
     assert mock_agilize_client.post.call_count == 1
+
+
+def test_update_revenue(client, revenue):
+    # GIVEN
+    data = {"description": "Revenue 01", "value": 10, "created_at": str(date.today())}
+
+    # WHEN
+    response = client.patch(f"/revenues/{revenue.id}", json=data)
+    response_json = response.json()
+
+    # THEN
+    assert response.status_code == 200
+    assert sorted(response_json.keys()) == ["_id", "created_at", "description", "value"]
+    assert response_json["created_at"] == data["created_at"]
+    assert response_json["description"] == data["description"]
+    assert response_json["value"] == data["value"]

@@ -46,7 +46,7 @@ def client(mongo_client):
 def revenue(mongo_session):
     rev = Revenue(value=Decimal("100.0"), description="Revenue 01")
     result = mongo_session._client[DATABASE_NAME][COLLECTION_NAME].insert_one(
-        mongo.convert_to_mongo_doc(revenue=rev, user_id=1)
+        {**mongo.convert_revenue(revenue=rev), "user_id": 1}
     )
     rev.id = result.inserted_id
     return rev
@@ -56,7 +56,7 @@ def revenue(mongo_session):
 def revenues(mongo_session, revenue) -> Tuple[Revenue, Revenue]:
     rev = Revenue(value=Decimal("200.0"), description="Revenue 02")
     result = mongo_session._client[DATABASE_NAME][COLLECTION_NAME].insert_one(
-        mongo.convert_to_mongo_doc(revenue=rev, user_id=1)
+        {**mongo.convert_revenue(revenue=rev), "user_id": 1}
     )
     rev.id = result.inserted_id
     return revenue, rev

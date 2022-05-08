@@ -1,6 +1,3 @@
-from datetime import date
-from decimal import Decimal
-
 from .models import Revenue
 from .utils import generate_pydantic_model
 

@@ -5,7 +5,7 @@ from typing import Dict, Iterable, List, Optional, Set
 from typing_extensions import TypedDict
 from bson import Decimal128, ObjectId
 
-from pymongo import ASCENDING, DESCENDING
+from pymongo import ASCENDING, DESCENDING, ReturnDocument
 from pymongo.client_session import ClientSession as MongoSession
 from pymongo.collection import Collection
 from pymongo.cursor import Cursor
@@ -20,6 +20,7 @@ from ..settings import COLLECTION_NAME, DATABASE_NAME
 
 class RevenueMongoDoc(RevenueMongoDocType):
     _id: ObjectId
+    user_id: int
 
 
 class HistoricResponseType(TypedDict):
@@ -45,7 +46,7 @@ class AbstractQueryRepository(ABC):
         self.user_id = user_id
 
     @abstractmethod
-    def get(self, revenue_id: int) -> Optional[RevenueMongoDoc]:  # pragma: no cover
+    def get(self, revenue_id: ObjectId) -> Optional[RevenueMongoDoc]:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
@@ -79,7 +80,11 @@ class AbstractCommandRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def delete(self, revenue_id: int) -> int:  # pragma: no cover
+    def delete(self, revenue_id: ObjectId) -> int:  # pragma: no cover
+        raise NotImplementedError
+
+    @abstractmethod
+    def update(self, revenue_id: ObjectId, revenue: Revenue):
         raise NotImplementedError
 
 
@@ -131,7 +136,7 @@ class MongoQueryRepository(AbstractQueryRepository):
             },
         ]
 
-    def get(self, revenue_id: int) -> Optional[RevenueMongoDoc]:
+    def get(self, revenue_id: ObjectId) -> Optional[RevenueMongoDoc]:
         return self._collection.find_one(filter={"_id": revenue_id})
 
     def list(self) -> Cursor:
@@ -214,12 +219,19 @@ class MongoCommandRepository(AbstractCommandRepository):
 
     def _add(self, revenue: Revenue) -> ObjectId:
         return self._collection.insert_one(
-            mongo.convert_to_mongo_doc(revenue=revenue, user_id=self.user_id)
+            {**mongo.convert_revenue(revenue=revenue), "user_id": self.user_id}
         ).inserted_id
 
-    def delete(self, revenue_id: int) -> int:
+    def delete(self, revenue_id: ObjectId) -> int:
         result = self._collection.delete_one(filter={"_id": revenue_id, "user_id": self.user_id})
         return result.deleted_count
+
+    def update(self, revenue_id: ObjectId, revenue: Revenue) -> Optional[RevenueMongoDoc]:
+        return self._collection.find_one_and_update(
+            filter={"_id": revenue_id, "user_id": self.user_id},
+            update={"$set": mongo.convert_revenue(revenue=revenue)},
+            return_document=ReturnDocument.AFTER,
+        )
 
 
 # endregion: repository classes

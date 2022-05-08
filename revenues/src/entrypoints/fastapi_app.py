@@ -133,13 +133,28 @@ def delete_revenue_endpoint(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Revenue not found")
 
 
-@app.post("/revenues/", status_code=status.HTTP_204_NO_CONTENT)
+@app.post("/revenues/", status_code=status.HTTP_202_ACCEPTED)
 async def create_revenue_endpoint(
-    revenue: CreateRevenue,
+    data: CreateRevenue,
     user_id: int = Depends(get_user_id),
     session: MongoSession = Depends(get_session),
 ):
-    messagebus.handle(message=revenue, uow=MongoUnitOfWork(user_id=user_id, session=session))
+    messagebus.handle(message=data, uow=MongoUnitOfWork(user_id=user_id, session=session))
+
+
+@app.patch("/revenues/{revenue_id}", response_model=RevenueReadModel)
+async def update_revenue_endpoint(
+    revenue_id: PyObjectId,
+    data: CreateRevenue,
+    user_id: int = Depends(get_user_id),
+    session: MongoSession = Depends(get_session),
+):
+    with MongoUnitOfWork(user_id=user_id, session=session) as uow:
+        result = uow.revenues.update(revenue_id=revenue_id, revenue=Revenue(**data.dict()))
+        uow.commit()
+        if result is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Revenue not found")
+        return result
 
 
 # endregion: endpoints

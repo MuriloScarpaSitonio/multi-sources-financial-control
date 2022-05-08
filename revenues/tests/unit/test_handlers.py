@@ -17,6 +17,9 @@ class FakeRepository(AbstractCommandRepository):
     def delete(self, revenue_id):
         pass
 
+    def update(self, revenue_id, revenue):
+        pass
+
 
 class FakeUnitOfWork(AbstractUnitOfWork):
     def __init__(self, user_id: int):
