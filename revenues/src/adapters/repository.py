@@ -84,7 +84,7 @@ class AbstractCommandRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def update(self, revenue_id: ObjectId, revenue: Revenue):
+    def update(self, revenue_id: ObjectId, revenue: Revenue):  # pragma: no cover
         raise NotImplementedError
 
 

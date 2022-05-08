@@ -152,3 +152,16 @@ def test_update_revenue(client, revenue):
     assert response_json["created_at"] == data["created_at"]
     assert response_json["description"] == data["description"]
     assert response_json["value"] == data["value"]
+
+
+def test_should_raise_404_update_revenue_not_found(client):
+    # GIVEN
+
+    # WHEN
+    response = client.patch(
+        "/revenues/62707d8ddab7d67bc190e9ca",
+        json={"description": "", "value": 0, "created_at": "2000-01-01"},
+    )
+
+    # THEN
+    assert response.status_code == 404
