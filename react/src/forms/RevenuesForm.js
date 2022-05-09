@@ -17,7 +17,7 @@ import FormGroup from "@material-ui/core/FormGroup";
 import TextField from "@material-ui/core/TextField";
 import { yupResolver } from "@hookform/resolvers/yup";
 
-import { RevenuesApi } from "../api";
+import { FastApiRevenue } from "../api";
 import { FormFeedback } from "../components/FormFeedback";
 
 function NumberFormatCustom(props) {
@@ -75,14 +75,14 @@ export const RevenuesForm = ({
   });
   const isCreateForm = Object.keys(initialData).length === 0;
   const onSubmit = (data) => {
-    let api = new RevenuesApi(initialData.id);
-    const method = isCreateForm ? "post" : "put";
+    let api = new FastApiRevenue(initialData.id);
+    const method = isCreateForm ? "post" : "patch";
     const actionVerb = isCreateForm ? "criada" : "editada";
     if (isDirty) {
       setIsLoaded(false);
       api[method]({
         ...data,
-        created_at: data.created_at.toLocaleDateString("pt-br"),
+        created_at: data.created_at.toLocaleDateString("fr-CA"),
       })
         .then(() => {
           showSuccessFeedbackForm(`Receita ${actionVerb} com sucesso!`);
@@ -151,7 +151,7 @@ export const RevenuesForm = ({
             <Controller
               name="created_at"
               control={control}
-              defaultValue={initialData.date || new Date()}
+              defaultValue={initialData.created_at || new Date()}
               render={({ field: { onChange, value } }) => (
                 <KeyboardDatePicker
                   onChange={onChange}

@@ -32,7 +32,7 @@ const StyledTooltip = withStyles((theme) => ({
 }))(Tooltip);
 
 const Indicators = ({ title, indicators, icon, color, secondaryIcon }) => {
-  const indicatorsMonth = 4;
+  const indicatorsMonth = indicators.month;
   const currentMonth = new Date().getMonth() + 1;
   const isPastRevenue = parseInt(indicatorsMonth) !== currentMonth;
   const borderStyle = isPastRevenue ? "1px solid red" : "1px solid white";

@@ -256,7 +256,7 @@ export const RevenuesTable = () => {
 
   const columns = [
     {
-      name: "id",
+      name: "_id",
       options: {
         display: false,
         filter: false,
@@ -376,7 +376,6 @@ export const RevenuesTable = () => {
               <Tooltip title="Deletar reeita">
                 <IconButton
                   onClick={() => {
-                    console.log(tableMeta.rowData);
                     handleDelete(tableMeta.rowData[0]);
                   }}
                 >

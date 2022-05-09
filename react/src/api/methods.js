@@ -14,6 +14,10 @@ const getRevenues = (url) => fastApiRevenuesAxios.get(url);
 
 const post = async (url, data) => privateAxios.post(url, data);
 
+const postRevenues = async (url, data) => fastApiRevenuesAxios.post(url, data);
+
+const patch = async (url, data) => fastApiRevenuesAxios.patch(url, data);
+
 const put = async (url, data) => privateAxios.put(url, data);
 
 const Delete = async (url) => privateAxios.delete(url);
@@ -38,6 +42,8 @@ export const apiProvider = {
   QueryWithInfiteScroll,
   login,
   post,
+  postRevenues,
+  patch,
   put,
   Delete,
   refreshToken,
