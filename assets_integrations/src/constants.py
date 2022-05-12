@@ -13,4 +13,3 @@ class BinanceFiatPaymentTransactionType(IntEnum):
 
 
 DEFAULT_BINANCE_CURRENCY = "BRL"
-BINANCE_FIAT_CURRENCY_TO_SKIP = "USDT"

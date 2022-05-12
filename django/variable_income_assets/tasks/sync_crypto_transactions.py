@@ -60,6 +60,8 @@ def save_crypto_transactions(
     assets = dict()
     for data in response.json():
         code = data.pop("code")
+        if code in settings.CRYPTOS_TO_SKIP_INTEGRATION:
+            continue
         if data["currency"] == "USDT":
             data.update(currency="USD")
         serializer = CryptoTransactionSerializer(data=data)

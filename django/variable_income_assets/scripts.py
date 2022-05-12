@@ -1,7 +1,6 @@
 from decimal import Decimal  # pragma: no cover
 from typing import Optional, Union  # pragma: no cover
 
-from django.conf import settings
 from django.utils import timezone
 from django.db.models import F, OuterRef, Q, Subquery
 from django.db.transaction import atomic
@@ -10,7 +9,6 @@ from config.settings.base import DOLLAR_CONVERSION_RATE
 from shared.utils import coalesce_sum_expression
 
 from .choices import (
-    PassiveIncomeEventTypes,
     PassiveIncomeTypes,
     TransactionActions,
     TransactionCurrencies,
@@ -20,8 +18,7 @@ from .models import Asset, PassiveIncome, Transaction  # pragma: no cover
 
 
 class DryRunException(Exception):  # pragma: no cover
-    def __init__(self):
-        super().__init__("DryRunException")
+    pass
 
 
 def dry_run_decorator(function):  # pragma: no cover
@@ -40,20 +37,19 @@ def _get_avg_price(asset: Asset, currency: TransactionCurrencies) -> Decimal:  #
     return avg_price
 
 
-# @dry_run_decorator  # pragma: no cover
+@dry_run_decorator  # pragma: no cover
 def calculate_new_avg_price(
     asset: Union[str, Asset],
     price: Decimal,
     total: Optional[Decimal] = None,
     quantity: Optional[Decimal] = None,
     currency: Optional[TransactionCurrencies] = None,
-) -> None:
+) -> Decimal:
     print(f"\n--------------------Calculating {asset}--------------------\n")
     kwargs = {"price": price}
     if currency is not None:
         kwargs["currency"] = currency
     if quantity is not None:
-        print(f"Investing {price * quantity}")
         kwargs["quantity"] = quantity
     else:
         kwargs["quantity"] = total / price
@@ -61,7 +57,9 @@ def calculate_new_avg_price(
     if isinstance(asset, str):
         asset = Asset.objects.get(code=asset)
 
-    # print(asset.total_adjusted_invested_from_transactions)
+    total = price * quantity if total is None else total
+    total = total * DOLLAR_CONVERSION_RATE if currency == TransactionCurrencies.dollar else total
+    print(f"Investing: {total}")
     print(f"BEFORE: {_get_avg_price(asset=asset, currency=currency)}")
     Transaction.objects.create(asset=asset, action=TransactionActions.buy, **kwargs)
     asset.refresh_from_db()
@@ -73,22 +71,7 @@ def calculate_new_avg_price(
 
     print(f"\n\nTotal adjusted invested: {asset.total_adjusted_invested_from_transactions}")
     print("\n\n")
-
-
-@dry_run_decorator
-def t():
-    calculate_new_avg_price(asset="YDUQ3", price=Decimal("16.36"), quantity=Decimal("100.0"))
-
-    # calculate_new_avg_price(asset="ENBR3", price=Decimal("21.83"), quantity=Decimal("30"))  # 654.9
-    calculate_new_avg_price(asset="CPLE6", price=Decimal("7.5"), quantity=Decimal("200.0"))  # 2190
-    # calculate_new_avg_price(asset="CYRE3", price=Decimal("15.37"), quantity=Decimal("50"))  # 768.5
-
-    # calculate_new_avg_price(
-    #     asset="BABA",
-    #     price=Decimal("90"),
-    #     quantity=Decimal("5"),
-    #     currency=TransactionCurrencies.dollar,
-    # )
+    return total
 
 
 def generate_irpf(year: int = timezone.now().year - 1):
@@ -129,11 +112,8 @@ def generate_irpf(year: int = timezone.now().year - 1):
         print(f"\tTotal: {asset['total_invested']}\n")
 
     incomes_qs = (
-        PassiveIncome.objects.filter(
-            asset=OuterRef("pk"),
-            operation_date__year=year,
-            event_type=PassiveIncomeEventTypes.credited,
-        )
+        PassiveIncome.objects.filter(asset=OuterRef("pk"), operation_date__year=year)
+        .credited()
         .values("asset__pk")
         .annotate(total=coalesce_sum_expression("amount"))
     )
@@ -161,19 +141,3 @@ def generate_irpf(year: int = timezone.now().year - 1):
         )
     ).filter(credited_incomes_total__gt=0):
         print(a.code, a.credited_incomes_total)
-
-
-def revenues_indicators():
-    from django.db.models import Avg
-    from django.db.models.functions import TruncMonth
-    from revenues.models import Revenue
-
-    qs = (
-        Revenue.objects.filter(user_id=1)
-        .annotate(month=TruncMonth("created_at"))
-        .values("month")
-        .annotate_sum()
-        .order_by("month")
-        .aggregate(avg=Avg("total"))
-    )
-    print(qs)

@@ -17,7 +17,7 @@ export const AssetsTable = () => {
 
   function getAdjustedFilters() {
     let multipleChoiceFilters = {
-      category: filters.type || [],
+      type: filters.type || [],
     };
 
     let _filters = new URLSearchParams({

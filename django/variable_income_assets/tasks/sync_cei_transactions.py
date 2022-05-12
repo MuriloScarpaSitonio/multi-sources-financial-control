@@ -1,5 +1,4 @@
 from datetime import timedelta
-from typing import Dict, Union
 
 from django.conf import settings
 from django.db.transaction import atomic
@@ -15,7 +14,7 @@ from tasks.models import TaskHistory
 
 from .serializers import CeiTransactionSerializer
 from ..choices import AssetTypes, TransactionActions
-from ..models import Asset, Transaction
+from ..models import Asset
 
 
 def _resolve_code(code: str, market_type: str) -> str:
@@ -71,10 +70,10 @@ def sync_cei_transactions_task(self, username: str) -> int:
         parts=("cei/", "transactions"),
         query_params={
             "username": username,
-            # there's one day delay for transactions to appear at CEI
             "start_date": self.get_last_run(
                 username=username, as_date=True, timedelta_kwargs={"days": 2}
             ),
+            # não é possível consultar informações do dia atual
             "end_date": timezone.now().date() - timedelta(days=1),
         },
     )

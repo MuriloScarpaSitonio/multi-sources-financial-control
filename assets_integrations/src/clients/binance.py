@@ -3,16 +3,12 @@ from datetime import datetime, timedelta
 from hashlib import sha256
 from hmac import new as hmac_new
 from time import time
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Optional
 
 from aiohttp import ClientSession, ClientTimeout, TCPConnector, ClientResponse
 from aiohttp.client_exceptions import ClientError
 
-from ..constants import (
-    BINANCE_FIAT_CURRENCY_TO_SKIP,
-    BinanceFiatPaymentTransactionType,
-    DEFAULT_BINANCE_CURRENCY,
-)
+from ..constants import BinanceFiatPaymentTransactionType, DEFAULT_BINANCE_CURRENCY
 from ..schemas import AssetFetchCurrentPriceFilterSet
 from ..database.models import User
 from ..database.utils import decrypt
@@ -187,8 +183,4 @@ class BinanceClient:
             params={"transactionType": transaction_type, "beginTime": start_timestamp},
         )
         result = await response.json()
-        return [
-            r
-            for r in result["data"]
-            if r["cryptoCurrency"] != BINANCE_FIAT_CURRENCY_TO_SKIP and r["status"] == "Completed"
-        ]
+        return [r for r in result.get("data", []) if r["status"] == "Completed"]

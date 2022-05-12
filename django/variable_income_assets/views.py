@@ -10,7 +10,7 @@ from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from shared.utils import coalesce_sum_expression
 from tasks.decorators import celery_task_endpoint, start_celery_task
-from variable_income_assets.tasks import (
+from .tasks import (
     sync_binance_transactions_task,
     sync_cei_transactions_task,
     sync_cei_passive_incomes_task,

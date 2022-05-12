@@ -61,13 +61,17 @@ class AssetSerializer(serializers.ModelSerializer):
         return self._convert_value(obj.current_price, currency=obj.currency)
 
     def get_percentage_invested(self, obj: Asset) -> Decimal:
-        return ((obj.avg_price * obj.quantity_balance) / self.context["total_invested"]) * Decimal(
-            "100.0"
-        )
+        try:
+            result = obj.total_invested / self.context["total_invested"]
+        except DecimalException:
+            result = Decimal()
+        return result * Decimal("100.0")
 
     def get_current_percentage(self, obj: Asset) -> Decimal:
         try:
-            result = obj.total_invested / self.context["current_total"]
+            result = (self.get_current_price(obj) * obj.quantity_balance) / self.context[
+                "current_total"
+            ]
         except DecimalException:
             result = Decimal()
         return result * Decimal("100.0")
