@@ -2,7 +2,6 @@ from decimal import Decimal
 from typing import List, Type
 
 from django.utils import timezone
-from django.db.models import Avg, Q, QuerySet, Sum
 
 from django_filters import FilterSet
 from dateutil.relativedelta import relativedelta
@@ -17,6 +16,7 @@ from rest_framework.utils.serializer_helpers import ReturnList
 
 from .choices import ExpenseReportType
 from .filters import ExpenseFilterSet, ExpenseReportFilterSet
+from .managers import ExpenseQueryset
 from .models import Expense
 from .serializers import (
     ExpenseSerializer,
@@ -30,15 +30,11 @@ class ExpenseViewSet(ModelViewSet):
     serializer_class = ExpenseSerializer
     ordering_fields = ("description", "price", "created_at", "category", "source")
 
-    def get_queryset(self) -> QuerySet:
+    def get_queryset(self) -> ExpenseQueryset:
         if self.request.user.is_authenticated:
-            today = timezone.now().date()
             return (
-                self.request.user.expenses.filter(
-                    Q(created_at__month__gte=today.month, created_at__year=today.year - 1)
-                    | Q(created_at__month__lte=today.month, created_at__year=today.year),
-                )
-                if self.action != "indicators"
+                self.request.user.expenses.since_a_year_ago()
+                if self.action in ("list", "historic")
                 else self.request.user.expenses.all()
             )
         return Expense.objects.none()  # pragma: no cover -- drf-spectatular
@@ -69,40 +65,12 @@ class ExpenseViewSet(ModelViewSet):
 
     @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:
-        today = timezone.now().date()
-        qs = self.get_queryset()
+        qs = self.get_queryset().indicators()
 
-        # calculate the avg from the past months in the last 12 months
-        avg_dict = (
-            qs.filter(
-                Q(created_at__month__gte=today.month, created_at__year=today.year - 1)
-                | Q(created_at__month__lt=today.month, created_at__year=today.year),
-            )
-            .trunc_months()
-            .avg()
-        )
-        total_dict = qs.aggregate(
-            total=Sum(
-                "price", filter=Q(created_at__month=today.month, created_at__year=today.year)
-            ),
-            future=Sum(
-                "price",
-                filter=Q(created_at__month__gt=today.month, created_at__year=today.year)
-                | Q(created_at__year__gt=today.year),
-            ),
-            # avg=Avg(
-            #     "price",
-            #     filter=Q(created_at__month__gte=today.month, created_at__year=today.year - 1)
-            #     | Q(created_at__month__lt=today.month, created_at__year=today.year),
-            # ),
-        )
+        # TODO: do this via SQL
+        percentage = ((qs["total"] / qs["avg"]) - Decimal("1.0")) * Decimal("100.0")
 
-        # TODO: do this via SQL by trying to merge both querysets above
-        percentage = ((total_dict["total"] / Decimal(avg_dict["avg"])) - Decimal("1.0")) * Decimal(
-            "100.0"
-        )
-
-        serializer = ExpenseIndicatorsSerializer({**avg_dict, **total_dict, "diff": percentage})
+        serializer = ExpenseIndicatorsSerializer({**qs, "diff": percentage})
         return Response(serializer.data, status=HTTP_200_OK)
 
     @action(methods=("POST",), detail=False)
@@ -131,7 +99,7 @@ class ExpenseViewSet(ModelViewSet):
 
     @staticmethod
     def _get_fixed_expenses_from_queryset(
-        queryset: QuerySet[Expense], today_date_str: str, one_month_before_date_str: str
+        queryset: ExpenseQueryset[Expense], today_date_str: str, one_month_before_date_str: str
     ) -> List[Expense]:
         expenses = []
         for expense in queryset:

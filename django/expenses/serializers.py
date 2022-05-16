@@ -1,4 +1,4 @@
-from decimal import ROUND_UP, Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Dict, List, Union, OrderedDict
 
 from rest_framework import serializers
@@ -58,23 +58,26 @@ class ExpenseSerializer(serializers.ModelSerializer):
 
 
 class _ExpenseExtraBaseSerializer(serializers.Serializer):
-    total = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_UP)
+    total = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
 
 
 class ExpenseReportCategorySerializer(_ExpenseExtraBaseSerializer):
     category = CustomChoiceField(choices=ExpenseCategory.choices)
+    avg = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
 
 
 class ExpenseReportSourceSerializer(_ExpenseExtraBaseSerializer):
     source = CustomChoiceField(choices=ExpenseSource.choices)
+    avg = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
 
 
 class ExpenseReportTypeSerializer(_ExpenseExtraBaseSerializer):
     type = serializers.SerializerMethodField()
+    avg = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
     is_fixed = serializers.BooleanField()
 
-    def get_type(self, obj: Dict[str, Union[bool, Decimal]]) -> str:
-        return "Fixo" if obj["is_fixed"] is True else "Variável"
+    def get_type(self, data: Dict[str, Union[bool, Decimal]]) -> str:
+        return "Fixo" if data["is_fixed"] is True else "Variável"
 
 
 class ExpenseHistoricSerializer(_ExpenseExtraBaseSerializer):
@@ -82,6 +85,6 @@ class ExpenseHistoricSerializer(_ExpenseExtraBaseSerializer):
 
 
 class ExpenseIndicatorsSerializer(_ExpenseExtraBaseSerializer):
-    avg = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_UP)
-    diff = serializers.DecimalField(max_digits=8, decimal_places=2, rounding=ROUND_UP)
-    future = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_UP)
+    avg = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
+    diff = serializers.DecimalField(max_digits=8, decimal_places=2, rounding=ROUND_HALF_UP)
+    future = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)

@@ -53,7 +53,7 @@ export class RevenuesApi extends Api {
 
 export class FastApiRevenue {
   constructor(id = null) {
-    this.indicators = () => apiProvider.getRevenues("indicators");
+    this.indicators = () => apiProvider.getRevenues("indicators/");
     this.list = () => apiProvider.getRevenues("revenues");
     this.delete = (id) => apiProvider.deleteRevenue(`revenues/${id}`);
     this.historic = () => apiProvider.getRevenues("historic");

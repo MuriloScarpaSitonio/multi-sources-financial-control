@@ -1,6 +1,8 @@
 from random import randint, choice
 from datetime import date
 
+from django.utils import timezone
+
 import pytest
 from factory.django import DjangoModelFactory
 
@@ -20,7 +22,7 @@ def expense(user):
         price=5,
         description="Expense",
         category=ExpenseCategory.house,
-        created_at=date(2021, 1, 1),
+        created_at=timezone.now().date(),
         source=ExpenseSource.credit_card,
         is_fixed=True,
         user=user,

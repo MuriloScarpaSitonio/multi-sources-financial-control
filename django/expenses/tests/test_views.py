@@ -1,9 +1,11 @@
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
+
+from django.db.models import Avg, Q
+from django.utils import timezone
 
 import pytest
 from freezegun import freeze_time
-
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -21,19 +23,20 @@ pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "expenses"
 
 
+@freeze_time("2021-10-01")
 @pytest.mark.usefixtures("expenses")
 @pytest.mark.parametrize(
     "filter_by, count",
     [
-        ("", 12),
-        ("description=Expense", 12),
-        ("description=pense", 12),
+        ("", 8),
+        ("description=Expense", 8),
+        ("description=pense", 8),
         ("description=wrong", 0),
-        ("start_date=2021-01-01&end_date=2021-12-01", 12),
-        ("start_date=2021-01-01&end_date=2021-01-01", 1),
+        ("start_date=2021-01-01&end_date=2021-12-01", 8),
+        ("start_date=2021-10-01&end_date=2021-10-01", 1),
         ("start_date=2020-01-01&end_date=2020-12-01", 0),
-        ("is_fixed=False", 6),
-        ("is_fixed=True", 6),
+        ("is_fixed=False", 4),
+        ("is_fixed=True", 4),
     ],
 )
 def test_should_filter_expenses(client, filter_by, count):
@@ -60,7 +63,10 @@ def test_should_filter_expenses_by_choice(client, field, value):
 
     # THEN
     assert response.status_code == HTTP_200_OK
-    assert response.json()["count"] == Expense.objects.filter(**{field: value}).count()
+    assert (
+        response.json()["count"]
+        == Expense.objects.since_a_year_ago().filter(**{field: value}).count()
+    )
 
 
 def test_should_create_expense(client):
@@ -142,7 +148,7 @@ def test_should_not_get_report_without_of_parameter(client):
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"of": ["Required to define the type of report"]}
+    assert response.json() == {"of": ["This field is required."]}
 
 
 def test_should_not_get_report_if_of_parameter_is_invalid_choice(client):
@@ -165,50 +171,43 @@ def test_should_not_get_report_if_of_parameter_is_invalid_choice(client):
 )
 def test_should_get_reports(client, of, field_name):
     # GIVEN
-    qs = Expense.objects.all()
+    choices_class_map = {"category": ExpenseCategory, "source": ExpenseSource}
+    choices_class = choices_class_map.get(field_name)
+    qs = Expense.objects.since_a_year_ago()
+    today = timezone.now().date()
+    current_month = {}
+    since_a_year_ago = {}
+    for e in qs:
+        f = (
+            choices_class.get_choice(getattr(e, field_name)).label
+            if choices_class is not None
+            else field_name
+        )
+        if e.created_at.month == today.month and e.created_at.year == today.year:
+            current_month.setdefault(f, []).append(e.price)
+        else:
+            since_a_year_ago.setdefault(f, []).append(e.price)
+    result_brute_force = [
+        {
+            "total": sum(current_month.get(k)) if current_month.get(k) is not None else None,
+            "avg": (sum(v) / len(v)).quantize(Decimal(".1"), rounding=ROUND_HALF_UP),
+            field_name: k,
+        }
+        for k, v in since_a_year_ago.items()
+    ]
 
     # WHEN
     response = client.get(f"{URL}/report?of={of}")
 
     # THEN
+    for result in response.json():
+        for brute_force in result_brute_force:
+            if result[field_name] == brute_force[field_name]:
+                assert (str(result["total"]) == str(brute_force["total"])) and (
+                    Decimal(str(result["avg"])).quantize(Decimal(".1"), rounding=ROUND_HALF_UP)
+                    == brute_force["avg"]
+                )
     assert response.status_code == HTTP_200_OK
-    assert all(
-        result["total"] == float(result_qs["total"])
-        for result, result_qs in zip(response.json(), qs.aggregate_field(field_name=field_name))
-    )
-
-
-@pytest.mark.usefixtures("expenses")
-@pytest.mark.parametrize(
-    "of, field_name",
-    [(value, ExpenseReportType.get_choice(value).field_name) for value in ExpenseReportType.values],
-)
-def test_should_filter_report_data(client, of, field_name):
-    # GIVEN
-    month, year = 3, 2021
-    qs = Expense.objects.filter_by_month_and_year(month=month, year=year)
-
-    # WHEN
-    response = client.get(f"{URL}/report?of={of}&month={month}&year={year}")
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-    assert all(
-        result["total"] == float(result_qs["total"])
-        for result, result_qs in zip(response.json(), qs.aggregate_field(field_name=field_name))
-    )
-
-
-@pytest.mark.parametrize("month, year", [(0, 2021), (1, 0)])
-def test_should_raise_error_if_month_or_year_are_out_of_range(client, month, year):
-    # GIVEN
-
-    # WHEN
-    response = client.get(f"{URL}/report?month={month}&year={year}")
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert list(response.json().values())[0][0] == "Out of range"
 
 
 @pytest.mark.usefixtures("expenses")
@@ -227,27 +226,48 @@ def test_should_get_historic_data(client):
         )
 
 
-@freeze_time("2021-10-01")
 @pytest.mark.usefixtures("expenses")
 def test_should_get_indicators(client):
     # GIVEN
+    today = timezone.now().date()
+    qs = Expense.objects.since_a_year_ago()
+    avg = (
+        qs.exclude(created_at__month=today.month, created_at__year=today.year)
+        .trunc_months()
+        .aggregate(avg=Avg("total"))["avg"]
+    )
+    total = (
+        Expense.objects.filter(created_at__month=today.month, created_at__year=today.year).sum()[
+            "total"
+        ]
+        or Decimal()
+    )
+    future = (
+        qs.filter(
+            Q(created_at__month__gt=today.month, created_at__year=today.year)
+            | Q(created_at__year__gt=today.year)
+        ).sum()["total"]
+        or Decimal()
+    )
 
     # WHEN
     response = client.get(f"{URL}/indicators")
 
     # THEN
     response_json = response.json()
-    past_month_total = float(Expense.objects.filter(created_at__month=9).sum()["total"])
 
     assert response.status_code == HTTP_200_OK
-    assert response_json["total"] == float(
-        Expense.objects.filter(created_at__month=10).sum()["total"]
-    )
-    assert response_json["diff"] == response_json["total"] - past_month_total
-    # assert (
-    #     response_json["diff_percentage"]
-    #     == (((past_month_total + response_json["diff"]) / past_month_total) - 1) * 100
-    # )
+    assert Decimal(response_json["total"]) == total
+    assert response_json == {
+        "total": float(total.quantize(Decimal(".01"), rounding=ROUND_HALF_UP)),
+        "avg": float(avg.quantize(Decimal(".01"), rounding=ROUND_HALF_UP)),
+        "diff": float(
+            (((total / avg) - Decimal("1.0")) * Decimal("100.0")).quantize(
+                Decimal(".01"), rounding=ROUND_HALF_UP
+            )
+        ),
+        "future": future,
+    }
 
 
 def test_should_create_multiple_expenses_if_installments(client):

@@ -1,16 +1,13 @@
 import { useEffect, useState } from "react";
 
-import axios from "axios";
 import {
   BarChart,
   Bar,
   CartesianGrid,
-  Cell,
+  Legend,
   //Line,
   //LineChart,
-  Pie,
-  PieChart,
-  Legend,
+  ReferenceLine,
   Tooltip as ChartTooltip,
   XAxis,
   YAxis,
@@ -71,10 +68,6 @@ function TabPanel(props) {
   );
 }
 
-function formatDateString(month, year) {
-  return `${(month < 10 ? "0" : "") + month}/${year.toString().substr(-2)}`;
-}
-
 // const CustomChartTooltip = () => (
 //   <ChartTooltip
 //     cursor={{ fill: "#f5f5f5" }}
@@ -109,12 +102,7 @@ const ExpenseHorizontalBarChart = ({ data, dataKey }) => (
   </BarChart>
 );
 
-const ExpenseHorizontalMultipleBarChart = ({
-  data,
-  dataKey,
-  currentDateString,
-  lastDateString,
-}) => (
+const ExpenseHorizontalMultipleBarChart = ({ data, dataKey }) => (
   <BarChart
     width={chartWidth}
     height={chartHeight}
@@ -134,18 +122,22 @@ const ExpenseHorizontalMultipleBarChart = ({
     <ChartTooltip
       cursor={{ fill: "#f5f5f5" }}
       separator=": "
-      formatter={(value) => `R$ ${value.toLocaleString("pt-br")}`}
+      formatter={(value, name) => [
+        `R$ ${value.toLocaleString("pt-br")}`,
+        name === "avg" ? "Média" : "Mês atual",
+      ]}
       labelFormatter={(_) => ""}
+      payload
     />
-    <Legend />
+    <Legend formatter={(value) => (value === "avg" ? "Média" : "Mês atual")} />
     <Bar
-      dataKey={lastDateString}
+      dataKey={"avg"}
       barSize={dataKey === "category" ? chartBarSize : chartBarSize * 2}
       yAxisId={0}
       fill={lastDataFillCollor}
     />
     <Bar
-      dataKey={currentDateString}
+      dataKey={"total"}
       barSize={dataKey === "category" ? chartBarSize / 2 : chartBarSize}
       yAxisId={1}
       fill={currentDataFillColor}
@@ -160,66 +152,20 @@ function getTabProps(index) {
   };
 }
 
-function mergeReportData(infos, dataKey) {
-  /*
-    infos should be something like
-    [
-        {"data": data1, "dateString": "month/year"},
-        {"data": data2, "dateString": "month/year"}
-    ]
-    */
-  const newestDateString = infos[0].dateString;
-  infos.sort((info1, info2) => info2.data.length - info1.data.length);
-  const [longest, shortest] = infos;
-
-  let result = [];
-  for (const item of longest.data) {
-    let partialResult = {};
-    partialResult[dataKey] = item[dataKey];
-    partialResult[longest.dateString] = item.total;
-    partialResult[shortest.dateString] = 0;
-
-    for (const i of shortest.data) {
-      if (item[dataKey] === i[dataKey])
-        partialResult[shortest.dateString] = i.total;
-    }
-
-    result.push(partialResult);
-  }
-  return result.sort(
-    (item1, item2) => item2[newestDateString] - item1[newestDateString]
-  );
-}
-
-function getReportPeriod() {
-  let date = new Date();
-  const currentMonth = date.getMonth() + 1;
-  const currentYear = date.getFullYear();
-
-  date.setDate(0); // 0 will result in the last day of the previous month
-  const lastMonth = date.getMonth() + 1;
-  const lastYear = date.getFullYear();
-
-  return [
-    [currentMonth, lastMonth],
-    [currentYear, lastYear],
-  ];
-}
-
-const ExpensePieChartComponent = ({ data, fetchReportData, filters }) => {
-  const REPORT_TEXT = "Mês atual";
+const ExpenseBarChartComponent = ({ data, dataKey, fetchReportData }) => {
+  const COMPARATIVE_REPORT_TEXT = "Mês atual X Média dos últimos 12 meses";
   const ALL_TIME_REPORT_TEXT = "Todo o período";
 
   const [anchorEl, setAnchorEl] = useState(null);
-  const [buttonText, setButtonText] = useState(REPORT_TEXT);
+  const [buttonText, setButtonText] = useState(COMPARATIVE_REPORT_TEXT);
   const [menuText, setMenuText] = useState(ALL_TIME_REPORT_TEXT);
 
   const handleClick = (event) => setAnchorEl(event.currentTarget);
-  const handleClose = (e) => {
+  const handleClose = () => {
     // we haven't changed it yet
-    menuText === REPORT_TEXT
-      ? fetchReportData("TYPE", filters)
-      : fetchReportData("TYPE");
+    menuText === COMPARATIVE_REPORT_TEXT
+      ? fetchReportData(dataKey.toUpperCase())
+      : fetchReportData(dataKey.toUpperCase(), { all: true });
 
     setButtonText(menuText);
     setMenuText(buttonText);
@@ -258,100 +204,8 @@ const ExpensePieChartComponent = ({ data, fetchReportData, filters }) => {
       />
       <Divider />
       <CardContent>
-        <PieChart width={chartWidth} height={chartHeight}>
-          <Legend />
-          <Pie
-            data={data}
-            dataKey="total"
-            nameKey="type"
-            cx="50%"
-            cy="50%"
-            innerRadius={60}
-            outerRadius={80}
-            // if the animation is active the label won't show
-            isAnimationActive={false}
-            label={(l) => `R$ ${l.payload.total.toLocaleString("pt-br")}`}
-          >
-            <Cell key="cell-0" fill={currentDataFillColor} />
-            <Cell key="cell-1" fill={lastDataFillCollor} />
-          </Pie>
-        </PieChart>
+        <ExpenseHorizontalMultipleBarChart data={data} dataKey={dataKey} />
       </CardContent>
-    </Card>
-  );
-};
-
-const ExpenseBarChartComponent = ({
-  data,
-  dataKey,
-  currentDateString,
-  lastDateString,
-  fetchComparativeReportData,
-  fetchReportData,
-}) => {
-  const COMPARATIVE_REPORT_TEXT = "Mês atual X Mês anterior";
-  const ALL_TIME_REPORT_TEXT = "Todo o período";
-
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [buttonText, setButtonText] = useState(COMPARATIVE_REPORT_TEXT);
-  const [menuText, setMenuText] = useState(ALL_TIME_REPORT_TEXT);
-
-  const handleClick = (event) => setAnchorEl(event.currentTarget);
-  const handleClose = () => {
-    // we haven't changed it yet
-    menuText === COMPARATIVE_REPORT_TEXT
-      ? fetchComparativeReportData(dataKey.toUpperCase())
-      : fetchReportData(dataKey.toUpperCase());
-
-    setButtonText(menuText);
-    setMenuText(buttonText);
-    setAnchorEl(null);
-  };
-
-  let multipleBarsChart = (
-    <ExpenseHorizontalMultipleBarChart
-      data={data}
-      dataKey={dataKey}
-      currentDateString={currentDateString}
-      lastDateString={lastDateString}
-    />
-  );
-
-  let barChart = <ExpenseHorizontalBarChart data={data} dataKey={dataKey} />;
-
-  let chart = menuText === ALL_TIME_REPORT_TEXT ? multipleBarsChart : barChart;
-  return (
-    <Card elevation={6}>
-      <CardHeader
-        action={
-          <>
-            <Button
-              endIcon={<ArrowDropDownIcon />}
-              size="small"
-              variant="text"
-              aria-controls="basic-menu"
-              aria-haspopup="true"
-              onClick={handleClick}
-            >
-              {buttonText}
-            </Button>
-            <Menu
-              id="basic-menu"
-              keepMounted
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={handleClose}
-              anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-              transformOrigin={{ vertical: "top", horizontal: "center" }}
-              getContentAnchorEl={null}
-            >
-              <MenuItem onClick={handleClose}>{menuText}</MenuItem>
-            </Menu>
-          </>
-        }
-      />
-      <Divider />
-      <CardContent>{chart}</CardContent>
     </Card>
   );
 };
@@ -413,6 +267,12 @@ const ExpenseHistoricChartComponent = ({ data }) => {
             labelFormatter={(_) => ""}
           />
           <Bar dataKey="total" fill={currentDataFillColor} />
+          <ReferenceLine
+            y={4082.34}
+            label="Média"
+            stroke="#e65100"
+            strokeDasharray="3 3"
+          />
         </BarChart>
         {/* <LineChart width={chartWidth} height={chartHeight} data={data}>
           <CartesianGrid stroke="#eee" />
@@ -438,12 +298,6 @@ export const ExpensesReports = () => {
   const [tabValue, setTabValue] = useState(0);
 
   let api = new ExpensesApi();
-  const [months, years] = getReportPeriod();
-  const [currentMonth, lastMonth] = months;
-  const [currentYear, lastYear] = years;
-  const currentDateString = formatDateString(currentMonth, currentYear);
-  const lastDateString = formatDateString(lastMonth, lastYear);
-  const pieChartFilters = { month: currentMonth, year: currentYear };
   const classes = useStyles();
 
   function fetchHistoricData() {
@@ -464,36 +318,6 @@ export const ExpensesReports = () => {
       .finally(() => setIsLoaded(true));
   }
 
-  function fetchComparativeReportData(type_of_report) {
-    setIsLoaded(false);
-
-    const currentMonthRequest = api.report(type_of_report, {
-      month: currentMonth,
-      year: currentYear,
-    });
-    const lastMonthRequest = api.report(type_of_report, {
-      month: lastMonth,
-      year: lastYear,
-    });
-
-    axios
-      .all([currentMonthRequest, lastMonthRequest])
-      .then(
-        axios.spread((...responses) => {
-          const reportData = mergeReportData(
-            [
-              { data: responses[0].data, dateString: currentDateString },
-              { data: responses[1].data, dateString: lastDateString },
-            ],
-            type_of_report.toLocaleLowerCase()
-          );
-          setData(reportData);
-        })
-      )
-      //.catch((err) => setError(err))
-      .finally(() => setIsLoaded(true));
-  }
-
   useEffect(() => fetchHistoricData(), []);
 
   const handleTabsChange = (event, newValue) => {
@@ -502,13 +326,13 @@ export const ExpensesReports = () => {
         fetchHistoricData();
         break;
       case 1:
-        fetchComparativeReportData("CATEGORY");
+        fetchReportData("CATEGORY");
         break;
       case 2:
-        fetchComparativeReportData("SOURCE");
+        fetchReportData("SOURCE");
         break;
       case 3:
-        fetchReportData("TYPE", pieChartFilters);
+        fetchReportData("TYPE");
         break;
       default:
         break;
@@ -540,10 +364,7 @@ export const ExpensesReports = () => {
         <ExpenseBarChartComponent
           data={data}
           dataKey="category"
-          currentDateString={currentDateString}
-          lastDateString={lastDateString}
           setData={setData}
-          fetchComparativeReportData={fetchComparativeReportData}
           fetchReportData={fetchReportData}
         />
       </TabPanel>
@@ -552,18 +373,16 @@ export const ExpensesReports = () => {
         <ExpenseBarChartComponent
           data={data}
           dataKey="source"
-          currentDateString={currentDateString}
-          lastDateString={lastDateString}
           setData={setData}
-          fetchComparativeReportData={fetchComparativeReportData}
           fetchReportData={fetchReportData}
         />
       </TabPanel>
       <TabPanel value={tabValue} index={3}>
-        <ExpensePieChartComponent
+        <ExpenseBarChartComponent
           data={data}
+          dataKey="type"
+          setData={setData}
           fetchReportData={fetchReportData}
-          filters={pieChartFilters}
         />
       </TabPanel>
     </Grid>
