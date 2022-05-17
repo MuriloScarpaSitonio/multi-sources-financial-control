@@ -57,19 +57,24 @@ class AssetFetchCurrentPriceFilterSet(filters.FilterSet):
 
 
 class AssetReportFilterSet(filters.FilterSet):
-    percentage = filters.BooleanFilter()
+    percentage = filters.BooleanFilter(required=True)
+    current = filters.BooleanFilter(required=True)
 
     @property
     def qs(self):
-        _qs = self.queryset.report()
         if self.is_valid():
-            percentage = self.form.cleaned_data["percentage"]
-            if percentage:
-                current_total = _qs.current_total()["current_total"]
+            current = self.form.cleaned_data["current"]
+            _qs = self.queryset.report(current=current)
+
+            if self.form.cleaned_data["percentage"]:
+                # there's 4 results max in `_qs` so it's better to aggregate at python level
+                # instead of doing another query
+                _qs = list(_qs)
+                total_agg = sum(r["total"] for r in _qs)
                 return [
                     {
                         **result,
-                        "total": (result["total"] / current_total) * Decimal("100.0"),
+                        "total": (result["total"] / total_agg) * Decimal("100.0"),
                     }
                     for result in _qs
                 ]

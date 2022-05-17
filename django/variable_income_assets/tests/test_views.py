@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 import operator
 
 import pytest
@@ -23,10 +23,13 @@ from config.settings.base import BASE_API_URL, DOLLAR_CONVERSION_RATE
 from .shared import (
     convert_to_percentage_and_quantitize,
     get_adjusted_avg_price_brute_forte,
+    get_adjusted_quantity_brute_force,
+    get_avg_price_bute_force,
+    get_current_price,
     get_roi_brute_force,
     get_total_bought_brute_force,
 )
-from ..choices import AssetTypes, TransactionActions, TransactionCurrencies
+from ..choices import AssetTypes, TransactionActions
 from ..models import Asset, Transaction
 
 
@@ -101,6 +104,60 @@ def test_should_list_assets(client, simple_asset, fixture, operation, request):
 
 
 # REPETIR para transações em dólar
+
+
+@pytest.mark.usefixtures("indicators_data")
+def test_list_assets_aggregate_data(client):
+    # GIVEN
+    total_invested_brute_force = sum(
+        (
+            get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
+            for asset in Asset.objects.all()
+        )
+    )
+    current_total_brute_force = sum(
+        (
+            get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
+            for asset in Asset.objects.all()
+        )
+    )
+
+    # WHEN
+    response = client.get(URL)
+
+    # THEN
+    for result in response.json()["results"]:
+        asset = Asset.objects.get(code=result["code"])
+        total_invested = get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(
+            asset=asset
+        )
+        percentage_invested = (
+            (total_invested / total_invested_brute_force) * Decimal("100.0")
+        ).quantize(Decimal(".1"), rounding=ROUND_HALF_UP)
+
+        current_invested = get_current_price(asset) * get_adjusted_quantity_brute_force(asset=asset)
+        current_percentage = (
+            (current_invested / current_total_brute_force) * Decimal("100.0")
+        ).quantize(Decimal(".1"), rounding=ROUND_HALF_UP)
+
+        assert result["total_invested"] == total_invested
+        assert (
+            Decimal(str(result["percentage_invested"])).quantize(
+                Decimal(".1"), rounding=ROUND_HALF_UP
+            )
+            == percentage_invested
+        )
+        assert (
+            Decimal(str(result["current_percentage"])).quantize(
+                Decimal(".1"), rounding=ROUND_HALF_UP
+            )
+            == current_percentage
+        )
+        if result["roi"] < 0:
+            assert result["percentage_invested"] > result["current_percentage"]
+
+        elif result["roi"] > 0:
+            assert result["percentage_invested"] < result["current_percentage"]
 
 
 def test_should_call_sync_cei_transactions_task_celery_task(client, user, mocker):
@@ -287,14 +344,10 @@ def test_should_raise_error_if_code_is_not_valid_fetch_current_prices(client):
 @pytest.mark.usefixtures("indicators_data")
 def test_should_get_indicators(client):
     # GIVEN
-    current_total = Decimal()
-    for asset in Asset.objects.all():
-        r = asset.current_price or Decimal()
-        if asset.currency != TransactionCurrencies.real:
-            # TODO: change this hardcoded conversion to a dynamic one
-            r *= DOLLAR_CONVERSION_RATE
-        current_total += (r) * asset.quantity_from_transactions
-
+    current_total = sum(
+        get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
+        for asset in Asset.objects.all()
+    )
     roi_opened = sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.opened())
     roi_finished = sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.finished())
 
@@ -306,24 +359,25 @@ def test_should_get_indicators(client):
     assert response.json()["current_total"] == current_total
     assert response.json()["ROI_opened"] == roi_opened
     assert response.json()["ROI_finished"] == roi_finished
+    assert response.json()["ROI"] == roi_opened + roi_finished
 
 
 @pytest.mark.usefixtures("report_data")
-def test_should_get_report(client):
+def test__report(client):
     # GIVEN
     totals = {
         "stock": sum(
-            asset.current_price * asset.quantity_from_transactions
-            for asset in Asset.objects.stocks().opened()
+            get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
+            for asset in Asset.objects.stocks()
         ),
         "crypto": sum(
-            asset.current_price * asset.quantity_from_transactions
-            for asset in Asset.objects.cryptos().opened()
+            get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
+            for asset in Asset.objects.cryptos()
         ),
     }
 
     # WHEN
-    response = client.get(f"{URL}/report")
+    response = client.get(f"{URL}/report?percentage=false&current=false")
 
     # THEN
     assert response.status_code == HTTP_200_OK
@@ -335,22 +389,88 @@ def test_should_get_report(client):
 
 
 @pytest.mark.usefixtures("report_data")
-def test_should_get_report_as_percentage(client):
+def test__report__percentage(client):
     # GIVEN
-    current_total = Asset.objects.current_total()["current_total"]
+    total_invested = sum(
+        get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
+        for asset in Asset.objects.all()
+    )
     totals = {
         "stock": sum(
-            asset.current_price * asset.quantity_from_transactions
-            for asset in Asset.objects.stocks().opened()
+            get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
+            for asset in Asset.objects.stocks()
         ),
         "crypto": sum(
-            asset.current_price * asset.quantity_from_transactions
-            for asset in Asset.objects.cryptos().opened()
+            get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
+            for asset in Asset.objects.cryptos()
         ),
     }
 
     # WHEN
-    response = client.get(f"{URL}/report?percentage=true")
+    response = client.get(f"{URL}/report?percentage=true&current=false")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    for result in response.json():
+        for choice, label in AssetTypes.labels.items():
+            if label == result["type"]:
+                assert (
+                    float(
+                        convert_to_percentage_and_quantitize(
+                            value=totals[choice], total=total_invested
+                        )
+                    )
+                    == result["total"]
+                )
+
+
+@pytest.mark.usefixtures("report_data")
+def test__current_report(client):
+    # GIVEN
+    totals = {
+        "stock": sum(
+            get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
+            for asset in Asset.objects.stocks()
+        ),
+        "crypto": sum(
+            get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
+            for asset in Asset.objects.cryptos()
+        ),
+    }
+
+    # WHEN
+    response = client.get(f"{URL}/report?percentage=false&current=true")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    for result in response.json():
+        for choice, label in AssetTypes.labels.items():
+            if label == result["type"]:
+                assert totals[choice] == result["total"]
+
+
+@pytest.mark.usefixtures("report_data")
+def test__current_report__percentage(client):
+    # GIVEN
+    current_total = sum(
+        get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
+        for asset in Asset.objects.all()
+    )
+    totals = {
+        "stock": sum(
+            get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
+            for asset in Asset.objects.stocks()
+        ),
+        "crypto": sum(
+            get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
+            for asset in Asset.objects.cryptos()
+        ),
+    }
+
+    # WHEN
+    response = client.get(f"{URL}/report?percentage=true&current=true")
 
     # THEN
     assert response.status_code == HTTP_200_OK

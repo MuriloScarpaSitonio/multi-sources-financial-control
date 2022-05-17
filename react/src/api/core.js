@@ -75,9 +75,9 @@ export class AssetsApi extends Api {
     super({ query: true, post: false, patch: false, delete: false });
 
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
-    this.report = (isPercentage) =>
+    this.report = (filters = {}) =>
       apiProvider.get(
-        `${this.resource}/report${isPercentage ? "?percentage=true" : ""}`
+        `${this.resource}/report?${new URLSearchParams(filters).toString()}`
       );
     this.syncAll = () => apiProvider.get(`${this.resource}/sync_all`);
     this.syncCeiTransactions = () =>

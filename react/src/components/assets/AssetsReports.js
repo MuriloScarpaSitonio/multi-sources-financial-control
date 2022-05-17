@@ -97,27 +97,47 @@ const AssetHorizontalBarChart = ({ data }) => (
 const AssetBarChartComponent = ({ data, fetchReportData }) => {
   const PERCENTAGE_REPORT_TEXT = "Percentual";
   const TOTAL_AMOUNT_REPORT_TEXT = "Montante investido";
+  const PERCENTAGE_REPORT_TEXT_CURRENT = "Percentual (atual)";
+  const TOTAL_AMOUNT_REPORT_TEXT_CURRENT = "Montante investido (atual)";
+
+  const FILTERS_MAP = {};
+  FILTERS_MAP[PERCENTAGE_REPORT_TEXT] = { percentage: true, current: false };
+  FILTERS_MAP[TOTAL_AMOUNT_REPORT_TEXT] = {
+    percentage: false,
+    current: false,
+  };
+  FILTERS_MAP[PERCENTAGE_REPORT_TEXT_CURRENT] = {
+    percentage: true,
+    current: true,
+  };
+  FILTERS_MAP[TOTAL_AMOUNT_REPORT_TEXT_CURRENT] = {
+    percentage: false,
+    current: true,
+  };
 
   const [anchorEl, setAnchorEl] = useState(null);
   const [buttonText, setButtonText] = useState(PERCENTAGE_REPORT_TEXT);
-  const [menuText, setMenuText] = useState(TOTAL_AMOUNT_REPORT_TEXT);
+  const [menuItems, setMenuItems] = useState([
+    TOTAL_AMOUNT_REPORT_TEXT,
+    PERCENTAGE_REPORT_TEXT_CURRENT,
+    TOTAL_AMOUNT_REPORT_TEXT_CURRENT,
+  ]);
 
   const handleClick = (event) => setAnchorEl(event.currentTarget);
-  const handleClose = () => {
-    menuText === TOTAL_AMOUNT_REPORT_TEXT
-      ? fetchReportData({ isPercentage: false })
-      : fetchReportData();
-    setButtonText(menuText);
-    setMenuText(buttonText);
+  const handleClose = (event, index) => {
+    fetchReportData(FILTERS_MAP[event.target.innerText]);
+    const newItems = [...menuItems];
+    newItems.splice(index, 1);
+    setMenuItems([...newItems, buttonText]);
+    setButtonText(event.target.innerText);
     setAnchorEl(null);
   };
 
-  let chart =
-    menuText === TOTAL_AMOUNT_REPORT_TEXT ? (
-      <AssetPiechart data={data} />
-    ) : (
-      <AssetHorizontalBarChart data={data} />
-    );
+  let chart = FILTERS_MAP[buttonText].percentage ? (
+    <AssetPiechart data={data} />
+  ) : (
+    <AssetHorizontalBarChart data={data} />
+  );
   return (
     <Card elevation={6}>
       <CardHeader
@@ -143,7 +163,11 @@ const AssetBarChartComponent = ({ data, fetchReportData }) => {
               transformOrigin={{ vertical: "top", horizontal: "center" }}
               getContentAnchorEl={null}
             >
-              <MenuItem onClick={handleClose}>{menuText}</MenuItem>
+              {menuItems.map((item, index) => (
+                <MenuItem onClick={(e) => handleClose(e, index)}>
+                  {item}
+                </MenuItem>
+              ))}
             </Menu>
           </>
         }
@@ -185,45 +209,32 @@ export const AssetsReports = () => {
   const [data, setData] = useState([]);
   const [isLoaded, setIsLoaded] = useState(false);
   //const [error, setError] = useState(null);
-  const [tabValue, setTabValue] = useState(0);
 
   let api = new AssetsApi();
   const classes = useStyles();
 
-  function fetchReportData({ isPercentage = true } = {}) {
+  function fetchReportData(filters = {}) {
     setIsLoaded(false);
     api
-      .report(isPercentage)
+      .report(filters)
       .then((response) => setData(response.data))
       //.catch((err) => setError(err))
       .finally(() => setIsLoaded(true));
   }
-  useEffect(() => fetchReportData(), []);
-
-  const handleTabsChange = (event, newValue) => {
-    switch (newValue) {
-      case 0:
-        fetchReportData();
-        break;
-      default:
-        break;
-    }
-    setTabValue(newValue);
-  };
+  useEffect(() => fetchReportData({ percentage: true, current: false }), []);
 
   return (
     <Grid container style={{ marginTop: "15px" }} className={classes.root}>
       <Tabs
         orientation="vertical"
         variant="scrollable"
-        value={tabValue}
-        onChange={handleTabsChange}
+        value={0}
         className={classes.tabs}
       >
         <Tab label="Por tipo" {...getTabProps(0)} />
       </Tabs>
 
-      <TabPanel value={tabValue} index={0}>
+      <TabPanel value={0} index={0}>
         {!isLoaded && <Loader />}
         <AssetBarChartComponent data={data} fetchReportData={fetchReportData} />
       </TabPanel>

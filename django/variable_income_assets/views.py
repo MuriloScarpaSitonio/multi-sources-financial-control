@@ -1,5 +1,5 @@
 from django.utils import timezone
-from django.db.models import QuerySet
+from django.db.models import Sum
 
 from rest_framework.decorators import action
 from rest_framework.mixins import ListModelMixin
@@ -8,7 +8,6 @@ from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
-from shared.utils import coalesce_sum_expression
 from tasks.decorators import celery_task_endpoint, start_celery_task
 from .tasks import (
     sync_binance_transactions_task,
@@ -19,6 +18,7 @@ from .tasks import (
 )
 
 from .filters import AssetFilterSet, AssetFetchCurrentPriceFilterSet, AssetReportFilterSet
+from .managers import AssetQuerySet, PassiveIncomeQuerySet
 from .models import Asset, PassiveIncome
 from .permissions import AssetsPricesPermission, BinancePermission, CeiPermission, KuCoinPermission
 from .serializers import (
@@ -35,7 +35,7 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
     filterset_class = AssetFilterSet
     ordering_fields = ("code", "type", "total_invested", "roi", "roi_percentage")
 
-    def get_queryset(self) -> QuerySet[Asset]:
+    def get_queryset(self) -> AssetQuerySet[Asset]:
         qs = (
             self.request.user.assets.all()
             if self.request.user.is_authenticated
@@ -47,33 +47,16 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
         return qs
 
     def get_serializer_context(self):
-        qs = self.get_queryset()
-        return {**qs.total_invested(), **qs.current_total()}
+        return {
+            **super().get_serializer_context(),
+            **self.get_queryset().aggregate(
+                current_total_agg=Sum("current_total"), total_invested_agg=Sum("total_invested")
+            ),
+        }
 
     @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:
-        qs = self.get_queryset()
-        current_total = qs.current_total()["current_total"]
-        opened = (
-            qs.opened()
-            .annotate_roi()
-            .aggregate(ROI_opened=coalesce_sum_expression("roi"))["ROI_opened"]
-        )
-
-        finished = (
-            qs.finished()
-            .annotate_roi()
-            .aggregate(ROI_finished=coalesce_sum_expression("roi"))["ROI_finished"]
-        )
-        serializer = AssetRoidIndicatorsSerializer(
-            {
-                "current_total": current_total,
-                "ROI": opened + finished,
-                "ROI_opened": opened,
-                "ROI_finished": finished,
-            }
-        )
-
+        serializer = AssetRoidIndicatorsSerializer(self.get_queryset().indicators())
         return Response(serializer.data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
@@ -144,7 +127,7 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
 class PassiveIncomeViewSet(ModelViewSet):
     serializer_class = PassiveIncomeSerializer
 
-    def get_queryset(self) -> QuerySet[PassiveIncome]:
+    def get_queryset(self) -> PassiveIncomeQuerySet[PassiveIncome]:
         return (
             PassiveIncome.objects.filter(asset__user=self.request.user)
             if self.request.user.is_authenticated

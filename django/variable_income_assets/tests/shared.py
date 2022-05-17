@@ -93,3 +93,11 @@ def convert_to_percentage_and_quantitize(
 ) -> Decimal:
     value = (value / total) * Decimal("100.0")
     return value.quantize(Decimal(".1") ** decimal_places, rounding=rounding)
+
+
+def get_current_price(asset: Asset) -> Decimal:
+    return (
+        (asset.current_price or Decimal())
+        if asset.currency == TransactionCurrencies.real
+        else (asset.current_price or Decimal()) * DOLLAR_CONVERSION_RATE
+    )
