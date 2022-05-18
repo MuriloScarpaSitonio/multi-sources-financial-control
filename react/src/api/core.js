@@ -75,9 +75,15 @@ export class AssetsApi extends Api {
     super({ query: true, post: false, patch: false, delete: false });
 
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
-    this.report = (filters = {}) =>
+    this.totalInvestedReport = (filters = {}) =>
       apiProvider.get(
-        `${this.resource}/report?${new URLSearchParams(filters).toString()}`
+        `${this.resource}/total_invested_report?${new URLSearchParams(
+          filters
+        ).toString()}`
+      );
+    this.roiReport = (filters = {}) =>
+      apiProvider.get(
+        `${this.resource}/roi_report?${new URLSearchParams(filters).toString()}`
       );
     this.syncAll = () => apiProvider.get(`${this.resource}/sync_all`);
     this.syncCeiTransactions = () =>

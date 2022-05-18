@@ -1,5 +1,8 @@
 from decimal import Decimal
 
+from django.forms import Form
+from django.core.exceptions import ValidationError
+
 import django_filters as filters
 
 from .choices import AssetTypes
@@ -56,16 +59,32 @@ class AssetFetchCurrentPriceFilterSet(filters.FilterSet):
         raise filters.utils.translate_validation(error_dict=self.errors)
 
 
-class AssetReportFilterSet(filters.FilterSet):
+class _AssetTotalInvestedReportForm(Form):
+    def clean_percentage(self):
+        percentage = self.cleaned_data["percentage"]
+        if percentage is None:
+            raise ValidationError("Required to define the type of report")
+        return percentage
+
+    def clean_current(self):
+        current = self.cleaned_data["current"]
+        if current is None:
+            raise ValidationError("Required to define the type of report")
+        return current
+
+
+class AssetTotalInvestedReportFilterSet(filters.FilterSet):
     percentage = filters.BooleanFilter(required=True)
     current = filters.BooleanFilter(required=True)
+
+    class Meta:
+        form = _AssetTotalInvestedReportForm
 
     @property
     def qs(self):
         if self.is_valid():
             current = self.form.cleaned_data["current"]
-            _qs = self.queryset.report(current=current)
-
+            _qs = self.queryset.total_invested_report(current=current)
             if self.form.cleaned_data["percentage"]:
                 # there's 4 results max in `_qs` so it's better to aggregate at python level
                 # instead of doing another query
@@ -79,4 +98,35 @@ class AssetReportFilterSet(filters.FilterSet):
                     for result in _qs
                 ]
             return _qs
+        raise filters.utils.translate_validation(error_dict=self.errors)
+
+
+class _AssetRoiReportForm(Form):
+    def clean_opened(self):
+        opened = self.cleaned_data["opened"]
+        if opened is None:
+            raise ValidationError("Required to define the type of assets of the report")
+        return opened
+
+    def clean_finished(self):
+        finished = self.cleaned_data["finished"]
+        if finished is None:
+            raise ValidationError("Required to define the type of assets of the report")
+        return finished
+
+
+class AssetRoiReportFilterSet(filters.FilterSet):
+    opened = filters.BooleanFilter(required=True)
+    finished = filters.BooleanFilter(required=True)
+
+    class Meta:
+        form = _AssetRoiReportForm
+
+    @property
+    def qs(self):
+        if self.is_valid():
+            return self.queryset.roi_report(
+                opened=self.form.cleaned_data["opened"],
+                finished=self.form.cleaned_data["finished"],
+            )
         raise filters.utils.translate_validation(error_dict=self.errors)

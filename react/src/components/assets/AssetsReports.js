@@ -5,10 +5,9 @@ import {
   Bar,
   CartesianGrid,
   Cell,
-  //Line,
-  //LineChart,
   Pie,
   PieChart,
+  ReferenceLine,
   Legend,
   Tooltip as ChartTooltip,
   XAxis,
@@ -94,7 +93,7 @@ const AssetHorizontalBarChart = ({ data }) => (
   </BarChart>
 );
 
-const AssetBarChartComponent = ({ data, fetchReportData }) => {
+const AssetTotalInvestedChartComponent = ({ data, fetchReportData }) => {
   const PERCENTAGE_REPORT_TEXT = "Percentual";
   const TOTAL_AMOUNT_REPORT_TEXT = "Montante investido";
   const PERCENTAGE_REPORT_TEXT_CURRENT = "Percentual (atual)";
@@ -177,6 +176,110 @@ const AssetBarChartComponent = ({ data, fetchReportData }) => {
     </Card>
   );
 };
+
+const AssetRoiChartComponent = ({ data, fetchReportData }) => {
+  const ALL_REPORT_TEXT = "Tudo";
+  const OPENED_REPORT_TEXT = "Abertos";
+  const FINISHED_REPORT_TEXT = "Fechados";
+
+  const FILTERS_MAP = {};
+  FILTERS_MAP[ALL_REPORT_TEXT] = { opened: true, finished: true };
+  FILTERS_MAP[OPENED_REPORT_TEXT] = {
+    opened: true,
+    finished: false,
+  };
+  FILTERS_MAP[FINISHED_REPORT_TEXT] = {
+    opened: false,
+    finished: true,
+  };
+
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [buttonText, setButtonText] = useState(ALL_REPORT_TEXT);
+  const [menuItems, setMenuItems] = useState([
+    OPENED_REPORT_TEXT,
+    FINISHED_REPORT_TEXT,
+  ]);
+
+  const handleClick = (event) => setAnchorEl(event.currentTarget);
+  const handleClose = (event, index) => {
+    fetchReportData(FILTERS_MAP[event.target.innerText]);
+    const newItems = [...menuItems];
+    newItems.splice(index, 1);
+    setMenuItems([...newItems, buttonText]);
+    setButtonText(event.target.innerText);
+    setAnchorEl(null);
+  };
+
+  return (
+    <Card elevation={6}>
+      <CardHeader
+        action={
+          <>
+            <Button
+              endIcon={<ArrowDropDownIcon />}
+              size="small"
+              variant="text"
+              aria-controls="basic-menu"
+              aria-haspopup="true"
+              onClick={handleClick}
+            >
+              {buttonText}
+            </Button>
+            <Menu
+              id="basic-menu"
+              keepMounted
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleClose}
+              anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+              transformOrigin={{ vertical: "top", horizontal: "center" }}
+              getContentAnchorEl={null}
+            >
+              {menuItems.map((item, index) => (
+                <MenuItem onClick={(e) => handleClose(e, index)}>
+                  {item}
+                </MenuItem>
+              ))}
+            </Menu>
+          </>
+        }
+      />
+      <Divider />
+      <CardContent>
+        <BarChart
+          width={chartWidth}
+          height={chartHeight}
+          data={data}
+          layout="vertical"
+          margin={{ left: 55 }}
+          barGap={-30}
+        >
+          <CartesianGrid stroke="3 3" />
+          <XAxis type="number" tickFormatter={(t) => `R$ ${t}`} />
+          <YAxis type="category" dataKey="type" />
+          <ReferenceLine x={0} stroke="#aba9a9" />
+          <ChartTooltip
+            cursor={false}
+            separator=": "
+            formatter={(value) => `R$ ${value.toLocaleString("pt-br")}`}
+            labelFormatter={(_) => ""}
+          />
+          <Bar dataKey="total" barSize={chartBarSize}>
+            {data.map((d, index) => (
+              <Cell
+                key={`cell-${index}`}
+                fill={
+                  d.total > 0 ? "rgba(0, 201, 20, 0.2)" : "rgba(255, 5, 5, 0.2)"
+                }
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </CardContent>
+    </Card>
+  );
+};
+
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
 
@@ -209,34 +312,72 @@ export const AssetsReports = () => {
   const [data, setData] = useState([]);
   const [isLoaded, setIsLoaded] = useState(false);
   //const [error, setError] = useState(null);
+  const [tabValue, setTabValue] = useState(0);
 
   let api = new AssetsApi();
   const classes = useStyles();
 
-  function fetchReportData(filters = {}) {
+  function fetchTotalInvestedReportData(filters = {}) {
     setIsLoaded(false);
     api
-      .report(filters)
+      .totalInvestedReport(filters)
       .then((response) => setData(response.data))
       //.catch((err) => setError(err))
       .finally(() => setIsLoaded(true));
   }
-  useEffect(() => fetchReportData({ percentage: true, current: false }), []);
+  function fetchRoiReportData(filters = {}) {
+    setIsLoaded(false);
+    api
+      .roiReport(filters)
+      .then((response) => setData(response.data))
+      //.catch((err) => setError(err))
+      .finally(() => setIsLoaded(true));
+  }
+  useEffect(
+    () => fetchTotalInvestedReportData({ percentage: true, current: false }),
+    []
+  );
+
+  const handleTabsChange = (event, newValue) => {
+    switch (newValue) {
+      case 0:
+        fetchTotalInvestedReportData({ percentage: true, current: false });
+        break;
+      case 1:
+        fetchRoiReportData({ opened: true, finished: true });
+        break;
+      default:
+        break;
+    }
+    setTabValue(newValue);
+  };
 
   return (
     <Grid container style={{ marginTop: "15px" }} className={classes.root}>
       <Tabs
         orientation="vertical"
         variant="scrollable"
-        value={0}
+        value={tabValue}
+        onChange={handleTabsChange}
         className={classes.tabs}
       >
-        <Tab label="Por tipo" {...getTabProps(0)} />
+        <Tab label="Investimento total" {...getTabProps(0)} />
+        <Tab label="ROI (lucro/prejuízo)" {...getTabProps(1)} />
       </Tabs>
 
-      <TabPanel value={0} index={0}>
+      <TabPanel value={tabValue} index={0}>
         {!isLoaded && <Loader />}
-        <AssetBarChartComponent data={data} fetchReportData={fetchReportData} />
+        <AssetTotalInvestedChartComponent
+          data={data}
+          fetchReportData={fetchTotalInvestedReportData}
+        />
+      </TabPanel>
+      <TabPanel value={tabValue} index={1}>
+        {!isLoaded && <Loader />}
+        <AssetRoiChartComponent
+          data={data}
+          fetchReportData={fetchRoiReportData}
+        />
       </TabPanel>
     </Grid>
   );

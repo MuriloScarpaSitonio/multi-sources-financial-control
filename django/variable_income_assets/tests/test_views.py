@@ -363,7 +363,7 @@ def test_should_get_indicators(client):
 
 
 @pytest.mark.usefixtures("report_data")
-def test__report(client):
+def test__total_invested_report(client):
     # GIVEN
     totals = {
         "stock": sum(
@@ -374,10 +374,14 @@ def test__report(client):
             get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
             for asset in Asset.objects.cryptos()
         ),
+        "stock_usa": sum(
+            get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
+            for asset in Asset.objects.stocks_usa()
+        ),
     }
 
     # WHEN
-    response = client.get(f"{URL}/report?percentage=false&current=false")
+    response = client.get(f"{URL}/total_invested_report?percentage=false&current=false")
 
     # THEN
     assert response.status_code == HTTP_200_OK
@@ -389,7 +393,7 @@ def test__report(client):
 
 
 @pytest.mark.usefixtures("report_data")
-def test__report__percentage(client):
+def test__total_invested_report__percentage(client):
     # GIVEN
     total_invested = sum(
         get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
@@ -404,10 +408,14 @@ def test__report__percentage(client):
             get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
             for asset in Asset.objects.cryptos()
         ),
+        "stock_usa": sum(
+            get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
+            for asset in Asset.objects.stocks_usa()
+        ),
     }
 
     # WHEN
-    response = client.get(f"{URL}/report?percentage=true&current=false")
+    response = client.get(f"{URL}/total_invested_report?percentage=true&current=false")
 
     # THEN
     assert response.status_code == HTTP_200_OK
@@ -426,7 +434,7 @@ def test__report__percentage(client):
 
 
 @pytest.mark.usefixtures("report_data")
-def test__current_report(client):
+def test__current_total_invested_report(client):
     # GIVEN
     totals = {
         "stock": sum(
@@ -437,10 +445,14 @@ def test__current_report(client):
             get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
             for asset in Asset.objects.cryptos()
         ),
+        "stock_usa": sum(
+            get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
+            for asset in Asset.objects.stocks_usa()
+        ),
     }
 
     # WHEN
-    response = client.get(f"{URL}/report?percentage=false&current=true")
+    response = client.get(f"{URL}/total_invested_report?percentage=false&current=true")
 
     # THEN
     assert response.status_code == HTTP_200_OK
@@ -452,7 +464,7 @@ def test__current_report(client):
 
 
 @pytest.mark.usefixtures("report_data")
-def test__current_report__percentage(client):
+def test__current_total_invested_report__percentage(client):
     # GIVEN
     current_total = sum(
         get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
@@ -467,10 +479,14 @@ def test__current_report__percentage(client):
             get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
             for asset in Asset.objects.cryptos()
         ),
+        "stock_usa": sum(
+            get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
+            for asset in Asset.objects.stocks_usa()
+        ),
     }
 
     # WHEN
-    response = client.get(f"{URL}/report?percentage=true&current=true")
+    response = client.get(f"{URL}/total_invested_report?percentage=true&current=true")
 
     # THEN
     assert response.status_code == HTTP_200_OK
@@ -485,6 +501,116 @@ def test__current_report__percentage(client):
                     )
                     == result["total"]
                 )
+
+
+def test__total_invested_report__should_fail_wo_required_filters(client):
+    # GIVEN
+
+    # WHEN
+    response = client.get(f"{URL}/total_invested_report")
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "percentage": ["Required to define the type of report"],
+        "current": ["Required to define the type of report"],
+    }
+
+
+@pytest.mark.usefixtures("report_data")
+def test__roi_report__opened(client):
+    # GIVEN
+    totals = {
+        "stock": sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.opened().stocks()),
+        "stock_usa": sum(
+            get_roi_brute_force(asset=asset) for asset in Asset.objects.opened().stocks_usa()
+        ),
+        "crypto": sum(
+            get_roi_brute_force(asset=asset) for asset in Asset.objects.opened().cryptos()
+        ),
+    }
+
+    # WHEN
+    response = client.get(f"{URL}/roi_report?opened=true&finished=false")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    for result in response.json():
+        for choice, label in AssetTypes.labels.items():
+            if label == result["type"]:
+                assert totals[choice] == result["total"]
+
+
+@pytest.mark.usefixtures("report_data")
+def test__roi_report__finished(client):
+    # GIVEN
+    totals = {
+        "stock": sum(
+            get_roi_brute_force(asset=asset) for asset in Asset.objects.finished().stocks()
+        ),
+        "stock_usa": sum(
+            get_roi_brute_force(asset=asset) for asset in Asset.objects.finished().stocks_usa()
+        ),
+        "crypto": sum(
+            get_roi_brute_force(asset=asset) for asset in Asset.objects.finished().cryptos()
+        ),
+    }
+
+    # WHEN
+    response = client.get(f"{URL}/roi_report?opened=false&finished=true")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    for result in response.json():
+        for choice, label in AssetTypes.labels.items():
+            if label == result["type"]:
+                assert totals[choice] == result["total"]
+
+
+@pytest.mark.usefixtures("report_data")
+def test__roi_report__all(client):
+    # GIVEN
+    totals = {
+        "stock": sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.stocks()),
+        "stock_usa": sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.stocks_usa()),
+        "crypto": sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.cryptos()),
+    }
+
+    # WHEN
+    response = client.get(f"{URL}/roi_report?opened=true&finished=true")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    for result in response.json():
+        for choice, label in AssetTypes.labels.items():
+            if label == result["type"]:
+                assert totals[choice] == result["total"]
+
+
+@pytest.mark.usefixtures("report_data")
+def test__roi_report__none(client):
+    # GIVEN
+
+    # WHEN
+    response = client.get(f"{URL}/roi_report?opened=false&finished=false")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert response.json() == []
+
+
+def test__roi_report__should_fail_wo_required_filters(client):
+    # GIVEN
+
+    # WHEN
+    response = client.get(f"{URL}/roi_report")
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "opened": ["Required to define the type of assets of the report"],
+        "finished": ["Required to define the type of assets of the report"],
+    }
 
 
 @pytest.mark.parametrize(

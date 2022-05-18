@@ -18,17 +18,15 @@ class AssetQuerySet(CustomQueryset):
     expressions = GenericQuerySetExpressions(prefix="transactions")
 
     @staticmethod
-    def _get_passive_incomes_subquery(
-        field_name: str = "credited_incomes",
-    ) -> PassiveIncomeQuerySet:
+    def _get_passive_incomes_subquery() -> PassiveIncomeQuerySet:
         from .models import PassiveIncome  # avoid circular ImportError
 
         return (
             PassiveIncome.objects.filter(asset=OuterRef("pk"))
             .values("asset__pk")  # group by as we can't aggregate directly
             .credited()
-            .annotate(**{field_name: Sum("amount")})
-            .values(field_name)
+            .annotate(credited_incomes=Sum("amount"))
+            .values("credited_incomes")
         )
 
     def _annotate_quantity_balance(self) -> AssetQuerySet:
@@ -42,6 +40,9 @@ class AssetQuerySet(CustomQueryset):
 
     def stocks(self) -> AssetQuerySet:
         return self.filter(type=AssetTypes.stock)
+
+    def stocks_usa(self) -> AssetQuerySet:
+        return self.filter(type=AssetTypes.stock_usa)
 
     def cryptos(self) -> AssetQuerySet:
         return self.filter(type=AssetTypes.crypto)
@@ -116,7 +117,7 @@ class AssetQuerySet(CustomQueryset):
             .annotate_current_total()
         )
 
-    def report(self, current: bool) -> AssetQuerySet:
+    def total_invested_report(self, current: bool) -> AssetQuerySet:
         from .models import Transaction  # avoid circular ImportError
 
         subquery = (
@@ -136,12 +137,51 @@ class AssetQuerySet(CustomQueryset):
 
         return (
             self.annotate(total_from_transactions=Subquery(subquery.values("total")))
-            # by some reason I can't filter in the subquery
-            .filter(total_from_transactions__gt=0)
             .values("type")
             .annotate(total=Sum("total_from_transactions"))
             .order_by("-total")
         )
+
+    def roi_report(self, opened: bool = True, finished: bool = True) -> AssetQuerySet:
+        from .models import PassiveIncome, Transaction
+
+        incomes_subquery = (
+            PassiveIncome.objects.filter(asset__transactions=OuterRef("pk"))
+            .values("asset__transactions")  # group by as we can't aggregate directly
+            .credited()
+            .annotate(credited_incomes=Sum("amount"))
+            .values("credited_incomes")
+        )
+        subquery = (
+            Transaction.objects.filter(asset=OuterRef("pk"))
+            .values("asset__pk")  # group by as we can't aggregate directly
+            .annotate(
+                credited_incomes_total=Subquery(incomes_subquery.values("credited_incomes")),
+                roi=TransactionQuerySet.expressions.current_total
+                - TransactionQuerySet.expressions.get_total_adjusted(
+                    incomes=Coalesce(F("credited_incomes_total"), Decimal())
+                ),
+                balance=TransactionQuerySet.expressions.quantity_balance,
+            )
+        )
+
+        qs = (
+            self.annotate(
+                roi_from_transactions=Subquery(subquery.values("roi")),
+                transactions_balance=Subquery(subquery.values("balance")),
+            )
+            .values("type")
+            .annotate(total=Sum("roi_from_transactions"))
+            .order_by("-total")
+        )
+        if opened and not finished:
+            qs = qs.filter(transactions_balance__gt=0)
+        if finished and not opened:
+            qs = qs.filter(transactions_balance__lte=0)
+        if not opened and not finished:
+            qs = qs.none()
+
+        return qs
 
     def indicators(self) -> Dict[str, Decimal]:
         return (

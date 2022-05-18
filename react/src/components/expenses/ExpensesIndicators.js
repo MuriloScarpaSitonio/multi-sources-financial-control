@@ -23,7 +23,6 @@ import ArrowDownwardIcon from "@material-ui/icons/ArrowDownward";
 import ArrowUpwardIcon from "@material-ui/icons/ArrowUpward";
 import AddIcon from "@material-ui/icons/Add";
 import MonetizationOnIcon from "@material-ui/icons/MonetizationOn";
-import MoneyOff from "@material-ui/icons/MoneyOff";
 
 import { ExpensesApi, FastApiRevenue, RevenuesApi } from "../../api";
 import { RevenuesForm } from "../../forms/RevenuesForm";

@@ -17,7 +17,12 @@ from .tasks import (
     fetch_current_assets_prices,
 )
 
-from .filters import AssetFilterSet, AssetFetchCurrentPriceFilterSet, AssetReportFilterSet
+from .filters import (
+    AssetFilterSet,
+    AssetFetchCurrentPriceFilterSet,
+    AssetRoiReportFilterSet,
+    AssetTotalInvestedReportFilterSet,
+)
 from .managers import AssetQuerySet, PassiveIncomeQuerySet
 from .models import Asset, PassiveIncome
 from .permissions import AssetsPricesPermission, BinancePermission, CeiPermission, KuCoinPermission
@@ -60,8 +65,16 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
         return Response(serializer.data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
-    def report(self, request: Request) -> Response:
-        filterset = AssetReportFilterSet(data=request.GET, queryset=self.get_queryset())
+    def total_invested_report(self, request: Request) -> Response:
+        filterset = AssetTotalInvestedReportFilterSet(
+            data=request.GET, queryset=self.get_queryset()
+        )
+        serializer = AssetReportSerializer(filterset.qs, many=True)
+        return Response(serializer.data, status=HTTP_200_OK)
+
+    @action(methods=("GET",), detail=False)
+    def roi_report(self, request: Request) -> Response:
+        filterset = AssetRoiReportFilterSet(data=request.GET, queryset=self.get_queryset())
         serializer = AssetReportSerializer(filterset.qs, many=True)
         return Response(serializer.data, status=HTTP_200_OK)
 
