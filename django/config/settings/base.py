@@ -37,7 +37,6 @@ LOCAL_APPS = [
     "variable_income_assets.apps.VariableIncomeAssetsConfig",
     "expenses.apps.ExpensesConfig",
     "tasks.apps.TasksConfig",
-    "revenues.apps.RevenuesConfig",
 ]
 
 THIRD_PARTY_APPS = [
