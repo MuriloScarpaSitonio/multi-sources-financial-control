@@ -6,3 +6,4 @@ FERNET_KEY = secret(
     cast=lambda v: v.encode(),
     default="TFGiLL_iX38XrRzwH9Ya4qEUY2gbAuanHbC3R7ZYwoo=",
 )
+TWELVE_DATA_API_KEY = secret("TWELVE_DATA_API_KEY", default="")

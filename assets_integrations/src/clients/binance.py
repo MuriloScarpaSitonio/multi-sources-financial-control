@@ -97,7 +97,7 @@ class BinanceClient:
         assets: Optional[List[AssetFetchCurrentPriceFilterSet]] = None,
         codes: Optional[List[str]] = None,
     ) -> Dict[str, str]:
-        if not assets and not codes:
+        if assets is None and codes is None:
             raise self.BinanceClientException("One of the `assets` or `codes` kwargs is required.")
 
         if assets:
@@ -118,6 +118,7 @@ class BinanceClient:
                 for code, price in zip(codes, await asyncio.gather(*tasks, return_exceptions=True))
                 if not isinstance(price, ClientError)
             }
+        return {}
 
     async def _get_all_filled_trade_orders(self, account_type: str, start_timestamp: int):
         response = await self._get(

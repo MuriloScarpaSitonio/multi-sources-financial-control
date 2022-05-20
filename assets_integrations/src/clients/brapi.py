@@ -53,6 +53,8 @@ class BrApiClient:
         ]
 
     async def get_b3_prices(self, codes: List[str]) -> Dict[str, float]:
+        if not codes:
+            return {}
         valid_codes = await self.get_valid_codes(codes=codes)
         response = await self._request(path=f"quote/{','.join(valid_codes)}")
         result = await response.json()

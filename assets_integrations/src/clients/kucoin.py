@@ -70,9 +70,11 @@ class KuCoinClient:
                 timestamp=timestamp, path=full_path, params=params
             ),
         }
-        return await self._session.get(
+        response = await self._session.get(
             url=await self._create_url(full_path), params=params, headers=headers
         )
+        response.raise_for_status()
+        return response
 
     async def get_orders(self, trade_type: str = "TRADE") -> List[Dict[str, Union[str, float]]]:
         # NOTE: we only retrieve the first page of orders (50 at total)
@@ -81,6 +83,8 @@ class KuCoinClient:
         return result["data"]["items"]
 
     async def get_prices(self, codes: List[str]) -> Dict[str, str]:
+        if not codes:
+            return {}
         response = await self._get(path="prices", params={"currencies": ",".join(codes)})
         result = await response.json()
         return result["data"]

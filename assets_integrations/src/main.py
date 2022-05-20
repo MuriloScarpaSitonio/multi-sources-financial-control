@@ -1,13 +1,20 @@
 import asyncio
 from datetime import date as date_typing, datetime
 from decimal import Decimal
-from typing import Dict, List, Optional, Type, Union
+from typing import Dict, Iterator, List, Optional, Type, Union
 
 from fastapi import Depends, FastAPI, Query, status
 
 from sqlmodel import Session, SQLModel
 
-from .clients import AwesomeApiClient, BinanceClient, BrApiClient, CeiCrawler, KuCoinClient
+from .clients import (
+    AwesomeApiClient,
+    BinanceClient,
+    BrApiClient,
+    CeiCrawler,
+    KuCoinClient,
+    TwelveDataClient,
+)
 from .constants import AssetTypes, DEFAULT_BINANCE_CURRENCY
 from .database import engine
 from .schemas import (
@@ -27,11 +34,11 @@ app = FastAPI()
 
 
 @app.on_event("startup")
-def on_startup():
+def on_startup() -> None:
     SQLModel.metadata.create_all(engine)
 
 
-def get_db() -> Session:
+def get_db() -> Iterator[Session]:
     with Session(engine) as session:
         yield session
 
@@ -92,7 +99,7 @@ async def fetch_kucoin_prices(
 @app.get(path="/b3/prices", response_model=AssetCurrentPrice)
 async def fetch_b3_current_prices(codes: List[str] = Query(...)):
     async with BrApiClient() as client:
-        return await client.get_prices(codes=codes)
+        return await client.get_b3_prices(codes=codes)
 
 
 @app.get("/crypto/prices", response_model=AssetCurrentPrice, deprecated=True)
@@ -160,10 +167,16 @@ async def fetch_prices(
         async with client(user=user) as c:
             return await c.get_prices(**kwargs)
 
-    b3_codes, binance_assets, kucoin_codes = [], [], []
+    async def get_usa_stocks_prices(codes: List[str]):
+        async with TwelveDataClient() as c:
+            return await c.get_prices(codes=codes)
+
+    b3_codes, binance_assets, kucoin_codes, usa_stocks_codes = [], [], [], []
     for asset in assets:
         if AssetTypes[asset.type] == AssetTypes.STOCK:
             b3_codes.append(asset.code)
+        if AssetTypes[asset.type] == AssetTypes.STOCK_USA:
+            usa_stocks_codes.append(asset.code)
         if AssetTypes[asset.type] == AssetTypes.CRYPTO:
             if asset.currency == DEFAULT_BINANCE_CURRENCY:
                 binance_assets.append(asset)
@@ -173,6 +186,7 @@ async def fetch_prices(
         get_b3_prices(codes=b3_codes),
         get_crypto_prices(client=KuCoinClient, codes=kucoin_codes),
         get_crypto_prices(client=BinanceClient, assets=binance_assets),
+        get_usa_stocks_prices(codes=usa_stocks_codes),
     ]
     return {
         code: price for result in await asyncio.gather(*tasks) for code, price in result.items()
