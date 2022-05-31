@@ -1,9 +1,10 @@
-from abc import ABC, abstractmethod
-from datetime import date
+from abc import ABC, abstractmethod, abstractproperty
+from datetime import date, datetime
 from decimal import Decimal, DecimalException
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Set, Type, Union
 from typing_extensions import TypedDict
 from bson import Decimal128, ObjectId
+from pydantic import BaseModel, validator
 
 from pymongo import ASCENDING, DESCENDING, ReturnDocument
 from pymongo.client_session import ClientSession as MongoSession
@@ -39,18 +40,45 @@ class IndicatorsResponseType(TypedDict):
 # endregion: types
 
 # region: abstract classes
+class AbstractQueryFilter(BaseModel, ABC):
+    user_id: int = 1
+    description: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+
+    @abstractproperty
+    def base_filter(self) -> Any:
+        raise NotImplementedError
+
+    @abstractmethod
+    def resolve(self) -> Any:
+        raise NotImplementedError
 
 
 class AbstractQueryRepository(ABC):
+    filter_class: Type[AbstractQueryFilter]
+
     def __init__(self, *, user_id: int) -> None:
         self.user_id = user_id
+        self.filters = self.filter_class(user_id=user_id)
 
     @abstractmethod
     def get(self, revenue_id: ObjectId) -> Optional[RevenueMongoDoc]:  # pragma: no cover
         raise NotImplementedError
 
-    @abstractmethod
-    def list(self) -> Iterable[Revenue]:  # pragma: no cover
+    def list(
+        self,
+        description: Optional[str] = None,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> Iterable[Revenue]:
+        self.filters = self.filter_class(
+            user_id=self.user_id, description=description, start_date=start_date, end_date=end_date
+        )
+        return self._list()
+
+    @abstractmethod  # pragma: no cover
+    def _list(self) -> Iterable[Revenue]:
         raise NotImplementedError
 
     @abstractmethod
@@ -94,7 +122,36 @@ class AbstractCommandRepository(ABC):
 # region: repository classes
 
 
+class RevenuesMongoFilter(AbstractQueryFilter):
+    @property
+    def base_filter(self) -> Dict[str, int]:
+        return {"user_id": self.user_id}
+
+    @validator("description")
+    def convert_description(cls, v: Optional[str]) -> Optional[Dict[str, str]]:
+        return {"$regex": mongo._convert(v), "$options": "i"} if v is not None else v
+
+    @validator("start_date")
+    def convert_start_date(cls, v: Optional[date]) -> Optional[Dict[str, datetime]]:
+        return {"$gte": mongo._convert(v)} if v is not None else v
+
+    @validator("end_date")
+    def convert_end_date(cls, v: Optional[date]) -> Optional[Dict[str, datetime]]:
+        return {"$lte": mongo._convert(v)} if v is not None else v
+
+    def resolve(self) -> Dict[str, Union[str, Dict[str, Union[str, datetime]]]]:
+        result = self.dict(exclude_none=True)
+        date_filters = {**result.pop("start_date", {}), **result.pop("end_date", {})}
+        filters = {
+            **self.base_filter,
+            **result,
+        }
+        return {"created_at": date_filters, **filters} if date_filters else filters
+
+
 class MongoQueryRepository(AbstractQueryRepository):
+    filter_class = RevenuesMongoFilter
+
     def __init__(self, *, user_id: int, session: MongoSession) -> None:
         super().__init__(user_id=user_id)
         self.session = session
@@ -104,7 +161,7 @@ class MongoQueryRepository(AbstractQueryRepository):
     def _historic_pipeline(self) -> List[Dict[str, str]]:
         today = date.today()
         return [
-            {"$match": {"user_id": self.user_id}},
+            {"$match": self.filters.base_filter},
             {
                 "$group": {
                     "_id": {
@@ -137,15 +194,15 @@ class MongoQueryRepository(AbstractQueryRepository):
         ]
 
     def get(self, revenue_id: ObjectId) -> Optional[RevenueMongoDoc]:
-        return self._collection.find_one(filter={"_id": revenue_id})
+        return self._collection.find_one(filter={"_id": revenue_id, **self.filters.base_filter})
 
-    def list(self) -> Cursor:
-        return self._collection.find(filter={"user_id": self.user_id}).sort(
+    def _list(self) -> Cursor:
+        return self._collection.find(filter=self.filters.resolve()).sort(
             "created_at", direction=DESCENDING
         )
 
     def count(self) -> int:
-        return self._collection.count_documents(filter={"user_id": self.user_id})
+        return self._collection.count_documents(filter=self.filters.base_filter)
 
     def historic(self) -> List[HistoricResponseType]:
         cursor = self._collection.aggregate(
@@ -154,7 +211,7 @@ class MongoQueryRepository(AbstractQueryRepository):
                 {"$sort": {"_id.year": ASCENDING, "_id.month": ASCENDING}},
             ]
         )
-        # TODO: do this at the DB level
+        # TODO: do this at DB level
         return [
             {"date": f"{doc['_id']['month']}/{doc['_id']['year']}", "total": doc["total"]}
             for doc in cursor
@@ -219,16 +276,18 @@ class MongoCommandRepository(AbstractCommandRepository):
 
     def _add(self, revenue: Revenue) -> ObjectId:
         return self._collection.insert_one(
-            {**mongo.convert_revenue(revenue=revenue), "user_id": self.user_id}
+            {**mongo.convert_revenue(revenue=revenue), **self.query.filters.base_filter}
         ).inserted_id
 
     def delete(self, revenue_id: ObjectId) -> int:
-        result = self._collection.delete_one(filter={"_id": revenue_id, "user_id": self.user_id})
+        result = self._collection.delete_one(
+            filter={"_id": revenue_id, **self.query.filters.base_filter}
+        )
         return result.deleted_count
 
     def update(self, revenue_id: ObjectId, revenue: Revenue) -> Optional[RevenueMongoDoc]:
         return self._collection.find_one_and_update(
-            filter={"_id": revenue_id, "user_id": self.user_id},
+            filter={"_id": revenue_id, **self.query.filters.base_filter},
             update={"$set": mongo.convert_revenue(revenue=revenue)},
             return_document=ReturnDocument.AFTER,
         )

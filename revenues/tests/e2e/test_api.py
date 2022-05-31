@@ -46,6 +46,20 @@ def test_list_revenues(client):
     assert response_json["page"] == 1
 
 
+@pytest.mark.usefixtures("revenues")
+def test_list_revenues_with_empty_string_as_query_param(client):
+    # GIVEN
+
+    # WHEN
+    response = client.get("/revenues?start_date=&end_date=")
+    response_json = response.json()
+
+    # THEN
+    assert response.status_code == 200
+    assert len(response_json["items"]) == response_json["total"] == 2
+    assert response_json["page"] == 1
+
+
 def test_delete_revenue(client, revenue):
     # GIVEN
 

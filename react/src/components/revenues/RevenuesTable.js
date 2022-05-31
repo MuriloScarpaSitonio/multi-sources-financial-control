@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import MUIDataTable from "mui-datatables";
 
@@ -141,32 +141,20 @@ export const RevenuesTable = () => {
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
 
-  const [data, setData] = useState({});
-  const [isLoaded, setIsLoaded] = useState(false);
-
   const getAdjustedFilters = () => {
     return new URLSearchParams({
       page: filters.page,
       ordering: filters.ordering,
       description: filters.description,
-      page_size: pageSize,
+      size: pageSize,
       start_date:
         startDate !== null ? startDate.toLocaleDateString("fr-CA") : "",
       end_date: endDate !== null ? endDate.toLocaleDateString("fr-CA") : "",
     }).toString();
   };
 
-  function fetchData() {
-    setIsLoaded(false);
-    let api = new FastApiRevenue();
-
-    api
-      .list()
-      .then((response) => setData(response.data))
-      .finally(() => setIsLoaded(true));
-  }
-
-  useEffect(() => fetchData(), []);
+  let api = new FastApiRevenue();
+  const [data, isLoaded] = api.query(getAdjustedFilters());
 
   const reload = () => {
     if (
@@ -204,7 +192,7 @@ export const RevenuesTable = () => {
   const options = {
     filterType: "multiselect",
     serverSide: true,
-    count: data.count,
+    count: data.total,
     rowsPerPage: pageSize,
     rowsPerPageOptions: [5, 10, 20, 50, 100],
     selectableRows: "none",
@@ -393,7 +381,6 @@ export const RevenuesTable = () => {
       },
     },
   ];
-
   return (
     <Container
       style={{ position: "relative", marginTop: "15px" }}

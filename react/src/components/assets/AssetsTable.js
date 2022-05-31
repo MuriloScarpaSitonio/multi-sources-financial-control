@@ -124,7 +124,7 @@ export const AssetsTable = () => {
     },
     {
       name: "adjusted_avg_price",
-      label: "Preço médio ajustado",
+      label: "Preço médio aj.",
       options: {
         filter: false,
         sort: false,
@@ -159,7 +159,7 @@ export const AssetsTable = () => {
     },
     {
       name: "total_invested",
-      label: "Total investido ajustado",
+      label: "Total investido aj.",
       options: {
         filter: false,
         sort: true,

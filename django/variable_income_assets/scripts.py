@@ -2,7 +2,7 @@ from decimal import Decimal  # pragma: no cover
 from typing import Optional, Union  # pragma: no cover
 
 from django.utils import timezone
-from django.db.models import F, OuterRef, Q, Subquery
+from django.db.models import F, OuterRef, Q, Subquery, Sum
 from django.db.transaction import atomic
 
 from config.settings.base import DOLLAR_CONVERSION_RATE
@@ -141,3 +141,73 @@ def generate_irpf(year: int = timezone.now().year - 1):
         )
     ).filter(credited_incomes_total__gt=0):
         print(a.code, a.credited_incomes_total)
+
+    # qs = (
+    #     Asset.objects.annotate(transactions_balance=Subquery(transactions_qs.values("balance")))
+    #     .annotate_roi()
+    #     .filter(transactions_balance__lte=0, roi__gt=0)
+    # )
+    qs = Asset.objects.annotate_roi().filter(roi__gt=0)
+
+    print("\n\n------------ OPERAÇÕES FINALIZADAS B3 ------------\n\n")
+    _sum = []
+    for month in range(1, 13):
+        _qs = (
+            qs.stocks()
+            .annotate(
+                transactions_balance=Subquery(
+                    transactions_qs.filter(created_at__month=month, created_at__year=year).values(
+                        "balance"
+                    )
+                )
+            )
+            .filter(transactions_balance__lte=0)
+            .aggregate(total=Sum("roi"))
+        )
+        total = _qs["total"]
+        print(f"{month:02}/{str(year)[2:]}: {total}")
+
+        _sum.append(total if total else Decimal())
+    print(f"\nTOTAL: {sum(_sum)}")
+
+    print("\n\n------------ OPERAÇÕES FINALIZADAS USA ------------\n\n")
+    _sum = []
+    for month in range(1, 13):
+        _qs = (
+            qs.stocks_usa()
+            .annotate(
+                transactions_balance=Subquery(
+                    transactions_qs.filter(created_at__month=month, created_at__year=year).values(
+                        "balance"
+                    )
+                )
+            )
+            .filter(transactions_balance__lte=0)
+            .aggregate(total=Sum("roi"))
+        )
+        total = _qs["total"]
+        print(f"{month:02}/{str(year)[2:]}: {total}")
+
+        _sum.append(total if total else Decimal())
+    print(f"\nTOTAL: {sum(_sum)}")
+
+    print("\n\n------------ OPERAÇÕES FINALIZADAS CRIPTOS ------------\n\n")
+    _sum = []
+    for month in range(1, 13):
+        _qs = (
+            qs.cryptos()
+            .annotate(
+                transactions_balance=Subquery(
+                    transactions_qs.filter(created_at__month=month, created_at__year=year).values(
+                        "balance"
+                    )
+                )
+            )
+            .filter(transactions_balance__lte=0)
+            .aggregate(total=Sum("roi"))
+        )
+        total = _qs["total"]
+        print(f"{month:02}/{str(year)[2:]}: {total}")
+
+        _sum.append(total if total else Decimal())
+    print(f"\nTOTAL: {sum(_sum)}")

@@ -54,9 +54,10 @@ export class RevenuesApi extends Api {
 export class FastApiRevenue {
   constructor(id = null) {
     this.indicators = () => apiProvider.getRevenues("indicators/");
-    this.list = () => apiProvider.getRevenues("revenues");
-    this.delete = (id) => apiProvider.deleteRevenue(`revenues/${id}`);
-    this.historic = () => apiProvider.getRevenues("historic");
+    this.query = (filters = "") =>
+      apiProvider.QueryRevenues(`revenues/?${filters}`);
+    this.delete = (id) => apiProvider.deleteRevenue(`revenues/${id}/`);
+    this.historic = () => apiProvider.getRevenues("historic/");
     this.post = (data) => apiProvider.postRevenues("revenues", data);
     this.patch = (data) => apiProvider.patch(`revenues/${id}`, data);
   }

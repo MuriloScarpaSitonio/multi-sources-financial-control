@@ -70,11 +70,8 @@ def sync_cei_transactions_task(self, username: str) -> int:
         parts=("cei/", "transactions"),
         query_params={
             "username": username,
-            "start_date": self.get_last_run(
-                username=username, as_date=True, timedelta_kwargs={"days": 2}
-            ),
-            # não é possível consultar informações do dia atual
-            "end_date": timezone.now().date() - timedelta(days=1),
+            "start_date": self.get_last_run(username=username, as_date=True),
+            "end_date": timezone.now().date(),
         },
     )
     _save_cei_transactions(

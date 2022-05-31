@@ -6,6 +6,8 @@ import { AccessTokenStr, RefreshTokenStr } from "../consts";
 
 const Query = (url) => useQuery(privateAxios, url);
 
+const QueryRevenues = (url) => useQuery(fastApiRevenuesAxios, url);
+
 const QueryWithInfiteScroll = (url) => useInfiniteScroll(privateAxios, url);
 
 const get = (url) => privateAxios.get(url);
@@ -40,6 +42,7 @@ const refreshToken = async () => {
 export const apiProvider = {
   Query,
   QueryWithInfiteScroll,
+  QueryRevenues,
   login,
   post,
   postRevenues,

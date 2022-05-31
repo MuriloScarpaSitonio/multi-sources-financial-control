@@ -1,4 +1,5 @@
-from typing import Generic, Iterator, List, Sequence, TypeVar
+from datetime import date
+from typing import Generic, Iterator, List, Optional, Sequence, TypeVar, Union
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -109,14 +110,24 @@ def get_revenue_endpoint(
 
 
 @app.get("/revenues/", response_model=Page[RevenueReadModel])
-def list_revenue_endpoint(
+def list_revenues_endpoint(
     user_id: int = Depends(get_user_id),
     session: MongoSession = Depends(get_session),
     page: int = Query(default=1, ge=1),
-    size: int = Query(default=50, ge=1, le=100),
+    size: int = Query(default=5, ge=1, le=100),
+    description: Optional[str] = None,
+    start_date: Union[date, None, str] = None,
+    end_date: Union[date, None, str] = None,
 ):
+    # fastapi considers a query param equals to `?start_date=` as an empty string
+    # so this endpoint would return "422 Unprocessable Entity" for `date` params.
+    # NOTE: for a bigger project, consider using a middleware
+    start_date = start_date or None
+    end_date = end_date or None
     with MongoUnitOfWork(user_id=user_id, session=session) as uow:
-        cursor = uow.revenues.query.list()
+        cursor = uow.revenues.query.list(
+            description=description, start_date=start_date, end_date=end_date
+        )
         return mongo.paginate(cursor=cursor, total=uow.revenues.query.count(), page=page, size=size)
 
 

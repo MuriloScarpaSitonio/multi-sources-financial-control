@@ -64,6 +64,70 @@ def test_repository_list(mongo_session):
     ]
 
 
+@pytest.mark.parametrize(
+    "filters, count",
+    (
+        ({"description": "des"}, 1),
+        ({"description": "REV"}, 1),
+        ({"start_date": date(year=2022, month=4, day=12)}, 1),
+        ({"end_date": date(year=2022, month=4, day=12)}, 1),
+        (
+            {
+                "start_date": date(year=2022, month=4, day=12),
+                "end_date": date(year=2022, month=4, day=12),
+            },
+            0,
+        ),
+        (
+            {
+                "start_date": date(year=2022, month=4, day=1),
+                "end_date": date(year=2022, month=5, day=12),
+            },
+            2,
+        ),
+        (
+            {
+                "start_date": date(year=2022, month=5, day=1),
+                "end_date": date(year=2022, month=5, day=12),
+            },
+            1,
+        ),
+        (
+            {
+                "start_date": date(year=2022, month=5, day=11),
+                "end_date": date(year=2022, month=5, day=12),
+            },
+            0,
+        ),
+        (
+            {
+                "start_date": date(year=2022, month=5, day=1),
+                "end_date": date(year=2022, month=4, day=12),
+            },
+            0,
+        ),
+    ),
+)
+def test_repository_filters(mongo_session, filters, count):
+    # GIVEN
+    repo = MongoCommandRepository(user_id=1, session=mongo_session)
+    rev1 = Revenue(
+        value=Decimal("100.0"),
+        description="Description",
+        created_at=date(year=2022, month=4, day=1),
+    )
+    rev2 = Revenue(
+        value=Decimal("150.0"), description="Revenue", created_at=date(year=2022, month=5, day=1)
+    )
+
+    # WHEN
+    repo.add(rev1)
+    repo.add(rev2)
+
+    # THEN
+    assert len(list(repo.query.list(**filters))) == count
+
+
 def test_repository_delete(mongo_session):
     # GIVEN
     user_id = 1
