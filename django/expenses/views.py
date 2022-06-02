@@ -20,7 +20,7 @@ from .managers import ExpenseQueryset
 from .models import Expense
 from .serializers import (
     ExpenseSerializer,
-    ExpenseHistoricSerializer,
+    ExpenseHistoricResponseSerializer,
     ExpenseIndicatorsSerializer,
 )
 
@@ -58,8 +58,9 @@ class ExpenseViewSet(ModelViewSet):
 
     @action(methods=("GET",), detail=False)
     def historic(self, _: Request) -> Response:
-        serializer = ExpenseHistoricSerializer(
-            self.get_queryset().trunc_months().order_by("month"), many=True
+        qs = self.get_queryset()
+        serializer = ExpenseHistoricResponseSerializer(
+            {"historic": qs.trunc_months().order_by("month"), **qs.monthly_avg()}
         )
         return Response(serializer.data, status=HTTP_200_OK)
 

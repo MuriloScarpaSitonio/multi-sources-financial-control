@@ -84,6 +84,11 @@ class ExpenseHistoricSerializer(_ExpenseExtraBaseSerializer):
     month = serializers.DateField(format="%d/%m/%Y")
 
 
+class ExpenseHistoricResponseSerializer(serializers.Serializer):
+    historic = ExpenseHistoricSerializer(many=True)
+    avg = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
+
+
 class ExpenseIndicatorsSerializer(_ExpenseExtraBaseSerializer):
     avg = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
     diff = serializers.DecimalField(max_digits=8, decimal_places=2, rounding=ROUND_HALF_UP)

@@ -41,7 +41,7 @@ class IndicatorsResponseType(TypedDict):
 
 # region: abstract classes
 class AbstractQueryFilter(BaseModel, ABC):
-    user_id: int = 1
+    user_id: int
     description: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
@@ -202,7 +202,7 @@ class MongoQueryRepository(AbstractQueryRepository):
         )
 
     def count(self) -> int:
-        return self._collection.count_documents(filter=self.filters.base_filter)
+        return self._collection.count_documents(filter=self.filters.resolve())
 
     def historic(self) -> List[HistoricResponseType]:
         cursor = self._collection.aggregate(
@@ -213,21 +213,23 @@ class MongoQueryRepository(AbstractQueryRepository):
         )
         # TODO: do this at DB level
         return [
-            {"date": f"{doc['_id']['month']}/{doc['_id']['year']}", "total": doc["total"]}
+            {
+                "date": f"{doc['_id']['month']}/{doc['_id']['year']}",
+                "total": doc["total"].to_decimal(),
+            }
             for doc in cursor
         ]
 
-    def indicators(self) -> IndicatorsResponseType:
-        # region: Avg query
-        avg_cursor = self._collection.aggregate(
+    def avg(self) -> Cursor:
+        return self._collection.aggregate(
             pipeline=[
                 *self._historic_pipeline,
                 {"$group": {"_id": 0, "avg": {"$avg": "$total"}}},
                 {"$project": {"_id": 0, "avg": {"$ifNull": ["$avg", Decimal128("0.0")]}}},
             ]
         )
-        # endregion: Avg query
 
+    def indicators(self) -> IndicatorsResponseType:
         # region: Last month total query
         last_month_total_cursor = self._collection.aggregate(
             pipeline=[
@@ -246,7 +248,7 @@ class MongoQueryRepository(AbstractQueryRepository):
         # endregion: Last month total query
 
         # region: Calculate percentage
-        avg = avg_cursor.next()["avg"].to_decimal()
+        avg = self.avg().next()["avg"].to_decimal()
         try:
             last_month_total_dict = last_month_total_cursor.next()
         except StopIteration:

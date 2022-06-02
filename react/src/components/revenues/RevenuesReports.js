@@ -66,13 +66,13 @@ function getTabProps(index) {
   };
 }
 
-const ExpenseHistoricChartComponent = ({ data, avg }) => {
+const RevenuesHistoricChartComponent = ({ data }) => {
   return (
     <Card elevation={6}>
       <CardHeader />
       <Divider />
       <CardContent>
-        <BarChart width={chartWidth} height={chartHeight} data={data}>
+        <BarChart width={chartWidth} height={chartHeight} data={data.historic}>
           <CartesianGrid stroke="#eee" />
           <XAxis dataKey="date" />
           <YAxis />
@@ -84,7 +84,7 @@ const ExpenseHistoricChartComponent = ({ data, avg }) => {
           />
           <Bar dataKey="total" fill={currentDataFillColor} />
           <ReferenceLine
-            y={avg}
+            y={data.avg}
             label="Média"
             stroke="#e65100"
             strokeDasharray="3 3"
@@ -152,7 +152,7 @@ export const RevenuesReports = () => {
 
       <TabPanel value={tabValue} index={0}>
         {!isLoaded && <Loader />}
-        <ExpenseHistoricChartComponent data={data} avg={13436.81} />
+        <RevenuesHistoricChartComponent data={data} />
       </TabPanel>
     </Grid>
   );

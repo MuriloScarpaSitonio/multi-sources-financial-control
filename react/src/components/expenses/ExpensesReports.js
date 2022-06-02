@@ -256,7 +256,7 @@ const ExpenseHistoricChartComponent = ({ data }) => {
       />
       <Divider />
       <CardContent>
-        <BarChart width={chartWidth} height={chartHeight} data={data}>
+        <BarChart width={chartWidth} height={chartHeight} data={data.historic}>
           <CartesianGrid stroke="#eee" />
           <XAxis dataKey="month" />
           <YAxis />
@@ -268,7 +268,7 @@ const ExpenseHistoricChartComponent = ({ data }) => {
           />
           <Bar dataKey="total" fill={currentDataFillColor} />
           <ReferenceLine
-            y={4082.34}
+            y={data.avg}
             label="Média"
             stroke="#e65100"
             strokeDasharray="3 3"

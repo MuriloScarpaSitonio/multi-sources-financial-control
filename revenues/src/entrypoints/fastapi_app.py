@@ -1,11 +1,12 @@
 from datetime import date
+from decimal import Decimal
 from typing import Generic, Iterator, List, Optional, Sequence, TypeVar, Union
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from bson.objectid import ObjectId
-from pydantic import conint, Field
+from pydantic import BaseModel, conint, Field
 from pydantic.generics import GenericModel
 from pymongo import MongoClient
 from pymongo.client_session import ClientSession as MongoSession
@@ -60,6 +61,11 @@ class Page(GenericModel, Generic[T]):
     size: conint(ge=1)  # type: ignore
 
 
+class HistoricResponse(BaseModel):
+    historic: List[HistoricResponseType]
+    avg: Decimal
+
+
 # endregion: typing
 
 # region: dependencies
@@ -79,12 +85,12 @@ def get_user_id() -> int:
 # region: endpoints
 
 
-@app.get("/historic/", response_model=List[HistoricResponseType])
+@app.get("/historic/", response_model=HistoricResponse)
 def revenue_historic_endpoint(
     user_id: int = Depends(get_user_id), session: MongoSession = Depends(get_session)
 ):
     with MongoUnitOfWork(user_id=user_id, session=session) as uow:
-        return uow.revenues.query.historic()
+        return {"historic": uow.revenues.query.historic(), **uow.revenues.query.avg().next()}
 
 
 @app.get("/indicators/", response_model=IndicatorsResponseType)
