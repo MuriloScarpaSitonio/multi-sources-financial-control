@@ -1,22 +1,21 @@
+from typing import Type
+
 from django.utils import timezone
 from django.db.models import Sum
 
+from djchoices import ChoiceItem
 from rest_framework.decorators import action
 from rest_framework.mixins import ListModelMixin
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.serializers import Serializer
 from rest_framework.status import HTTP_200_OK
+from rest_framework.utils.serializer_helpers import ReturnList
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from tasks.decorators import celery_task_endpoint, start_celery_task
-from .tasks import (
-    sync_binance_transactions_task,
-    sync_cei_transactions_task,
-    sync_cei_passive_incomes_task,
-    sync_kucoin_transactions_task,
-    fetch_current_assets_prices,
-)
 
+from .choices import AssetsTotalInvestedReportAggregations
 from .filters import (
     AssetFilterSet,
     AssetFetchCurrentPriceFilterSet,
@@ -27,11 +26,18 @@ from .managers import AssetQuerySet, PassiveIncomeQuerySet
 from .models import Asset, PassiveIncome
 from .permissions import AssetsPricesPermission, BinancePermission, CeiPermission, KuCoinPermission
 from .serializers import (
-    AssetReportSerializer,
     AssetRoidIndicatorsSerializer,
     AssetSerializer,
+    AssetTypeReportSerializer,
     PassiveIncomeSerializer,
     PassiveIncomesIndicatorsSerializer,
+)
+from .tasks import (
+    sync_binance_transactions_task,
+    sync_cei_transactions_task,
+    sync_cei_passive_incomes_task,
+    sync_kucoin_transactions_task,
+    fetch_current_assets_prices,
 )
 
 
@@ -47,7 +53,7 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
             else Asset.objects.none()  # drf-spectatular
         )
         if self.action == "list":
-            qs = qs.opened().annotate_for_serializer().order_by("code")
+            qs = qs.opened().annotate_for_serializer().order_by("-total_invested")
 
         return qs
 
@@ -64,18 +70,35 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
         serializer = AssetRoidIndicatorsSerializer(self.get_queryset().indicators())
         return Response(serializer.data, status=HTTP_200_OK)
 
+    @staticmethod
+    def _get_report_serializer_class(choice: ChoiceItem) -> Type[Serializer]:
+        module = __import__("variable_income_assets.serializers", fromlist=[choice.serializer_name])
+        return getattr(module, choice.serializer_name)
+
+    def _get_total_invested_report_data(
+        self, filterset: AssetTotalInvestedReportFilterSet
+    ) -> ReturnList:
+        qs = filterset.qs
+        choice = AssetsTotalInvestedReportAggregations.get_choice(
+            value=filterset.form.data["group_by"]
+        )
+        Serializer = self._get_report_serializer_class(choice=choice)
+        serializer = Serializer(qs, many=True)
+        return serializer.data
+
     @action(methods=("GET",), detail=False)
     def total_invested_report(self, request: Request) -> Response:
         filterset = AssetTotalInvestedReportFilterSet(
             data=request.GET, queryset=self.get_queryset()
         )
-        serializer = AssetReportSerializer(filterset.qs, many=True)
-        return Response(serializer.data, status=HTTP_200_OK)
+        return Response(
+            self._get_total_invested_report_data(filterset=filterset), status=HTTP_200_OK
+        )
 
     @action(methods=("GET",), detail=False)
     def roi_report(self, request: Request) -> Response:
         filterset = AssetRoiReportFilterSet(data=request.GET, queryset=self.get_queryset())
-        serializer = AssetReportSerializer(filterset.qs, many=True)
+        serializer = AssetTypeReportSerializer(filterset.qs, many=True)
         return Response(serializer.data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False, permission_classes=(CeiPermission,))

@@ -8,6 +8,8 @@ from shared.models_utils import serializable_today_function
 from tasks.models import TaskHistory
 
 from .choices import (
+    AssetObjectives,
+    AssetSectors,
     AssetTypes,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
@@ -20,6 +22,12 @@ from .managers import AssetQuerySet, PassiveIncomeQuerySet, TransactionQuerySet
 class Asset(models.Model):
     code = models.CharField(max_length=10)
     type = models.CharField(max_length=10, choices=AssetTypes.choices)
+    sector = models.CharField(
+        max_length=50, choices=AssetSectors.choices, default=AssetSectors.unknown
+    )
+    objective = models.CharField(
+        max_length=50, choices=AssetObjectives.choices, default=AssetObjectives.unknown
+    )
     current_price = models.DecimalField(decimal_places=6, max_digits=13, blank=True, null=True)
     current_price_updated_at = models.DateTimeField(blank=True, null=True)
     user = models.ForeignKey(

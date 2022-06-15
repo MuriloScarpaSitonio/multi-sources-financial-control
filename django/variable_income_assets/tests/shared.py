@@ -101,3 +101,12 @@ def get_current_price(asset: Asset) -> Decimal:
         if asset.currency == TransactionCurrencies.real
         else (asset.current_price or Decimal()) * DOLLAR_CONVERSION_RATE
     )
+
+
+get_total_invested_brute_force = lambda asset: get_avg_price_bute_force(
+    asset
+) * get_adjusted_quantity_brute_force(asset)
+
+get_current_total_invested_brute_force = lambda asset: get_current_price(
+    asset
+) * get_adjusted_quantity_brute_force(asset)

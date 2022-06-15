@@ -35,7 +35,7 @@ import { makeStyles } from "@material-ui/core/styles";
 const chartWidth = 950;
 const chartHeight = 300;
 const chartBarSize = 20;
-const lastDataFillCollor = "rgba(54, 162, 235, 0.3)";
+const lastDataFillCollor = "rgba(54, 162, 235, 0.4)";
 const currentDataFillColor = "rgba(54, 162, 235, 1)";
 
 const useStyles = makeStyles((theme) => ({
@@ -48,14 +48,14 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-const AssetPiechart = ({ data }) => {
+const AssetPiechart = ({ data, nameKey }) => {
   return (
     <PieChart width={chartWidth} height={chartHeight}>
       <Legend />
       <Pie
         data={data}
         dataKey="total"
-        nameKey="type"
+        nameKey={nameKey}
         cx="50%"
         cy="50%"
         innerRadius={60}
@@ -66,12 +66,17 @@ const AssetPiechart = ({ data }) => {
       >
         <Cell key="cell-0" fill={currentDataFillColor} />
         <Cell key="cell-1" fill={lastDataFillCollor} />
+        <Cell key="cell-2" fill="rgba(72, 74, 72, 0.7)" />
+        <Cell key="cell-3" fill="rgba(72, 74, 72, 0.4)" />
+        <Cell key="cell-4" fill="rgba(107, 227, 139, 1)" />
+        <Cell key="cell-5" fill="rgba(107, 227, 139, 0.4)" />
+        <Cell key="cell-6" fill="rgba(72, 74, 72, 1)" />
       </Pie>
     </PieChart>
   );
 };
 
-const AssetHorizontalBarChart = ({ data }) => (
+const AssetHorizontalBarChart = ({ data, dataKey }) => (
   <BarChart
     width={chartWidth}
     height={chartHeight}
@@ -82,7 +87,7 @@ const AssetHorizontalBarChart = ({ data }) => (
   >
     <CartesianGrid stroke="#eee" />
     <XAxis type="number" tickFormatter={(t) => `R$ ${t}`} />
-    <YAxis type="category" dataKey="type" />
+    <YAxis type="category" dataKey={dataKey} />
     <ChartTooltip
       cursor={{ fill: "#f5f5f5" }}
       separator=": "
@@ -93,25 +98,36 @@ const AssetHorizontalBarChart = ({ data }) => (
   </BarChart>
 );
 
-const AssetTotalInvestedChartComponent = ({ data, fetchReportData }) => {
+const AssetTotalInvestedChartComponent = ({
+  data,
+  aggregation,
+  fetchReportData,
+}) => {
   const PERCENTAGE_REPORT_TEXT = "Percentual";
   const TOTAL_AMOUNT_REPORT_TEXT = "Montante investido";
   const PERCENTAGE_REPORT_TEXT_CURRENT = "Percentual (atual)";
   const TOTAL_AMOUNT_REPORT_TEXT_CURRENT = "Montante investido (atual)";
 
   const FILTERS_MAP = {};
-  FILTERS_MAP[PERCENTAGE_REPORT_TEXT] = { percentage: true, current: false };
+  FILTERS_MAP[PERCENTAGE_REPORT_TEXT] = {
+    percentage: true,
+    current: false,
+    group_by: aggregation,
+  };
   FILTERS_MAP[TOTAL_AMOUNT_REPORT_TEXT] = {
     percentage: false,
     current: false,
+    group_by: aggregation,
   };
   FILTERS_MAP[PERCENTAGE_REPORT_TEXT_CURRENT] = {
     percentage: true,
     current: true,
+    group_by: aggregation,
   };
   FILTERS_MAP[TOTAL_AMOUNT_REPORT_TEXT_CURRENT] = {
     percentage: false,
     current: true,
+    group_by: aggregation,
   };
 
   const [anchorEl, setAnchorEl] = useState(null);
@@ -133,9 +149,9 @@ const AssetTotalInvestedChartComponent = ({ data, fetchReportData }) => {
   };
 
   let chart = FILTERS_MAP[buttonText].percentage ? (
-    <AssetPiechart data={data} />
+    <AssetPiechart data={data} nameKey={aggregation.toLowerCase()} />
   ) : (
-    <AssetHorizontalBarChart data={data} />
+    <AssetHorizontalBarChart data={data} dataKey={aggregation.toLowerCase()} />
   );
   return (
     <Card elevation={6}>
@@ -334,16 +350,39 @@ export const AssetsReports = () => {
       .finally(() => setIsLoaded(true));
   }
   useEffect(
-    () => fetchTotalInvestedReportData({ percentage: true, current: false }),
+    () =>
+      fetchTotalInvestedReportData({
+        percentage: true,
+        current: false,
+        group_by: "TYPE",
+      }),
     []
   );
 
   const handleTabsChange = (event, newValue) => {
     switch (newValue) {
       case 0:
-        fetchTotalInvestedReportData({ percentage: true, current: false });
+        fetchTotalInvestedReportData({
+          percentage: true,
+          current: false,
+          group_by: "TYPE",
+        });
         break;
       case 1:
+        fetchTotalInvestedReportData({
+          percentage: true,
+          current: false,
+          group_by: "OBJECTIVE",
+        });
+        break;
+      case 2:
+        fetchTotalInvestedReportData({
+          percentage: true,
+          current: false,
+          group_by: "SECTOR",
+        });
+        break;
+      case 3:
         fetchRoiReportData({ opened: true, finished: true });
         break;
       default:
@@ -361,18 +400,37 @@ export const AssetsReports = () => {
         onChange={handleTabsChange}
         className={classes.tabs}
       >
-        <Tab label="Investimento total" {...getTabProps(0)} />
-        <Tab label="ROI (lucro/prejuízo)" {...getTabProps(1)} />
+        <Tab label="Por tipo" {...getTabProps(0)} />
+        <Tab label="Por objetivo" {...getTabProps(1)} />
+        <Tab label="Por setor" {...getTabProps(2)} />
+        <Tab label="ROI (lucro/prejuízo)" {...getTabProps(3)} />
       </Tabs>
 
       <TabPanel value={tabValue} index={0}>
         {!isLoaded && <Loader />}
         <AssetTotalInvestedChartComponent
           data={data}
+          aggregation="TYPE"
           fetchReportData={fetchTotalInvestedReportData}
         />
       </TabPanel>
       <TabPanel value={tabValue} index={1}>
+        {!isLoaded && <Loader />}
+        <AssetTotalInvestedChartComponent
+          data={data}
+          aggregation="OBJECTIVE"
+          fetchReportData={fetchTotalInvestedReportData}
+        />
+      </TabPanel>
+      <TabPanel value={tabValue} index={2}>
+        {!isLoaded && <Loader />}
+        <AssetTotalInvestedChartComponent
+          data={data}
+          aggregation="SECTOR"
+          fetchReportData={fetchTotalInvestedReportData}
+        />
+      </TabPanel>
+      <TabPanel value={tabValue} index={3}>
         {!isLoaded && <Loader />}
         <AssetRoiChartComponent
           data={data}

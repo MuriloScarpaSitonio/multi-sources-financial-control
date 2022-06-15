@@ -26,10 +26,12 @@ from .shared import (
     get_adjusted_quantity_brute_force,
     get_avg_price_bute_force,
     get_current_price,
+    get_current_total_invested_brute_force,
     get_roi_brute_force,
     get_total_bought_brute_force,
+    get_total_invested_brute_force,
 )
-from ..choices import AssetTypes, TransactionActions
+from ..choices import AssetObjectives, AssetSectors, AssetTypes, TransactionActions
 from ..models import Asset, Transaction
 
 
@@ -363,66 +365,61 @@ def test_should_get_indicators(client):
 
 
 @pytest.mark.usefixtures("report_data")
-def test__total_invested_report(client):
+@pytest.mark.parametrize(
+    "group_by, choices_class",
+    (("TYPE", AssetTypes), ("SECTOR", AssetSectors), ("OBJECTIVE", AssetObjectives)),
+)
+def test__total_invested_report(client, group_by, choices_class):
     # GIVEN
     totals = {
-        "stock": sum(
-            get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
-            for asset in Asset.objects.stocks()
-        ),
-        "crypto": sum(
-            get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
-            for asset in Asset.objects.cryptos()
-        ),
-        "stock_usa": sum(
-            get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
-            for asset in Asset.objects.stocks_usa()
-        ),
+        v: sum(
+            get_total_invested_brute_force(asset)
+            for asset in Asset.objects.filter(**{group_by.lower(): v})
+        )
+        for v in choices_class.values
     }
 
     # WHEN
-    response = client.get(f"{URL}/total_invested_report?percentage=false&current=false")
+    response = client.get(
+        f"{URL}/total_invested_report?percentage=false&current=false&group_by={group_by}"
+    )
 
     # THEN
     assert response.status_code == HTTP_200_OK
 
     for result in response.json():
-        for choice, label in AssetTypes.labels.items():
-            if label == result["type"]:
+        for choice, label in choices_class.choices:
+            if label == result[group_by.lower()]:
                 assert totals[choice] == result["total"]
 
 
 @pytest.mark.usefixtures("report_data")
-def test__total_invested_report__percentage(client):
+@pytest.mark.parametrize(
+    "group_by, choices_class",
+    (("TYPE", AssetTypes), ("SECTOR", AssetSectors), ("OBJECTIVE", AssetObjectives)),
+)
+def test__total_invested_report__percentage(client, group_by, choices_class):
     # GIVEN
-    total_invested = sum(
-        get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
-        for asset in Asset.objects.all()
-    )
+    total_invested = sum(get_total_invested_brute_force(asset) for asset in Asset.objects.all())
     totals = {
-        "stock": sum(
-            get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
-            for asset in Asset.objects.stocks()
-        ),
-        "crypto": sum(
-            get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
-            for asset in Asset.objects.cryptos()
-        ),
-        "stock_usa": sum(
-            get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
-            for asset in Asset.objects.stocks_usa()
-        ),
+        v: sum(
+            get_total_invested_brute_force(asset)
+            for asset in Asset.objects.filter(**{group_by.lower(): v})
+        )
+        for v in choices_class.values
     }
 
     # WHEN
-    response = client.get(f"{URL}/total_invested_report?percentage=true&current=false")
+    response = client.get(
+        f"{URL}/total_invested_report?percentage=true&current=false&group_by={group_by}"
+    )
 
     # THEN
     assert response.status_code == HTTP_200_OK
 
     for result in response.json():
-        for choice, label in AssetTypes.labels.items():
-            if label == result["type"]:
+        for choice, label in choices_class.choices:
+            if label == result[group_by.lower()]:
                 assert (
                     float(
                         convert_to_percentage_and_quantitize(
@@ -434,65 +431,62 @@ def test__total_invested_report__percentage(client):
 
 
 @pytest.mark.usefixtures("report_data")
-def test__current_total_invested_report(client):
+@pytest.mark.parametrize(
+    "group_by, choices_class",
+    (("TYPE", AssetTypes), ("SECTOR", AssetSectors), ("OBJECTIVE", AssetObjectives)),
+)
+def test__current_total_invested_report(client, group_by, choices_class):
     # GIVEN
     totals = {
-        "stock": sum(
-            get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
-            for asset in Asset.objects.stocks()
-        ),
-        "crypto": sum(
-            get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
-            for asset in Asset.objects.cryptos()
-        ),
-        "stock_usa": sum(
-            get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
-            for asset in Asset.objects.stocks_usa()
-        ),
+        v: sum(
+            get_current_total_invested_brute_force(asset)
+            for asset in Asset.objects.filter(**{group_by.lower(): v})
+        )
+        for v in choices_class.values
     }
 
     # WHEN
-    response = client.get(f"{URL}/total_invested_report?percentage=false&current=true")
+    response = client.get(
+        f"{URL}/total_invested_report?percentage=false&current=true&group_by={group_by}"
+    )
 
     # THEN
     assert response.status_code == HTTP_200_OK
 
     for result in response.json():
-        for choice, label in AssetTypes.labels.items():
-            if label == result["type"]:
+        for choice, label in choices_class.choices:
+            if label == result[group_by.lower()]:
                 assert totals[choice] == result["total"]
 
 
 @pytest.mark.usefixtures("report_data")
-def test__current_total_invested_report__percentage(client):
+@pytest.mark.parametrize(
+    "group_by, choices_class",
+    (("TYPE", AssetTypes), ("SECTOR", AssetSectors), ("OBJECTIVE", AssetObjectives)),
+)
+def test__current_total_invested_report__percentage(client, group_by, choices_class):
     # GIVEN
     current_total = sum(
-        get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
-        for asset in Asset.objects.all()
+        get_current_total_invested_brute_force(asset) for asset in Asset.objects.all()
     )
     totals = {
-        "stock": sum(
-            get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
-            for asset in Asset.objects.stocks()
-        ),
-        "crypto": sum(
-            get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
-            for asset in Asset.objects.cryptos()
-        ),
-        "stock_usa": sum(
-            get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
-            for asset in Asset.objects.stocks_usa()
-        ),
+        v: sum(
+            get_current_total_invested_brute_force(asset)
+            for asset in Asset.objects.filter(**{group_by.lower(): v})
+        )
+        for v in choices_class.values
     }
 
     # WHEN
-    response = client.get(f"{URL}/total_invested_report?percentage=true&current=true")
+    response = client.get(
+        f"{URL}/total_invested_report?percentage=true&current=true&group_by={group_by}"
+    )
 
     # THEN
     assert response.status_code == HTTP_200_OK
     for result in response.json():
-        for choice, label in AssetTypes.labels.items():
-            if label == result["type"]:
+        for choice, label in choices_class.choices:
+            if label == result[group_by.lower()]:
                 assert (
                     float(
                         convert_to_percentage_and_quantitize(
@@ -514,6 +508,7 @@ def test__total_invested_report__should_fail_wo_required_filters(client):
     assert response.json() == {
         "percentage": ["Required to define the type of report"],
         "current": ["Required to define the type of report"],
+        "group_by": ["This field is required."],
     }
 
 
@@ -521,13 +516,8 @@ def test__total_invested_report__should_fail_wo_required_filters(client):
 def test__roi_report__opened(client):
     # GIVEN
     totals = {
-        "stock": sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.opened().stocks()),
-        "stock_usa": sum(
-            get_roi_brute_force(asset=asset) for asset in Asset.objects.opened().stocks_usa()
-        ),
-        "crypto": sum(
-            get_roi_brute_force(asset=asset) for asset in Asset.objects.opened().cryptos()
-        ),
+        v: sum(get_roi_brute_force(asset) for asset in Asset.objects.filter(type=v))
+        for v in AssetTypes.values
     }
 
     # WHEN
@@ -536,7 +526,7 @@ def test__roi_report__opened(client):
     # THEN
     assert response.status_code == HTTP_200_OK
     for result in response.json():
-        for choice, label in AssetTypes.labels.items():
+        for choice, label in AssetTypes.choices:
             if label == result["type"]:
                 assert totals[choice] == result["total"]
 
@@ -545,15 +535,8 @@ def test__roi_report__opened(client):
 def test__roi_report__finished(client):
     # GIVEN
     totals = {
-        "stock": sum(
-            get_roi_brute_force(asset=asset) for asset in Asset.objects.finished().stocks()
-        ),
-        "stock_usa": sum(
-            get_roi_brute_force(asset=asset) for asset in Asset.objects.finished().stocks_usa()
-        ),
-        "crypto": sum(
-            get_roi_brute_force(asset=asset) for asset in Asset.objects.finished().cryptos()
-        ),
+        v: sum(get_roi_brute_force(asset) for asset in Asset.objects.filter(type=v))
+        for v in AssetTypes.values
     }
 
     # WHEN
@@ -562,7 +545,7 @@ def test__roi_report__finished(client):
     # THEN
     assert response.status_code == HTTP_200_OK
     for result in response.json():
-        for choice, label in AssetTypes.labels.items():
+        for choice, label in AssetTypes.choices:
             if label == result["type"]:
                 assert totals[choice] == result["total"]
 

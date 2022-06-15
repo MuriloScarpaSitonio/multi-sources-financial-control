@@ -66,7 +66,6 @@ def calculate_new_avg_price(
 
     # clear cached property
     del asset.__dict__["adjusted_avg_price_from_transactions"]
-    # del asset.__dict__["quantity_from_transactions"]
     print(f"AFTER: {_get_avg_price(asset=asset, currency=currency)}")
 
     print(f"\n\nTotal adjusted invested: {asset.total_adjusted_invested_from_transactions}")

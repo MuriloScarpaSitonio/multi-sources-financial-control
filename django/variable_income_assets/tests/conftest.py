@@ -9,10 +9,13 @@ from authentication.tests.conftest import user
 from tasks.tests.conftest import simple_task_history
 
 from ..choices import (
+    AssetObjectives,
+    AssetSectors,
     AssetTypes,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
     TransactionActions,
+    TransactionCurrencies,
 )
 from ..models import Asset, Transaction, PassiveIncome
 
@@ -39,17 +42,36 @@ def celery_always_eager(settings):
 
 @pytest.fixture
 def simple_asset(user):
-    return AssetFactory(code="ALUP11", type=AssetTypes.stock, user=user)
+    return AssetFactory(
+        code="ALUP11",
+        type=AssetTypes.stock,
+        sector=AssetSectors.utilities,
+        objective=AssetObjectives.dividend,
+        user=user,
+    )
 
 
 @pytest.fixture
 def another_asset(user):
-    return AssetFactory(code="URA", type=AssetTypes.stock_usa, user=user)
+    return AssetFactory(
+        code="URA",
+        type=AssetTypes.stock_usa,
+        sector=AssetSectors.utilities,
+        objective=AssetObjectives.growth,
+        user=user,
+    )
 
 
 @pytest.fixture
 def crypto_asset(user):
-    return AssetFactory(code="QRDO", type=AssetTypes.crypto, user=user, current_price=6)
+    return AssetFactory(
+        code="QRDO",
+        type=AssetTypes.crypto,
+        sector=AssetSectors.tech,
+        objective=AssetObjectives.growth,
+        user=user,
+        current_price=6,
+    )
 
 
 @pytest.fixture
@@ -291,7 +313,7 @@ def indicators_data(simple_asset, another_asset, crypto_asset, transactions, pas
         price=10,
         asset=crypto_asset,
         quantity=50,
-        currency="USD",
+        currency=TransactionCurrencies.dollar,
     )
 
     # finish an asset
@@ -311,7 +333,29 @@ def indicators_data(simple_asset, another_asset, crypto_asset, transactions, pas
 
 
 @pytest.fixture
-def report_data(indicators_data, another_asset):
+def report_data(indicators_data, another_asset, user):
     # set to ensure this asset won't appear on the report as it's finished
     another_asset.current_price = 100
     another_asset.save()
+
+    asset = AssetFactory(
+        code="RANDOM",
+        type=choice(AssetTypes.choices)[0],
+        sector=choice(AssetSectors.choices)[0],
+        objective=choice(AssetObjectives.choices)[0],
+        current_price=6,
+        user=user,
+    )
+
+    Transaction.objects.create(
+        action=TransactionActions.buy,
+        price=10,
+        asset=asset,
+        quantity=50,
+    )
+    Transaction.objects.create(
+        action=TransactionActions.buy,
+        price=12,
+        asset=asset,
+        quantity=50,
+    )

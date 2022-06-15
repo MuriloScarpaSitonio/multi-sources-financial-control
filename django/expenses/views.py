@@ -3,7 +3,6 @@ from typing import List, Type
 
 from django.utils import timezone
 
-from django_filters import FilterSet
 from dateutil.relativedelta import relativedelta
 from djchoices.choices import ChoiceItem
 from rest_framework.decorators import action
@@ -44,7 +43,7 @@ class ExpenseViewSet(ModelViewSet):
         module = __import__("expenses.serializers", fromlist=[choice.serializer_name])
         return getattr(module, choice.serializer_name)
 
-    def _get_report_data(self, filterset: FilterSet) -> ReturnList:
+    def _get_report_data(self, filterset: ExpenseReportFilterSet) -> ReturnList:
         qs = filterset.qs
         choice = ExpenseReportType.get_choice(value=filterset.form.data["of"])
         Serializer = self._get_report_serializer_class(choice=choice)

@@ -5,7 +5,14 @@ from rest_framework import serializers
 from config.settings.base import DOLLAR_CONVERSION_RATE
 from shared.serializers_utils import CustomChoiceField
 
-from .choices import AssetTypes, PassiveIncomeEventTypes, PassiveIncomeTypes, TransactionCurrencies
+from .choices import (
+    AssetObjectives,
+    AssetSectors,
+    AssetTypes,
+    PassiveIncomeEventTypes,
+    PassiveIncomeTypes,
+    TransactionCurrencies,
+)
 from .models import Asset, PassiveIncome, Transaction
 
 
@@ -123,9 +130,20 @@ class PassiveIncomesIndicatorsSerializer(serializers.Serializer):
     )
 
 
-class AssetReportSerializer(serializers.Serializer):
-    type = CustomChoiceField(choices=AssetTypes.choices)
+class _AssetReportSerializer(serializers.Serializer):
     total = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
+
+
+class AssetTypeReportSerializer(_AssetReportSerializer):
+    type = CustomChoiceField(choices=AssetTypes.choices)
+
+
+class AssetTotalInvestedBySectorReportSerializer(_AssetReportSerializer):
+    sector = CustomChoiceField(choices=AssetSectors.choices)
+
+
+class AssetTotalInvestedByObjectiveReportSerializer(_AssetReportSerializer):
+    objective = CustomChoiceField(choices=AssetObjectives.choices)
 
 
 class TransactionSerializer(serializers.ModelSerializer):

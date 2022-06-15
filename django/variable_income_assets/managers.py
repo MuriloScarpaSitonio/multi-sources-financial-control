@@ -10,7 +10,7 @@ from django.db.models.functions import Coalesce
 from shared.managers_utils import CustomQueryset, IndicatorsMixin, MonthlyFilterMixin
 from shared.utils import coalesce_sum_expression
 
-from .choices import AssetTypes, PassiveIncomeEventTypes
+from .choices import AssetTypes, AssetsTotalInvestedReportAggregations, PassiveIncomeEventTypes
 from .expressions import GenericQuerySetExpressions
 
 
@@ -117,7 +117,7 @@ class AssetQuerySet(CustomQueryset):
             .annotate_current_total()
         )
 
-    def total_invested_report(self, current: bool) -> AssetQuerySet:
+    def total_invested_report(self, group_by: str, current: bool) -> AssetQuerySet:
         from .models import Transaction  # avoid circular ImportError
 
         subquery = (
@@ -135,10 +135,12 @@ class AssetQuerySet(CustomQueryset):
             )
         )
 
+        choice = AssetsTotalInvestedReportAggregations.get_choice(group_by)
         return (
             self.annotate(total_from_transactions=Subquery(subquery.values("total")))
-            .values("type")
+            .values(choice.field_name)
             .annotate(total=Sum("total_from_transactions"))
+            .filter(total__gt=0)
             .order_by("-total")
         )
 

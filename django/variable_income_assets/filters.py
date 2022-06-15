@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 
 import django_filters as filters
 
-from .choices import AssetTypes
+from .choices import AssetTypes, AssetsTotalInvestedReportAggregations
 from .models import Asset
 
 
@@ -76,6 +76,9 @@ class _AssetTotalInvestedReportForm(Form):
 class AssetTotalInvestedReportFilterSet(filters.FilterSet):
     percentage = filters.BooleanFilter(required=True)
     current = filters.BooleanFilter(required=True)
+    group_by = filters.ChoiceFilter(
+        choices=AssetsTotalInvestedReportAggregations.choices, required=True
+    )
 
     class Meta:
         form = _AssetTotalInvestedReportForm
@@ -84,7 +87,9 @@ class AssetTotalInvestedReportFilterSet(filters.FilterSet):
     def qs(self):
         if self.is_valid():
             current = self.form.cleaned_data["current"]
-            _qs = self.queryset.total_invested_report(current=current)
+            _qs = self.queryset.total_invested_report(
+                group_by=self.form.cleaned_data["group_by"], current=current
+            )
             if self.form.cleaned_data["percentage"]:
                 # there's 4 results max in `_qs` so it's better to aggregate at python level
                 # instead of doing another query
