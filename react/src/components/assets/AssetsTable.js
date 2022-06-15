@@ -3,9 +3,77 @@ import { useState } from "react";
 import MUIDataTable from "mui-datatables";
 
 import Container from "@material-ui/core/Container";
+import TableCell from "@material-ui/core/TableCell";
+import TableRow from "@material-ui/core/TableRow";
 
 import { AssetsApi } from "../../api";
 import { Loader } from "../Loaders";
+
+const TransactionsTable = ({ code, data }) => (
+  <MUIDataTable
+    title={`Últimas 5 transações de ${code}`}
+    data={data}
+    columns={[
+      {
+        name: "action",
+        label: "Ação",
+        options: {
+          filter: false,
+          sort: false,
+          customBodyRender: (v) => (v === "BUY" ? "Compra" : "Venda"),
+        },
+      },
+      {
+        name: "price",
+        label: "Preço",
+        options: {
+          filter: false,
+          sort: false,
+          customBodyRender: (v, tableMeta) => {
+            let currency =
+              tableMeta.tableData[0].currency === "BRL" ? "R$" : "$";
+            return `${currency} ${v?.toLocaleString("pt-br", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 4,
+            })}`;
+          },
+        },
+      },
+      {
+        name: "quantity",
+        label: "Quantidade",
+        options: {
+          filter: false,
+          sort: false,
+          customBodyRender: (v) => v?.toLocaleString("pt-br"),
+        },
+      },
+      {
+        name: "created_at",
+        label: "Quando",
+        options: {
+          filter: false,
+          sort: false,
+          customBodyRender: (v) => {
+            let [year, month, day] = v.split("-");
+            return `${day}/${month}/${year}`;
+          },
+        },
+      },
+    ]}
+    options={{
+      filter: false,
+      selectableRows: "none",
+      search: false,
+      download: false,
+      print: false,
+      pagination: false,
+      sort: false,
+      sortFilterList: false,
+      viewColumns: false,
+    }}
+  />
+);
 
 export const AssetsTable = () => {
   const [pageSize, setPageSize] = useState(5);
@@ -88,6 +156,21 @@ export const AssetsTable = () => {
     },
     onFilterChange: (_, filterList, __, changedColumnIndex) => {
       setFilters({ ...filters, type: filterList[changedColumnIndex], page: 1 });
+    },
+    expandableRows: true,
+    expandableRowsHeader: false,
+    expandableRowsOnClick: true,
+    renderExpandableRow: (rowData, _) => {
+      const colSpan = rowData.length + 1;
+      const [transactions] = rowData.slice(-1);
+
+      return (
+        <TableRow>
+          <TableCell sx={{ paddingLeft: "20px" }} colSpan={colSpan}>
+            <TransactionsTable code={rowData[1]} data={transactions} />
+          </TableCell>
+        </TableRow>
+      );
     },
   };
 
@@ -217,6 +300,14 @@ export const AssetsTable = () => {
           `${v?.toLocaleString("pt-br", {
             minimumFractionDigits: 2,
           })}%`,
+      },
+    },
+    {
+      name: "transactions",
+      options: {
+        display: false,
+        filter: false,
+        viewColumns: false,
       },
     },
   ];

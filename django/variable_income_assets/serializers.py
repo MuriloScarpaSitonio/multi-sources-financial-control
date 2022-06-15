@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_UP, DecimalException
 
 from rest_framework import serializers
@@ -15,9 +17,33 @@ from .choices import (
 )
 from .models import Asset, PassiveIncome, Transaction
 
+if TYPE_CHECKING:
+    from rest_framework.utils.serializer_helpers import ReturnList
+
+
+class TransactionSerializer(serializers.ModelSerializer):
+    # price = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Transaction
+        fields = ("action", "price", "currency", "quantity", "created_at")
+
+    # @staticmethod
+    # def _convert_value(value: Decimal, currency: str) -> Decimal:
+    #     return (
+    #         (value or Decimal())
+    #         if currency == TransactionCurrencies.real
+    #         # TODO: change this hardcoded conversion to a dynamic one
+    #         else (value or Decimal()) * DOLLAR_CONVERSION_RATE
+    #     )
+
+    # def get_price(self, obj: Transaction) -> Decimal:
+    #     return self._convert_value(obj.price, currency=obj.currency)
+
 
 class AssetSerializer(serializers.ModelSerializer):
     type = CustomChoiceField(choices=AssetTypes.choices)
+    currency = serializers.CharField(read_only=True)
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     quantity_balance = serializers.DecimalField(
         decimal_places=8, max_digits=15, read_only=True, rounding=ROUND_HALF_UP
@@ -37,6 +63,7 @@ class AssetSerializer(serializers.ModelSerializer):
     )
     percentage_invested = serializers.SerializerMethodField(read_only=True)
     current_percentage = serializers.SerializerMethodField(read_only=True)
+    transactions = serializers.SerializerMethodField()
 
     class Meta:
         model = Asset
@@ -53,6 +80,7 @@ class AssetSerializer(serializers.ModelSerializer):
             "currency",
             "percentage_invested",
             "current_percentage",
+            "transactions",
         )
 
     @staticmethod
@@ -82,6 +110,9 @@ class AssetSerializer(serializers.ModelSerializer):
         except DecimalException:
             result = Decimal()
         return result * Decimal("100.0")
+
+    def get_transactions(self, obj: Asset) -> "ReturnList":
+        return TransactionSerializer(obj.transactions.all()[:5], many=True).data
 
 
 class AssetRoidIndicatorsSerializer(serializers.Serializer):
@@ -144,11 +175,3 @@ class AssetTotalInvestedBySectorReportSerializer(_AssetReportSerializer):
 
 class AssetTotalInvestedByObjectiveReportSerializer(_AssetReportSerializer):
     objective = CustomChoiceField(choices=AssetObjectives.choices)
-
-
-class TransactionSerializer(serializers.ModelSerializer):
-    code = serializers.CharField(source="asset.code")
-
-    class Meta:
-        model = Transaction
-        fields = ("action", "price", "currency", "quantity", "created_at", "code")

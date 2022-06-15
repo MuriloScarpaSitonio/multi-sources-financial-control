@@ -53,7 +53,12 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
             else Asset.objects.none()  # drf-spectatular
         )
         if self.action == "list":
-            qs = qs.opened().annotate_for_serializer().order_by("-total_invested")
+            qs = (
+                qs.prefetch_related("transactions")
+                .opened()
+                .annotate_for_serializer()
+                .order_by("-total_invested")
+            )
 
         return qs
 

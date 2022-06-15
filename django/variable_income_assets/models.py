@@ -64,7 +64,7 @@ class Asset(models.Model):
         return self.transactions.get_current_quantity()["quantity"]
 
     @cached_property
-    def currency(self) -> str:
+    def currency_from_transactions(self) -> str:
         # we are accepting only one currency per asset, but this may change in the future
         return self.transactions.values_list("currency", flat=True).distinct()[0]
 

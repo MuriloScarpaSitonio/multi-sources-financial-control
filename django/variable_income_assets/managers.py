@@ -52,6 +52,12 @@ class AssetQuerySet(CustomQueryset):
             current_total=Sum("total")
         )
 
+    def annotate_currency(self) -> AssetQuerySet:
+        from .models import Transaction  # avoid circular ImportError
+
+        subquery = Transaction.objects.filter(asset=OuterRef("pk"))
+        return self.annotate(currency=Subquery(subquery.values("currency")[:1]))
+
     def annotate_roi(
         self, percentage: bool = False, annotate_passive_incomes_subquery: bool = True
     ) -> AssetQuerySet:
@@ -109,7 +115,8 @@ class AssetQuerySet(CustomQueryset):
 
     def annotate_for_serializer(self) -> AssetQuerySet:
         return (
-            self.annotate_roi()
+            self.annotate_currency()
+            .annotate_roi()
             .annotate_roi(percentage=True, annotate_passive_incomes_subquery=False)
             .annotate_adjusted_avg_price(annotate_passive_incomes_subquery=False)
             .annotate_avg_price()
