@@ -18,7 +18,7 @@ from authentication.tests.conftest import (
     user_with_kucoin_integration,
     user_without_assets_price_integration,
 )
-from config.settings.base import BASE_API_URL, DOLLAR_CONVERSION_RATE
+from config.settings.base import BASE_API_URL
 
 from .shared import (
     convert_to_percentage_and_quantitize,
@@ -516,7 +516,7 @@ def test__total_invested_report__should_fail_wo_required_filters(client):
 def test__roi_report__opened(client):
     # GIVEN
     totals = {
-        v: sum(get_roi_brute_force(asset) for asset in Asset.objects.filter(type=v))
+        v: sum(get_roi_brute_force(asset) for asset in Asset.objects.opened().filter(type=v))
         for v in AssetTypes.values
     }
 
@@ -535,7 +535,7 @@ def test__roi_report__opened(client):
 def test__roi_report__finished(client):
     # GIVEN
     totals = {
-        v: sum(get_roi_brute_force(asset) for asset in Asset.objects.filter(type=v))
+        v: sum(get_roi_brute_force(asset) for asset in Asset.objects.finished().filter(type=v))
         for v in AssetTypes.values
     }
 
@@ -554,9 +554,8 @@ def test__roi_report__finished(client):
 def test__roi_report__all(client):
     # GIVEN
     totals = {
-        "stock": sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.stocks()),
-        "stock_usa": sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.stocks_usa()),
-        "crypto": sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.cryptos()),
+        v: sum(get_roi_brute_force(asset) for asset in Asset.objects.filter(type=v))
+        for v in AssetTypes.values
     }
 
     # WHEN
@@ -565,7 +564,7 @@ def test__roi_report__all(client):
     # THEN
     assert response.status_code == HTTP_200_OK
     for result in response.json():
-        for choice, label in AssetTypes.labels.items():
+        for choice, label in AssetTypes.choices:
             if label == result["type"]:
                 assert totals[choice] == result["total"]
 

@@ -66,7 +66,7 @@ def _save_cei_transactions(
 )
 def sync_cei_transactions_task(self, username: str) -> int:
     url = build_url(
-        url=settings.CRAWLERS_URL,
+        url=settings.ASSETS_INTEGRATIONS_URL,
         parts=("cei/", "transactions"),
         query_params={
             "username": username,

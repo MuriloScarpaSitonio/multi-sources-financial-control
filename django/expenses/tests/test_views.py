@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Union
 
 from django.db.models import Avg, Q
 from django.utils import timezone
@@ -23,20 +24,29 @@ pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "expenses"
 
 
+def _convert_and_quantize(
+    value: Union[str, float, int, Decimal], precision: int = 1, cast: type = Decimal
+) -> Decimal:
+    result = Decimal(str(value)).quantize(
+        Decimal(f"0.{'0' * (precision - 1)}1"), rounding=ROUND_HALF_UP
+    )
+    return cast(result)
+
+
 @freeze_time("2021-10-01")
 @pytest.mark.usefixtures("expenses")
 @pytest.mark.parametrize(
     "filter_by, count",
     [
-        ("", 8),
-        ("description=Expense", 8),
-        ("description=pense", 8),
+        ("", 7),
+        ("description=Expense", 7),
+        ("description=pense", 7),
         ("description=wrong", 0),
-        ("start_date=2021-01-01&end_date=2021-12-01", 8),
+        ("start_date=2021-01-01&end_date=2021-12-01", 7),
         ("start_date=2021-10-01&end_date=2021-10-01", 1),
         ("start_date=2020-01-01&end_date=2020-12-01", 0),
         ("is_fixed=False", 4),
-        ("is_fixed=True", 4),
+        ("is_fixed=True", 3),
     ],
 )
 def test_should_filter_expenses(client, filter_by, count):
@@ -190,7 +200,7 @@ def test_should_get_reports(client, of, field_name):
     result_brute_force = [
         {
             "total": sum(current_month.get(k)) if current_month.get(k) is not None else None,
-            "avg": (sum(v) / len(v)).quantize(Decimal(".1"), rounding=ROUND_HALF_UP),
+            "avg": _convert_and_quantize(sum(v) / len(v)),
             field_name: k,
         }
         for k, v in since_a_year_ago.items()
@@ -204,8 +214,7 @@ def test_should_get_reports(client, of, field_name):
         for brute_force in result_brute_force:
             if result[field_name] == brute_force[field_name]:
                 assert (str(result["total"]) == str(brute_force["total"])) and (
-                    Decimal(str(result["avg"])).quantize(Decimal(".1"), rounding=ROUND_HALF_UP)
-                    == brute_force["avg"]
+                    _convert_and_quantize(result["avg"]) == brute_force["avg"]
                 )
     assert response.status_code == HTTP_200_OK
 
@@ -216,14 +225,22 @@ def test_should_get_historic_data(client):
 
     # WHEN
     response = client.get(f"{URL}/historic")
+    historic = response.json()["historic"]
 
     # THEN
     assert response.status_code == HTTP_200_OK
-    for result in response.json():
+
+    total = 0
+    for result in historic:
         month = datetime.strptime(result["month"], "%d/%m/%Y").date().month
         assert result["total"] == float(
             Expense.objects.filter(created_at__month=month).sum()["total"]
         )
+        total += result["total"]
+
+    assert _convert_and_quantize(total / len(historic)) == _convert_and_quantize(
+        response.json()["avg"]
+    )
 
 
 @pytest.mark.usefixtures("expenses")
@@ -259,12 +276,10 @@ def test_should_get_indicators(client):
     assert response.status_code == HTTP_200_OK
     assert Decimal(response_json["total"]) == total
     assert response_json == {
-        "total": float(total.quantize(Decimal(".01"), rounding=ROUND_HALF_UP)),
-        "avg": float(avg.quantize(Decimal(".01"), rounding=ROUND_HALF_UP)),
-        "diff": float(
-            (((total / avg) - Decimal("1.0")) * Decimal("100.0")).quantize(
-                Decimal(".01"), rounding=ROUND_HALF_UP
-            )
+        "total": _convert_and_quantize(total, precision=2, cast=float),
+        "avg": _convert_and_quantize(avg, precision=2, cast=float),
+        "diff": _convert_and_quantize(
+            ((total / avg) - Decimal("1.0")) * Decimal("100.0"), precision=2, cast=float
         ),
         "future": future,
     }

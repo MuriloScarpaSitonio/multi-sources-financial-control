@@ -18,7 +18,9 @@ URL = f"/{BASE_API_URL}" + "assets/sync_cei_transactions"
 
 def test_should_create_history_on_success(client, user, requests_mock):
     # GIVEN
-    requests_mock.get(build_url(url=settings.CRAWLERS_URL, parts=("cei/", "transactions")), json=[])
+    requests_mock.get(
+        build_url(url=settings.ASSETS_INTEGRATIONS_URL, parts=("cei/", "transactions")), json=[]
+    )
 
     # WHEN
     response = client.get(URL)

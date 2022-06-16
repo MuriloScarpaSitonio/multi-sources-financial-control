@@ -23,7 +23,7 @@ from ..models import Asset
 )
 def sync_kucoin_transactions_task(self, username: str) -> int:
     url = build_url(
-        url=settings.CRAWLERS_URL,
+        url=settings.ASSETS_INTEGRATIONS_URL,
         parts=("kucoin/", "transactions"),
         query_params={"username": username},
     )
@@ -42,7 +42,7 @@ def sync_kucoin_transactions_task(self, username: str) -> int:
 )
 def sync_binance_transactions_task(self, username: str) -> int:
     url = build_url(
-        url=settings.CRAWLERS_URL,
+        url=settings.ASSETS_INTEGRATIONS_URL,
         parts=("binance/", "transactions"),
         query_params={"username": username, "start_datetime": self.get_last_run(username=username)},
     )

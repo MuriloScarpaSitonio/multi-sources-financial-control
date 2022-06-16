@@ -7,7 +7,7 @@ from django.db.models.expressions import CombinedExpression
 from django.utils.functional import cached_property
 from django.db.models.functions import Coalesce
 
-from config.settings.base import DOLLAR_CONVERSION_RATE
+from config.settings.dynamic import dynamic_settings
 from shared.utils import coalesce_sum_expression
 
 from .choices import TransactionActions, TransactionCurrencies
@@ -32,7 +32,7 @@ class GenericQuerySetExpressions(_GenericQuerySetMixin):
     def __init__(
         self,
         prefix: Optional[str] = None,
-        dollar_conversion_rate: Decimal = DOLLAR_CONVERSION_RATE,
+        dollar_conversion_rate: Decimal = dynamic_settings.DOLLAR_CONVERSION_RATE,
     ) -> None:
         super().__init__(prefix=prefix)
         self.dollar_conversion_rate = Value(dollar_conversion_rate)
@@ -98,7 +98,6 @@ class GenericQuerySetExpressions(_GenericQuerySetMixin):
         return Case(
             When(
                 ~Q(**condition),
-                # TODO: change this hardcoded conversion to a dynamic one
                 then=Coalesce(F(field_name) * self.dollar_conversion_rate, Decimal())
                 * self.quantity_balance,
             ),

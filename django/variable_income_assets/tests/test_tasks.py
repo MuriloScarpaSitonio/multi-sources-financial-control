@@ -28,7 +28,7 @@ def test_sync_cei_transactions_should_create_asset_and_transaction(
 ):
     # GIVEN
     requests_mock.get(
-        build_url(url=settings.CRAWLERS_URL, parts=("cei/", "transactions")),
+        build_url(url=settings.ASSETS_INTEGRATIONS_URL, parts=("cei/", "transactions")),
         json=cei_transactions_response,
     )
     # WHEN
@@ -63,7 +63,7 @@ def test_sync_cei_transactions_should_not_create_asset_if_already_exists(
 ):
     # GIVEN
     requests_mock.get(
-        build_url(url=settings.CRAWLERS_URL, parts=("cei/", "transactions")),
+        build_url(url=settings.ASSETS_INTEGRATIONS_URL, parts=("cei/", "transactions")),
         json=cei_transactions_response,
     )
     # WHEN
@@ -102,7 +102,7 @@ def test_sync_cei_transactions_should_not_create_asset_if_unit_alread_exists(
         transaction["total_price"] = 1318.5
 
     requests_mock.get(
-        build_url(url=settings.CRAWLERS_URL, parts=("cei/", "transactions")),
+        build_url(url=settings.ASSETS_INTEGRATIONS_URL, parts=("cei/", "transactions")),
         json=cei_transactions_response,
     )
     # WHEN
@@ -134,7 +134,7 @@ def test_should_success_fetch_current_assets_prices_celery_task(
 ):
     # GIVEN
     requests_mock.post(
-        build_url(url=settings.CRAWLERS_URL, parts=("prices",)),
+        build_url(url=settings.ASSETS_INTEGRATIONS_URL, parts=("prices",)),
         json=fetch_current_assets_prices_response,
     )
 
@@ -159,7 +159,7 @@ def test_sync_kucoin_transactions_should_create_asset_and_transaction(
     crypto_asset.save()
 
     requests_mock.get(
-        build_url(url=settings.CRAWLERS_URL, parts=("kucoin/", "transactions")),
+        build_url(url=settings.ASSETS_INTEGRATIONS_URL, parts=("kucoin/", "transactions")),
         json=kucoin_transactions_response,
     )
     # WHEN
@@ -199,7 +199,7 @@ def test_should_skip_kucoin_transaction_if_already_exists(
 
     kucoin_transactions_response[0]["id"] = kucoin_transactions_response[1]["id"]
     requests_mock.get(
-        build_url(url=settings.CRAWLERS_URL, parts=("kucoin/", "transactions")),
+        build_url(url=settings.ASSETS_INTEGRATIONS_URL, parts=("kucoin/", "transactions")),
         json=kucoin_transactions_response,
     )
 

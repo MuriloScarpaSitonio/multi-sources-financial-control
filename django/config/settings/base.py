@@ -164,7 +164,7 @@ FERNET_KEY = secret(
     default="TFGiLL_iX38XrRzwH9Ya4qEUY2gbAuanHbC3R7ZYwoo=",
 )
 
-CRAWLERS_URL = secret("CRAWLERS_URL", default="http://localhost:5000/")
+ASSETS_INTEGRATIONS_URL = secret("ASSETS_INTEGRATIONS_URL", default="http://localhost:5000/")
 
 CELERY_BROKER_URL = secret("CELERY_BROKER_URL", default="amqp://guest:guest@rabbitmq:5672")
 CELERY_IGNORE_RESULT = True
@@ -177,5 +177,12 @@ CELERY_ACCEPT_CONTENT = ["application/json"]
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TASK_SERIALIZER = "json"
 
-DOLLAR_CONVERSION_RATE = Decimal("5.14")
+
+DYNAMIC_BACKEND = "config.settings.dynamic.backends.memory.MemoryBackend"
+DYNAMIC_CONFIGS = {
+    "DOLLAR_CONVERSION_RATE": {
+        "default": Decimal("5.0"),
+        "fetch_func": "config.settings.dynamic.utils.fetch_dollar_conversion_ratio",
+    }
+}
 CRYPTOS_TO_SKIP_INTEGRATION = ("USDT",)

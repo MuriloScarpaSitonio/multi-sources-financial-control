@@ -12,7 +12,7 @@ services:
     environment: # used only for superuser creation on the first time
       - ADMIN_USERNAME=murilo
       - ADMIN_PASSWORD=test
-      - CRAWLERS_URL=http://assets_integrations:5000/
+      - ASSETS_INTEGRATIONS_URL=http://assets_integrations:5000/
     command: python manage.py runserver 0.0.0.0:8000
 
   # react:

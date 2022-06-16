@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.db.models import F, OuterRef, Q, Subquery, Sum
 from django.db.transaction import atomic
 
-from config.settings.base import DOLLAR_CONVERSION_RATE
+from config.settings.dynamic import dynamic_settings
 from shared.utils import coalesce_sum_expression
 
 from .choices import (
@@ -33,7 +33,7 @@ def dry_run_decorator(function):  # pragma: no cover
 def _get_avg_price(asset: Asset, currency: TransactionCurrencies) -> Decimal:  # pragma: no cover
     avg_price = asset.adjusted_avg_price_from_transactions
     if currency == TransactionCurrencies.dollar:
-        avg_price /= DOLLAR_CONVERSION_RATE
+        avg_price /= dynamic_settings.DOLLAR_CONVERSION_RATE
     return avg_price
 
 
@@ -58,7 +58,11 @@ def calculate_new_avg_price(
         asset = Asset.objects.get(code=asset)
 
     total = price * quantity if total is None else total
-    total = total * DOLLAR_CONVERSION_RATE if currency == TransactionCurrencies.dollar else total
+    total = (
+        total * dynamic_settings.DOLLAR_CONVERSION_RATE
+        if currency == TransactionCurrencies.dollar
+        else total
+    )
     print(f"Investing: {total}")
     print(f"BEFORE: {_get_avg_price(asset=asset, currency=currency)}")
     Transaction.objects.create(asset=asset, action=TransactionActions.buy, **kwargs)

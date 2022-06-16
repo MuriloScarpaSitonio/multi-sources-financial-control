@@ -20,7 +20,7 @@ from ..models import Asset
 )
 def fetch_current_assets_prices(codes: List[str], username: str) -> None:
     url = build_url(
-        url=settings.CRAWLERS_URL, parts=("prices",), query_params={"username": username}
+        url=settings.ASSETS_INTEGRATIONS_URL, parts=("prices",), query_params={"username": username}
     )
     qs = (
         Asset.objects.filter(user__username=username, code__in=codes)

@@ -61,7 +61,7 @@ def _save_cei_passive_incomes(
 )
 def sync_cei_passive_incomes_task(self, username: str) -> int:
     url = build_url(
-        url=settings.CRAWLERS_URL,
+        url=settings.ASSETS_INTEGRATIONS_URL,
         parts=("cei/", "passive_incomes"),
         query_params={"username": username, "date": timezone.now().date()},
     )
