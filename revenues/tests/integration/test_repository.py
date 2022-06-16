@@ -161,7 +161,7 @@ def test_repository_historic(mongo_session):
 
     # THEN
     for infos in historic:
-        assert date_revenues_sum_map[infos["date"]] == infos["total"].to_decimal()
+        assert date_revenues_sum_map[infos["date"]] == infos["total"]
 
 
 def test_repository_historic_without_revenues(mongo_session):
@@ -269,3 +269,16 @@ def test_repository_count_without_revenues(mongo_session):
 
     # THEN
     assert count == 0
+
+
+@pytest.mark.usefixtures("revenues")
+def test_repository_count_should_filter_only_after_list(mongo_session):
+    # GIVEN
+    repo = MongoCommandRepository(user_id=1, session=mongo_session)
+
+    # WHEN
+    repo.query.list(description="revenue 01")
+    count = repo.query.count()
+
+    # THEN
+    assert count == 1

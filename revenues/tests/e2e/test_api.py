@@ -47,6 +47,20 @@ def test_list_revenues(client):
 
 
 @pytest.mark.usefixtures("revenues")
+def test_list_revenues_w_filters(client):
+    # GIVEN
+
+    # WHEN
+    response = client.get("/revenues?description=Revenue 01")
+    response_json = response.json()
+
+    # THEN
+    assert response.status_code == 200
+    assert len(response_json["items"]) == response_json["total"] == 1
+    assert response_json["page"] == 1
+
+
+@pytest.mark.usefixtures("revenues")
 def test_list_revenues_with_empty_string_as_query_param(client):
     # GIVEN
 
@@ -97,14 +111,15 @@ def test_revenues_historic(client, mongo_session):
 
     # WHEN
     response = client.get("/historic")
-    response_json = response.json()
+    historic = response.json()["historic"]
 
     # THEN
     assert response.status_code == 200
-    assert len(response_json) == 1
-    assert sorted(response_json[0].keys()) == ["date", "total"]
-    assert response_json[0]["date"] == f"{today.month}/{today.year}"
-    assert str(response_json[0]["total"]) == str(total)
+    assert len(historic) == 1
+    assert sorted(historic[0].keys()) == ["date", "total"]
+    assert historic[0]["date"] == f"{today.month}/{today.year}"
+    assert str(historic[0]["total"]) == str(total)
+    assert response.json()["avg"] == sum((h["total"] for h in historic)) / len(historic)
 
 
 @pytest.mark.usefixtures("revenues")
