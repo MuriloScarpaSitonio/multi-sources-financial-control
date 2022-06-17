@@ -43,6 +43,8 @@ class TransactionSerializer(serializers.ModelSerializer):
 
 class AssetSerializer(serializers.ModelSerializer):
     type = CustomChoiceField(choices=AssetTypes.choices)
+    sector = CustomChoiceField(choices=AssetSectors.choices)
+    objective = CustomChoiceField(choices=AssetObjectives.choices)
     currency = serializers.CharField(read_only=True)
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     quantity_balance = serializers.DecimalField(
@@ -70,6 +72,8 @@ class AssetSerializer(serializers.ModelSerializer):
         fields = (
             "code",
             "type",
+            "sector",
+            "objective",
             "user",
             "quantity_balance",
             "current_price",

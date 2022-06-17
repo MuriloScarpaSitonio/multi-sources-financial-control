@@ -5,6 +5,7 @@ import MUIDataTable from "mui-datatables";
 import Container from "@material-ui/core/Container";
 import TableCell from "@material-ui/core/TableCell";
 import TableRow from "@material-ui/core/TableRow";
+import Tooltip from "@material-ui/core/Tooltip";
 
 import { AssetsApi } from "../../api";
 import { Loader } from "../Loaders";
@@ -113,13 +114,13 @@ export const AssetsTable = () => {
     rowsPerPageOptions: [5, 10, 20, 50, 100],
     selectableRows: "none",
     setRowProps: (row) => {
-      if (row[7].includes("-")) {
+      if (row[9].includes("-")) {
         // negative values
         return {
           style: { background: "rgba(255, 5, 5, 0.2)" },
         };
       }
-      if (!row[7].includes("undefined")) {
+      if (!row[9].includes("undefined")) {
         // positive values
         return {
           style: { background: "rgba(0, 201, 20, 0.2)" },
@@ -167,7 +168,7 @@ export const AssetsTable = () => {
       return (
         <TableRow>
           <TableCell sx={{ paddingLeft: "20px" }} colSpan={colSpan}>
-            <TransactionsTable code={rowData[1]} data={transactions} />
+            <TransactionsTable code={rowData[3].key} data={transactions} />
           </TableCell>
         </TableRow>
       );
@@ -184,11 +185,41 @@ export const AssetsTable = () => {
       },
     },
     {
+      name: "sector",
+      options: {
+        display: false,
+        filter: false,
+        viewColumns: false,
+      },
+    },
+    {
+      name: "objective",
+      options: {
+        display: false,
+        filter: false,
+        viewColumns: false,
+      },
+    },
+    {
       name: "code",
       label: "Código",
       options: {
         filter: false,
         sort: true,
+        customBodyRender: (v, tableMeta) => {
+          return (
+            <Tooltip
+              key={v}
+              title={
+                <span
+                  style={{ whiteSpace: "pre-line" }}
+                >{`Setor: ${tableMeta.rowData[1]}\nObjetivo: ${tableMeta.rowData[2]}`}</span>
+              }
+            >
+              <p>{v}</p>
+            </Tooltip>
+          );
+        },
       },
     },
     {
