@@ -1,15 +1,17 @@
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 from cryptography.fernet import Fernet
 
 from django.conf import settings
-from django.db import models
+from django.db.models import CharField
 from django.utils.encoding import force_bytes, force_str
 from django.utils.functional import cached_property
-from django.db.backends.base.base import BaseDatabaseWrapper
+
+if TYPE_CHECKING:
+    from django.db.backends.base.base import BaseDatabaseWrapper
 
 
-class EncryptedField(models.CharField):
+class EncryptedField(CharField):
     description = "Save encrypted data to DB an read as string on application level."
 
     def __init__(self, *args, **kwargs):
@@ -23,7 +25,9 @@ class EncryptedField(models.CharField):
     def get_internal_type(self) -> str:
         return "BinaryField"
 
-    def get_db_prep_save(self, value: Any, connection: BaseDatabaseWrapper) -> Optional[memoryview]:
+    def get_db_prep_save(
+        self, value: Any, connection: "BaseDatabaseWrapper"
+    ) -> Optional[memoryview]:
         value = super().get_db_prep_save(value, connection)
         if value is not None:
             encrypted_value = self.fernet.encrypt(data=force_bytes(s=value))

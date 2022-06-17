@@ -9,8 +9,11 @@ class Api {
     if (methods.post) {
       this.post = (data) => apiProvider.post(this.resource, data);
     }
-    if (methods.patch) {
+    if (methods.put) {
       this.put = (data) => apiProvider.put(`${this.resource}/${id}`, data);
+    }
+    if (methods.patch) {
+      this.patch = (data) => apiProvider.patch(`${this.resource}/${id}`, data);
     }
     if (methods.delete) {
       this.delete = () => apiProvider.Delete(`${this.resource}/${id}`);
@@ -21,7 +24,10 @@ class Api {
 export class ExpensesApi extends Api {
   resource = "expenses";
   constructor(id = null) {
-    super({ query: true, post: true, patch: true, delete: true }, id);
+    super(
+      { query: true, post: true, put: true, patch: false, delete: true },
+      id
+    );
 
     this.report = (type_of_report, filters) => {
       let _filters = new URLSearchParams(filters);
@@ -43,23 +49,16 @@ export class ExpensesApi extends Api {
 }
 
 export class RevenuesApi extends Api {
-  resource = "revenues";
+  resource = "gateway/revenues";
   constructor(id = null) {
-    super({ query: false, post: true, patch: true, delete: true }, id);
+    super(
+      { query: true, post: true, put: false, patch: true, delete: true },
+      id
+    );
 
-    this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
-  }
-}
-
-export class FastApiRevenue {
-  constructor(id = null) {
-    this.indicators = () => apiProvider.getRevenues("indicators/");
-    this.query = (filters = "") =>
-      apiProvider.QueryRevenues(`revenues/?${filters}`);
-    this.delete = (id) => apiProvider.deleteRevenue(`revenues/${id}/`);
-    this.historic = () => apiProvider.getRevenues("historic/");
-    this.post = (data) => apiProvider.postRevenues("revenues", data);
-    this.patch = (data) => apiProvider.patch(`revenues/${id}`, data);
+    this.indicators = () =>
+      apiProvider.get(`${this.resource}/reports/indicators`);
+    this.historic = () => apiProvider.get(`${this.resource}/reports/historic`);
   }
 }
 
@@ -73,7 +72,13 @@ export class AuthenticationApi {
 export class AssetsApi extends Api {
   resource = "assets";
   constructor() {
-    super({ query: true, post: false, patch: false, delete: false });
+    super({
+      query: true,
+      post: false,
+      put: false,
+      patch: false,
+      delete: false,
+    });
 
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
     this.totalInvestedReport = (filters = {}) =>
@@ -103,7 +108,10 @@ export class AssetsApi extends Api {
 export class IncomesApi extends Api {
   resource = "incomes";
   constructor(id = null) {
-    super({ query: true, post: true, patch: true, delete: true }, id);
+    super(
+      { query: false, post: false, put: false, patch: false, delete: false },
+      id
+    );
 
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
   }
@@ -112,7 +120,10 @@ export class IncomesApi extends Api {
 export class TasksApi extends Api {
   resource = "tasks";
   constructor(id = null) {
-    super({ query: false, post: false, patch: false, delete: false }, id);
+    super(
+      { query: false, post: false, put: false, patch: false, delete: false },
+      id
+    );
 
     this.infiniteScroll = (filters = "") =>
       apiProvider.QueryWithInfiteScroll(`${this.resource}?${filters}`);

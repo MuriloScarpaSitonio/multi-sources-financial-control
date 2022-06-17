@@ -17,7 +17,7 @@ import FormGroup from "@material-ui/core/FormGroup";
 import TextField from "@material-ui/core/TextField";
 import { yupResolver } from "@hookform/resolvers/yup";
 
-import { FastApiRevenue } from "../api";
+import { RevenuesApi } from "../api";
 import { FormFeedback } from "../components/FormFeedback";
 
 function NumberFormatCustom(props) {
@@ -60,6 +60,7 @@ export const RevenuesForm = ({
   initialData,
   handleClose,
   showSuccessFeedbackForm,
+  reloadTable,
 }) => {
   const [isLoaded, setIsLoaded] = useState(true);
   const [showAlert, setShowAlert] = useState(false);
@@ -75,7 +76,7 @@ export const RevenuesForm = ({
   });
   const isCreateForm = Object.keys(initialData).length === 0;
   const onSubmit = (data) => {
-    let api = new FastApiRevenue(initialData.id);
+    let api = new RevenuesApi(initialData.id);
     const method = isCreateForm ? "post" : "patch";
     const actionVerb = isCreateForm ? "criada" : "editada";
     if (isDirty) {
@@ -86,6 +87,7 @@ export const RevenuesForm = ({
       })
         .then(() => {
           showSuccessFeedbackForm(`Receita ${actionVerb} com sucesso!`);
+          reloadTable();
           handleClose();
         })
         .catch((error) => {

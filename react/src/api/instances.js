@@ -20,12 +20,6 @@ let privateAxios = axios.create({
   headers: getAuthHeaders(),
 });
 
-let fastApiRevenuesAxios = axios.create({
-  baseURL: "http://127.0.0.1:5050",
-  timeout: 5000,
-  headers: getAuthHeaders(),
-});
-
 const logout = () => {
   window.localStorage.removeItem(AccessTokenStr);
   window.localStorage.removeItem(RefreshTokenStr);
@@ -61,4 +55,4 @@ privateAxios.interceptors.response.use(
   }
 );
 
-export { privateAxios, publicAxios, fastApiRevenuesAxios };
+export { privateAxios, publicAxios };

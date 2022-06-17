@@ -24,7 +24,7 @@ import Container from "@material-ui/core/Container";
 
 import { RevenuesForm } from "../../forms/RevenuesForm";
 import { FormFeedback } from "../FormFeedback";
-import { FastApiRevenue } from "../../api";
+import { RevenuesApi } from "../../api";
 import { Loader } from "../Loaders";
 
 import PlusOneIcon from "@material-ui/icons/PlusOne";
@@ -72,9 +72,9 @@ const RevenueDeleteDialog = ({
   const [alertInfos, setAlertInfos] = useState({});
 
   const handleClick = () => {
-    let api = new FastApiRevenue();
+    let api = new RevenuesApi(id);
     api
-      .delete(id)
+      .delete()
       .then(() => {
         showSuccessFeedbackForm("Receita deletada com sucesso!");
         reloadTable();
@@ -129,7 +129,7 @@ export const RevenuesTable = () => {
     ordering: "",
     description: "",
   });
-  const [revenueIdToDelete, setRevenueIdToDelete] = useState({});
+  const [revenueIdToDelete, setRevenueIdToDelete] = useState(null);
 
   const [revenueEditData, setRevenueEditData] = useState({});
   const [editCreateRevenueDialogIsOpened, setEditCreateRevenueDialogIsOpened] =
@@ -153,7 +153,7 @@ export const RevenuesTable = () => {
     }).toString();
   };
 
-  let api = new FastApiRevenue();
+  let api = new RevenuesApi();
   const [data, isLoaded] = api.query(getAdjustedFilters());
 
   const reload = () => {
@@ -162,7 +162,7 @@ export const RevenuesTable = () => {
       filters.ordering === "" &&
       filters.description === ""
     )
-      setFilters({ page: 1, ordering: "", description: " " });
+      setFilters({ page: 1, ordering: " ", description: "" });
     else setFilters({ page: 1, ordering: "", description: "" });
   };
 
@@ -361,7 +361,7 @@ export const RevenuesTable = () => {
         customBodyRender: (_, tableMeta) => {
           return (
             <>
-              <Tooltip title="Deletar reeita">
+              <Tooltip title="Deletar receita">
                 <IconButton
                   onClick={() => {
                     handleDelete(tableMeta.rowData[0]);

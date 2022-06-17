@@ -24,7 +24,7 @@ import ArrowUpwardIcon from "@material-ui/icons/ArrowUpward";
 import AddIcon from "@material-ui/icons/Add";
 import MonetizationOnIcon from "@material-ui/icons/MonetizationOn";
 
-import { ExpensesApi, FastApiRevenue, RevenuesApi } from "../../api";
+import { ExpensesApi, RevenuesApi } from "../../api";
 import { RevenuesForm } from "../../forms/RevenuesForm";
 import { FormFeedback } from "../FormFeedback";
 
@@ -271,7 +271,7 @@ export const ExpensesIndicators = () => {
   function fetchData() {
     setIsLoaded(false);
     let expensesApi = new ExpensesApi();
-    let revenuesApi = new FastApiRevenue();
+    let revenuesApi = new RevenuesApi();
 
     axios
       .all([expensesApi.indicators(), revenuesApi.indicators()])

@@ -21,7 +21,7 @@ import Tabs from "@material-ui/core/Tabs";
 import Typography from "@material-ui/core/Typography";
 
 import { Loader } from "../Loaders";
-import { FastApiRevenue } from "../../api";
+import { RevenuesApi } from "../../api";
 import { makeStyles } from "@material-ui/core/styles";
 
 const chartWidth = 950;
@@ -116,7 +116,7 @@ export const RevenuesReports = () => {
   const classes = useStyles();
 
   function fetchHistoricData() {
-    let api = new FastApiRevenue();
+    let api = new RevenuesApi();
     setIsLoaded(false);
     api
       .historic()

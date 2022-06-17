@@ -165,6 +165,10 @@ FERNET_KEY = secret(
 )
 
 ASSETS_INTEGRATIONS_URL = secret("ASSETS_INTEGRATIONS_URL", default="http://localhost:5000/")
+REVENUES_API_URL = secret("REVENUES_API_URL", default="http://localhost:5050/")
+REVENUES_API_SECRET_KEY = secret(
+    "REVENUES_API_SECRET_KEY", default="^ko+7^$@c4=!mzn58hdgs8xydak4@by7g&@@%&4a_kgb42g&__"
+)
 
 CELERY_BROKER_URL = secret("CELERY_BROKER_URL", default="amqp://guest:guest@rabbitmq:5672")
 CELERY_IGNORE_RESULT = True

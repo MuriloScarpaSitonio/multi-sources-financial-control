@@ -16,7 +16,7 @@ import AccountBalanceIcon from "@material-ui/icons/AccountBalance";
 import ArrowDownwardIcon from "@material-ui/icons/ArrowDownward";
 import ArrowUpwardIcon from "@material-ui/icons/ArrowUpward";
 
-import { FastApiRevenue } from "../../api";
+import { RevenuesApi } from "../../api";
 
 const SUCCESS = "#00c914";
 const DANGER = "#ff0505";
@@ -126,7 +126,7 @@ export const RevenuesIndicators = () => {
 
   function fetchData() {
     setIsLoaded(false);
-    let api = new FastApiRevenue();
+    let api = new RevenuesApi();
 
     api
       .indicators()

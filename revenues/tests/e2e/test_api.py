@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from src.settings import COLLECTION_NAME, DATABASE_NAME
+from src.settings import COLLECTION_NAME, DATABASE_NAME, SECRET_KEY
 
 
 def test_get_revenue(client, revenue, mongo_session):
@@ -110,7 +110,7 @@ def test_revenues_historic(client, mongo_session):
     )["total"]
 
     # WHEN
-    response = client.get("/historic")
+    response = client.get("/revenues/reports/historic")
     historic = response.json()["historic"]
 
     # THEN
@@ -138,7 +138,7 @@ def test_revenues_indicators(client, mongo_session):
     )["total"]
 
     # WHEN
-    response = client.get("/indicators")
+    response = client.get("/revenues/reports/indicators")
     response_json = response.json()
 
     # THEN
@@ -157,7 +157,7 @@ def test_create_revenue(client, mocker):
 
     # WHEN
     response = client.post(
-        "/revenues/",
+        "/revenues",
         json={"description": "Revenue 01", "value": 1.0, "created_at": str(date.today())},
     )
 
@@ -194,3 +194,60 @@ def test_should_raise_404_update_revenue_not_found(client):
 
     # THEN
     assert response.status_code == 404
+
+
+def test_should_fail_wo_headers(_client):
+    # GIVEN
+
+    # WHEN
+    response = _client.get("/revenues")
+
+    # THEN
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": [
+            {"loc": ["header", "x-key"], "msg": "field required", "type": "value_error.missing"},
+            {"loc": ["header", "user-id"], "msg": "field required", "type": "value_error.missing"},
+        ]
+    }
+
+
+def test_should_fail_wo_user_id(_client):
+    # GIVEN
+
+    # WHEN
+    response = _client.get("/revenues", headers={"x-key": SECRET_KEY})
+
+    # THEN
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": [
+            {"loc": ["header", "user-id"], "msg": "field required", "type": "value_error.missing"},
+        ]
+    }
+
+
+def test_should_fail_wo_key(_client):
+    # GIVEN
+
+    # WHEN
+    response = _client.get("/revenues", headers={"user-id": "1"})
+
+    # THEN
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": [
+            {"loc": ["header", "x-key"], "msg": "field required", "type": "value_error.missing"},
+        ]
+    }
+
+
+def test_should_fail_w_wrong_key(_client):
+    # GIVEN
+
+    # WHEN
+    response = _client.get("/revenues", headers={"x-key": "wrong"})
+
+    # THEN
+    assert response.status_code == 400
+    assert response.json() == {"detail": "X-Key header invalid"}
