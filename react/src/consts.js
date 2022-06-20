@@ -24,15 +24,40 @@ const ExpensesSourcesMapping = [
   { label: "Transferência bancária", value: "BANK_TRANSFER" },
 ];
 
-const ExpensesChoicesMapping = {
-  ...ExpensesCategoriesMapping,
-  ...ExpensesSourcesMapping,
-};
+const AssetsObjectivesMapping = [
+  { label: "Crescimento", value: "GROWTH" },
+  { label: "Dividendo", value: "DIVIDEND" },
+  { label: "Desconhecido", value: "UNKNOWN" },
+];
+
+const AssetsSectorsMapping = [
+  { label: "Bens industriais", value: "INDUSTRIALS" },
+  { label: "Comunicações", value: "COMMUNICATION" },
+  { label: "Consumo cíclico", value: "CONSUMER DISCRETIONARY" },
+  { label: "Consumo não cíclico", value: "CONSUMER STAPLES" },
+  { label: "Financeiro", value: "FINANCIALS" },
+  { label: "Materiais básicos", value: "MATERIALS" },
+  { label: "Saúde", value: "HEALTH CARE" },
+  { label: "Petróleo, gás e biocombustíveis", value: "RAW ENERGY" },
+  { label: "Tecnologia", value: "TECH" },
+  { label: "Utilidade Pública", value: "UTILITIES" },
+  { label: "Desconhecido", value: "UNKNOWN" },
+];
+
+const AssetsTypesMapping = [
+  { label: "Ação B3", value: "STOCK" },
+  { label: "Ação EUA", value: "STOCK_USA" },
+  { label: "Criptoativos", value: "CRYPTO" },
+  { label: "Fundo de Investimento Imobiliário", value: "FII" },
+];
 
 const AccessTokenStr = "accessToken";
 const RefreshTokenStr = "refreshToken";
 
 export {
+  AssetsObjectivesMapping,
+  AssetsSectorsMapping,
+  AssetsTypesMapping,
   BaseApiUrl,
   ExpensesChoicesMapping,
   ExpensesCategoriesMapping,

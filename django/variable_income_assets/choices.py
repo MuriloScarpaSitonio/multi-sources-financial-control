@@ -60,7 +60,7 @@ class AssetSectors(DjangoChoices):
     )
     utilities = ChoiceItem(
         "UTILITIES",
-        label="Utilidade Pública",
+        label="Utilidade pública",
         valid_assets=(AssetTypes.stock, AssetTypes.stock_usa),
     )
     unknown = ChoiceItem("UNKNOWN", label="Desconhecido")

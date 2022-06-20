@@ -5,13 +5,20 @@ from django.core.exceptions import ValidationError
 
 import django_filters as filters
 
-from .choices import AssetTypes, AssetsTotalInvestedReportAggregations
+from .choices import (
+    AssetObjectives,
+    AssetSectors,
+    AssetTypes,
+    AssetsTotalInvestedReportAggregations,
+)
 from .models import Asset
 
 
 class AssetFilterSet(filters.FilterSet):
     code = filters.CharFilter(lookup_expr="icontains")
     type = filters.MultipleChoiceFilter(choices=AssetTypes.choices)
+    sector = filters.MultipleChoiceFilter(choices=AssetSectors.choices)
+    objective = filters.MultipleChoiceFilter(choices=AssetObjectives.choices)
     # ROI_type = filters.ChoiceFilter(
     #     choices=ROYTypeChoices.choices,
     #     method="ROI_type_custom_filter",

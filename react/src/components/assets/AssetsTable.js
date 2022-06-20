@@ -9,6 +9,12 @@ import Tooltip from "@material-ui/core/Tooltip";
 
 import { AssetsApi } from "../../api";
 import { Loader } from "../Loaders";
+import {
+  AssetsObjectivesMapping,
+  AssetsSectorsMapping,
+  AssetsTypesMapping,
+} from "../../consts.js";
+import { getChoiceByLabel } from "../../helpers.js";
 
 const TransactionsTable = ({ code, data }) => (
   <MUIDataTable
@@ -87,6 +93,8 @@ export const AssetsTable = () => {
   function getAdjustedFilters() {
     let multipleChoiceFilters = {
       type: filters.type || [],
+      objective: filters.objective || [],
+      sector: filters.sector || [],
     };
 
     let _filters = new URLSearchParams({
@@ -155,8 +163,16 @@ export const AssetsTable = () => {
     onSearchChange: (text) => {
       setFilters({ ...filters, code: Boolean(text) ? text : "" });
     },
-    onFilterChange: (_, filterList, __, changedColumnIndex) => {
-      setFilters({ ...filters, type: filterList[changedColumnIndex], page: 1 });
+    onFilterChange: (column, filterList, __, changedColumnIndex) => {
+      let _filters = filterList[changedColumnIndex].map(
+        (f) =>
+          getChoiceByLabel(f, [
+            ...AssetsObjectivesMapping,
+            ...AssetsSectorsMapping,
+            ...AssetsTypesMapping,
+          ]).value
+      );
+      setFilters({ ...filters, [column]: _filters, page: 1 });
     },
     expandableRows: true,
     expandableRowsHeader: false,
@@ -186,18 +202,32 @@ export const AssetsTable = () => {
     },
     {
       name: "sector",
+      label: "Setor",
       options: {
         display: false,
-        filter: false,
+        filter: true,
         viewColumns: false,
+        filterOptions: {
+          names: AssetsSectorsMapping.map((v) => v.label),
+        },
+        customFilterListOptions: {
+          render: (v) => `Setor: ${v}`,
+        },
       },
     },
     {
       name: "objective",
+      label: "Objetivo",
       options: {
         display: false,
-        filter: false,
+        filter: true,
         viewColumns: false,
+        filterOptions: {
+          names: AssetsObjectivesMapping.map((v) => v.label),
+        },
+        customFilterListOptions: {
+          render: (v) => `Objetivo: ${v}`,
+        },
       },
     },
     {
@@ -229,7 +259,7 @@ export const AssetsTable = () => {
         filter: true,
         sort: true,
         filterOptions: {
-          names: ["STOCK", "STOCK_USA", "CRYPTO", "FII"],
+          names: AssetsTypesMapping.map((v) => v.label),
         },
         customFilterListOptions: {
           render: (v) => `Tipo: ${v}`,

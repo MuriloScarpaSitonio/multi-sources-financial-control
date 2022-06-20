@@ -44,7 +44,11 @@ const ExpenseCreateEditDialog = ({
   reloadTable,
 }) => {
   return (
-    <Dialog open={open} onClose={onClose} aria-labelledby="expense-form-dialog-title">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      aria-labelledby="expense-form-dialog-title"
+    >
       <DialogTitle id="expsense-form-dialog-title">
         {data && Object.keys(data).length > 0
           ? "Editar despesa"
@@ -95,7 +99,11 @@ const ExpenseDeleteDialog = ({
   };
   return (
     <>
-      <Dialog open={open} onClose={onClose} aria-labelledby="expense-delete-form-dialog-title">
+      <Dialog
+        open={open}
+        onClose={onClose}
+        aria-labelledby="expense-delete-form-dialog-title"
+      >
         <DialogTitle id="expense-delete-form-dialog-title">
           Tem certeza que deseja deletar essa despesa?
         </DialogTitle>
@@ -404,19 +412,7 @@ export const ExpensesTable = () => {
         filter: true,
         sort: true,
         filterOptions: {
-          names: [
-            "Casa",
-            "CNPJ",
-            "Lazer",
-            "Transporte",
-            "Supermercado",
-            "Alimentação",
-            "Roupas",
-            "Presentes",
-            "Saúde",
-            "Viagem",
-            "Outros",
-          ],
+          names: ExpensesCategoriesMapping.map((v) => v.label),
         },
         customFilterListOptions: {
           render: (v) => `Categoria: ${v}`,
@@ -430,14 +426,7 @@ export const ExpensesTable = () => {
         filter: true,
         sort: true,
         filterOptions: {
-          names: [
-            "Cartão de crédito",
-            "Cartão de débito",
-            "Transferência bancária",
-            "Dinheiro",
-            "Boleto",
-            "Settle Up",
-          ],
+          names: ExpensesSourcesMapping.map((v) => v.label),
         },
         customFilterListOptions: {
           render: (v) => `Fonte: ${v}`,
