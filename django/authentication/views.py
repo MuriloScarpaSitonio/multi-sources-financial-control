@@ -24,7 +24,7 @@ class UserViewSet(
     queryset = CustomUser.objects.all()
 
 
-class APIGatewayView(APIView):
+class APIGatewayView(APIView):  # pragma: no cover
     url: str
     key: str
 

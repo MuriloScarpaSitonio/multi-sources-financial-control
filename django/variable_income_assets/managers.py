@@ -14,7 +14,7 @@ from .choices import AssetTypes, AssetsTotalInvestedReportAggregations, PassiveI
 from .expressions import GenericQuerySetExpressions
 
 
-class AssetQuerySet(CustomQueryset):
+class AssetQuerySet(QuerySet):
     expressions = GenericQuerySetExpressions(prefix="transactions")
 
     @staticmethod
@@ -38,19 +38,14 @@ class AssetQuerySet(CustomQueryset):
     def finished(self) -> AssetQuerySet:
         return self._annotate_quantity_balance().filter(quantity_balance__lte=0)
 
-    def stocks(self) -> AssetQuerySet:
+    def stocks(self) -> AssetQuerySet:  # pragma: no cover
         return self.filter(type=AssetTypes.stock)
 
-    def stocks_usa(self) -> AssetQuerySet:
+    def stocks_usa(self) -> AssetQuerySet:  # pragma: no cover
         return self.filter(type=AssetTypes.stock_usa)
 
-    def cryptos(self) -> AssetQuerySet:
+    def cryptos(self) -> AssetQuerySet:  # pragma: no cover
         return self.filter(type=AssetTypes.crypto)
-
-    def current_total(self) -> AssetQuerySet:
-        return self.annotate(total=self.expressions.current_total).aggregate(
-            current_total=Sum("total")
-        )
 
     def annotate_currency(self) -> AssetQuerySet:
         from .models import Transaction  # avoid circular ImportError
@@ -85,7 +80,7 @@ class AssetQuerySet(CustomQueryset):
     def annotate_adjusted_avg_price(
         self, annotate_passive_incomes_subquery: bool = True
     ) -> AssetQuerySet:
-        if annotate_passive_incomes_subquery:
+        if annotate_passive_incomes_subquery:  # pragma: no cover
             subquery = self._get_passive_incomes_subquery()
 
         expression = self.expressions.get_adjusted_avg_price(
@@ -267,8 +262,8 @@ class PassiveIncomeQuerySet(CustomQueryset, IndicatorsMixin, MonthlyFilterMixin)
     def get_sum_expression() -> Dict[str, Sum]:
         return {"total": coalesce_sum_expression("amount")}
 
-    def credited(self) -> "PassiveIncomeQuerySet":
+    def credited(self) -> PassiveIncomeQuerySet:  # pragma: no cover
         return self.filter(event_type=PassiveIncomeEventTypes.credited)
 
-    def provisioned(self) -> "PassiveIncomeQuerySet":
+    def provisioned(self) -> PassiveIncomeQuerySet:  # pragma: no cover
         return self.filter(event_type=PassiveIncomeEventTypes.provisioned)

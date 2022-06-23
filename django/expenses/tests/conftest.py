@@ -1,10 +1,12 @@
 from random import randint, choice
-from datetime import date
 
 from django.utils import timezone
 
 import pytest
 from factory.django import DjangoModelFactory
+from freezegun import freeze_time
+
+from dateutil.relativedelta import relativedelta
 
 from authentication.tests.conftest import client, secrets, user
 from expenses.choices import ExpenseCategory, ExpenseSource
@@ -30,13 +32,42 @@ def expense(user):
 
 
 @pytest.fixture
+@freeze_time("2022-06-01")
 def expenses(user):
+    today = timezone.now().date()
     for i in range(1, 13):
         ExpenseFactory(
             price=randint(5, 10),
             description=f"Expense {i}",
             category=choice(ExpenseCategory.choices)[0],
-            created_at=date(2021, i, 1),
+            created_at=today - relativedelta(months=i),
+            source=choice(ExpenseSource.choices)[0],
+            is_fixed=bool(i % 2),
+            user=user,
+        )
+
+
+@pytest.fixture
+@freeze_time("2022-06-01")
+def report_data(expenses, user):
+    today = timezone.now().date()
+    for i in range(1, 7):
+        ExpenseFactory(
+            price=randint(5, 10),
+            description=f"Expense {i}",
+            category=choice(ExpenseCategory.choices)[0],
+            created_at=today,
+            source=choice(ExpenseSource.choices)[0],
+            is_fixed=bool(i % 2),
+            user=user,
+        )
+
+    for i in range(14, 30):
+        ExpenseFactory(
+            price=randint(5, 10),
+            description=f"Expense {i}",
+            category=choice(ExpenseCategory.choices)[0],
+            created_at=today - relativedelta(months=i),
             source=choice(ExpenseSource.choices)[0],
             is_fixed=bool(i % 2),
             user=user,

@@ -59,7 +59,6 @@ export {
   AssetsSectorsMapping,
   AssetsTypesMapping,
   BaseApiUrl,
-  ExpensesChoicesMapping,
   ExpensesCategoriesMapping,
   ExpensesSourcesMapping,
   AccessTokenStr,

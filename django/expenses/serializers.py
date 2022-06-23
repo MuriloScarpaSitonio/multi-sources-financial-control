@@ -1,5 +1,5 @@
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any, Dict, List, Union, OrderedDict
+from typing import Any, Dict, Union, OrderedDict
 
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError

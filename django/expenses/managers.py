@@ -5,9 +5,9 @@ from decimal import Decimal
 from typing import Dict
 
 from django.utils import timezone
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Q, Sum, CharField
 from django.db.models.expressions import CombinedExpression
-from django.db.models.functions import TruncMonth
+from django.db.models.functions import Concat, TruncMonth
 
 from shared.managers_utils import CustomQueryset, MonthlyFilterMixin
 from shared.utils import coalesce_sum_expression
@@ -58,7 +58,7 @@ class ExpenseQueryset(CustomQueryset, MonthlyFilterMixin):
             "price", filter=self.filters.since_a_year_ago & ~self.filters.current
         ) / (
             Count(
-                "created_at__month",
+                Concat("created_at__month", "created_at__year", output_field=CharField()),
                 filter=self.filters.since_a_year_ago & ~self.filters.current,
                 distinct=True,
             )
@@ -84,7 +84,16 @@ class ExpenseQueryset(CustomQueryset, MonthlyFilterMixin):
                 avg=(
                     coalesce_sum_expression("price", filter=~self.filters.current)
                     / (
-                        Count("created_at__month", filter=~self.filters.current, distinct=True)
+                        # we are dividing by the amount of months a given aggregation appears
+                        # in order to divide for the whole period we should compute some subquery like
+                        # self.values("created_at__month").distinct().order_by().count()
+                        Count(
+                            Concat(
+                                "created_at__month", "created_at__year", output_field=CharField()
+                            ),
+                            filter=~self.filters.current,
+                            distinct=True,
+                        )
                         * Decimal("1.0")
                     )
                 ),

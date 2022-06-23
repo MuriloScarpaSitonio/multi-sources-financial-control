@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Union
+from typing import Optional, Union
 
 from django.db.models import Avg, Q
 from django.utils import timezone
@@ -25,30 +25,32 @@ URL = f"/{BASE_API_URL}" + "expenses"
 
 
 def _convert_and_quantize(
-    value: Union[str, float, int, Decimal], precision: int = 1, cast: type = Decimal
-) -> Decimal:
+    value: Union[str, float, int, Decimal, None], precision: int = 1, cast: type = Decimal
+) -> Optional[Decimal]:
+    if value is None:
+        return
     result = Decimal(str(value)).quantize(
         Decimal(f"0.{'0' * (precision - 1)}1"), rounding=ROUND_HALF_UP
     )
     return cast(result)
 
 
-@freeze_time("2021-10-01")
 @pytest.mark.usefixtures("expenses")
 @pytest.mark.parametrize(
     "filter_by, count",
     [
-        ("", 7),
-        ("description=Expense", 7),
-        ("description=pense", 7),
+        ("", 12),
+        ("description=Expense", 12),
+        ("description=pense", 12),
         ("description=wrong", 0),
         ("start_date=2021-01-01&end_date=2021-12-01", 7),
         ("start_date=2021-10-01&end_date=2021-10-01", 1),
         ("start_date=2020-01-01&end_date=2020-12-01", 0),
-        ("is_fixed=False", 4),
-        ("is_fixed=True", 3),
+        ("is_fixed=False", 6),
+        ("is_fixed=True", 6),
     ],
 )
+@freeze_time("2022-06-01")
 def test_should_filter_expenses(client, filter_by, count):
     # GIVEN
 
@@ -174,11 +176,12 @@ def test_should_not_get_report_if_of_parameter_is_invalid_choice(client):
     }
 
 
-@pytest.mark.usefixtures("expenses")
+@pytest.mark.usefixtures("report_data")
 @pytest.mark.parametrize(
     "of, field_name",
     [(value, ExpenseReportType.get_choice(value).field_name) for value in ExpenseReportType.values],
 )
+@freeze_time("2022-06-01")
 def test_should_get_reports(client, of, field_name):
     # GIVEN
     choices_class_map = {"category": ExpenseCategory, "source": ExpenseSource}
@@ -213,9 +216,53 @@ def test_should_get_reports(client, of, field_name):
     for result in response.json():
         for brute_force in result_brute_force:
             if result[field_name] == brute_force[field_name]:
-                assert (str(result["total"]) == str(brute_force["total"])) and (
-                    _convert_and_quantize(result["avg"]) == brute_force["avg"]
-                )
+                assert _convert_and_quantize(result["total"]) == brute_force["total"]
+                assert _convert_and_quantize(result["avg"]) == brute_force["avg"]
+    assert response.status_code == HTTP_200_OK
+
+
+@pytest.mark.usefixtures("report_data")
+@pytest.mark.parametrize(
+    "of, field_name",
+    [(value, ExpenseReportType.get_choice(value).field_name) for value in ExpenseReportType.values],
+)
+@freeze_time("2022-06-01")
+def test_should_get_reports_all_period(client, of, field_name):
+    # GIVEN
+    choices_class_map = {"category": ExpenseCategory, "source": ExpenseSource}
+    choices_class = choices_class_map.get(field_name)
+    qs = Expense.objects.current_month_and_past()
+    today = timezone.now().date()
+    current_month = {}
+    past = {}
+    for e in qs:
+        f = (
+            choices_class.get_choice(getattr(e, field_name)).label
+            if choices_class is not None
+            else field_name
+        )
+        if e.created_at.month == today.month and e.created_at.year == today.year:
+            current_month.setdefault(f, []).append(e.price)
+        else:
+            past.setdefault(f, []).append(e.price)
+    result_brute_force = [
+        {
+            "total": sum(current_month.get(k)) if current_month.get(k) is not None else None,
+            "avg": _convert_and_quantize(sum(v) / len(v)),
+            field_name: k,
+        }
+        for k, v in past.items()
+    ]
+
+    # WHEN
+    response = client.get(f"{URL}/report?of={of}&all=true")
+
+    # THEN
+    for result in response.json():
+        for brute_force in result_brute_force:
+            if result[field_name] == brute_force[field_name]:
+                assert _convert_and_quantize(result["total"]) == brute_force["total"]
+                assert _convert_and_quantize(result["avg"]) == brute_force["avg"]
     assert response.status_code == HTTP_200_OK
 
 

@@ -1,7 +1,5 @@
-from decimal import Decimal
-from typing import Dict
 from django.utils import timezone
-from django.db.models import Avg, F, Q, QuerySet, Sum, Window
+from django.db.models import F, Q, QuerySet, Sum, Window
 from django.db.models.functions import Lag, TruncMonth
 
 from dateutil.relativedelta import relativedelta

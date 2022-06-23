@@ -17,7 +17,7 @@ from .choices import (
 )
 from .models import Asset, PassiveIncome, Transaction
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from rest_framework.utils.serializer_helpers import ReturnList
 
 
@@ -101,7 +101,7 @@ class AssetSerializer(serializers.ModelSerializer):
     def get_percentage_invested(self, obj: Asset) -> Decimal:
         try:
             result = obj.total_invested / self.context["total_invested_agg"]
-        except DecimalException:
+        except DecimalException:  # pragma: no cover
             result = Decimal()
         return result * Decimal("100.0")
 

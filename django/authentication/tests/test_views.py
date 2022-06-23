@@ -273,8 +273,3 @@ def test_should_partial_update_user(client, user):
     assert response.json()["username"] == user.username
     assert old_cpf == user.secrets.cpf
     assert old_cei_password == user.secrets.cei_password
-
-
-def test_(client, user):
-    r = client.get(f"/{BASE_API_URL}" + "gateway/revenues")
-    print(r.status_code)
