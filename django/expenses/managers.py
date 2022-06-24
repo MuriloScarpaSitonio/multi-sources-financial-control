@@ -71,6 +71,9 @@ class ExpenseQueryset(CustomQueryset, MonthlyFilterMixin):
     def current_month_and_past(self) -> ExpenseQueryset:
         return self.filter(self.filters.current_month_and_past)
 
+    def future(self) -> ExpenseQueryset:
+        return self.filter(self.filters.future)
+
     def report(self, of: str) -> ExpenseQueryset:
         """
         Args:

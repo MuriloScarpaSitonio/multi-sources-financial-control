@@ -210,16 +210,21 @@ const ExpenseBarChartComponent = ({ data, dataKey, fetchReportData }) => {
   );
 };
 
-const ExpenseHistoricChartComponent = ({ data }) => {
-  const REPORT_TEXT = "Todos os custos";
-  const TYPE_HISTORIC_REPORT_TEXT = "Fixo X Variável";
+const ExpenseHistoricChartComponent = ({ data, fetchHistoricData }) => {
+  const REPORT_TEXT = "Últimos 12 meses";
+  const FUTURE_HISTORIC_REPORT_TEXT = "Futuro";
 
   const [anchorEl, setAnchorEl] = useState(null);
   const [buttonText, setButtonText] = useState(REPORT_TEXT);
-  const [menuText, setMenuText] = useState(TYPE_HISTORIC_REPORT_TEXT);
+  const [menuText, setMenuText] = useState(FUTURE_HISTORIC_REPORT_TEXT);
 
   const handleClick = (event) => setAnchorEl(event.currentTarget);
   const handleClose = () => {
+    // we haven't changed it yet
+    menuText === REPORT_TEXT
+      ? fetchHistoricData()
+      : fetchHistoricData({ future: true });
+
     setButtonText(menuText);
     setMenuText(buttonText);
     setAnchorEl(null);
@@ -300,10 +305,10 @@ export const ExpensesReports = () => {
   let api = new ExpensesApi();
   const classes = useStyles();
 
-  function fetchHistoricData() {
+  function fetchHistoricData(filters = {}) {
     setIsLoaded(false);
     api
-      .historic()
+      .historic(filters)
       .then((response) => setData(response.data))
       //.catch((err) => setError(err))
       .finally(() => setIsLoaded(true));
@@ -357,7 +362,10 @@ export const ExpensesReports = () => {
 
       <TabPanel value={tabValue} index={0}>
         {!isLoaded && <Loader />}
-        <ExpenseHistoricChartComponent data={data} />
+        <ExpenseHistoricChartComponent
+          data={data}
+          fetchHistoricData={fetchHistoricData}
+        />
       </TabPanel>
       <TabPanel value={tabValue} index={1}>
         {!isLoaded && <Loader />}

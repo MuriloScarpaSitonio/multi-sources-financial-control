@@ -14,7 +14,7 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.utils.serializer_helpers import ReturnList
 
 from .choices import ExpenseReportType
-from .filters import ExpenseFilterSet, ExpenseReportFilterSet
+from .filters import ExpenseFilterSet, ExpenseHistoricFilterSet, ExpenseReportFilterSet
 from .managers import ExpenseQueryset
 from .models import Expense
 from .serializers import (
@@ -33,7 +33,7 @@ class ExpenseViewSet(ModelViewSet):
         if self.request.user.is_authenticated:
             return (
                 self.request.user.expenses.since_a_year_ago()
-                if self.action in ("list", "historic")
+                if self.action == "list"
                 else self.request.user.expenses.all()
             )
         return Expense.objects.none()  # pragma: no cover -- drf-spectatular
@@ -56,8 +56,8 @@ class ExpenseViewSet(ModelViewSet):
         return Response(self._get_report_data(filterset=filterset), status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
-    def historic(self, _: Request) -> Response:
-        qs = self.get_queryset()
+    def historic(self, request: Request) -> Response:
+        qs = ExpenseHistoricFilterSet(data=request.GET, queryset=self.get_queryset()).qs
         serializer = ExpenseHistoricResponseSerializer(
             {"historic": qs.trunc_months().order_by("month"), **qs.monthly_avg()}
         )

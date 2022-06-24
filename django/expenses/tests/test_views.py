@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
+from statistics import fmean
 from typing import Optional, Union
 
 from django.db.models import Avg, Q
@@ -203,7 +204,7 @@ def test_should_get_reports(client, of, field_name):
     result_brute_force = [
         {
             "total": sum(current_month.get(k)) if current_month.get(k) is not None else None,
-            "avg": _convert_and_quantize(sum(v) / len(v)),
+            "avg": _convert_and_quantize(fmean(v)),
             field_name: k,
         }
         for k, v in since_a_year_ago.items()
@@ -248,7 +249,7 @@ def test_should_get_reports_all_period(client, of, field_name):
     result_brute_force = [
         {
             "total": sum(current_month.get(k)) if current_month.get(k) is not None else None,
-            "avg": _convert_and_quantize(sum(v) / len(v)),
+            "avg": _convert_and_quantize(fmean(v)),
             field_name: k,
         }
         for k, v in past.items()
@@ -264,6 +265,37 @@ def test_should_get_reports_all_period(client, of, field_name):
                 assert _convert_and_quantize(result["total"]) == brute_force["total"]
                 assert _convert_and_quantize(result["avg"]) == brute_force["avg"]
     assert response.status_code == HTTP_200_OK
+
+
+@pytest.mark.usefixtures("report_data")
+@pytest.mark.parametrize("filters", ("", "future=true"))
+@freeze_time("2022-06-01")
+def test_should_get_historic_data(client, filters):
+    # GIVEN
+    today = timezone.now().date()
+
+    # WHEN
+    response = client.get(f"{URL}/historic?{filters}").json()
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    total = 0
+    for result in response["historic"]:
+        d = datetime.strptime(result["month"], "%d/%m/%Y").date()
+        assert _convert_and_quantize(result["total"]) == _convert_and_quantize(
+            Expense.objects.filter(created_at__month=d.month, created_at__year=d.year).sum()[
+                "total"
+            ]
+        )
+        if d == today:  # we don't evaluate the current month on the avg calculation
+            continue
+        total += result["total"]
+
+    if filters:
+        assert response["avg"] is None
+    else:
+        assert _convert_and_quantize(fmean(total)) == _convert_and_quantize(response.json()["avg"])
 
 
 @pytest.mark.usefixtures("expenses")
@@ -285,9 +317,7 @@ def test_should_get_historic_data(client):
         )
         total += result["total"]
 
-    assert _convert_and_quantize(total / len(historic)) == _convert_and_quantize(
-        response.json()["avg"]
-    )
+    assert _convert_and_quantize(fmean(total)) == _convert_and_quantize(response.json()["avg"])
 
 
 @pytest.mark.usefixtures("expenses")

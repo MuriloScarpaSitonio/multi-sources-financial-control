@@ -30,3 +30,17 @@ class ExpenseReportFilterSet(filters.FilterSet):
             )
             return _qs.report(of=self.form.cleaned_data["of"])
         raise filters.utils.translate_validation(error_dict=self.errors)
+
+
+class ExpenseHistoricFilterSet(filters.FilterSet):
+    future = filters.BooleanFilter()
+
+    @property
+    def qs(self):
+        if self.is_valid():
+            return (
+                self.queryset.future()
+                if self.form.cleaned_data["future"]
+                else self.queryset.since_a_year_ago()
+            )
+        raise filters.utils.translate_validation(error_dict=self.errors)

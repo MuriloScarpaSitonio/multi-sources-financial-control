@@ -30,13 +30,17 @@ export class ExpensesApi extends Api {
     );
 
     this.report = (type_of_report, filters) => {
-      let _filters = new URLSearchParams(filters);
       return apiProvider.get(
-        `${this.resource}/report?of=${type_of_report}&${_filters.toString()}`
+        `${this.resource}/report?of=${type_of_report}&${new URLSearchParams(
+          filters
+        ).toString()}`
       );
     };
 
-    this.historic = () => apiProvider.get(`${this.resource}/historic`);
+    this.historic = (filters) =>
+      apiProvider.get(
+        `${this.resource}/historic?${new URLSearchParams(filters).toString()}`
+      );
 
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
 
