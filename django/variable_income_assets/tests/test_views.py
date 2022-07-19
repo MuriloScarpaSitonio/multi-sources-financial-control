@@ -112,16 +112,10 @@ def test_should_list_assets(client, simple_asset, fixture, operation, request):
 def test_list_assets_aggregate_data(client):
     # GIVEN
     total_invested_brute_force = sum(
-        (
-            get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
-            for asset in Asset.objects.all()
-        )
+        (get_total_invested_brute_force(asset) for asset in Asset.objects.all())
     )
     current_total_brute_force = sum(
-        (
-            get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
-            for asset in Asset.objects.all()
-        )
+        (get_current_total_invested_brute_force(asset) for asset in Asset.objects.all())
     )
 
     # WHEN
@@ -130,14 +124,13 @@ def test_list_assets_aggregate_data(client):
     # THEN
     for result in response.json()["results"]:
         asset = Asset.objects.get(code=result["code"])
-        total_invested = get_avg_price_bute_force(asset=asset) * get_adjusted_quantity_brute_force(
-            asset=asset
-        )
+        qty = get_adjusted_quantity_brute_force(asset=asset)
+        total_invested = get_avg_price_bute_force(asset=asset, normalize=True) * qty
         percentage_invested = (
             (total_invested / total_invested_brute_force) * Decimal("100.0")
         ).quantize(Decimal(".1"), rounding=ROUND_HALF_UP)
 
-        current_invested = get_current_price(asset) * get_adjusted_quantity_brute_force(asset=asset)
+        current_invested = get_current_price(asset) * qty
         current_percentage = (
             (current_invested / current_total_brute_force) * Decimal("100.0")
         ).quantize(Decimal(".1"), rounding=ROUND_HALF_UP)
@@ -347,8 +340,7 @@ def test_should_raise_error_if_code_is_not_valid_fetch_current_prices(client):
 def test_should_get_indicators(client):
     # GIVEN
     current_total = sum(
-        get_current_price(asset=asset) * get_adjusted_quantity_brute_force(asset=asset)
-        for asset in Asset.objects.all()
+        get_current_total_invested_brute_force(asset) for asset in Asset.objects.all()
     )
     roi_opened = sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.opened())
     roi_finished = sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.finished())
@@ -638,3 +630,96 @@ def test_should_sync_all(request, user_fixture_name, client_fixture_name, tasks_
         )
 
         assert mocked_task.call_args[1]["kwargs"] == {**kwargs, **extra_kwargs}
+
+
+@pytest.mark.usefixtures("transactions")
+def test_should_simulate_transaction_w_quantity(client, simple_asset):
+    # GIVEN
+    simple_asset.current_price = 100
+    simple_asset.save()
+
+    # WHEN
+    response = client.post(
+        f"{URL}/{simple_asset.code}/transactions/simulate", data={"price": 50, "quantity": 100}
+    )
+    response_json = response.json()
+
+    # THEN
+    assert response.status_code == 200
+
+    assert response_json["old"]["adjusted_avg_price"] < response_json["new"]["adjusted_avg_price"]
+    assert response_json["old"]["roi"] < response_json["new"]["roi"]
+    assert response_json["old"]["roi_percentage"] > response_json["new"]["roi_percentage"]
+    assert response_json["old"]["adjusted_avg_price"] < response_json["new"]["adjusted_avg_price"]
+
+
+@pytest.mark.usefixtures("transactions")
+def test_should_simulate_transaction_w_total(client, simple_asset):
+    # GIVEN
+    simple_asset.current_price = 100
+    simple_asset.save()
+
+    # WHEN
+    response = client.post(
+        f"{URL}/{simple_asset.code}/transactions/simulate", data={"price": 50, "total": 5000}
+    )
+    response_json = response.json()
+
+    # THEN
+    assert response.status_code == 200
+
+    assert response_json["old"]["adjusted_avg_price"] < response_json["new"]["adjusted_avg_price"]
+    assert response_json["old"]["roi"] < response_json["new"]["roi"]
+    assert response_json["old"]["roi_percentage"] > response_json["new"]["roi_percentage"]
+    assert response_json["old"]["adjusted_avg_price"] < response_json["new"]["adjusted_avg_price"]
+
+
+def test_should_not_simulate_transaction_wo_total_and_quantity(client, simple_asset):
+    # GIVEN
+
+    # WHEN
+    response = client.post(f"{URL}/{simple_asset.code}/transactions/simulate", data={"price": 50})
+
+    # THEN
+    assert response.status_code == 400
+    assert response.json() == {"non_field_errors": ["`quantity` or `total` is required"]}
+
+
+@pytest.mark.usefixtures("crypto_transaction")
+def test_should_normalize_avg_price_with_currency_when_simulating_transaction(client, crypto_asset):
+    # GIVEN
+    price, quantity = 10, 100
+    crypto_asset.current_price = 20
+    crypto_asset.save()
+
+    # WHEN
+    response = client.post(
+        f"{URL}/{crypto_asset.code}/transactions/simulate",
+        data={"price": price, "quantity": quantity},
+    )
+    response_json = response.json()
+
+    # THEN
+    assert response.status_code == 200
+
+    assert (
+        response_json["old"]["adjusted_avg_price"]
+        == response_json["new"]["adjusted_avg_price"]
+        == price
+    )
+
+
+@pytest.mark.usefixtures("transactions", "crypto_transaction")
+def test__codes_and_currencies_endpoint(client, simple_asset, another_asset, crypto_asset):
+    # GIVEN
+    expected = [
+        {"code": a.code, "currency": a.currency_from_transactions}
+        for a in (simple_asset, crypto_asset)  # `another_asset` is closed
+    ]
+
+    # WHEN
+    response = client.get(f"{URL}/codes_and_currencies")
+
+    # THEN
+    assert response.status_code == 200
+    assert response.json() == sorted(expected, key=lambda a: a["code"])

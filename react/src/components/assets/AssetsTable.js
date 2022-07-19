@@ -3,11 +3,17 @@ import { useState } from "react";
 import MUIDataTable from "mui-datatables";
 
 import Container from "@material-ui/core/Container";
+import Dialog from "@material-ui/core/Dialog";
+import DialogContent from "@material-ui/core/DialogContent";
+import DialogTitle from "@material-ui/core/DialogTitle";
+import IconButton from "@material-ui/core/IconButton";
 import TableCell from "@material-ui/core/TableCell";
 import TableRow from "@material-ui/core/TableRow";
 import Tooltip from "@material-ui/core/Tooltip";
+import MergeTypeIcon from "@material-ui/icons/MergeType";
 
 import { AssetsApi } from "../../api";
+import { SimulateTransactionForm } from "../../forms/SimulateTransactionForm";
 import { Loader } from "../Loaders";
 import {
   AssetsObjectivesMapping,
@@ -15,6 +21,30 @@ import {
   AssetsTypesMapping,
 } from "../../consts.js";
 import { getChoiceByLabel } from "../../helpers.js";
+
+const SimulateTransactionDialog = ({
+  open,
+  onClose,
+  showSuccessFeedbackForm,
+}) => {
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      aria-labelledby="simulate-transaction-form-dialog-title"
+    >
+      <DialogTitle id="simulate-transaction-form-dialog-title">
+        Simular Transação
+      </DialogTitle>
+      <DialogContent>
+        <SimulateTransactionForm
+          handleClose={onClose}
+          showSuccessFeedbackForm={showSuccessFeedbackForm}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const TransactionsTable = ({ code, data }) => (
   <MUIDataTable
@@ -89,6 +119,12 @@ export const AssetsTable = () => {
     ordering: "",
     code: "",
   });
+  const [
+    simulateTransactionDialogIsOpened,
+    setSimulateTransactionDialogIsOpened,
+  ] = useState(false);
+
+  const [data, isLoaded] = new AssetsApi().query(getAdjustedFilters());
 
   function getAdjustedFilters() {
     let multipleChoiceFilters = {
@@ -110,9 +146,6 @@ export const AssetsTable = () => {
 
     return _filters.toString();
   }
-
-  let api = new AssetsApi();
-  const [data, isLoaded] = api.query(getAdjustedFilters());
 
   const options = {
     filterType: "multiselect",
@@ -189,6 +222,13 @@ export const AssetsTable = () => {
         </TableRow>
       );
     },
+    customToolbar: () => (
+      <Tooltip title="Simular transação">
+        <IconButton onClick={() => setSimulateTransactionDialogIsOpened(true)}>
+          <MergeTypeIcon />
+        </IconButton>
+      </Tooltip>
+    ),
   };
 
   const columns = [
@@ -272,8 +312,12 @@ export const AssetsTable = () => {
       options: {
         filter: false,
         sort: false,
-        customBodyRender: (v) =>
-          `R$ ${v?.toLocaleString("pt-br", {
+        customBodyRender: (v, tableMeta) =>
+          `${
+            tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
+              ? "R$ "
+              : "$ "
+          } ${v?.toLocaleString("pt-br", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 4,
           })}`,
@@ -285,11 +329,16 @@ export const AssetsTable = () => {
       options: {
         filter: false,
         sort: false,
-        customBodyRender: (v) =>
-          `R$ ${v?.toLocaleString("pt-br", {
+        customBodyRender: (v, tableMeta) => {
+          return `${
+            tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
+              ? "R$ "
+              : "$ "
+          } ${v?.toLocaleString("pt-br", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 4,
-          })}`,
+          })}`;
+        },
       },
     },
     {
@@ -380,6 +429,10 @@ export const AssetsTable = () => {
     >
       {!isLoaded && <Loader />}
       <MUIDataTable data={data.results} columns={columns} options={options} />
+      <SimulateTransactionDialog
+        open={simulateTransactionDialogIsOpened}
+        onClose={() => setSimulateTransactionDialogIsOpened(false)}
+      />
     </Container>
   );
 };

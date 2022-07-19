@@ -27,7 +27,7 @@ def get_total_bought_brute_force(asset: Asset):
     return result
 
 
-def get_avg_price_bute_force(asset: Asset):
+def get_avg_price_bute_force(asset: Asset, normalize: bool = False):
     weights = []
     quantities = []
     for transaction in asset.transactions.bought():
@@ -35,7 +35,7 @@ def get_avg_price_bute_force(asset: Asset):
         quantities.append(transaction.quantity)
 
     weights = sum(weights)
-    if asset.currency_from_transactions != TransactionCurrencies.real:
+    if asset.currency_from_transactions != TransactionCurrencies.real and normalize:
         weights *= dynamic_settings.DOLLAR_CONVERSION_RATE
 
     return weights / sum(quantities)
@@ -69,16 +69,13 @@ def get_adjusted_avg_price_brute_forte(asset: Asset):
     return ((avg_price * adjusted_quantity) - incomes_sum) / adjusted_quantity
 
 
-def get_roi_brute_force(asset: Asset):
+def get_roi_brute_force(asset: Asset, normalize: bool = True):
     total_sold = _get_total_sold_brute_force(asset=asset)
     total_incomes = _get_total_credited_incomes(asset=asset)
     adjusted_quantity = get_adjusted_quantity_brute_force(asset=asset)
-    avg_price = get_avg_price_bute_force(asset=asset)
+    avg_price = get_avg_price_bute_force(asset=asset, normalize=normalize)
 
-    price = asset.current_price or Decimal()
-    if asset.currency_from_transactions != TransactionCurrencies.real:
-        price *= dynamic_settings.DOLLAR_CONVERSION_RATE
-    return (price * adjusted_quantity) - (
+    return (get_current_price(asset) * adjusted_quantity) - (
         (avg_price * adjusted_quantity) - total_incomes - total_sold
     )
 
@@ -98,8 +95,8 @@ def get_current_price(asset: Asset) -> Decimal:
     )
 
 
-get_total_invested_brute_force = lambda asset: get_avg_price_bute_force(
-    asset
+get_total_invested_brute_force = lambda asset, normalize=True: get_avg_price_bute_force(
+    asset, normalize=normalize
 ) * get_adjusted_quantity_brute_force(asset)
 
 get_current_total_invested_brute_force = lambda asset: get_current_price(

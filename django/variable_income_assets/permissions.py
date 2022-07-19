@@ -2,6 +2,8 @@ from rest_framework.permissions import BasePermission
 
 
 class _IntegrationPermission(BasePermission):
+    property_name: str
+
     def has_permission(self, request, _):
         return getattr(request.user, self.property_name, False)
 

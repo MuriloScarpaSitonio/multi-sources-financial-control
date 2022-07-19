@@ -75,7 +75,7 @@ export class AuthenticationApi {
 
 export class AssetsApi extends Api {
   resource = "assets";
-  constructor() {
+  constructor(code = null) {
     super({
       query: true,
       post: false,
@@ -83,7 +83,11 @@ export class AssetsApi extends Api {
       patch: false,
       delete: false,
     });
+    this.simulateTransaction = (code, data) =>
+      apiProvider.post(`${this.resource}/${code}/transactions/simulate`, data);
 
+    this.getCodesAndCurrencies = () =>
+      apiProvider.get(`${this.resource}/codes_and_currencies`);
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
     this.totalInvestedReport = (filters = {}) =>
       apiProvider.get(

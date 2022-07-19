@@ -108,6 +108,17 @@ def transactions(simple_asset, simple_task_history):
 
 
 @pytest.fixture
+def crypto_transaction(crypto_asset):
+    TransactionFactory(
+        action=TransactionActions.buy,
+        price=10,
+        asset=crypto_asset,
+        quantity=50,
+        currency=TransactionCurrencies.dollar,
+    )
+
+
+@pytest.fixture
 def passive_incomes(simple_asset):
     for _ in range(4):
         PassiveIncomeFactory(
@@ -303,18 +314,11 @@ def loss_asset_both_transactions_incomes_loss(simple_asset, loss_asset_both_tran
 
 
 @pytest.fixture
-def indicators_data(simple_asset, another_asset, crypto_asset, transactions, passive_incomes):
+def indicators_data(
+    simple_asset, another_asset, crypto_asset, transactions, crypto_transaction, passive_incomes
+):
     simple_asset.current_price = 100
     simple_asset.save()
-
-    # crypto transaction
-    Transaction.objects.create(
-        action=TransactionActions.buy,
-        price=10,
-        asset=crypto_asset,
-        quantity=50,
-        currency=TransactionCurrencies.dollar,
-    )
 
     # finish an asset
     Transaction.objects.create(

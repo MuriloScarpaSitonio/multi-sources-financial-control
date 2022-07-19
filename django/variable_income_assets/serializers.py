@@ -21,27 +21,60 @@ if TYPE_CHECKING:  # pragma: no cover
     from rest_framework.utils.serializer_helpers import ReturnList
 
 
-class TransactionSerializer(serializers.ModelSerializer):
-    # price = serializers.SerializerMethodField(read_only=True)
+class TransactionSimulateSerializer(serializers.Serializer):
+    price = serializers.DecimalField(decimal_places=8, max_digits=15)
+    quantity = serializers.DecimalField(decimal_places=8, max_digits=15, required=False)
+    total = serializers.DecimalField(decimal_places=8, max_digits=15, required=False)
 
+    def validate(self, attrs):
+        if attrs.get("quantity") is None and attrs.get("total") is None:
+            raise serializers.ValidationError("`quantity` or `total` is required")
+        return attrs
+
+
+class TransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transaction
         fields = ("action", "price", "currency", "quantity", "created_at")
 
-    # @staticmethod
-    # def _convert_value(value: Decimal, currency: str) -> Decimal:
-    #     return (
-    #         (value or Decimal())
-    #         if currency == TransactionCurrencies.real
-    #         # TODO: change this hardcoded conversion to a dynamic one
-    #         else (value or Decimal()) * DOLLAR_CONVERSION_RATE
-    #     )
-
-    # def get_price(self, obj: Transaction) -> Decimal:
-    #     return self._convert_value(obj.price, currency=obj.currency)
-
 
 class AssetSerializer(serializers.ModelSerializer):
+    roi = serializers.SerializerMethodField(read_only=True)
+    roi_percentage = serializers.SerializerMethodField(read_only=True)
+    adjusted_avg_price = serializers.SerializerMethodField(read_only=True)
+    total_invested = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        read_only=True,
+        rounding=ROUND_HALF_UP,
+        source="total_adjusted_invested_from_transactions",
+    )
+
+    class Meta:
+        model = Asset
+        fields = (
+            "code",
+            "adjusted_avg_price",
+            "roi",
+            "roi_percentage",
+            "total_invested",
+        )
+
+    def get_roi(self, obj: Asset) -> Decimal:
+        return obj.get_roi()
+
+    def get_roi_percentage(self, obj: Asset) -> Decimal:
+        return obj.get_roi(percentage=True)
+
+    def get_adjusted_avg_price(self, obj: Asset) -> Decimal:
+        return (
+            obj.adjusted_avg_price_from_transactions
+            if obj.currency_from_transactions == TransactionCurrencies.real
+            else obj.adjusted_avg_price_from_transactions / dynamic_settings.DOLLAR_CONVERSION_RATE
+        )
+
+
+class AssetListSerializer(serializers.ModelSerializer):
     type = CustomChoiceField(choices=AssetTypes.choices)
     sector = CustomChoiceField(choices=AssetSectors.choices)
     objective = CustomChoiceField(choices=AssetObjectives.choices)
@@ -50,10 +83,7 @@ class AssetSerializer(serializers.ModelSerializer):
     quantity_balance = serializers.DecimalField(
         decimal_places=8, max_digits=15, read_only=True, rounding=ROUND_HALF_UP
     )
-    current_price = serializers.SerializerMethodField(read_only=True)
-    adjusted_avg_price = serializers.DecimalField(
-        max_digits=10, decimal_places=3, read_only=True, rounding=ROUND_HALF_UP
-    )
+    adjusted_avg_price = serializers.SerializerMethodField(read_only=True)
     roi = serializers.DecimalField(
         max_digits=10, decimal_places=3, read_only=True, rounding=ROUND_HALF_UP
     )
@@ -87,16 +117,12 @@ class AssetSerializer(serializers.ModelSerializer):
             "transactions",
         )
 
-    @staticmethod
-    def _convert_value(value: Decimal, currency: str) -> Decimal:
+    def get_adjusted_avg_price(self, obj: Asset) -> Decimal:
         return (
-            (value or Decimal())
-            if currency == TransactionCurrencies.real
-            else (value or Decimal()) * dynamic_settings.DOLLAR_CONVERSION_RATE
+            obj.adjusted_avg_price
+            if obj.currency == TransactionCurrencies.real
+            else obj.adjusted_avg_price / dynamic_settings.DOLLAR_CONVERSION_RATE
         )
-
-    def get_current_price(self, obj: Asset) -> Decimal:
-        return self._convert_value(obj.current_price, currency=obj.currency)
 
     def get_percentage_invested(self, obj: Asset) -> Decimal:
         try:
@@ -106,10 +132,14 @@ class AssetSerializer(serializers.ModelSerializer):
         return result * Decimal("100.0")
 
     def get_current_percentage(self, obj: Asset) -> Decimal:
+        value = (
+            (obj.current_price or Decimal())
+            if obj.currency == TransactionCurrencies.real
+            else (obj.current_price or Decimal()) * dynamic_settings.DOLLAR_CONVERSION_RATE
+        )
+
         try:
-            result = (self.get_current_price(obj) * obj.quantity_balance) / self.context[
-                "current_total_agg"
-            ]
+            result = (value * obj.quantity_balance) / self.context["current_total_agg"]
         except DecimalException:
             result = Decimal()
         return result * Decimal("100.0")

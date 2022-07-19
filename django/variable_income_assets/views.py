@@ -1,10 +1,12 @@
 from typing import Type
 
 from django.utils import timezone
+from django.db import transaction as djtransaction
 from django.db.models import Sum
 
 from djchoices import ChoiceItem
 from rest_framework.decorators import action
+from rest_framework.generics import get_object_or_404
 from rest_framework.mixins import ListModelMixin
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -15,7 +17,7 @@ from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from tasks.decorators import celery_task_endpoint, start_celery_task
 
-from .choices import AssetsTotalInvestedReportAggregations
+from .choices import AssetsTotalInvestedReportAggregations, TransactionActions
 from .filters import (
     AssetFilterSet,
     AssetFetchCurrentPriceFilterSet,
@@ -23,14 +25,16 @@ from .filters import (
     AssetTotalInvestedReportFilterSet,
 )
 from .managers import AssetQuerySet, PassiveIncomeQuerySet
-from .models import Asset, PassiveIncome
+from .models import Asset, PassiveIncome, Transaction
 from .permissions import AssetsPricesPermission, BinancePermission, CeiPermission, KuCoinPermission
 from .serializers import (
     AssetRoidIndicatorsSerializer,
+    AssetListSerializer,
     AssetSerializer,
     AssetTypeReportSerializer,
     PassiveIncomeSerializer,
     PassiveIncomesIndicatorsSerializer,
+    TransactionSimulateSerializer,
 )
 from .tasks import (
     sync_binance_transactions_task,
@@ -42,8 +46,9 @@ from .tasks import (
 
 
 class AssetViewSet(GenericViewSet, ListModelMixin):
-    serializer_class = AssetSerializer
+    serializer_class = AssetListSerializer
     filterset_class = AssetFilterSet
+    lookup_field = "code"
     ordering_fields = ("code", "type", "total_invested", "roi", "roi_percentage")
 
     def get_queryset(self) -> AssetQuerySet[Asset]:
@@ -164,6 +169,19 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
                     response[task.name] = task_id
         return Response(response, status=HTTP_200_OK)
 
+    @action(methods=("GET",), detail=False)
+    def codes_and_currencies(self, _: Request) -> Response:
+        # TODO: change `list` endpoint to support `fields` kwarg on serializer and set the return values
+        # by doing `/assets?fields=code,currency`
+        return Response(
+            self.get_queryset()
+            .opened()
+            .annotate_currency()
+            .values("code", "currency")
+            .order_by("code"),
+            status=HTTP_200_OK,
+        )
+
 
 class PassiveIncomeViewSet(ModelViewSet):
     serializer_class = PassiveIncomeSerializer
@@ -195,3 +213,42 @@ class PassiveIncomeViewSet(ModelViewSet):
         )
 
         return Response(serializer.data, status=HTTP_200_OK)
+
+
+class TransactionViewSet(GenericViewSet):
+    def get_related_queryset(self) -> AssetQuerySet[Asset]:
+        return self.request.user.assets.all()
+
+    def get_related_object(self) -> Asset:
+        return get_object_or_404(self.get_related_queryset(), code=self.kwargs["code"])
+
+    @action(methods=("POST",), detail=False)
+    def simulate(self, request: Request, _: str) -> Response:
+
+        instance = self.get_related_object()
+        serializer = TransactionSimulateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.data
+
+        kwargs = {"price": data["price"]}
+        if data.get("quantity") is not None:
+            kwargs["quantity"] = data["quantity"]
+        else:
+            kwargs["quantity"] = data["total"] / data["price"]
+
+        old = AssetSerializer(instance=instance).data
+        with djtransaction.atomic():
+            Transaction.objects.create(
+                asset=instance,
+                action=TransactionActions.buy,
+                currency=instance.currency_from_transactions,
+                **kwargs
+            )
+
+            # clear cached properties
+            del instance.__dict__["adjusted_avg_price_from_transactions"]
+            del instance.__dict__["quantity_from_transactions"]
+
+            new = AssetSerializer(instance=instance).data
+            djtransaction.set_rollback(True)
+        return Response({"old": old, "new": new}, status=HTTP_200_OK)
