@@ -209,7 +209,6 @@ export const ExpenseForm = ({
                   clearable
                   clearLabel={"Limpar"}
                   autoOk
-                  disableFuture
                   required
                   format="dd/MM/yyyy"
                   style={{ width: "30%", marginRight: "2%" }}

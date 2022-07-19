@@ -87,7 +87,7 @@ class ExpenseQueryset(CustomQueryset, MonthlyFilterMixin):
                 avg=(
                     coalesce_sum_expression("price", filter=~self.filters.current)
                     / (
-                        # we are dividing by the amount of months a given aggregation appears
+                        # we are dividing by the amount of months a given aggregation appears.
                         # in order to divide for the whole period we should compute some subquery like
                         # self.values("created_at__month").distinct().order_by().count()
                         Count(

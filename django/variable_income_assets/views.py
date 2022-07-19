@@ -223,7 +223,7 @@ class TransactionViewSet(GenericViewSet):
         return get_object_or_404(self.get_related_queryset(), code=self.kwargs["code"])
 
     @action(methods=("POST",), detail=False)
-    def simulate(self, request: Request, _: str) -> Response:
+    def simulate(self, request: Request, code: str) -> Response:
 
         instance = self.get_related_object()
         serializer = TransactionSimulateSerializer(data=request.data)

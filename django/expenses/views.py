@@ -75,8 +75,17 @@ class ExpenseViewSet(ModelViewSet):
 
     @action(methods=("POST",), detail=False)
     def fixed_from_last_month(self, _: Request) -> Response:
+        expenses = self._get_fixed_expenses_from_queryset()
+
+        data = Expense.objects.bulk_create(objs=expenses)
+        serializer = self.get_serializer(data=data, many=True)
+        serializer.is_valid()
+        return Response(serializer.data, status=HTTP_201_CREATED)
+
+    def _get_fixed_expenses_from_queryset(self) -> List[Expense]:
         today = timezone.now().date()
         one_month_before = today - relativedelta(months=1)
+        two_months_before = today - relativedelta(months=2)
         qs = (
             self.get_queryset()
             .filter_by_month_and_year(month=one_month_before.month, year=one_month_before.year)
@@ -84,36 +93,27 @@ class ExpenseViewSet(ModelViewSet):
             .values()
         )
 
-        expenses = self._get_fixed_expenses_from_queryset(
-            queryset=qs,
-            today_date_str=f"{today.month:02}/{str(today.year)[2:]}",
-            one_month_before_date_str=(
-                f"{one_month_before.month:02}/{str(one_month_before.year)[2:]}"
-            ),
+        today_date_str = f"{today.month:02}/{str(today.year)[2:]}"
+        one_month_before_date_str = f"{one_month_before.month:02}/{str(one_month_before.year)[2:]}"
+        two_months_before_date_str = (
+            f"{two_months_before.month:02}/{str(two_months_before.year)[2:]}"
         )
-
-        data = Expense.objects.bulk_create(objs=expenses)
-        serializer = self.get_serializer(data=data, many=True)
-        serializer.is_valid()
-        return Response(serializer.data, status=HTTP_201_CREATED)
-
-    @staticmethod
-    def _get_fixed_expenses_from_queryset(
-        queryset: ExpenseQueryset[Expense], today_date_str: str, one_month_before_date_str: str
-    ) -> List[Expense]:
         expenses = []
-        for expense in queryset:
+        for expense in qs:
             del expense["id"]
             description = expense.pop("description")
             # TODO: change to regex
-            description = (
-                f"{description} ({today_date_str})"
-                if f"{one_month_before_date_str}" not in description
-                else description.replace(
-                    f"{one_month_before_date_str}",
-                    f"{today_date_str}",
+            if one_month_before_date_str in description:
+                description = description.replace(
+                    f"{one_month_before_date_str}", f"{today_date_str}"
                 )
-            )
+            elif two_months_before_date_str in description:
+                description = description.replace(
+                    f"{two_months_before_date_str}", f"{today_date_str}"
+                )
+            else:
+                description = f"{description} ({today_date_str})"
+
             expenses.append(
                 Expense(
                     **expense,

@@ -14,6 +14,7 @@ from rest_framework.status import (
     HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
 )
+from authentication.models import CustomUser
 
 from expenses.choices import ExpenseCategory, ExpenseSource, ExpenseReportType
 from expenses.models import Expense
@@ -44,14 +45,13 @@ def _convert_and_quantize(
         ("description=Expense", 12),
         ("description=pense", 12),
         ("description=wrong", 0),
-        ("start_date=2021-01-01&end_date=2021-12-01", 7),
-        ("start_date=2021-10-01&end_date=2021-10-01", 1),
+        ("start_date=2021-01-01&end_date=2021-12-01", 5),
+        ("start_date=2021-10-01&end_date=2021-10-01", 0),
         ("start_date=2020-01-01&end_date=2020-12-01", 0),
         ("is_fixed=False", 6),
         ("is_fixed=True", 6),
     ],
 )
-@freeze_time("2022-06-01")
 def test_should_filter_expenses(client, filter_by, count):
     # GIVEN
 
@@ -182,7 +182,6 @@ def test_should_not_get_report_if_of_parameter_is_invalid_choice(client):
     "of, field_name",
     [(value, ExpenseReportType.get_choice(value).field_name) for value in ExpenseReportType.values],
 )
-@freeze_time("2022-06-01")
 def test_should_get_reports(client, of, field_name):
     # GIVEN
     choices_class_map = {"category": ExpenseCategory, "source": ExpenseSource}
@@ -227,7 +226,6 @@ def test_should_get_reports(client, of, field_name):
     "of, field_name",
     [(value, ExpenseReportType.get_choice(value).field_name) for value in ExpenseReportType.values],
 )
-@freeze_time("2022-06-01")
 def test_should_get_reports_all_period(client, of, field_name):
     # GIVEN
     choices_class_map = {"category": ExpenseCategory, "source": ExpenseSource}
@@ -269,55 +267,35 @@ def test_should_get_reports_all_period(client, of, field_name):
 
 @pytest.mark.usefixtures("report_data")
 @pytest.mark.parametrize("filters", ("", "future=true"))
-@freeze_time("2022-06-01")
 def test_should_get_historic_data(client, filters):
     # GIVEN
     today = timezone.now().date()
 
     # WHEN
-    response = client.get(f"{URL}/historic?{filters}").json()
+    response = client.get(f"{URL}/historic?{filters}")
+    response_json = response.json()
 
     # THEN
     assert response.status_code == HTTP_200_OK
 
     total = 0
-    for result in response["historic"]:
+    for result in response_json["historic"]:
         d = datetime.strptime(result["month"], "%d/%m/%Y").date()
         assert _convert_and_quantize(result["total"]) == _convert_and_quantize(
             Expense.objects.filter(created_at__month=d.month, created_at__year=d.year).sum()[
                 "total"
             ]
         )
-        if d == today:  # we don't evaluate the current month on the avg calculation
+        if d == today.replace(day=1):  # we don't evaluate the current month on the avg calculation
             continue
         total += result["total"]
 
     if filters:
-        assert response["avg"] is None
+        assert response_json["avg"] is None
     else:
-        assert _convert_and_quantize(fmean(total)) == _convert_and_quantize(response.json()["avg"])
-
-
-@pytest.mark.usefixtures("expenses")
-def test_should_get_historic_data(client):
-    # GIVEN
-
-    # WHEN
-    response = client.get(f"{URL}/historic")
-    historic = response.json()["historic"]
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-
-    total = 0
-    for result in historic:
-        month = datetime.strptime(result["month"], "%d/%m/%Y").date().month
-        assert result["total"] == float(
-            Expense.objects.filter(created_at__month=month).sum()["total"]
-        )
-        total += result["total"]
-
-    assert _convert_and_quantize(fmean(total)) == _convert_and_quantize(response.json()["avg"])
+        assert _convert_and_quantize(
+            total / (len(response_json["historic"]) - 1)
+        ) == _convert_and_quantize(response_json["avg"])
 
 
 @pytest.mark.usefixtures("expenses")
@@ -447,20 +425,27 @@ def test_should_create_expense_if_installments_none_and_is_fixed(client):
     assert Expense.objects.count() == 1
 
 
-@freeze_time("2021-10-01")
+from dateutil.relativedelta import relativedelta
+
+
 @pytest.mark.usefixtures("expenses")
 def test_should_create_fixed_expenses_from_last_month(client, user):
     # GIVEN
+    today = timezone.now().date()
+    one_month_before = today - relativedelta(months=1)
+
     Expense.objects.create(
         price=12,
-        description="Test expense (09/21)",
+        description=f"Test expense ({one_month_before.month:02}/{str(one_month_before.year)[2:]})",
         category=ExpenseCategory.recreation,
         source=ExpenseSource.money,
-        created_at=date(2021, 9, 10),
         is_fixed=True,
+        created_at=one_month_before.replace(day=1),
         user=user,
     )
-    qs = Expense.objects.filter_by_month_and_year(month=9, year=2021).filter(is_fixed=True)
+    qs = Expense.objects.filter_by_month_and_year(
+        month=one_month_before.month, year=one_month_before.year
+    ).filter(is_fixed=True)
 
     # WHEN
     response = client.post(f"{URL}/fixed_from_last_month")
@@ -468,6 +453,9 @@ def test_should_create_fixed_expenses_from_last_month(client, user):
     # THEN
     assert response.status_code == HTTP_201_CREATED
     assert len(response.json()) == qs.count()
-    assert response.json()[0]["created_at"] == "2021-10-10"
-    assert response.json()[1]["created_at"] == "2021-10-01"
-    assert all("(10/21)" in expense["description"] for expense in response.json())
+    assert response.json()[0]["created_at"] == today.strftime("%Y-%m-%d")
+    assert response.json()[1]["created_at"] == today.replace(day=1).strftime("%Y-%m-%d")
+    assert all(
+        f"({today.month:02}/{str(today.year)[2:]})" in expense["description"]
+        for expense in response.json()
+    )

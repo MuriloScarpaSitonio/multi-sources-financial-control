@@ -4,7 +4,6 @@ from django.utils import timezone
 
 import pytest
 from factory.django import DjangoModelFactory
-from freezegun import freeze_time
 
 from dateutil.relativedelta import relativedelta
 
@@ -32,7 +31,6 @@ def expense(user):
 
 
 @pytest.fixture
-@freeze_time("2022-06-01")
 def expenses(user):
     today = timezone.now().date()
     for i in range(1, 13):
@@ -48,7 +46,6 @@ def expenses(user):
 
 
 @pytest.fixture
-@freeze_time("2022-06-01")
 def report_data(expenses, user):
     today = timezone.now().date()
     for i in range(1, 7):
