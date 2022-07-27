@@ -4,45 +4,23 @@ from datetime import date
 from decimal import Decimal
 from typing import Dict
 
-from django.utils import timezone
 from django.db.models import Count, Q, Sum, CharField
 from django.db.models.expressions import CombinedExpression
 from django.db.models.functions import Concat, TruncMonth
 
-from shared.managers_utils import CustomQueryset, MonthlyFilterMixin
+from shared.managers_utils import CustomQueryset, GenericFilters, MonthlyFilterMixin
 from shared.utils import coalesce_sum_expression
 
 from .choices import ExpenseReportType
 
 
-class _ExpenseFilters:
-    def __init__(self, base_date: date = timezone.now().date()) -> None:
-        self.base_date = base_date
-
-    @property
-    def _current_year(self) -> Q:
-        return Q(created_at__month__lte=self.base_date.month, created_at__year=self.base_date.year)
+class _ExpenseFilters(GenericFilters):
+    def __init__(self) -> None:
+        super().__init__(date_field_name="created_at")
 
     @property
     def current_month_and_past(self) -> Q:
         return Q(created_at__year__lt=self.base_date.year) | self._current_year
-
-    @property
-    def since_a_year_ago(self) -> Q:
-        return (
-            Q(created_at__month__gte=self.base_date.month, created_at__year=self.base_date.year - 1)
-            | self._current_year
-        )
-
-    @property
-    def current(self) -> Q:
-        return Q(created_at__month=self.base_date.month, created_at__year=self.base_date.year)
-
-    @property
-    def future(self) -> Q:
-        return Q(
-            created_at__month__gt=self.base_date.month, created_at__year=self.base_date.year
-        ) | Q(created_at__year__gt=self.base_date.year)
 
 
 class ExpenseQueryset(CustomQueryset, MonthlyFilterMixin):

@@ -1,8 +1,7 @@
-from django.utils import timezone
-from django.db.models import F, Q, QuerySet, Sum, Window
-from django.db.models.functions import Lag, TruncMonth
+from datetime import date
 
-from dateutil.relativedelta import relativedelta
+from django.db.models import Q, QuerySet, Sum
+from django.utils import timezone
 
 
 class SumMixin:
@@ -14,49 +13,9 @@ class SumMixin:
         return self.aggregate(**self.get_sum_expression(*args, **kwargs))
 
 
-class IndicatorsMixin:
-    def indicators(self) -> QuerySet:
-        date_field_name = getattr(self, "DATE_FIELD_NAME", "created_at")
-        today = timezone.now().date()
-        one_month_before = today - relativedelta(months=1)
-        return (
-            self.filter(
-                Q(
-                    **{
-                        f"{date_field_name}__month": today.month,
-                        f"{date_field_name}__year": today.year,
-                    }
-                )
-                | Q(
-                    **{
-                        f"{date_field_name}__month": one_month_before.month,
-                        f"{date_field_name}__year": one_month_before.year,
-                    }
-                )
-            )
-            .annotate(month=TruncMonth(date_field_name))
-            .values("month")
-            .annotate_sum()
-            .annotate(diff=F("total") - Window(expression=Lag("total")))
-            .annotate(
-                diff_percentage=(
-                    (
-                        (
-                            (Window(expression=Lag("total")) + F("diff"))
-                            / Window(expression=Lag("total"))
-                        )
-                        - 1
-                    )
-                    * 100
-                )
-            )
-            .order_by("-diff")
-        )
-
-
 class MonthlyFilterMixin:
     def filter_by_month_and_year(self, month: int, year: int) -> QuerySet:
-        date_field_name = getattr(self, "DATE_FIELD_NAME", "created_at")
+        date_field_name = getattr(self, "date_field_name", "created_at")
         return self.filter(
             **{
                 f"{date_field_name}__month": month,
@@ -72,3 +31,51 @@ class CustomQueryset(QuerySet, SumMixin):
 
     def aggregate_field(self, field_name: str, *args, **kwargs) -> QuerySet:
         return self.values(field_name).annotate_sum(*args, **kwargs)
+
+
+class GenericFilters:
+    def __init__(self, date_field_name: str, base_date: date = timezone.now().date()) -> None:
+        self.date_field_name = date_field_name
+        self.base_date = base_date
+
+    @property
+    def _current_year(self) -> Q:
+        return Q(
+            **{
+                f"{self.date_field_name}__month__lte": self.base_date.month,
+                f"{self.date_field_name}__year": self.base_date.year,
+            }
+        )
+
+    @property
+    def since_a_year_ago(self) -> Q:
+        return (
+            Q(
+                **{
+                    f"{self.date_field_name}__month__gte": self.base_date.month,
+                    f"{self.date_field_name}__year": self.base_date.year - 1,
+                }
+            )
+            | self._current_year
+        )
+
+    @property
+    def current(self) -> Q:
+        return Q(
+            **{
+                f"{self.date_field_name}__month": self.base_date.month,
+                f"{self.date_field_name}__year": self.base_date.year,
+            }
+        )
+
+    @property
+    def future(self) -> Q:
+        return (
+            Q(
+                **{
+                    f"{self.date_field_name}__month__gt": self.base_date.month,
+                    f"{self.date_field_name}__year": self.base_date.year,
+                }
+            )
+            | Q(**{f"{self.date_field_name}__year__gt": self.base_date.year})
+        )

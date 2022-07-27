@@ -3,7 +3,6 @@ import operator
 
 import pytest
 
-
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN
 
 from authentication.tests.conftest import (
@@ -20,7 +19,7 @@ from authentication.tests.conftest import (
 )
 from config.settings.base import BASE_API_URL
 
-from .shared import (
+from variable_income_assets.tests.shared import (
     convert_to_percentage_and_quantitize,
     get_adjusted_avg_price_brute_forte,
     get_adjusted_quantity_brute_force,
@@ -31,8 +30,13 @@ from .shared import (
     get_total_bought_brute_force,
     get_total_invested_brute_force,
 )
-from ..choices import AssetObjectives, AssetSectors, AssetTypes, TransactionActions
-from ..models import Asset, Transaction
+from variable_income_assets.choices import (
+    AssetObjectives,
+    AssetSectors,
+    AssetTypes,
+    TransactionActions,
+)
+from variable_income_assets.models import Asset, Transaction
 
 
 pytestmark = pytest.mark.django_db

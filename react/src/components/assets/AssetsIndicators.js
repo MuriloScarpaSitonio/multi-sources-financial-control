@@ -125,9 +125,9 @@ export const AssetsIndicators = () => {
     ROI_finished: 0,
   });
   const [incomesIndicators, setIncomesIndicators] = useState({
-    total: 0,
-    credited_total: 0,
-    provisioned_total: 0,
+    avg: 0,
+    current_credited: 0,
+    provisioned_future: 0,
     diff_percentage: 0,
   });
   const [isLoaded, setIsLoaded] = useState(false);
@@ -158,26 +158,26 @@ export const AssetsIndicators = () => {
   function getPassiveIncomesExtraIndicators() {
     return (
       <ExtraIndicators
-        firstValue={`R$ ${incomesIndicators.credited_total?.toLocaleString(
+        firstValue={`R$ ${incomesIndicators.avg?.toLocaleString(
           "pt-br",
           {
             minimumFractionDigits: 2,
           } || 0
-        )} + R$ ${incomesIndicators.provisioned_total?.toLocaleString(
+        )} + R$ ${incomesIndicators.provisioned_future?.toLocaleString(
           "pt-br",
           {
             minimumFractionDigits: 2,
           } || 0
         )}`}
         firstColor={SUCCESS}
-        firstText={"Creditados (mês) + Provisionados"}
+        firstText={"Média + Provisionados"}
         secondValue={`${
           incomesIndicators.diff_percentage?.toLocaleString("pt-br", {
             minimumFractionDigits: 2,
           }) || 0
         }%`}
         secondColor={incomesIndicators.diff_percentage > 0 ? SUCCESS : DANGER}
-        secondText={"Em relação ao último mês"}
+        secondText={"Em relação a média"}
       />
     );
   }
@@ -245,7 +245,7 @@ export const AssetsIndicators = () => {
             {isLoaded ? (
               <Indicators
                 title={"RENDA PASSIVA"}
-                value={incomesIndicators.total}
+                value={incomesIndicators.current_credited}
                 icon={<AttachMoneyIcon />}
                 color={SUCCESS}
                 extraIndicators={getPassiveIncomesExtraIndicators()}

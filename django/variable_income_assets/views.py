@@ -1,6 +1,6 @@
+from decimal import Decimal
 from typing import Type
 
-from django.utils import timezone
 from django.db import transaction as djtransaction
 from django.db.models import Sum
 
@@ -187,31 +187,15 @@ class PassiveIncomeViewSet(ModelViewSet):
     serializer_class = PassiveIncomeSerializer
 
     def get_queryset(self) -> PassiveIncomeQuerySet[PassiveIncome]:
-        return (
-            PassiveIncome.objects.filter(asset__user=self.request.user)
-            if self.request.user.is_authenticated
-            else PassiveIncome.objects.none()  # drf-spectatular
-        )
+        if self.request.user.is_authenticated:
+            return PassiveIncome.objects.filter(asset__user=self.request.user)
+        return PassiveIncome.objects.none()  # pragma: no cover -- drf-spectatular
 
     @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:
-        today = timezone.now().date()
-        qs = self.get_queryset()
-        credited_total = (
-            qs.filter_by_month_and_year(month=today.month, year=today.year)
-            .credited()
-            .sum()["total"]
-        )
-        provisioned_total = qs.provisioned().sum()["total"]
-        serializer = PassiveIncomesIndicatorsSerializer(
-            {
-                "total": credited_total + provisioned_total,
-                "credited_total": credited_total,
-                "provisioned_total": provisioned_total,
-                "diff_percentage": qs.credited().indicators()[0]["diff_percentage"],
-            }
-        )
-
+        qs = self.get_queryset().indicators()
+        percentage = ((qs["current_credited"] / qs["avg"]) - Decimal("1.0")) * Decimal("100.0")
+        serializer = PassiveIncomesIndicatorsSerializer({**qs, "diff_percentage": percentage})
         return Response(serializer.data, status=HTTP_200_OK)
 
 

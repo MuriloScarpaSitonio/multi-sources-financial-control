@@ -180,17 +180,17 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
 
 
 class PassiveIncomesIndicatorsSerializer(serializers.Serializer):
-    total = serializers.DecimalField(
+    avg = serializers.DecimalField(
         max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
-    credited_total = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+    current_credited = serializers.DecimalField(
+        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
-    provisioned_total = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+    provisioned_future = serializers.DecimalField(
+        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
     diff_percentage = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+        max_digits=5, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
 
 
