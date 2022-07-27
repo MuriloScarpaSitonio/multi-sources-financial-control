@@ -3,11 +3,11 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Dict, Union
 
-from django.db.models import F, OuterRef, Q, QuerySet, Subquery, Sum, Value
+from django.db.models import CharField, Count, F, OuterRef, Q, QuerySet, Subquery, Sum, Value
 from django.db.models.expressions import CombinedExpression
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Concat, Coalesce
 
-from shared.managers_utils import CustomQueryset, IndicatorsMixin, MonthlyFilterMixin
+from shared.managers_utils import CustomQueryset, GenericFilters, MonthlyFilterMixin
 from shared.utils import coalesce_sum_expression
 
 from .choices import AssetTypes, AssetsTotalInvestedReportAggregations, PassiveIncomeEventTypes
@@ -255,15 +255,47 @@ class TransactionQuerySet(QuerySet):
         return self.aggregate(ROI=self._get_roi_expression(incomes=incomes, percentage=percentage))
 
 
-class PassiveIncomeQuerySet(CustomQueryset, IndicatorsMixin, MonthlyFilterMixin):
-    DATE_FIELD_NAME = "operation_date"
+class PassiveIncomeQuerySet(CustomQueryset, MonthlyFilterMixin):
+    date_field_name = "operation_date"
+    filters = GenericFilters(date_field_name=date_field_name)
 
     @staticmethod
     def get_sum_expression() -> Dict[str, Sum]:
         return {"total": coalesce_sum_expression("amount")}
 
-    def credited(self) -> PassiveIncomeQuerySet:  # pragma: no cover
+    def credited(self) -> PassiveIncomeQuerySet:
         return self.filter(event_type=PassiveIncomeEventTypes.credited)
 
-    def provisioned(self) -> PassiveIncomeQuerySet:  # pragma: no cover
+    def provisioned(self) -> PassiveIncomeQuerySet:
         return self.filter(event_type=PassiveIncomeEventTypes.provisioned)
+
+    def indicators(self) -> PassiveIncomeQuerySet:
+        return self.aggregate(
+            current_credited=coalesce_sum_expression(
+                "amount",
+                filter=Q(event_type=PassiveIncomeEventTypes.credited) & self.filters.current,
+            ),
+            provisioned_future=coalesce_sum_expression(
+                "amount",
+                filter=Q(event_type=PassiveIncomeEventTypes.provisioned)
+                & (self.filters.future | self.filters.current),
+            ),
+            avg=coalesce_sum_expression(
+                "amount",
+                filter=Q(event_type=PassiveIncomeEventTypes.credited)
+                & self.filters.since_a_year_ago
+                & ~self.filters.current,
+            )
+            / (
+                Count(
+                    Concat(
+                        "operation_date__month", "operation_date__year", output_field=CharField()
+                    ),
+                    filter=Q(event_type=PassiveIncomeEventTypes.credited)
+                    & self.filters.since_a_year_ago
+                    & ~self.filters.current,
+                    distinct=True,
+                )
+                * Decimal("1.0")
+            ),
+        )

@@ -5,6 +5,8 @@ from factory.django import DjangoModelFactory
 
 from django.utils import timezone
 
+from dateutil.relativedelta import relativedelta
+
 from authentication.tests.conftest import user
 from tasks.tests.conftest import simple_task_history
 
@@ -120,13 +122,20 @@ def crypto_transaction(crypto_asset):
 
 @pytest.fixture
 def passive_incomes(simple_asset):
-    for _ in range(4):
+    for i in range(4):
         PassiveIncomeFactory(
             type=PassiveIncomeTypes.dividend,
             amount=randint(100, 500),
             event_type=PassiveIncomeEventTypes.credited,
             asset=simple_asset,
-            operation_date=timezone.now().date(),
+            operation_date=timezone.now().date() - relativedelta(month=i),
+        )
+        PassiveIncomeFactory(
+            type=PassiveIncomeTypes.dividend,
+            amount=randint(100, 500),
+            event_type=PassiveIncomeEventTypes.provisioned,
+            asset=simple_asset,
+            operation_date=timezone.now().date() + relativedelta(month=i),
         )
 
 
