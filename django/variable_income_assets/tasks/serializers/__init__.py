@@ -1,4 +1,5 @@
 from copy import deepcopy
+from decimal import Decimal
 from typing import Tuple
 
 from rest_framework import ISO_8601, serializers
@@ -6,9 +7,14 @@ from rest_framework import ISO_8601, serializers
 from shared.serializers_utils import CustomChoiceField
 from tasks.models import TaskHistory
 
-from .fields import CeiTransactionChoiceField, TimeStampToDateField
-from ...choices import TransactionActions, TransactionCurrencies
-from ...models import Asset, Transaction
+from .fields import CeiPassiveIncomeChoiceField, CeiTransactionChoiceField, TimeStampToDateField
+from ...choices import (
+    PassiveIncomeEventTypes,
+    PassiveIncomeTypes,
+    TransactionActions,
+    TransactionCurrencies,
+)
+from ...models import Asset, PassiveIncome, Transaction
 
 
 class CryptoTransactionAlreadyExistsException(Exception):
@@ -49,4 +55,20 @@ class CeiTransactionSerializer(serializers.Serializer):
             quantity=self.validated_data["unit_amount"],
             created_at=self.validated_data["operation_date"],
             defaults={"action": getattr(TransactionActions, self.validated_data["action"])},
+        )
+
+
+class CeiPassiveIncomeSerializer(serializers.Serializer):
+    income_type = CeiPassiveIncomeChoiceField(choices=PassiveIncomeTypes.choices)
+    net_value = serializers.DecimalField(decimal_places=2, max_digits=6)
+    operation_date = serializers.DateField(input_formats=(ISO_8601,))
+    event_type = CeiPassiveIncomeChoiceField(choices=PassiveIncomeEventTypes.choices)
+
+    def update_or_create(self, asset: Asset) -> Tuple[PassiveIncome, bool]:
+        return PassiveIncome.objects.update_or_create(
+            asset=asset,
+            type=self.validated_data["income_type"],
+            amount=self.validated_data["net_value"],
+            operation_date=self.validated_data["operation_date"],
+            defaults={"event_type": self.validated_data["event_type"]},
         )

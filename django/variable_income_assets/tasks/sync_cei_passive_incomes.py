@@ -10,12 +10,9 @@ from shared.utils import build_url
 from tasks.bases import TaskWithHistory
 from tasks.models import TaskHistory
 
-from ..choices import (
-    AssetTypes,
-    PassiveIncomeEventTypes,
-    PassiveIncomeTypes,
-)
-from ..models import Asset, PassiveIncome
+from .serializers import CeiPassiveIncomeSerializer
+from ..choices import AssetTypes
+from ..models import Asset
 
 
 @atomic
@@ -23,12 +20,9 @@ def _save_cei_passive_incomes(
     response: requests.models.Response, user: CustomUser, task_history: TaskHistory
 ) -> None:
     assets = dict()
-    for passive_income in response.json():
-        income_type = passive_income["income_type"]
-        # TODO: change this on FastAPI
-        if income_type == "FII yield":
-            income_type = "income"
-        code = passive_income["raw_negotiation_code"]
+    for data in response.json():
+
+        code = data.pop("raw_negotiation_code")
         asset = assets.get(code)
         if asset is None:
             asset, _ = Asset.objects.get_or_create(
@@ -37,17 +31,9 @@ def _save_cei_passive_incomes(
                 type=AssetTypes.stock,
             )
 
-        # TODO: fix PassiveIncome.MultipleObjectsReturned
-        income, created = PassiveIncome.objects.update_or_create(
-            asset=asset,
-            type=getattr(PassiveIncomeTypes, income_type),
-            amount=passive_income["net_value"],
-            defaults={
-                "operation_date": passive_income["operation_date"],
-                "event_type": getattr(PassiveIncomeEventTypes, passive_income["event_type"]),
-            },
-        )
-
+        serializer = CeiPassiveIncomeSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        income, created = serializer.update_or_create(asset=asset)
         if created:
             income.fetched_by = task_history
             income.save(update_fields=("fetched_by",))

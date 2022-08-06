@@ -17,4 +17,12 @@ class CeiTransactionChoiceField(ChoiceField):
     def to_internal_value(self, value: str) -> str:
         if value.upper() in self.choice_strings_to_values:
             return value
-        self.fail("invalid_choice", input=value)  # pragma: no cover
+        self.fail("invalid_choice", input=value)
+
+
+class CeiPassiveIncomeChoiceField(ChoiceField):
+    def to_internal_value(self, value: str) -> str:
+        value = value.upper()
+        if value in self.choice_strings_to_values:
+            return value
+        self.fail("invalid_choice", input=value)

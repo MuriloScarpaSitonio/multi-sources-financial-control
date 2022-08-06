@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -15,8 +16,9 @@ from authentication.tests.conftest import (
 )
 from config.settings.base import BASE_API_URL
 
-from ..choices import AssetTypes
-from ..models import Asset, Transaction
+from ..choices import AssetTypes, PassiveIncomeEventTypes, PassiveIncomeTypes
+from ..models import Asset, PassiveIncome, Transaction
+from ..tasks.sync_cei_passive_incomes import sync_cei_passive_incomes_task
 
 pytestmark = pytest.mark.django_db
 
@@ -208,3 +210,136 @@ def test_should_skip_kucoin_transaction_if_already_exists(
 
     # THEN
     assert Transaction.objects.count() == len(kucoin_transactions_response) - 1
+
+
+from django.utils import timezone
+from tasks.models import TaskHistory
+
+
+def test__sync_cei_passive_incomes_task__create(user, simple_asset, requests_mock, client):
+    # GIVEN
+    requests_mock.get(
+        build_url(
+            url=settings.ASSETS_INTEGRATIONS_URL,
+            parts=("cei/", "passive_incomes"),
+            query_params={"username": user.username, "date": timezone.now().date()},
+        ),
+        json=[
+            {
+                "income_type": "dividend",
+                "net_value": 502,
+                "operation_date": "2022-01-23",
+                "raw_negotiation_code": simple_asset.code,
+                "event_type": "credited",
+            }
+        ],
+    )
+
+    # WHEN
+    response = client.get(f"{URL}/sync_cei_passive_incomes")
+
+    # THEN
+    assert response.status_code == 200
+    assert (
+        Asset.objects.filter(
+            code=simple_asset.code, user=simple_asset.user, type=simple_asset.type
+        ).count()
+        == 1
+    )
+    assert (
+        PassiveIncome.objects.filter(
+            fetched_by__id=response.json()["task_id"],
+            asset=simple_asset,
+            type=PassiveIncomeTypes.dividend,
+            amount=502,
+            event_type=PassiveIncomeEventTypes.credited,
+            operation_date=date(year=2022, month=1, day=23),
+        ).count()
+        == 1
+    )
+
+
+def test__sync_cei_passive_incomes_task__create_income_and_asset(user, requests_mock, client):
+    # GIVEN
+    requests_mock.get(
+        build_url(
+            url=settings.ASSETS_INTEGRATIONS_URL,
+            parts=("cei/", "passive_incomes"),
+            query_params={"username": user.username, "date": timezone.now().date()},
+        ),
+        json=[
+            {
+                "income_type": "dividend",
+                "net_value": 502,
+                "operation_date": "2022-01-23",
+                "raw_negotiation_code": "ALUP11",
+                "event_type": "credited",
+            }
+        ],
+    )
+
+    # WHEN
+    response = client.get(f"{URL}/sync_cei_passive_incomes")
+
+    # THEN
+    assert response.status_code == 200
+    assert Asset.objects.filter(code="ALUP11", user=user, type=AssetTypes.stock).exists()
+    assert (
+        PassiveIncome.objects.filter(
+            fetched_by__id=response.json()["task_id"],
+            asset__code="ALUP11",
+            asset__user=user,
+            type=PassiveIncomeTypes.dividend,
+            amount=502,
+            event_type=PassiveIncomeEventTypes.credited,
+            operation_date=date(year=2022, month=1, day=23),
+        ).count()
+        == 1
+    )
+
+
+def test__sync_cei_passive_incomes_task__update_event_type(
+    user, simple_asset, requests_mock, client
+):
+    # GIVEN
+    PassiveIncome.objects.create(
+        asset=simple_asset,
+        type=PassiveIncomeTypes.dividend,
+        amount=502,
+        event_type=PassiveIncomeEventTypes.credited,
+        operation_date=date(year=2022, month=1, day=23),
+    )
+
+    requests_mock.get(
+        build_url(
+            url=settings.ASSETS_INTEGRATIONS_URL,
+            parts=("cei/", "passive_incomes"),
+            query_params={"username": user.username, "date": timezone.now().date()},
+        ),
+        json=[
+            {
+                "income_type": "dividend",
+                "net_value": 502,
+                "operation_date": "2022-01-23",
+                "raw_negotiation_code": simple_asset.code,
+                "event_type": "provisioned",
+            }
+        ],
+    )
+
+    # WHEN
+    response = client.get(f"{URL}/sync_cei_passive_incomes")
+
+    # THEN
+    assert response.status_code == 200
+    assert (
+        PassiveIncome.objects.filter(
+            fetched_by__isnull=True,
+            asset=simple_asset,
+            type=PassiveIncomeTypes.dividend,
+            amount=502,
+            event_type=PassiveIncomeEventTypes.provisioned,
+            operation_date=date(year=2022, month=1, day=23),
+        ).count()
+        == 1
+    )
