@@ -38,6 +38,15 @@ class TransactionSerializer(serializers.ModelSerializer):
         fields = ("action", "price", "currency", "quantity", "created_at")
 
 
+class PassiveIncomeSerializer(serializers.ModelSerializer):
+    type = CustomChoiceField(choices=PassiveIncomeTypes.choices)
+    event_type = CustomChoiceField(choices=PassiveIncomeEventTypes.choices)
+
+    class Meta:
+        model = PassiveIncome
+        fields = ("type", "event_type", "operation_date", "amount")
+
+
 class AssetSerializer(serializers.ModelSerializer):
     roi = serializers.SerializerMethodField(read_only=True)
     roi_percentage = serializers.SerializerMethodField(read_only=True)
@@ -96,6 +105,7 @@ class AssetListSerializer(serializers.ModelSerializer):
     percentage_invested = serializers.SerializerMethodField(read_only=True)
     current_percentage = serializers.SerializerMethodField(read_only=True)
     transactions = serializers.SerializerMethodField()
+    passive_incomes = serializers.SerializerMethodField()
 
     class Meta:
         model = Asset
@@ -115,6 +125,7 @@ class AssetListSerializer(serializers.ModelSerializer):
             "percentage_invested",
             "current_percentage",
             "transactions",
+            "passive_incomes",
         )
 
     def get_adjusted_avg_price(self, obj: Asset) -> Decimal:
@@ -147,6 +158,9 @@ class AssetListSerializer(serializers.ModelSerializer):
     def get_transactions(self, obj: Asset) -> "ReturnList":
         return TransactionSerializer(obj.transactions.all()[:5], many=True).data
 
+    def get_passive_incomes(self, obj: Asset) -> "ReturnList":
+        return PassiveIncomeSerializer(obj.incomes.all()[:5], many=True).data
+
 
 class AssetRoidIndicatorsSerializer(serializers.Serializer):
     current_total = serializers.DecimalField(
@@ -167,16 +181,6 @@ class AssetIncomesIndicatorsSerializer(serializers.Serializer):
     incomes = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
-
-
-class PassiveIncomeSerializer(serializers.ModelSerializer):
-    type = CustomChoiceField(choices=PassiveIncomeTypes.choices)
-    event_type = CustomChoiceField(choices=PassiveIncomeEventTypes.choices)
-    code = serializers.CharField(source="asset.code")
-
-    class Meta:
-        model = PassiveIncome
-        fields = ("type", "event_type", "operation_date", "amount", "code")
 
 
 class PassiveIncomesIndicatorsSerializer(serializers.Serializer):

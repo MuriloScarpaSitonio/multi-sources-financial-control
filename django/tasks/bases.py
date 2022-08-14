@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Dict, Union
 
 from django.db.models import QuerySet
@@ -25,7 +25,7 @@ class TaskWithHistory(Task):
             if getattr(task, "notification_display", None) is not None
         }
 
-    def get_last_run(self, username: str, as_date: bool = False) -> Union[datetime, None]:
+    def get_last_run(self, username: str, as_date: bool = False) -> Union[datetime, date, None]:
         last_history = TaskHistory.objects.filter(
             name=self.name, state=TaskStates.success, created_by__username=username
         ).first()

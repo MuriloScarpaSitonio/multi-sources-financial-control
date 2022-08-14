@@ -254,10 +254,23 @@ class TransactionQuerySet(QuerySet):
         """ROI: Return On Investment"""
         return self.aggregate(ROI=self._get_roi_expression(incomes=incomes, percentage=percentage))
 
+    def m(self):
+        filters = GenericFilters(date_field_name="created_at")
+        return self.order_by("created_at").values("created_at").first()
+
+
+class _PassiveIncomeFilters(GenericFilters):
+    def __init__(self) -> None:
+        super().__init__(date_field_name="operation_date")
+
+    @property
+    def past(self) -> Q:
+        return Q(operation_date__lt=self.base_date)
+
 
 class PassiveIncomeQuerySet(CustomQueryset, MonthlyFilterMixin):
     date_field_name = "operation_date"
-    filters = GenericFilters(date_field_name=date_field_name)
+    filters = _PassiveIncomeFilters()
 
     @staticmethod
     def get_sum_expression() -> Dict[str, Sum]:
@@ -269,7 +282,34 @@ class PassiveIncomeQuerySet(CustomQueryset, MonthlyFilterMixin):
     def provisioned(self) -> PassiveIncomeQuerySet:
         return self.filter(event_type=PassiveIncomeEventTypes.provisioned)
 
-    def indicators(self) -> PassiveIncomeQuerySet:
+    def future(self) -> PassiveIncomeQuerySet:
+        return self.filter(self.filters.future)
+
+    def past(self) -> PassiveIncomeQuerySet:
+        return self.filter(self.filters.past)
+
+    def indicators(self, fixed_avg_denominator: bool) -> Dict[str, Decimal]:
+        """
+        Args:
+            fixed_avg_denominator (bool): If True the denominator will be 12, indicating the last 12 months. If False,
+                The denominator will be dynamically calculated.
+        """
+        avg_denominator = (
+            Value(Decimal("12.0"))
+            if fixed_avg_denominator
+            else (
+                Count(
+                    Concat(
+                        "operation_date__month", "operation_date__year", output_field=CharField()
+                    ),
+                    filter=Q(event_type=PassiveIncomeEventTypes.credited)
+                    & self.filters.since_a_year_ago
+                    & ~self.filters.current,
+                    distinct=True,
+                )
+                * Decimal("1.0")
+            )
+        )
         return self.aggregate(
             current_credited=coalesce_sum_expression(
                 "amount",
@@ -286,16 +326,5 @@ class PassiveIncomeQuerySet(CustomQueryset, MonthlyFilterMixin):
                 & self.filters.since_a_year_ago
                 & ~self.filters.current,
             )
-            / (
-                Count(
-                    Concat(
-                        "operation_date__month", "operation_date__year", output_field=CharField()
-                    ),
-                    filter=Q(event_type=PassiveIncomeEventTypes.credited)
-                    & self.filters.since_a_year_ago
-                    & ~self.filters.current,
-                    distinct=True,
-                )
-                * Decimal("1.0")
-            ),
+            / avg_denominator,
         )

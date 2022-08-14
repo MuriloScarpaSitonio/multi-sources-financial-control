@@ -157,7 +157,7 @@ export const RevenuesForm = ({
               render={({ field: { onChange, value } }) => (
                 <KeyboardDatePicker
                   onChange={onChange}
-                  value={value || new Date()}
+                  value={value}
                   label="Quando?"
                   showTodayButton
                   todayLabel={"Hoje"}
@@ -165,7 +165,6 @@ export const RevenuesForm = ({
                   clearable
                   clearLabel={"Limpar"}
                   autoOk
-                  disableFuture
                   required
                   format="dd/MM/yyyy"
                   style={{ width: "50%" }}

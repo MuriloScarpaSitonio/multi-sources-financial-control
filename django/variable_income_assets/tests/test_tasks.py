@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 
 from django.conf import settings
+from django.utils import timezone
 
 from shared.utils import build_url
 from authentication.tests.conftest import (
@@ -18,7 +19,7 @@ from config.settings.base import BASE_API_URL
 
 from ..choices import AssetTypes, PassiveIncomeEventTypes, PassiveIncomeTypes
 from ..models import Asset, PassiveIncome, Transaction
-from ..tasks.sync_cei_passive_incomes import sync_cei_passive_incomes_task
+
 
 pytestmark = pytest.mark.django_db
 
@@ -212,10 +213,6 @@ def test_should_skip_kucoin_transaction_if_already_exists(
     assert Transaction.objects.count() == len(kucoin_transactions_response) - 1
 
 
-from django.utils import timezone
-from tasks.models import TaskHistory
-
-
 def test__sync_cei_passive_incomes_task__create(user, simple_asset, requests_mock, client):
     # GIVEN
     requests_mock.get(
@@ -306,7 +303,7 @@ def test__sync_cei_passive_incomes_task__update_event_type(
         asset=simple_asset,
         type=PassiveIncomeTypes.dividend,
         amount=502,
-        event_type=PassiveIncomeEventTypes.credited,
+        event_type=PassiveIncomeEventTypes.provisioned,
         operation_date=date(year=2022, month=1, day=23),
     )
 
@@ -322,7 +319,7 @@ def test__sync_cei_passive_incomes_task__update_event_type(
                 "net_value": 502,
                 "operation_date": "2022-01-23",
                 "raw_negotiation_code": simple_asset.code,
-                "event_type": "provisioned",
+                "event_type": "credited",
             }
         ],
     )
@@ -338,7 +335,7 @@ def test__sync_cei_passive_incomes_task__update_event_type(
             asset=simple_asset,
             type=PassiveIncomeTypes.dividend,
             amount=502,
-            event_type=PassiveIncomeEventTypes.provisioned,
+            event_type=PassiveIncomeEventTypes.credited,
             operation_date=date(year=2022, month=1, day=23),
         ).count()
         == 1

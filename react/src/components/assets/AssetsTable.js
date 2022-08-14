@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import MUIDataTable from "mui-datatables";
 
+import Box from "@material-ui/core/Box";
 import Container from "@material-ui/core/Container";
 import Dialog from "@material-ui/core/Dialog";
 import DialogContent from "@material-ui/core/DialogContent";
@@ -10,6 +11,8 @@ import IconButton from "@material-ui/core/IconButton";
 import TableCell from "@material-ui/core/TableCell";
 import TableRow from "@material-ui/core/TableRow";
 import Tooltip from "@material-ui/core/Tooltip";
+import Tab from "@material-ui/core/Tab";
+import Tabs from "@material-ui/core/Tabs";
 import MergeTypeIcon from "@material-ui/icons/MergeType";
 
 import { AssetsApi } from "../../api";
@@ -112,6 +115,73 @@ const TransactionsTable = ({ code, data }) => (
   />
 );
 
+const PassiveIncomeTable = ({ code, data }) => (
+  <MUIDataTable
+    title={`Últimos 5 rendimentos de ${code}`}
+    data={data}
+    columns={[
+      {
+        name: "type",
+        label: "Tipo",
+        options: {
+          filter: false,
+          sort: false,
+          customBodyRender: (v) => v,
+        },
+      },
+      {
+        name: "event_type",
+        label: "Evento",
+        options: {
+          filter: false,
+          sort: false,
+          customBodyRender: (v) => v,
+        },
+      },
+      {
+        name: "amount",
+        label: "Valor líquido",
+        options: {
+          filter: false,
+          sort: false,
+          customBodyRender: (v) => {
+            return `R$ ${v?.toLocaleString("pt-br", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 4,
+            })}`;
+          },
+        },
+      },
+      {
+        name: "operation_date",
+        label: "Quando",
+        options: {
+          filter: false,
+          sort: false,
+          customBodyRender: (v) => {
+            let [year, month, day] = v.split("-");
+            return `${day}/${month}/${year}`;
+          },
+        },
+      },
+    ]}
+    options={{
+      textLabels: {
+        body: { noMatch: "Nenhum rendimento encontrado" },
+      },
+      filter: false,
+      selectableRows: "none",
+      search: false,
+      download: false,
+      print: false,
+      pagination: false,
+      sort: false,
+      sortFilterList: false,
+      viewColumns: false,
+    }}
+  />
+);
+
 export const AssetsTable = () => {
   const [pageSize, setPageSize] = useState(5);
   const [filters, setFilters] = useState({
@@ -146,6 +216,8 @@ export const AssetsTable = () => {
 
     return _filters.toString();
   }
+
+  const [value, setValue] = useState(0);
 
   const options = {
     filterType: "multiselect",
@@ -212,14 +284,37 @@ export const AssetsTable = () => {
     expandableRowsOnClick: true,
     renderExpandableRow: (rowData, _) => {
       const colSpan = rowData.length + 1;
-      const [transactions] = rowData.slice(-1);
+      const [transactions, incomes] = rowData.slice(-2);
 
       return (
-        <TableRow>
-          <TableCell sx={{ paddingLeft: "20px" }} colSpan={colSpan}>
-            <TransactionsTable code={rowData[3].key} data={transactions} />
-          </TableCell>
-        </TableRow>
+        <>
+          <TableRow>
+            <TableCell sx={{ paddingLeft: "20px" }} colSpan={colSpan}>
+              <Tabs
+                value={value}
+                onChange={(e, newValue) => setValue(newValue)}
+                TabIndicatorProps={{ style: { background: "#cfcfcf" } }}
+              >
+                <Tab label="Transações" />
+                <Tab label="Rendimentos" />
+              </Tabs>
+            </TableCell>
+          </TableRow>
+          {value === 0 && (
+            <TableRow>
+              <TableCell sx={{ paddingLeft: "20px" }} colSpan={colSpan}>
+                <TransactionsTable code={rowData[3].key} data={transactions} />
+              </TableCell>
+            </TableRow>
+          )}
+          {value === 1 && (
+            <TableRow>
+              <TableCell sx={{ paddingLeft: "20px" }} colSpan={colSpan}>
+                <PassiveIncomeTable code={rowData[3].key} data={incomes} />
+              </TableCell>
+            </TableRow>
+          )}
+        </>
       );
     },
     customToolbar: () => (
@@ -414,6 +509,14 @@ export const AssetsTable = () => {
     },
     {
       name: "transactions",
+      options: {
+        display: false,
+        filter: false,
+        viewColumns: false,
+      },
+    },
+    {
+      name: "passive_incomes",
       options: {
         display: false,
         filter: false,

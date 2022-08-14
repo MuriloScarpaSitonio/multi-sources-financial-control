@@ -3,6 +3,7 @@ from typing import Type
 
 from django.db import transaction as djtransaction
 from django.db.models import Sum
+from django.utils import timezone
 
 from djchoices import ChoiceItem
 from rest_framework.decorators import action
@@ -24,7 +25,7 @@ from .filters import (
     AssetRoiReportFilterSet,
     AssetTotalInvestedReportFilterSet,
 )
-from .managers import AssetQuerySet, PassiveIncomeQuerySet
+from .managers import AssetQuerySet, PassiveIncomeQuerySet, TransactionQuerySet
 from .models import Asset, PassiveIncome, Transaction
 from .permissions import AssetsPricesPermission, BinancePermission, CeiPermission, KuCoinPermission
 from .serializers import (
@@ -59,7 +60,7 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
         )
         if self.action == "list":
             qs = (
-                qs.prefetch_related("transactions")
+                qs.prefetch_related("transactions", "incomes")
                 .opened()
                 .annotate_for_serializer()
                 .order_by("-total_invested")
@@ -187,13 +188,26 @@ class PassiveIncomeViewSet(ModelViewSet):
     serializer_class = PassiveIncomeSerializer
 
     def get_queryset(self) -> PassiveIncomeQuerySet[PassiveIncome]:
-        if self.request.user.is_authenticated:
-            return PassiveIncome.objects.filter(asset__user=self.request.user)
-        return PassiveIncome.objects.none()  # pragma: no cover -- drf-spectatular
+        return (
+            PassiveIncome.objects.filter(asset__user=self.request.user)
+            if self.request.user.is_authenticated
+            else PassiveIncome.objects.none()  # pragma: no cover -- drf-spectatular
+        )
+
+    def get_transactions_queryset(self) -> TransactionQuerySet[Transaction]:
+        return Transaction.objects.filter(asset__user=self.request.user)
 
     @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:
-        qs = self.get_queryset().indicators()
+        first_transaction_date = (
+            self.get_transactions_queryset()
+            .order_by("created_at")
+            .values_list("created_at", flat=True)
+            .first()
+        )
+        qs = self.get_queryset().indicators(
+            fixed_avg_denominator=(timezone.now().date() - first_transaction_date).days > 365
+        )
         percentage = ((qs["current_credited"] / qs["avg"]) - Decimal("1.0")) * Decimal("100.0")
         serializer = PassiveIncomesIndicatorsSerializer({**qs, "diff_percentage": percentage})
         return Response(serializer.data, status=HTTP_200_OK)
