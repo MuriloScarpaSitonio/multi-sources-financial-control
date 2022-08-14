@@ -207,6 +207,8 @@ class PassiveIncomeViewSet(ModelViewSet):
         )
         qs = self.get_queryset().indicators(
             fixed_avg_denominator=(timezone.now().date() - first_transaction_date).days > 365
+            if first_transaction_date is not None
+            else False
         )
         percentage = ((qs["current_credited"] / qs["avg"]) - Decimal("1.0")) * Decimal("100.0")
         serializer = PassiveIncomesIndicatorsSerializer({**qs, "diff_percentage": percentage})

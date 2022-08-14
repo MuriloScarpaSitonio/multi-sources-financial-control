@@ -219,7 +219,11 @@ def test__sync_cei_passive_incomes_task__create(user, simple_asset, requests_moc
         build_url(
             url=settings.ASSETS_INTEGRATIONS_URL,
             parts=("cei/", "passive_incomes"),
-            query_params={"username": user.username, "date": timezone.now().date()},
+            query_params={
+                "username": user.username,
+                "start_date": None,
+                "end_date": timezone.now().date(),
+            },
         ),
         json=[
             {
@@ -262,7 +266,11 @@ def test__sync_cei_passive_incomes_task__create_income_and_asset(user, requests_
         build_url(
             url=settings.ASSETS_INTEGRATIONS_URL,
             parts=("cei/", "passive_incomes"),
-            query_params={"username": user.username, "date": timezone.now().date()},
+            query_params={
+                "username": user.username,
+                "start_date": None,
+                "end_date": timezone.now().date(),
+            },
         ),
         json=[
             {
@@ -311,7 +319,11 @@ def test__sync_cei_passive_incomes_task__update_event_type(
         build_url(
             url=settings.ASSETS_INTEGRATIONS_URL,
             parts=("cei/", "passive_incomes"),
-            query_params={"username": user.username, "date": timezone.now().date()},
+            query_params={
+                "username": user.username,
+                "start_date": None,
+                "end_date": timezone.now().date(),
+            },
         ),
         json=[
             {
