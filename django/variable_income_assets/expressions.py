@@ -4,7 +4,6 @@ from typing import Optional, Union
 
 from django.db.models import Case, Expression, F, Q, Value, When
 from django.db.models.expressions import CombinedExpression
-from django.utils.functional import cached_property
 from django.db.models.functions import Coalesce
 
 from config.settings.dynamic import dynamic_settings
@@ -38,11 +37,11 @@ class GenericQuerySetExpressions(_GenericQuerySetMixin):
         self.dollar_conversion_rate = Value(dollar_conversion_rate)
         self.filters = GenericQuerySetFilters(prefix=prefix)
 
-    @cached_property
+    @property
     def quantity_bought(self) -> Coalesce:
         return coalesce_sum_expression(f"{self.prefix}quantity", filter=self.filters.bought)
 
-    @cached_property
+    @property
     def quantity_balance(self) -> Coalesce:
         return self.quantity_bought - coalesce_sum_expression(
             f"{self.prefix}quantity", filter=self.filters.sold
@@ -50,42 +49,39 @@ class GenericQuerySetExpressions(_GenericQuerySetMixin):
 
     @property
     def total_sold(self) -> Case:
-        default = coalesce_sum_expression(
+        expression = coalesce_sum_expression(
             (F(f"{self.prefix}price") - F(f"{self.prefix}initial_price"))
             * F(f"{self.prefix}quantity"),
             filter=self.filters.sold,
             extra=Decimal("1.0"),
         )
-        return Case(
-            When(
-                ~Q(**{f"{self.prefix}currency": TransactionCurrencies.real}),
-                then=default * self.dollar_conversion_rate,
-            ),
-            default=default,
-        )
+        return self.get_dollar_conversion_expression(expression=expression)
 
-    @cached_property
+    @property
+    def total_sold_raw(self) -> Case:
+        expression = coalesce_sum_expression(
+            F(f"{self.prefix}price") * F(f"{self.prefix}quantity"),
+            filter=self.filters.sold,
+            extra=Decimal("1.0"),
+        )
+        return self.get_dollar_conversion_expression(expression=expression)
+
+    @property
     def total_bought(self) -> Case:
-        default = coalesce_sum_expression(
+        expression = coalesce_sum_expression(
             F(f"{self.prefix}price") * F(f"{self.prefix}quantity"),
             filter=self.filters.bought,
             # models.functions.Cast won't work;
             # cast result to a decimal value using `extra`
             extra=Decimal("1.0"),
         )
-        return Case(
-            When(
-                ~Q(**{f"{self.prefix}currency": TransactionCurrencies.real}),
-                then=default * self.dollar_conversion_rate,
-            ),
-            default=default,
-        )
+        return self.get_dollar_conversion_expression(expression=expression)
 
-    @cached_property
+    @property
     def avg_price(self) -> Coalesce:
         return self.total_bought / self.quantity_bought
 
-    @cached_property
+    @property
     def current_total(self) -> Case:
         # hacky
         if not self.prefix:
@@ -102,6 +98,15 @@ class GenericQuerySetExpressions(_GenericQuerySetMixin):
                 * self.quantity_balance,
             ),
             default=Coalesce(F(field_name), Decimal()) * self.quantity_balance,
+        )
+
+    def get_dollar_conversion_expression(self, expression: Expression) -> Case:
+        return Case(
+            When(
+                ~Q(**{f"{self.prefix}currency": TransactionCurrencies.real}),
+                then=expression * self.dollar_conversion_rate,
+            ),
+            default=expression,
         )
 
     def get_adjusted_avg_price(self, incomes: Union[Expression, Value]) -> CombinedExpression:

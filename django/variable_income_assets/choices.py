@@ -93,11 +93,6 @@ class PassiveIncomeEventTypes(DjangoChoices):
     credited = ChoiceItem("CREDITED", label="Creditado")
 
 
-# class ROYTypeChoices(DjangoChoices):
-#     profit = ChoiceItem("PROFIT", label="Lucro", filter_expression={"ROI__gt": 0})
-#     losss = ChoiceItem("LOSS", label="perda", filter_expression={"ROI__lt": 0})
-
-
 class AssetsTotalInvestedReportAggregations(DjangoChoices):
     type = ChoiceItem(
         "TYPE",

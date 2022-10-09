@@ -18,25 +18,17 @@ from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from tasks.decorators import celery_task_endpoint, start_celery_task
 
-from .choices import AssetsTotalInvestedReportAggregations, TransactionActions
+from . import choices, serializers
 from .filters import (
     AssetFilterSet,
     AssetFetchCurrentPriceFilterSet,
     AssetRoiReportFilterSet,
     AssetTotalInvestedReportFilterSet,
+    TransactionFilterSet,
 )
 from .managers import AssetQuerySet, PassiveIncomeQuerySet, TransactionQuerySet
 from .models import Asset, PassiveIncome, Transaction
 from .permissions import AssetsPricesPermission, BinancePermission, CeiPermission, KuCoinPermission
-from .serializers import (
-    AssetRoidIndicatorsSerializer,
-    AssetListSerializer,
-    AssetSerializer,
-    AssetTypeReportSerializer,
-    PassiveIncomeSerializer,
-    PassiveIncomesIndicatorsSerializer,
-    TransactionSimulateSerializer,
-)
 from .tasks import (
     sync_binance_transactions_task,
     sync_cei_transactions_task,
@@ -47,26 +39,24 @@ from .tasks import (
 
 
 class AssetViewSet(GenericViewSet, ListModelMixin):
-    serializer_class = AssetListSerializer
+    serializer_class = serializers.AssetListSerializer
     filterset_class = AssetFilterSet
     lookup_field = "code"
     ordering_fields = ("code", "type", "total_invested", "roi", "roi_percentage")
 
     def get_queryset(self) -> AssetQuerySet[Asset]:
-        qs = (
-            self.request.user.assets.all()
-            if self.request.user.is_authenticated
-            else Asset.objects.none()  # drf-spectatular
-        )
-        if self.action == "list":
-            qs = (
+        qs = self.request.user.assets.all()
+
+        return (
+            (
                 qs.prefetch_related("transactions", "incomes")
                 .opened()
                 .annotate_for_serializer()
                 .order_by("-total_invested")
             )
-
-        return qs
+            if self.action == "list"
+            else qs
+        )
 
     def get_serializer_context(self):
         return {
@@ -78,7 +68,7 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
 
     @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:
-        serializer = AssetRoidIndicatorsSerializer(self.get_queryset().indicators())
+        serializer = serializers.AssetRoidIndicatorsSerializer(self.get_queryset().indicators())
         return Response(serializer.data, status=HTTP_200_OK)
 
     @staticmethod
@@ -90,7 +80,7 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
         self, filterset: AssetTotalInvestedReportFilterSet
     ) -> ReturnList:
         qs = filterset.qs
-        choice = AssetsTotalInvestedReportAggregations.get_choice(
+        choice = choices.AssetsTotalInvestedReportAggregations.get_choice(
             value=filterset.form.data["group_by"]
         )
         Serializer = self._get_report_serializer_class(choice=choice)
@@ -109,7 +99,7 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
     @action(methods=("GET",), detail=False)
     def roi_report(self, request: Request) -> Response:
         filterset = AssetRoiReportFilterSet(data=request.GET, queryset=self.get_queryset())
-        serializer = AssetTypeReportSerializer(filterset.qs, many=True)
+        serializer = serializers.AssetTypeReportSerializer(filterset.qs, many=True)
         return Response(serializer.data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False, permission_classes=(CeiPermission,))
@@ -184,8 +174,43 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
         )
 
 
+class AssetTransactionViewSet(GenericViewSet):
+    def get_related_queryset(self) -> AssetQuerySet[Asset]:
+        return self.request.user.assets.all()
+
+    @action(methods=("POST",), detail=False)
+    def simulate(self, request: Request, code: str) -> Response:
+        asset = get_object_or_404(self.get_related_queryset(), code=code)
+        serializer = serializers.TransactionSimulateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.data
+
+        kwargs = {"price": data["price"]}
+        if data.get("quantity") is not None:
+            kwargs["quantity"] = data["quantity"]
+        else:
+            kwargs["quantity"] = data["total"] / data["price"]
+
+        old = serializers.AssetSerializer(instance=asset).data
+        with djtransaction.atomic():
+            Transaction.objects.create(
+                asset=asset,
+                action=choices.TransactionActions.buy,
+                currency=asset.currency_from_transactions,
+                **kwargs
+            )
+
+            # clear cached properties
+            del asset.__dict__["adjusted_avg_price_from_transactions"]
+            del asset.__dict__["quantity_from_transactions"]
+
+            new = serializers.AssetSerializer(instance=asset).data
+            djtransaction.set_rollback(True)
+        return Response({"old": old, "new": new}, status=HTTP_200_OK)
+
+
 class PassiveIncomeViewSet(ModelViewSet):
-    serializer_class = PassiveIncomeSerializer
+    serializer_class = serializers.PassiveIncomeSerializer
 
     def get_queryset(self) -> PassiveIncomeQuerySet[PassiveIncome]:
         return (
@@ -211,44 +236,40 @@ class PassiveIncomeViewSet(ModelViewSet):
             else False
         )
         percentage = ((qs["current_credited"] / qs["avg"]) - Decimal("1.0")) * Decimal("100.0")
-        serializer = PassiveIncomesIndicatorsSerializer({**qs, "diff_percentage": percentage})
+        serializer = serializers.PassiveIncomesIndicatorsSerializer(
+            {**qs, "diff_percentage": percentage}
+        )
         return Response(serializer.data, status=HTTP_200_OK)
 
 
-class TransactionViewSet(GenericViewSet):
-    def get_related_queryset(self) -> AssetQuerySet[Asset]:
-        return self.request.user.assets.all()
+class TransactionViewSet(ModelViewSet):
+    serializer_class = serializers.TransactionListSerializer
+    filterset_class = TransactionFilterSet
+    ordering_fields = ("created_at", "asset__code")
 
-    def get_related_object(self) -> Asset:
-        return get_object_or_404(self.get_related_queryset(), code=self.kwargs["code"])
+    def get_queryset(self) -> TransactionQuerySet[Transaction]:
+        qs = Transaction.objects.filter(asset__user=self.request.user)
+        return qs if self.action == "list" else qs.since_a_year_ago()
 
-    @action(methods=("POST",), detail=False)
-    def simulate(self, request: Request, code: str) -> Response:
+    @action(methods=("GET",), detail=False)
+    def indicators(self, _: Request) -> Response:
+        qs = self.get_queryset().indicators()
 
-        instance = self.get_related_object()
-        serializer = TransactionSimulateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.data
+        # TODO: do this via SQL
+        percentage_invested = (
+            ((qs["current_bought"] - qs["current_sold"]) / qs["avg"]) - Decimal("1.0")
+        ) * Decimal("100.0")
+        serializer = serializers.TransactionsIndicatorsSerializer(
+            {**qs, "diff_percentage": percentage_invested}
+        )
+        return Response(serializer.data, status=HTTP_200_OK)
 
-        kwargs = {"price": data["price"]}
-        if data.get("quantity") is not None:
-            kwargs["quantity"] = data["quantity"]
-        else:
-            kwargs["quantity"] = data["total"] / data["price"]
-
-        old = AssetSerializer(instance=instance).data
-        with djtransaction.atomic():
-            Transaction.objects.create(
-                asset=instance,
-                action=TransactionActions.buy,
-                currency=instance.currency_from_transactions,
-                **kwargs
-            )
-
-            # clear cached properties
-            del instance.__dict__["adjusted_avg_price_from_transactions"]
-            del instance.__dict__["quantity_from_transactions"]
-
-            new = AssetSerializer(instance=instance).data
-            djtransaction.set_rollback(True)
-        return Response({"old": old, "new": new}, status=HTTP_200_OK)
+    @action(methods=("GET",), detail=False)
+    def historic(self, _: Request) -> Response:
+        qs = self.get_queryset()
+        return Response(
+            serializers.TransactionHistoricSerializer(
+                {"historic": qs.historic(), "avg": qs.monthly_avg()["avg"]}
+            ).data,
+            status=HTTP_200_OK,
+        )

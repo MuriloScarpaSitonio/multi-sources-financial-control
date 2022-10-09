@@ -1,8 +1,7 @@
-from typing import TYPE_CHECKING
-
 from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_UP, DecimalException
 
 from rest_framework import serializers
+from rest_framework.utils.serializer_helpers import ReturnList
 
 from config.settings.dynamic import dynamic_settings
 from shared.serializers_utils import CustomChoiceField
@@ -16,9 +15,6 @@ from .choices import (
     TransactionCurrencies,
 )
 from .models import Asset, PassiveIncome, Transaction
-
-if TYPE_CHECKING:  # pragma: no cover
-    from rest_framework.utils.serializer_helpers import ReturnList
 
 
 class TransactionSimulateSerializer(serializers.Serializer):
@@ -36,6 +32,13 @@ class TransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transaction
         fields = ("action", "price", "currency", "quantity", "created_at")
+
+
+class TransactionListSerializer(TransactionSerializer):
+    code = serializers.CharField(source="asset.code")
+
+    class Meta(TransactionSerializer.Meta):
+        fields = TransactionSerializer.Meta.fields + ("code",)
 
 
 class PassiveIncomeSerializer(serializers.ModelSerializer):
@@ -155,10 +158,10 @@ class AssetListSerializer(serializers.ModelSerializer):
             result = Decimal()
         return result * Decimal("100.0")
 
-    def get_transactions(self, obj: Asset) -> "ReturnList":
+    def get_transactions(self, obj: Asset) -> ReturnList:
         return TransactionSerializer(obj.transactions.all()[:5], many=True).data
 
-    def get_passive_incomes(self, obj: Asset) -> "ReturnList":
+    def get_passive_incomes(self, obj: Asset) -> ReturnList:
         return PassiveIncomeSerializer(obj.incomes.all()[:5], many=True).data
 
 
@@ -195,6 +198,41 @@ class PassiveIncomesIndicatorsSerializer(serializers.Serializer):
     )
     diff_percentage = serializers.DecimalField(
         max_digits=5, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+    )
+
+
+class TransactionsIndicatorsSerializer(serializers.Serializer):
+    avg = serializers.DecimalField(
+        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+    )
+    current_bought = serializers.DecimalField(
+        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+    )
+    current_sold = serializers.DecimalField(
+        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+    )
+    diff_percentage = serializers.DecimalField(
+        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+    )
+
+
+class _TransactionHistoricSerializer(serializers.Serializer):
+    month = serializers.DateField(format="%d/%m/%Y")
+    total_bought = serializers.DecimalField(
+        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+    )
+    total_sold = serializers.DecimalField(
+        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+    )
+    diff = serializers.DecimalField(
+        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+    )
+
+
+class TransactionHistoricSerializer(serializers.Serializer):
+    historic = _TransactionHistoricSerializer(many=True)
+    avg = serializers.DecimalField(
+        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
 
 

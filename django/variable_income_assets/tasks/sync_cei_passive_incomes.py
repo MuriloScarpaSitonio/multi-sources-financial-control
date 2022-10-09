@@ -51,7 +51,7 @@ def sync_cei_passive_incomes_task(self, username: str) -> int:
         parts=("cei/", "passive_incomes"),
         query_params={
             "username": username,
-            "start_date": self.get_last_run(username=username, as_date=True),
+            "start_date": self.get_last_run(username=username),
             "end_date": timezone.now().date(),
         },
     )

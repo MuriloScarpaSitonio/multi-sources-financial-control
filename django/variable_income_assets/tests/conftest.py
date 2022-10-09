@@ -330,13 +330,13 @@ def indicators_data(
     simple_asset.save()
 
     # finish an asset
-    Transaction.objects.create(
+    TransactionFactory(
         action=TransactionActions.buy,
         price=10,
         asset=another_asset,
         quantity=50,
     )
-    Transaction.objects.create(
+    TransactionFactory(
         action=TransactionActions.sell,
         initial_price=10,
         price=20,
@@ -360,15 +360,54 @@ def report_data(indicators_data, another_asset, user):
         user=user,
     )
 
-    Transaction.objects.create(
+    TransactionFactory(
         action=TransactionActions.buy,
         price=10,
         asset=asset,
         quantity=50,
     )
-    Transaction.objects.create(
+    TransactionFactory(
         action=TransactionActions.buy,
         price=12,
         asset=asset,
         quantity=50,
     )
+
+
+@pytest.fixture
+def transactions_indicators_data(simple_asset, crypto_transaction):
+    today = timezone.now().date()
+
+    for i in range(4):
+        TransactionFactory(
+            action=TransactionActions.buy,
+            price=randint(5, 10),
+            asset=simple_asset,
+            quantity=randint(100, 1000),
+        )
+    for i in range(3):
+        TransactionFactory(
+            action=TransactionActions.sell,
+            price=randint(5, 10),
+            asset=simple_asset,
+            quantity=randint(100, 1000),
+            initial_price=5,
+        )
+
+    base_date = today - relativedelta(years=3)
+    for i in range(36):
+        TransactionFactory(
+            action=TransactionActions.buy,
+            price=randint(5, 10),
+            asset=simple_asset,
+            quantity=randint(100, 1000),
+            created_at=base_date + relativedelta(months=i),
+        )
+        TransactionFactory(
+            action=TransactionActions.sell,
+            price=randint(5, 10),
+            asset=simple_asset,
+            quantity=randint(100, 1000),
+            created_at=base_date + relativedelta(months=i),
+            initial_price=5,
+        )

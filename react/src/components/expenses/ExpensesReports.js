@@ -279,18 +279,6 @@ const ExpenseHistoricChartComponent = ({ data, fetchHistoricData }) => {
             strokeDasharray="3 3"
           />
         </BarChart>
-        {/* <LineChart width={chartWidth} height={chartHeight} data={data}>
-          <CartesianGrid stroke="#eee" />
-          <XAxis dataKey="month" />
-          <YAxis />
-          <ChartTooltip
-            cursor={{ fill: "#f5f5f5" }}
-            separator=": "
-            formatter={(value) => `R$ ${value}`.replace(".", ",")}
-            labelFormatter={(_) => ""}
-          />
-          <Line type="monotone" dataKey="total" stroke={currentDataFillColor} />
-        </LineChart> */}
       </CardContent>
     </Card>
   );

@@ -35,11 +35,15 @@ def _save_cei_transactions(
         serializer.is_valid(raise_exception=True)
         asset = assets.get(code)
         if asset is None:
-            asset, _ = Asset.objects.get_or_create(
+            asset, created = Asset.objects.get_or_create(
                 user=user,
                 code=code,
                 type=AssetTypes.stock,
             )
+            if created:
+                asset.current_price = serializer.data["unit_price"]
+                asset.current_price_updated_at = serializer.data["operation_date"]
+                asset.save(update_fields=("current_price", "current_price_updated_at"))
 
         transaction, created = serializer.get_or_create(asset=asset)
 
@@ -65,12 +69,14 @@ def _save_cei_transactions(
     notification_display="Transações do CEI",
 )
 def sync_cei_transactions_task(self, username: str) -> int:
+    last_run_at = self.get_last_run(username=username)
     url = build_url(
         url=settings.ASSETS_INTEGRATIONS_URL,
         parts=("cei/", "transactions"),
         query_params={
             "username": username,
-            "start_date": self.get_last_run(username=username, as_date=True),
+            # CEI transactions may have a one day delay
+            "start_date": last_run_at.date() - timedelta(days=1) if last_run_at else None,
             "end_date": timezone.now().date(),
         },
     )

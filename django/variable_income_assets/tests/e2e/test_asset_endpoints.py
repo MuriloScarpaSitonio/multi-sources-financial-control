@@ -20,6 +20,7 @@ from authentication.tests.conftest import (
 from config.settings.base import BASE_API_URL
 
 from variable_income_assets.tests.shared import (
+    convert_to_float_and_quantitize,
     convert_to_percentage_and_quantitize,
     get_adjusted_avg_price_brute_forte,
     get_adjusted_quantity_brute_force,
@@ -354,10 +355,10 @@ def test_should_get_indicators(client):
 
     # THEN
     assert response.status_code == HTTP_200_OK
-    assert response.json()["current_total"] == current_total
-    assert response.json()["ROI_opened"] == roi_opened
-    assert response.json()["ROI_finished"] == roi_finished
-    assert response.json()["ROI"] == roi_opened + roi_finished
+    assert response.json()["current_total"] == convert_to_float_and_quantitize(current_total)
+    assert response.json()["ROI_opened"] == convert_to_float_and_quantitize(roi_opened)
+    assert response.json()["ROI_finished"] == convert_to_float_and_quantitize(roi_finished)
+    assert response.json()["ROI"] == convert_to_float_and_quantitize(roi_opened + roi_finished)
 
 
 @pytest.mark.usefixtures("report_data")
@@ -386,7 +387,7 @@ def test__total_invested_report(client, group_by, choices_class):
     for result in response.json():
         for choice, label in choices_class.choices:
             if label == result[group_by.lower()]:
-                assert totals[choice] == result["total"]
+                assert convert_to_float_and_quantitize(totals[choice]) == result["total"]
 
 
 @pytest.mark.usefixtures("report_data")
@@ -452,7 +453,7 @@ def test__current_total_invested_report(client, group_by, choices_class):
     for result in response.json():
         for choice, label in choices_class.choices:
             if label == result[group_by.lower()]:
-                assert totals[choice] == result["total"]
+                assert convert_to_float_and_quantitize(totals[choice]) == result["total"]
 
 
 @pytest.mark.usefixtures("report_data")
@@ -524,7 +525,7 @@ def test__roi_report__opened(client):
     for result in response.json():
         for choice, label in AssetTypes.choices:
             if label == result["type"]:
-                assert totals[choice] == result["total"]
+                assert convert_to_float_and_quantitize(totals[choice]) == result["total"]
 
 
 @pytest.mark.usefixtures("report_data")
@@ -562,7 +563,7 @@ def test__roi_report__all(client):
     for result in response.json():
         for choice, label in AssetTypes.choices:
             if label == result["type"]:
-                assert totals[choice] == result["total"]
+                assert convert_to_float_and_quantitize(totals[choice]) == result["total"]
 
 
 @pytest.mark.usefixtures("report_data")

@@ -143,3 +143,16 @@ export class TasksApi extends Api {
       apiProvider.post(`${this.resource}/bulk_update_notified_at`, { ids });
   }
 }
+
+export class TransactionsApi extends Api {
+  resource = "transactions";
+  constructor(id = null) {
+    super(
+      { query: true, post: false, put: false, patch: false, delete: false },
+      id
+    );
+
+    this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
+    this.historic = () => apiProvider.get(`${this.resource}/historic`);
+  }
+}

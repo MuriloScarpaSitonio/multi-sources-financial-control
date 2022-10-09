@@ -14,6 +14,7 @@ import Assets from "./pages/Assets";
 import Expenses from "./pages/Expenses";
 import { Login } from "./pages/Login";
 import Revenues from "./pages/Revenues";
+import Transactions from "./pages/Transactions";
 
 import { AccessTokenStr } from "./consts";
 
@@ -71,6 +72,9 @@ export default function App() {
       </Switch>
       <Switch>
         <PrivateRoute exact path="/revenues" component={Revenues} />
+      </Switch>
+      <Switch>
+        <PrivateRoute exact path="/transactions" component={Transactions} />
       </Switch>
     </Router>
   );

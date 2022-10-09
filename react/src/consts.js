@@ -51,6 +51,11 @@ const AssetsTypesMapping = [
   { label: "Fundo de Investimento Imobiliário", value: "FII" },
 ];
 
+const TransactionsActionsMapping = [
+  { label: "Venda", value: "SELL" },
+  { label: "Compra", value: "BUY" },
+];
+
 const AccessTokenStr = "accessToken";
 const RefreshTokenStr = "refreshToken";
 
@@ -63,4 +68,5 @@ export {
   ExpensesSourcesMapping,
   AccessTokenStr,
   RefreshTokenStr,
+  TransactionsActionsMapping,
 };

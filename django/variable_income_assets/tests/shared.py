@@ -87,6 +87,12 @@ def convert_to_percentage_and_quantitize(
     return value.quantize(Decimal(".1") ** decimal_places, rounding=rounding)
 
 
+def convert_to_float_and_quantitize(
+    value: Decimal, decimal_places: int = 2, rounding: str = ROUND_HALF_UP
+) -> float:
+    return float(value.quantize(Decimal(".1") ** decimal_places, rounding=rounding))
+
+
 def get_current_price(asset: Asset) -> Decimal:
     return (
         (asset.current_price or Decimal())

@@ -5,7 +5,7 @@ from typing import Dict, Union
 
 from django.db.models import CharField, Count, F, OuterRef, Q, QuerySet, Subquery, Sum, Value
 from django.db.models.expressions import CombinedExpression
-from django.db.models.functions import Concat, Coalesce
+from django.db.models.functions import Concat, Coalesce, TruncMonth
 
 from shared.managers_utils import CustomQueryset, GenericFilters, MonthlyFilterMixin
 from shared.utils import coalesce_sum_expression
@@ -59,22 +59,22 @@ class AssetQuerySet(QuerySet):
         if annotate_passive_incomes_subquery:
             subquery = self._get_passive_incomes_subquery()
 
-        ROI = self.expressions.current_total - self.expressions.get_total_adjusted(
+        roi_expression = self.expressions.current_total - self.expressions.get_total_adjusted(
             incomes=Coalesce(F("credited_incomes_total"), Decimal())
         )
+        field_name = "roi"
+
         if percentage:
-            expression = (ROI / self.expressions.total_bought) * Decimal("100.0")
+            roi_expression /= self.expressions.total_bought
+            roi_expression *= Decimal("100.0")
             field_name = "roi_percentage"
-        else:
-            expression = ROI
-            field_name = "roi"
 
         return (
             self.annotate(
                 credited_incomes_total=Subquery(subquery.values("credited_incomes"))
-            ).annotate(**{field_name: Coalesce(expression, Decimal())})
+            ).annotate(**{field_name: Coalesce(roi_expression, Decimal())})
             if annotate_passive_incomes_subquery
-            else self.annotate(**{field_name: Coalesce(expression, Decimal())})
+            else self.annotate(**{field_name: Coalesce(roi_expression, Decimal())})
         )
 
     def annotate_adjusted_avg_price(
@@ -161,9 +161,11 @@ class AssetQuerySet(QuerySet):
             .values("asset__pk")  # group by as we can't aggregate directly
             .annotate(
                 credited_incomes_total=Subquery(incomes_subquery.values("credited_incomes")),
-                roi=TransactionQuerySet.expressions.current_total
-                - TransactionQuerySet.expressions.get_total_adjusted(
-                    incomes=Coalesce(F("credited_incomes_total"), Decimal())
+                roi=(
+                    TransactionQuerySet.expressions.current_total
+                    - TransactionQuerySet.expressions.get_total_adjusted(
+                        incomes=Coalesce(F("credited_incomes_total"), Decimal())
+                    )
                 ),
                 balance=TransactionQuerySet.expressions.quantity_balance,
             )
@@ -203,6 +205,7 @@ class AssetQuerySet(QuerySet):
 
 class TransactionQuerySet(QuerySet):
     expressions = GenericQuerySetExpressions()
+    filters = GenericFilters(date_field_name="created_at")
 
     def _get_roi_expression(
         self, incomes: Decimal, percentage: bool
@@ -232,11 +235,14 @@ class TransactionQuerySet(QuerySet):
         expression = (ROI / self.expressions.total_bought) * Decimal("100.0") if percentage else ROI
         return Coalesce(expression, Decimal())
 
-    def bought(self) -> "TransactionQuerySet":
+    def bought(self) -> TransactionQuerySet:
         return self.filter(self.expressions.filters.bought)
 
-    def sold(self) -> "TransactionQuerySet":
+    def sold(self) -> TransactionQuerySet:
         return self.filter(self.expressions.filters.sold)
+
+    def since_a_year_ago(self) -> TransactionQuerySet:
+        return self.filter(self.filters.since_a_year_ago)
 
     def avg_price(self, incomes: Decimal = Decimal()) -> Dict[str, Decimal]:
         expression = (
@@ -247,16 +253,60 @@ class TransactionQuerySet(QuerySet):
         return self.aggregate(avg_price=expression)
 
     def get_current_quantity(self) -> Dict[str, Decimal]:
-        """A quantidade ajustada é a diferença entre transações de compra e de venda"""
         return self.aggregate(quantity=self.expressions.quantity_balance)
 
     def roi(self, incomes: Decimal, percentage: bool = False) -> Dict[str, Decimal]:
         """ROI: Return On Investment"""
         return self.aggregate(ROI=self._get_roi_expression(incomes=incomes, percentage=percentage))
 
-    def m(self):
-        filters = GenericFilters(date_field_name="created_at")
-        return self.order_by("created_at").values("created_at").first()
+    def _annotate_totals(self) -> TransactionQuerySet:
+        return self.annotate(
+            total_bought=self.expressions.total_bought, total_sold=self.expressions.total_sold_raw
+        )
+
+    @property
+    def _monthly_avg_expression(self) -> CombinedExpression:
+        return (
+            coalesce_sum_expression("total_bought", filter=~self.filters.current)
+            - coalesce_sum_expression("total_sold", filter=~self.filters.current)
+        ) / (
+            Count(
+                Concat("created_at__month", "created_at__year", output_field=CharField()),
+                filter=~self.filters.current,
+                distinct=True,
+            )
+            * Decimal("1.0")
+        )
+
+    def indicators(self) -> Dict[str, Decimal]:
+        return self._annotate_totals().aggregate(
+            current_bought=coalesce_sum_expression("total_bought", filter=self.filters.current),
+            current_sold=coalesce_sum_expression("total_sold", filter=self.filters.current),
+            avg=self._monthly_avg_expression,
+        )
+
+    def monthly_avg(self) -> Dict[str, Decimal]:
+        return self._annotate_totals().aggregate(avg=self._monthly_avg_expression)
+
+    def historic(self) -> TransactionQuerySet:
+        return (
+            self.annotate(
+                total=self.expressions.get_dollar_conversion_expression(F("price") * F("quantity")),
+                month=TruncMonth("created_at"),
+            )
+            .values("month")
+            .annotate(
+                total_bought=coalesce_sum_expression(
+                    "total", filter=self.expressions.filters.bought
+                ),
+                total_sold=coalesce_sum_expression(
+                    "total", filter=self.expressions.filters.sold, extra=Decimal("-1")
+                ),
+                diff=F("total_bought") + F("total_sold"),
+            )
+            .values("month", "total_bought", "total_sold", "diff")
+            .order_by("month")
+        )
 
 
 class _PassiveIncomeFilters(GenericFilters):
@@ -302,9 +352,11 @@ class PassiveIncomeQuerySet(CustomQueryset, MonthlyFilterMixin):
                     Concat(
                         "operation_date__month", "operation_date__year", output_field=CharField()
                     ),
-                    filter=Q(event_type=PassiveIncomeEventTypes.credited)
-                    & self.filters.since_a_year_ago
-                    & ~self.filters.current,
+                    filter=(
+                        Q(event_type=PassiveIncomeEventTypes.credited)
+                        & self.filters.since_a_year_ago
+                        & ~self.filters.current
+                    ),
                     distinct=True,
                 )
                 * Decimal("1.0")
@@ -317,14 +369,18 @@ class PassiveIncomeQuerySet(CustomQueryset, MonthlyFilterMixin):
             ),
             provisioned_future=coalesce_sum_expression(
                 "amount",
-                filter=Q(event_type=PassiveIncomeEventTypes.provisioned)
-                & (self.filters.future | self.filters.current),
+                filter=(
+                    Q(event_type=PassiveIncomeEventTypes.provisioned)
+                    & (self.filters.future | self.filters.current)
+                ),
             ),
             avg=coalesce_sum_expression(
                 "amount",
-                filter=Q(event_type=PassiveIncomeEventTypes.credited)
-                & self.filters.since_a_year_ago
-                & ~self.filters.current,
+                filter=(
+                    Q(event_type=PassiveIncomeEventTypes.credited)
+                    & self.filters.since_a_year_ago
+                    & ~self.filters.current
+                ),
             )
             / avg_denominator,
         )

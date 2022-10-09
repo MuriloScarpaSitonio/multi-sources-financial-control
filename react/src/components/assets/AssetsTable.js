@@ -2,7 +2,6 @@ import { useState } from "react";
 
 import MUIDataTable from "mui-datatables";
 
-import Box from "@material-ui/core/Box";
 import Container from "@material-ui/core/Container";
 import Dialog from "@material-ui/core/Dialog";
 import DialogContent from "@material-ui/core/DialogContent";
@@ -206,7 +205,7 @@ export const AssetsTable = () => {
     let _filters = new URLSearchParams({
       page: filters.page,
       ordering: filters.ordering,
-      description: filters.code,
+      code: filters.code,
       page_size: pageSize,
     });
 

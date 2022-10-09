@@ -1,5 +1,5 @@
-from datetime import date, datetime
-from typing import Any, Dict, Union
+from datetime import datetime
+from typing import Any, Dict, Optional, Union
 
 from django.db.models import QuerySet
 
@@ -25,13 +25,11 @@ class TaskWithHistory(Task):
             if getattr(task, "notification_display", None) is not None
         }
 
-    def get_last_run(self, username: str, as_date: bool = False) -> Union[datetime, date, None]:
+    def get_last_run(self, username: str) -> Optional[datetime]:
         last_history = TaskHistory.objects.filter(
             name=self.name, state=TaskStates.success, created_by__username=username
         ).first()
-        finished_at = last_history.finished_at if last_history is not None else None
-        if finished_at is not None:
-            return finished_at.date() if as_date else finished_at
+        return last_history.finished_at if last_history is not None else None
 
     def on_failure(self, exc, task_id, args, kwargs, einfo: ExceptionInfo) -> None:
         TaskHistory.objects.get(pk=task_id).finish(error=str(einfo.exception))

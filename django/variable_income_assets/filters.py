@@ -10,40 +10,18 @@ from .choices import (
     AssetSectors,
     AssetTypes,
     AssetsTotalInvestedReportAggregations,
+    TransactionActions,
+    TransactionCurrencies,
 )
-from .models import Asset
+from .models import Asset, Transaction
 
 
 class AssetFilterSet(filters.FilterSet):
     code = filters.CharFilter(lookup_expr="icontains")
-    type = filters.MultipleChoiceFilter(choices=AssetTypes.choices)
-    sector = filters.MultipleChoiceFilter(choices=AssetSectors.choices)
-    objective = filters.MultipleChoiceFilter(choices=AssetObjectives.choices)
-    # ROI_type = filters.ChoiceFilter(
-    #     choices=ROYTypeChoices.choices,
-    #     method="ROI_type_custom_filter",
-    # )
 
     class Meta:
         model = Asset
         exclude = ("current_price", "user")
-
-    # def ROI_type_custom_filter(self, queryset, _, value) -> QuerySet:
-    #     if value:
-    #         choice = ROYTypeChoices.get_choice(value=value)
-    #         return (
-    #             queryset.annotate(
-    #                 ROI=Sum(
-    #                     (F("transactions__price") - F("transactions__initial_price"))
-    #                     * F("transactions__quantity"),
-    #                     filter=Q(transactions__action=TransactionActions.sell),
-    #                 )
-    #             )
-    #             .filter(**choice.filter_expression)
-    #             .order_by("-ROI")
-    #         )
-
-    #     return queryset
 
 
 class AssetFetchCurrentPriceFilterSet(filters.FilterSet):
@@ -57,7 +35,7 @@ class AssetFetchCurrentPriceFilterSet(filters.FilterSet):
 
     class Meta:
         model = Asset
-        fields = ("code",)
+        fields = ("type", "sector", "objective")
 
     @property
     def qs(self):
@@ -142,3 +120,13 @@ class AssetRoiReportFilterSet(filters.FilterSet):
                 finished=self.form.cleaned_data["finished"],
             )
         raise filters.utils.translate_validation(error_dict=self.errors)
+
+
+class TransactionFilterSet(filters.FilterSet):
+    code = filters.CharFilter(field_name="asset__code", lookup_expr="icontains")
+    start_date = filters.DateFilter(field_name="created_at", lookup_expr="gte")
+    end_date = filters.DateFilter(field_name="created_at", lookup_expr="lte")
+
+    class Meta:
+        model = Transaction
+        fields = ("action",)

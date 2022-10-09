@@ -10,6 +10,7 @@ from config.settings.base import BASE_API_URL
 
 from authentication.tests.conftest import client, secrets, user
 from variable_income_assets.models import PassiveIncome
+from variable_income_assets.tests.shared import convert_to_float_and_quantitize
 
 
 pytestmark = pytest.mark.django_db
@@ -56,16 +57,10 @@ def test__passive_incomes__indicators(client, simple_asset, another_asset, crypt
     # THEN
     assert response.status_code == 200
     assert response.json() == {
-        "avg": float(avg.quantize(Decimal(".01"), rounding=ROUND_HALF_UP)),
-        "current_credited": float(
-            current_credited.quantize(Decimal(".01"), rounding=ROUND_HALF_UP)
-        ),
-        "provisioned_future": float(
-            provisioned_future.quantize(Decimal(".01"), rounding=ROUND_HALF_UP)
-        ),
-        "diff_percentage": float(
-            (((current_credited / avg) - Decimal("1.0")) * Decimal("100.0")).quantize(
-                Decimal(".01"), rounding=ROUND_HALF_UP
-            )
+        "avg": convert_to_float_and_quantitize(avg),
+        "current_credited": convert_to_float_and_quantitize(current_credited),
+        "provisioned_future": convert_to_float_and_quantitize(provisioned_future),
+        "diff_percentage": convert_to_float_and_quantitize(
+            (((current_credited / avg) - Decimal("1.0")) * Decimal("100.0"))
         ),
     }
