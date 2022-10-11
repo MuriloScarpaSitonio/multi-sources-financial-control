@@ -148,3 +148,6 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+backup.sqlite3
+client_secrets.json

@@ -33,6 +33,7 @@ pytest-cov = "^2.12.1"
 pytest-django = "^4.4.0"
 pytest-mock = "^3.6.1"
 pytest-sugar = "^0.9.4"
+PyDrive2 = "^1.14.0"
 
 [build-system]
 build-backend = "poetry.core.masonry.api"
