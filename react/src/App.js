@@ -74,7 +74,11 @@ export default function App() {
         <PrivateRoute exact path="/revenues" component={Revenues} />
       </Switch>
       <Switch>
-        <PrivateRoute exact path="/transactions" component={Transactions} />
+        <PrivateRoute
+          exact
+          path="/assets/transactions"
+          component={Transactions}
+        />
       </Switch>
     </Router>
   );

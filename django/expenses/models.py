@@ -23,7 +23,7 @@ class Expense(models.Model):
     objects = ExpenseQueryset.as_manager()
 
     class Meta:
-        ordering = ("-created_at",)
+        ordering = ("-created_at", "-pk")
 
     def __str__(self) -> str:  # pragma: no cover
         return f"<Expense ({self.description})>"
