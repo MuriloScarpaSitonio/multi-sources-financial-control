@@ -4,6 +4,12 @@ export function getChoiceByLabel(label, choices) {
   }
 }
 
+export function getChoiceByValue(value, choices) {
+  for (const choice of choices) {
+    if (choice.value === value) return choice;
+  }
+}
+
 export function getDateDiffString(dateFrom, dateTo) {
   let result;
   const DAYS_AT_MONTH = new Date(

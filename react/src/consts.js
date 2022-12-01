@@ -56,6 +56,11 @@ const TransactionsActionsMapping = [
   { label: "Compra", value: "BUY" },
 ];
 
+const TransactionCurrenciesMapping = [
+  { label: "Real", value: "BRL" },
+  { label: "Dólar", value: "USD" },
+];
+
 const AccessTokenStr = "accessToken";
 const RefreshTokenStr = "refreshToken";
 
@@ -69,4 +74,5 @@ export {
   AccessTokenStr,
   RefreshTokenStr,
   TransactionsActionsMapping,
+  TransactionCurrenciesMapping,
 };

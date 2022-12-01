@@ -148,7 +148,7 @@ export class TransactionsApi extends Api {
   resource = "transactions";
   constructor(id = null) {
     super(
-      { query: true, post: false, put: false, patch: false, delete: false },
+      { query: true, post: true, put: true, patch: true, delete: true },
       id
     );
 

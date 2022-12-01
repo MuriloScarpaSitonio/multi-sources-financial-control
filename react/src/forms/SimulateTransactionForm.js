@@ -197,8 +197,8 @@ const schema = yup.object().shape(
     asset: yup
       .object()
       .shape({
-        label: yup.string().required("O ativo é obrigatória"),
-        value: yup.string().required("O ativo é obrigatória"),
+        label: yup.string().required("O ativo é obrigatório"),
+        value: yup.string().required("O ativo é obrigatório"),
       })
       .nullable(),
     price: yup

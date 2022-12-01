@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Optional
 
 from django.conf import settings
 from django.db import models
@@ -64,9 +65,9 @@ class Asset(models.Model):
         return self.transactions.get_current_quantity()["quantity"]
 
     @cached_property
-    def currency_from_transactions(self) -> str:
+    def currency_from_transactions(self) -> Optional[str]:
         # we are accepting only one currency per asset, but this may change in the future
-        return self.transactions.values_list("currency", flat=True).distinct()[0]
+        return self.transactions.values_list("currency", flat=True).distinct().first()
 
     @property
     def total_invested_from_transactions(self) -> Decimal:  # pragma: no cover
@@ -91,8 +92,8 @@ class Transaction(models.Model):
         max_length=6, choices=TransactionCurrencies.choices, default=TransactionCurrencies.real
     )
     quantity = models.DecimalField(
-        decimal_places=8, max_digits=15
-    )  # crypto needs a lot of decimal places
+        decimal_places=8, max_digits=15  # crypto needs a lot of decimal places
+    )
     created_at = models.DateField(default=serializable_today_function)
     asset = models.ForeignKey(
         to=Asset,
@@ -118,15 +119,6 @@ class Transaction(models.Model):
         return f"<Transaction {self.action} {self.quantity} {self.asset.code} {self.price}>"  # pragma: no cover
 
     __repr__ = __str__
-
-    # def clean(self) -> None:
-    #     if self.action == TransactionActions.sell and self.initial_price is None:
-    #         raise ValidationError(
-    #             message=(
-    #                 "A selling transaction must have the initial_price set to "
-    #                 "calculate the asset's ROI correctly."
-    #             )
-    #         )
 
 
 class PassiveIncome(models.Model):

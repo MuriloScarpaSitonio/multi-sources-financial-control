@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.db.transaction import atomic
@@ -41,8 +41,12 @@ def _save_cei_transactions(
                 type=AssetTypes.stock,
             )
             if created:
-                asset.current_price = serializer.data["unit_price"]
-                asset.current_price_updated_at = serializer.data["operation_date"]
+                asset.current_price = serializer.validated_data["unit_price"]
+                asset.current_price_updated_at = datetime.combine(
+                    serializer.validated_data["operation_date"],
+                    datetime.min.time(),
+                    tzinfo=timezone.utc,
+                )
                 asset.save(update_fields=("current_price", "current_price_updated_at"))
 
         transaction, created = serializer.get_or_create(asset=asset)

@@ -1,11 +1,9 @@
 from copy import deepcopy
-from decimal import Decimal
 from typing import Tuple
 
 from rest_framework import ISO_8601, serializers
 
 from shared.serializers_utils import CustomChoiceField
-from tasks.models import TaskHistory
 
 from .fields import CeiPassiveIncomeChoiceField, CeiTransactionChoiceField, TimeStampToDateField
 from ...choices import (
@@ -36,10 +34,10 @@ class CryptoTransactionSerializer(serializers.Serializer):
             raise CryptoTransactionAlreadyExistsException
         return result and not already_exists
 
-    def create(self, asset: Asset, task_history: TaskHistory) -> Transaction:
+    def create(self, asset: Asset, task_history_id: int) -> Transaction:
         data = deepcopy(self.validated_data)
         data.update({"external_id": data.pop("id")})
-        return Transaction.objects.create(asset=asset, fetched_by=task_history, **data)
+        return Transaction.objects.create(asset=asset, fetched_by_id=task_history_id, **data)
 
 
 class CeiTransactionSerializer(serializers.Serializer):

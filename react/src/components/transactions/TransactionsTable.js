@@ -8,14 +8,118 @@ import {
   KeyboardDatePicker,
 } from "@material-ui/pickers";
 
+import Button from "@material-ui/core/Button";
+import CircularProgress from "@material-ui/core/CircularProgress";
 import Container from "@material-ui/core/Container";
+import Dialog from "@material-ui/core/Dialog";
+import DialogActions from "@material-ui/core/DialogActions";
+import DialogContent from "@material-ui/core/DialogContent";
+import DialogTitle from "@material-ui/core/DialogTitle";
 import FormGroup from "@material-ui/core/FormGroup";
 import FormLabel from "@material-ui/core/FormLabel";
+import IconButton from "@material-ui/core/IconButton";
+import Tooltip from "@material-ui/core/Tooltip";
 
+import DeleteIcon from "@material-ui/icons/Delete";
+import EditIcon from "@material-ui/icons/Edit";
+import PlusOneIcon from "@material-ui/icons/PlusOne";
+
+import { FormFeedback } from "../FormFeedback";
 import { Loader } from "../Loaders";
 import { TransactionsApi } from "../../api";
 import { getChoiceByLabel } from "../../helpers";
 import { TransactionsActionsMapping } from "../../consts";
+import { TransactionForm } from "../../forms/TransactionForm";
+
+const TransactionCreateEditDialog = ({
+  data,
+  open,
+  onClose,
+  showSuccessFeedbackForm,
+  reloadTable,
+}) => {
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      aria-labelledby="transaction-form-dialog-title"
+    >
+      <DialogTitle id="transaction-form-dialog-title">
+        {data && Object.keys(data).length > 0
+          ? "Editar transação"
+          : "Criar transação"}
+      </DialogTitle>
+      <DialogContent>
+        <TransactionForm
+          initialData={data}
+          handleClose={onClose}
+          showSuccessFeedbackForm={showSuccessFeedbackForm}
+          reloadTable={reloadTable}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const TransactionDeleteDialog = ({
+  id,
+  open,
+  onClose,
+  showSuccessFeedbackForm,
+  reloadTable,
+}) => {
+  const [isLoaded, setIsLoaded] = useState(true);
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertInfos, setAlertInfos] = useState({});
+
+  const handleClick = () => {
+    let api = new TransactionsApi(id);
+    api
+      .delete()
+      .then(() => {
+        showSuccessFeedbackForm("Transação deletada com sucesso!");
+        reloadTable();
+        onClose();
+      })
+      .catch((error) => {
+        setAlertInfos({
+          message: JSON.stringify(error.response.data),
+          severity: "error",
+        });
+        setShowAlert(true);
+      })
+      .finally(() => {
+        setIsLoaded(true);
+      });
+  };
+  return (
+    <>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        aria-labelledby="transaction-delete-form-dialog-title"
+      >
+        <DialogTitle id="transaction-delete-form-dialog-title">
+          Tem certeza que deseja deletar essa transação?
+        </DialogTitle>
+        <DialogContent>
+          <DialogActions>
+            <Button onClick={onClose}>Cancelar</Button>
+            <Button color="secondary" onClick={handleClick}>
+              {!isLoaded ? <CircularProgress size={24} /> : "Deletar"}
+            </Button>
+          </DialogActions>
+        </DialogContent>
+      </Dialog>
+      <FormFeedback
+        open={showAlert}
+        onClose={() => setShowAlert(false)}
+        message={alertInfos.message}
+        severity={alertInfos.severity}
+      />
+    </>
+  );
+};
 
 export const TransactionsTable = () => {
   const [pageSize, setPageSize] = useState(5);
@@ -24,18 +128,29 @@ export const TransactionsTable = () => {
   const [filters, setFilters] = useState({
     page: 1,
     ordering: "",
-    code: "",
+    asset_code: "",
   });
+
+  const [transactionEditData, setTransactionEditData] = useState({});
+  const [
+    editCreateTransactionDialogIsOpened,
+    setEditCreateTransactionDialogIsOpened,
+  ] = useState(false);
+  const [deleteTransactionDialogIsOpened, setDeleteTransactionDialogIsOpened] =
+    useState(false);
+  const [transactionIdToDelete, setTransactionIdToDelete] = useState(null);
+
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertInfos, setAlertInfos] = useState({});
 
   function getAdjustedFilters() {
     let multipleChoiceFilters = {
       action: filters.action || [],
     };
-
     let _filters = new URLSearchParams({
       page: filters.page,
       ordering: filters.ordering,
-      code: filters.code,
+      asset_code: filters.asset_code,
       page_size: pageSize,
       start_date:
         startDate !== null ? startDate.toLocaleDateString("fr-CA") : "",
@@ -80,10 +195,10 @@ export const TransactionsTable = () => {
     onChangeRowsPerPage: (p) => setPageSize(p),
     onChangePage: (p) => setFilters({ ...filters, page: p + 1 }),
     onSearchChange: (text) => {
-      setFilters({ ...filters, code: Boolean(text) ? text : "" });
+      setFilters({ ...filters, asset_code: Boolean(text) ? text : "" });
     },
     onColumnSortChange: (column, direction) => {
-      let _column = column === "code" ? "asset__code" : column;
+      let _column = column === "asset_code" ? "asset__code" : column;
       let orderingDirectionMapping = { asc: "", desc: "-" };
       setFilters({
         ...filters,
@@ -97,10 +212,30 @@ export const TransactionsTable = () => {
       );
       setFilters({ ...filters, [column]: _filters, page: 1 });
     },
+    customToolbar: () => {
+      return (
+        <>
+          <Tooltip title="Adicionar transação">
+            <IconButton onClick={() => handleCreateEdit({})}>
+              <PlusOneIcon />
+            </IconButton>
+          </Tooltip>
+        </>
+      );
+    },
   };
+
   let columns = [
     {
-      name: "code",
+      name: "id",
+      options: {
+        display: false,
+        filter: false,
+        viewColumns: false,
+      },
+    },
+    {
+      name: "asset_code",
       label: "Código",
       options: {
         filter: false,
@@ -129,7 +264,7 @@ export const TransactionsTable = () => {
         filter: false,
         sort: false,
         customBodyRender: (v, tableMeta) => {
-          let [currency] = tableMeta.rowData.slice(-1);
+          let [currency] = tableMeta.rowData.slice(-2, -1);
           return `${currency === "BRL" ? "R$" : "$"} ${v?.toLocaleString(
             "pt-br",
             {
@@ -229,7 +364,6 @@ export const TransactionsTable = () => {
         },
       },
     },
-
     {
       name: "currency",
       label: "",
@@ -239,7 +373,74 @@ export const TransactionsTable = () => {
         viewColumns: false,
       },
     },
+    {
+      name: "",
+      options: {
+        filter: false,
+        sort: false,
+        empty: true,
+        viewColumns: false,
+        customBodyRender: (_, tableMeta) => {
+          return (
+            <>
+              <Tooltip title="Deletar transação">
+                <IconButton
+                  onClick={() => {
+                    handleDelete(tableMeta.rowData[0]);
+                  }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Editar transação">
+                <IconButton onClick={() => handleCreateEdit(tableMeta.rowData)}>
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </>
+          );
+        },
+      },
+    },
   ];
+
+  const handleCreateEdit = (transactionData) => {
+    if (transactionData && Object.keys(transactionData).length > 0) {
+      let [id, asset_code, action, price, quantity, created_at, currency] =
+        transactionData;
+      setTransactionEditData({
+        id,
+        asset_code,
+        action,
+        price,
+        quantity,
+        created_at,
+        currency,
+      });
+    }
+    setEditCreateTransactionDialogIsOpened(true);
+  };
+
+  const handleDelete = (id) => {
+    setTransactionIdToDelete(id);
+    setDeleteTransactionDialogIsOpened(true);
+  };
+
+  const showSuccessFeedbackForm = (message) => {
+    setAlertInfos({ message: message, severity: "success" });
+    setShowAlert(true);
+  };
+
+  const reload = () => {
+    if (
+      filters.page === 1 &&
+      filters.ordering === "" &&
+      filters.asset_code === ""
+    )
+      setFilters({ page: 1, ordering: " ", asset_code: "" });
+    else setFilters({ page: 1, ordering: "", asset_code: "" });
+  };
+
   return (
     <Container
       style={{ position: "relative", marginTop: "15px" }}
@@ -247,6 +448,31 @@ export const TransactionsTable = () => {
     >
       {!isLoaded && <Loader />}
       <MUIDataTable data={data.results} columns={columns} options={options} />
+      <TransactionCreateEditDialog
+        data={transactionEditData}
+        open={editCreateTransactionDialogIsOpened}
+        onClose={() => {
+          setEditCreateTransactionDialogIsOpened(false);
+          setTransactionEditData({});
+        }}
+        showSuccessFeedbackForm={showSuccessFeedbackForm}
+        reloadTable={reload}
+      />
+
+      <TransactionDeleteDialog
+        id={transactionIdToDelete}
+        open={deleteTransactionDialogIsOpened}
+        onClose={() => setDeleteTransactionDialogIsOpened(false)}
+        showSuccessFeedbackForm={showSuccessFeedbackForm}
+        reloadTable={reload}
+      />
+
+      <FormFeedback
+        open={showAlert}
+        onClose={() => setShowAlert(false)}
+        message={alertInfos.message}
+        severity={alertInfos.severity}
+      />
     </Container>
   );
 };

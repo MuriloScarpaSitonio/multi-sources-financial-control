@@ -1,5 +1,7 @@
 from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_UP, DecimalException
 
+from django.db.transaction import atomic
+
 from rest_framework import serializers
 from rest_framework.utils.serializer_helpers import ReturnList
 
@@ -12,6 +14,7 @@ from .choices import (
     AssetTypes,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
+    TransactionActions,
     TransactionCurrencies,
 )
 from .models import Asset, PassiveIncome, Transaction
@@ -29,16 +32,84 @@ class TransactionSimulateSerializer(serializers.Serializer):
 
 
 class TransactionSerializer(serializers.ModelSerializer):
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
     class Meta:
         model = Transaction
-        fields = ("action", "price", "currency", "quantity", "created_at")
+        fields = (
+            "id",
+            "action",
+            "price",
+            "currency",
+            "quantity",
+            "created_at",
+            "user",
+            "initial_price",
+        )
+        extra_kwargs = {
+            "initial_price": {"write_only": True, "allow_null": False},
+            "currency": {"default": TransactionCurrencies.real},
+        }
 
 
 class TransactionListSerializer(TransactionSerializer):
-    code = serializers.CharField(source="asset.code")
+    asset_code = serializers.CharField(source="asset.code")
+    asset_type = serializers.ChoiceField(
+        source="asset.type",
+        choices=AssetTypes.choices,
+        write_only=True,
+        required=False,
+        allow_blank=False,
+    )
 
     class Meta(TransactionSerializer.Meta):
-        fields = TransactionSerializer.Meta.fields + ("code",)
+        fields = TransactionSerializer.Meta.fields + ("asset_code", "asset_type")
+
+    def create(self, validated_data: dict) -> Transaction:
+        asset_data = validated_data.pop("asset")
+        is_sell_transaction = validated_data["action"] == TransactionActions.sell
+        with atomic():
+            asset, created = Asset.objects.get_or_create(
+                user=validated_data.pop("user"),
+                **asset_data,
+            )
+
+            if created and asset_data.get("type") is None:
+                raise serializers.ValidationError(
+                    detail={"asset.type": "If the asset does not exist, `type` is required"}
+                )
+
+            if is_sell_transaction:
+                if validated_data["quantity"] > asset.quantity_from_transactions:
+                    raise serializers.ValidationError(
+                        detail={"action": "You can't sell more assets than you own"}
+                    )
+                if "initial_price" not in validated_data:
+                    validated_data.update(initial_price=asset.avg_price_from_transactions)
+
+            if (
+                asset.currency_from_transactions  # this value is cached
+                and asset.currency_from_transactions != validated_data["currency"]
+            ):
+                raise serializers.ValidationError(
+                    detail={
+                        "currency": (
+                            "Only one currency per asset is supported. "
+                            f"Current currency: {asset.currency_from_transactions}"
+                        )
+                    }
+                )
+            validated_data.update(asset=asset)
+            return super().create(validated_data=validated_data)
+
+    def update(self, instance: Transaction, validated_data: dict) -> Transaction:
+        with atomic():
+            asset, _ = Asset.objects.get_or_create(
+                user=validated_data.pop("user"),
+                **validated_data.pop("asset"),
+            )
+            validated_data.update(asset=asset)
+            return super().update(instance, validated_data)
 
 
 class PassiveIncomeSerializer(serializers.ModelSerializer):

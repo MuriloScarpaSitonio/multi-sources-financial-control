@@ -123,7 +123,7 @@ class AssetRoiReportFilterSet(filters.FilterSet):
 
 
 class TransactionFilterSet(filters.FilterSet):
-    code = filters.CharFilter(field_name="asset__code", lookup_expr="icontains")
+    asset_code = filters.CharFilter(field_name="asset__code", lookup_expr="icontains")
     start_date = filters.DateFilter(field_name="created_at", lookup_expr="gte")
     end_date = filters.DateFilter(field_name="created_at", lookup_expr="lte")
 

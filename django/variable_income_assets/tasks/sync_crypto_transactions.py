@@ -8,7 +8,6 @@ from celery import shared_task
 from authentication.models import CustomUser
 from shared.utils import build_url
 from tasks.bases import TaskWithHistory
-from tasks.models import TaskHistory
 
 from .serializers import CryptoTransactionAlreadyExistsException, CryptoTransactionSerializer
 from ..choices import AssetTypes
@@ -30,7 +29,7 @@ def sync_kucoin_transactions_task(self, username: str) -> int:
     save_crypto_transactions(
         response=requests.get(url),
         user=CustomUser.objects.get(username=username),
-        task_history=TaskHistory.objects.get(pk=self.request.id),
+        task_history_id=self.request.id,
     )
 
 
@@ -49,13 +48,12 @@ def sync_binance_transactions_task(self, username: str) -> int:
     save_crypto_transactions(
         response=requests.get(url),
         user=CustomUser.objects.get(username=username),
-        task_history=TaskHistory.objects.get(pk=self.request.id),
+        task_history_id=self.request.id,
     )
 
 
-@atomic
 def save_crypto_transactions(
-    response: requests.Response, user: CustomUser, task_history: TaskHistory
+    response: requests.Response, user: CustomUser, task_history_id: int
 ) -> None:
     assets = dict()
     for data in response.json():
@@ -71,11 +69,12 @@ def save_crypto_transactions(
             continue
 
         asset = assets.get(code)
-        if asset is None:
-            asset, _ = Asset.objects.get_or_create(
-                user=user,
-                code=code,
-                type=AssetTypes.crypto,
-            )
+        with atomic():
+            if asset is None:
+                asset, _ = Asset.objects.get_or_create(
+                    user=user,
+                    code=code,
+                    type=AssetTypes.crypto,
+                )
 
-        serializer.create(asset=asset, task_history=task_history)
+            serializer.create(asset=asset, task_history_id=task_history_id)
