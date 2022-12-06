@@ -12,6 +12,7 @@ import { Navbar } from "./components/Navbar";
 import { useHideValues } from "./hooks/useHideValues";
 import Assets from "./pages/Assets";
 import Expenses from "./pages/Expenses";
+import Home from "./pages/Home";
 import { Login } from "./pages/Login";
 import Revenues from "./pages/Revenues";
 import Transactions from "./pages/Transactions";
@@ -28,7 +29,9 @@ const Wrapper = ({ isLoggedIn, ...props }) => {
         className="base"
         style={isLoggedIn && { backgroundColor: "whitesmoke" }}
       >
-        {isLoggedIn && <Navbar hideValuesToggler={hideValuesToggler} />}
+        {isLoggedIn && (
+          <Navbar hideValuesToggler={hideValuesToggler} {...props} />
+        )}
         <Container style={{ marginTop: "15px" }}>
           <props.component {...props} />
         </Container>
@@ -63,6 +66,9 @@ export default function App() {
           path="/"
           render={(props) => <Wrapper {...props} component={Login} />}
         />
+      </Switch>
+      <Switch>
+        <PrivateRoute exact path="/home" component={Home} />
       </Switch>
       <Switch>
         <PrivateRoute exact path="/expenses" component={Expenses} />

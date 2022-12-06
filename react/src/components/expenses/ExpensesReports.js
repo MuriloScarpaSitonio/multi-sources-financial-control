@@ -68,40 +68,6 @@ function TabPanel(props) {
   );
 }
 
-// const CustomChartTooltip = () => (
-//   <ChartTooltip
-//     cursor={{ fill: "#f5f5f5" }}
-//     separator=": "
-//     formatter={(value) => `R$ ${value}`.replace(".", ",")}
-//     labelFormatter={(_) => ""}
-//   />
-// );
-
-const ExpenseHorizontalBarChart = ({ data, dataKey }) => (
-  <BarChart
-    width={chartWidth}
-    height={chartHeight}
-    data={data}
-    layout="vertical"
-    margin={{ left: 55 }}
-    barGap={-30}
-  >
-    <CartesianGrid stroke="#eee" />
-    <XAxis
-      type="number"
-      tickFormatter={(t) => `R$ ${t.toLocaleString("pt-br")}`}
-    />
-    <YAxis type="category" dataKey={dataKey} />
-    <ChartTooltip
-      cursor={{ fill: "#f5f5f5" }}
-      separator=": "
-      formatter={(value) => `R$ ${value.toLocaleString("pt-br")}`}
-      labelFormatter={(_) => ""}
-    />
-    <Bar dataKey="total" barSize={chartBarSize} fill={currentDataFillColor} />
-  </BarChart>
-);
-
 const ExpenseHorizontalMultipleBarChart = ({ data, dataKey }) => (
   <BarChart
     width={chartWidth}

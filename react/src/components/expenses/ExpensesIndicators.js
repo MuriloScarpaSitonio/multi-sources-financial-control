@@ -28,8 +28,8 @@ import { ExpensesApi, RevenuesApi } from "../../api";
 import { RevenuesForm } from "../../forms/RevenuesForm";
 import { FormFeedback } from "../FormFeedback";
 
-const SUCCESS = "#00c914";
-const DANGER = "#ff0505";
+const SUCCESS = "rgba(0, 201, 20, 0.5)";
+const DANGER = "rgba(255, 5, 5, 0.5)";
 
 const CustomLinearProgress = withStyles((theme) => ({
   root: {
@@ -132,6 +132,7 @@ const Indicators = ({
   icon,
   color,
   secondaryIcon,
+  condensed = false,
   setCreateRevenueDialogIsOpened = null,
 }) => {
   const currentMonth = new Date().getMonth() + 1;
@@ -142,7 +143,7 @@ const Indicators = ({
   const hideValues = Boolean(window.localStorage.getItem("hideValues"));
 
   const card = (
-    <Card style={{ border: borderStyle, height: 180 }}>
+    <Card style={{ border: borderStyle, height: condensed ? 160 : 180 }}>
       <CardContent>
         <Grid container spacing={3}>
           <Grid item>
@@ -160,12 +161,18 @@ const Indicators = ({
             </Typography>
           </Grid>
           <Grid item>
-            <Avatar style={isPastRevenue ? { backgroundColor: "#ff7878" } : {}}>
+            <Avatar
+              style={
+                isPastRevenue
+                  ? { backgroundColor: "#ff7878" }
+                  : { backgroundColor: color }
+              }
+            >
               {icon}
             </Avatar>
           </Grid>
         </Grid>
-        {!isRevenue && (
+        {!isRevenue && !condensed && (
           <Box
             sx={{
               alignItems: "center",
@@ -221,7 +228,7 @@ const Indicators = ({
           ) : (
             <Skeleton animation={false} width={300} />
           )}
-          {isRevenue && (
+          {isRevenue && !condensed && (
             <Box sx={{ ml: 1 }}>
               <IconButton>
                 <AddIcon
@@ -243,7 +250,7 @@ const Indicators = ({
           <Typography color="inherit">
             Você não cadastrou nenhuma receita este mês!
           </Typography>
-          Clique no botão + para adicionar
+          {!condensed && "Clique no botão + para adicionar"}
         </>
       }
     >
@@ -254,7 +261,7 @@ const Indicators = ({
   );
 };
 
-export const ExpensesIndicators = () => {
+export const ExpensesIndicators = ({ condensed = false }) => {
   const [expensesIndicators, setExpensesIndicators] = useState({});
   const [revenuesIndicators, setRevenuesIndicators] = useState({});
   const [createRevenueDialogIsOpened, setCreateRevenueDialogIsOpened] =
@@ -307,6 +314,7 @@ export const ExpensesIndicators = () => {
                     <ArrowDownwardIcon />
                   )
                 }
+                condensed={condensed}
               />
             ) : (
               <Skeleton variant="rect" width={340} height={175} />
@@ -327,6 +335,7 @@ export const ExpensesIndicators = () => {
                   )
                 }
                 setCreateRevenueDialogIsOpened={setCreateRevenueDialogIsOpened}
+                condensed={condensed}
               />
             ) : (
               <Skeleton variant="rect" width={340} height={175} />
@@ -334,18 +343,22 @@ export const ExpensesIndicators = () => {
           </Grid>
         </Grid>
       </Container>
-      <Container
-        style={{ position: "relative", marginTop: "15px" }}
-        maxWidth="lg"
-      >
-        {isLoaded ? (
-          <LinearProgressWithLabel
-            value={(expensesIndicators.total / revenuesIndicators.total) * 100}
-          />
-        ) : (
-          <Skeleton />
-        )}
-      </Container>
+      {!condensed && (
+        <Container
+          style={{ position: "relative", marginTop: "15px" }}
+          maxWidth="lg"
+        >
+          {isLoaded ? (
+            <LinearProgressWithLabel
+              value={
+                (expensesIndicators.total / revenuesIndicators.total) * 100
+              }
+            />
+          ) : (
+            <Skeleton />
+          )}
+        </Container>
+      )}
       <RevenuesCreateDialog
         data={{}}
         open={createRevenueDialogIsOpened}

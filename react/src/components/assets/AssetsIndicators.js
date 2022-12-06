@@ -117,7 +117,7 @@ const Indicators = ({ title, value, icon, color, extraIndicators = <></> }) => {
   );
 };
 
-export const AssetsIndicators = () => {
+export const AssetsIndicators = ({ condensed = false }) => {
   const [assetsIndicators, setAssetsIndicators] = useState({
     current_total: 0,
     ROI: 0,
@@ -201,6 +201,23 @@ export const AssetsIndicators = () => {
 
   useEffect(() => fetchData(), []);
 
+  let roiIndicators = (
+    <Grid item>
+      {isLoaded ? (
+        <Indicators
+          title={"ROI (Lucro/Prejuízo)"}
+          value={assetsIndicators.ROI}
+          icon={
+            assetsIndicators.ROI > 0 ? <TrendingUpIcon /> : <TrendingDownIcon />
+          }
+          color={assetsIndicators.ROI > 0 ? SUCCESS : DANGER}
+          extraIndicators={!condensed ? getAssetsExtraIndicators() : <></>}
+        />
+      ) : (
+        <Skeleton variant="rect" width={340} height={175} />
+      )}
+    </Grid>
+  );
   return (
     <>
       <Container
@@ -220,41 +237,26 @@ export const AssetsIndicators = () => {
               <Skeleton variant="rect" width={340} height={175} />
             )}
           </Grid>
+          {condensed && roiIndicators}
         </Grid>
-        <Grid container justifyContent="center" spacing={3}>
-          <Grid item>
-            {isLoaded ? (
-              <Indicators
-                title={"ROI (Lucro/Prejuízo)"}
-                value={assetsIndicators.ROI}
-                icon={
-                  assetsIndicators.ROI > 0 ? (
-                    <TrendingUpIcon />
-                  ) : (
-                    <TrendingDownIcon />
-                  )
-                }
-                color={assetsIndicators.ROI > 0 ? SUCCESS : DANGER}
-                extraIndicators={getAssetsExtraIndicators()}
-              />
-            ) : (
-              <Skeleton variant="rect" width={340} height={175} />
-            )}
+        {!condensed && (
+          <Grid container justifyContent="center" spacing={3}>
+            {roiIndicators}
+            <Grid item>
+              {isLoaded ? (
+                <Indicators
+                  title={"RENDA PASSIVA"}
+                  value={incomesIndicators.current_credited}
+                  icon={<AttachMoneyIcon />}
+                  color={SUCCESS}
+                  extraIndicators={getPassiveIncomesExtraIndicators()}
+                />
+              ) : (
+                <Skeleton variant="rect" width={340} height={175} />
+              )}
+            </Grid>
           </Grid>
-          <Grid item>
-            {isLoaded ? (
-              <Indicators
-                title={"RENDA PASSIVA"}
-                value={incomesIndicators.current_credited}
-                icon={<AttachMoneyIcon />}
-                color={SUCCESS}
-                extraIndicators={getPassiveIncomesExtraIndicators()}
-              />
-            ) : (
-              <Skeleton variant="rect" width={340} height={175} />
-            )}
-          </Grid>
-        </Grid>
+        )}
       </Container>
     </>
   );

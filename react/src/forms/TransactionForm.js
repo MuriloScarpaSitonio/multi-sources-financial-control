@@ -54,11 +54,14 @@ function NumberFormatCustom(props) {
 }
 
 const schema = yup.object().shape({
-  asset_code: yup.object().shape({
-    label: yup.string().required("O ativo é obrigatório"),
-    value: yup.string().required("O ativo é obrigatório"),
-  }),
-  // .nullable(),
+  asset_code: yup
+    .object()
+    .shape({
+      label: yup.string().required("O ativo é obrigatório"),
+      value: yup.string().required("O ativo é obrigatório"),
+    })
+    .required("O ativo é obrigatório")
+    .nullable(),
   action: yup
     .string()
     .required("A ação é obrigatória")
@@ -72,6 +75,7 @@ const schema = yup.object().shape({
         .required("A moeda é obrigatória")
         .matches(/(BRL|USD)/, "Apenas real e dólar são moedas válidas"),
     })
+    .required("A moeda é obrigatória")
     .nullable(),
 
   price: yup
@@ -189,11 +193,14 @@ export const TransactionForm = ({
                   <Autocomplete
                     freeSolo
                     onChange={(_, asset) => onChange(asset)}
-                    onInputChange={(e, v) =>
-                      e.type === "change"
-                        ? onChange({ value: v, label: v })
-                        : null
-                    }
+                    onInputChange={(e, v, r) => {
+                      if (e.type === "change") {
+                        onChange({ value: v, label: v });
+                      }
+                      if (r === "clear") {
+                        return;
+                      }
+                    }}
                     value={value}
                     clearText="Limpar"
                     closeText="Fechar"
@@ -208,9 +215,11 @@ export const TransactionForm = ({
                       />
                     )}
                   />
-                  {errors.asset_code?.value.message && (
+                  {(errors.asset_code?.message ||
+                    errors.asset_code?.value?.message) && (
                     <FormHelperText>
-                      {errors.asset_code?.value.message}
+                      {errors.asset_code?.message ||
+                        errors.asset_code?.value?.message}
                     </FormHelperText>
                   )}
                 </>
@@ -285,9 +294,11 @@ export const TransactionForm = ({
                       />
                     )}
                   />
-                  {errors.currency?.value.message && (
+                  {(errors.currency?.message ||
+                    errors.currency?.value?.message) && (
                     <FormHelperText>
-                      {errors.currency?.value.message}
+                      {errors.currency?.message ||
+                        errors.currency?.value?.message}
                     </FormHelperText>
                   )}
                 </>

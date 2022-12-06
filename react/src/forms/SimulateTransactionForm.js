@@ -200,6 +200,7 @@ const schema = yup.object().shape(
         label: yup.string().required("O ativo é obrigatório"),
         value: yup.string().required("O ativo é obrigatório"),
       })
+      .required("O ativo é obrigatório")
       .nullable(),
     price: yup
       .number()
@@ -303,9 +304,9 @@ export const SimulateTransactionForm = ({ handleClose }) => {
                       />
                     )}
                   />
-                  {errors.asset?.value.message && (
+                  {(errors.asset?.message || errors.asset?.value?.message) && (
                     <FormHelperText>
-                      {errors.asset?.value.message}
+                      {errors.asset?.message || errors.asset?.value?.message}
                     </FormHelperText>
                   )}
                 </>

@@ -27,6 +27,7 @@ import SyncIcon from "@material-ui/icons/Sync";
 import TimelineIcon from "@material-ui/icons/Timeline";
 import VisibilityIcon from "@material-ui/icons/Visibility";
 import VisibilityOffIcon from "@material-ui/icons/VisibilityOff";
+import HomeIcon from "@material-ui/icons/Home";
 
 import { AssetsApi, TasksApi } from "../api";
 import { FormFeedback } from "./FormFeedback";
@@ -397,7 +398,7 @@ const FinancesMenu = () => {
     </>
   );
 };
-export const Navbar = ({ hideValuesToggler }) => {
+export const Navbar = ({ hideValuesToggler, ...props }) => {
   const [hideValues, setHideValues] = useState(
     Boolean(window.localStorage.getItem("hideValues"))
   );
@@ -409,6 +410,15 @@ export const Navbar = ({ hideValuesToggler }) => {
         <AssetsMenu />
         <Box sx={{ flexGrow: 1, textAlign: "center", marginLeft: "85px" }}>
           <Sync />
+          <IconButton
+            size="large"
+            color="black"
+            onClick={() => {
+              props.history.push("/home");
+            }}
+          >
+            <HomeIcon />
+          </IconButton>
           <Tooltip title={hideValues ? "Ocultar valores " : "Exibir valores"}>
             <IconButton
               size="large"

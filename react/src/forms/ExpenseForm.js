@@ -74,6 +74,7 @@ const schema = yup.object().shape({
       label: yup.string().required("A categoria é obrigatória"),
       value: yup.string().required("A categoria é obrigatória"),
     })
+    .required("A categoria é obrigatória")
     .nullable(),
   source: yup
     .object()
@@ -81,6 +82,7 @@ const schema = yup.object().shape({
       label: yup.string().required("A fonte é obrigatória"),
       value: yup.string().required("A fonte é obrigatória"),
     })
+    .required("A fonte é obrigatória")
     .nullable(),
   installments: yup.number().when("is_fixed", {
     is: true,
@@ -267,9 +269,11 @@ export const ExpenseForm = ({
                       />
                     )}
                   />
-                  {errors.category?.value.message && (
+                  {(errors.category?.message ||
+                    errors.category?.value?.message) && (
                     <FormHelperText>
-                      {errors.category?.value.message}
+                      {errors.category?.message ||
+                        errors.category?.value?.message}
                     </FormHelperText>
                   )}
                 </>
@@ -307,9 +311,10 @@ export const ExpenseForm = ({
                       />
                     )}
                   />
-                  {errors.source?.value.message && (
+                  {(errors.source?.message ||
+                    errors.source?.value?.message) && (
                     <FormHelperText>
-                      {errors.source?.value.message}
+                      {errors.source?.message || errors.source?.value?.message}
                     </FormHelperText>
                   )}
                 </>

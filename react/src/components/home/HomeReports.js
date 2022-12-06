@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import axios from "axios";
+
 import {
   BarChart,
   Bar,
@@ -25,11 +27,13 @@ import Tabs from "@material-ui/core/Tabs";
 import Typography from "@material-ui/core/Typography";
 
 import { Loader } from "../Loaders";
-import { TransactionsApi } from "../../api";
+import { ExpensesApi, RevenuesApi } from "../../api";
 import { makeStyles } from "@material-ui/core/styles";
 
 const chartWidth = 950;
 const chartHeight = 300;
+const chartBarSize = 20;
+const lastDataFillCollor = "rgba(54, 162, 235, 0.3)";
 const currentDataFillColor = "rgba(54, 162, 235, 1)";
 
 const useStyles = makeStyles((theme) => ({
@@ -70,9 +74,9 @@ function getTabProps(index) {
   };
 }
 
-const TransactionHistoricChartComponent = ({ data, fetchHistoricData }) => {
-  const ONLY_DIFF_TEXT = "Diferença entre compra e venda";
-  const BUY_AND_SELL_TEXT = "Compra e venda";
+const ExpenseHistoricChartComponent = ({ data, fetchHistoricData }) => {
+  const ONLY_DIFF_TEXT = "Diferença entre receitas e despesas";
+  const BUY_AND_SELL_TEXT = "Receitas e despesas";
 
   const [anchorEl, setAnchorEl] = useState(null);
   const [buttonText, setButtonText] = useState(ONLY_DIFF_TEXT);
@@ -98,11 +102,10 @@ const TransactionHistoricChartComponent = ({ data, fetchHistoricData }) => {
       </>
     ) : (
       <>
-        <Bar dataKey="total_bought" stackId="a" fill="rgba(0, 201, 20, 0.2)" />
-        <Bar dataKey="total_sold" stackId="a" fill="rgba(255, 5, 5, 0.2)" />
+        <Bar dataKey="revenues" stackId="a" fill="rgba(0, 201, 20, 0.2)" />
+        <Bar dataKey="expenses" stackId="a" fill="rgba(255, 5, 5, 0.2)" />
       </>
     );
-
   return (
     <Card elevation={6}>
       <CardHeader
@@ -160,23 +163,48 @@ const TransactionHistoricChartComponent = ({ data, fetchHistoricData }) => {
   );
 };
 
-export const TransactionsReports = () => {
-  const [data, setData] = useState([]);
+export const HomeReports = () => {
+  const [data, setData] = useState({ historic: [], avg: 0 });
   const [isLoaded, setIsLoaded] = useState(false);
-  //const [error, setError] = useState(null);
   const [tabValue, setTabValue] = useState(0);
 
-  let api = new TransactionsApi();
   const classes = useStyles();
 
-  function fetchHistoricData(filters = {}) {
+  function fetchHistoricData() {
     setIsLoaded(false);
-    api
-      .historic(filters)
-      .then((response) => setData(response.data))
-      //.catch((err) => setError(err))
+    let expensesApi = new ExpensesApi();
+    let revenuesApi = new RevenuesApi();
+
+    axios
+      .all([expensesApi.historic(), revenuesApi.historic()])
+      .then(
+        axios.spread((...responses) => {
+          let expensesHistoricData = responses[0].data.historic;
+          let revenuesHistoricData = responses[1].data.historic;
+          let result = revenuesHistoricData.map((d, index) => {
+            return {
+              expenses: expensesHistoricData[index].total * -1,
+              revenues: d.total,
+              diff: d.total - expensesHistoricData[index].total,
+              month: d.date,
+            };
+          });
+          function getAvg(r) {
+            let total = 0;
+            for (const d of r.slice(0, -1)) {
+              total += d.total;
+            }
+            return total / (r.length - 1);
+          }
+          setData({
+            historic: result,
+            avg: getAvg(result),
+          });
+        })
+      )
       .finally(() => setIsLoaded(true));
   }
+
   useEffect(() => fetchHistoricData(), []);
 
   const handleTabsChange = (event, newValue) => {
@@ -199,12 +227,12 @@ export const TransactionsReports = () => {
         onChange={handleTabsChange}
         className={classes.tabs}
       >
-        <Tab label="Histórico" {...getTabProps(0)} />
+        <Tab label="Despesas x receitas" {...getTabProps(0)} />
       </Tabs>
 
       <TabPanel value={tabValue} index={0}>
         {!isLoaded && <Loader />}
-        <TransactionHistoricChartComponent
+        <ExpenseHistoricChartComponent
           data={data}
           fetchHistoricData={fetchHistoricData}
         />
