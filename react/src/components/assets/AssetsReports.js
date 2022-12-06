@@ -193,7 +193,7 @@ const AssetTotalInvestedChartComponent = ({
   );
 };
 
-const AssetRoiChartComponent = ({ data, fetchReportData }) => {
+export const AssetRoiChartComponent = ({ data, fetchReportData }) => {
   const ALL_REPORT_TEXT = "Tudo";
   const OPENED_REPORT_TEXT = "Abertos";
   const FINISHED_REPORT_TEXT = "Fechados";

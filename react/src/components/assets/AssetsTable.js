@@ -240,7 +240,7 @@ export const AssetsTable = () => {
       }
     },
     textLabels: {
-      body: { noMatch: "Nenhum ativo encontrada", toolTip: "Ordenar" },
+      body: { noMatch: "Nenhum ativo encontrado", toolTip: "Ordenar" },
       toolbar: {
         search: "Pesquisar",
         viewColumns: "Selecionar colunas",

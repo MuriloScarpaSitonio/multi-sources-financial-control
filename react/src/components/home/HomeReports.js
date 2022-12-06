@@ -27,13 +27,12 @@ import Tabs from "@material-ui/core/Tabs";
 import Typography from "@material-ui/core/Typography";
 
 import { Loader } from "../Loaders";
-import { ExpensesApi, RevenuesApi } from "../../api";
+import { AssetsApi, ExpensesApi, RevenuesApi } from "../../api";
+import { AssetRoiChartComponent } from "../assets/AssetsReports";
 import { makeStyles } from "@material-ui/core/styles";
 
 const chartWidth = 950;
 const chartHeight = 300;
-const chartBarSize = 20;
-const lastDataFillCollor = "rgba(54, 162, 235, 0.3)";
 const currentDataFillColor = "rgba(54, 162, 235, 1)";
 
 const useStyles = makeStyles((theme) => ({
@@ -165,10 +164,20 @@ const ExpenseHistoricChartComponent = ({ data, fetchHistoricData }) => {
 
 export const HomeReports = () => {
   const [data, setData] = useState({ historic: [], avg: 0 });
+  const [roiData, setRoiData] = useState([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [tabValue, setTabValue] = useState(0);
 
   const classes = useStyles();
+
+  function fetchRoiReportData(filters = {}) {
+    setIsLoaded(false);
+    new AssetsApi()
+      .roiReport(filters)
+      .then((response) => setRoiData(response.data))
+      //.catch((err) => setError(err))
+      .finally(() => setIsLoaded(true));
+  }
 
   function fetchHistoricData() {
     setIsLoaded(false);
@@ -192,7 +201,7 @@ export const HomeReports = () => {
           function getAvg(r) {
             let total = 0;
             for (const d of r.slice(0, -1)) {
-              total += d.total;
+              total += d.diff;
             }
             return total / (r.length - 1);
           }
@@ -207,10 +216,13 @@ export const HomeReports = () => {
 
   useEffect(() => fetchHistoricData(), []);
 
-  const handleTabsChange = (event, newValue) => {
+  const handleTabsChange = (_, newValue) => {
     switch (newValue) {
       case 0:
         fetchHistoricData();
+        break;
+      case 1:
+        fetchRoiReportData({ opened: true, finished: true });
         break;
       default:
         break;
@@ -228,6 +240,7 @@ export const HomeReports = () => {
         className={classes.tabs}
       >
         <Tab label="Despesas x receitas" {...getTabProps(0)} />
+        <Tab label="ROI" {...getTabProps(1)} />
       </Tabs>
 
       <TabPanel value={tabValue} index={0}>
@@ -235,6 +248,13 @@ export const HomeReports = () => {
         <ExpenseHistoricChartComponent
           data={data}
           fetchHistoricData={fetchHistoricData}
+        />
+      </TabPanel>
+      <TabPanel value={tabValue} index={1}>
+        {!isLoaded && <Loader />}
+        <AssetRoiChartComponent
+          data={roiData}
+          fetchReportData={fetchRoiReportData}
         />
       </TabPanel>
     </Grid>
