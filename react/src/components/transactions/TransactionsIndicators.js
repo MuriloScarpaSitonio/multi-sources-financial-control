@@ -16,8 +16,8 @@ import ArrowUpwardIcon from "@material-ui/icons/ArrowUpward";
 
 import { TransactionsApi } from "../../api";
 
-const SUCCESS = "#00c914";
-const DANGER = "#ff0505";
+const SUCCESS = "rgba(0, 201, 20, 0.5)";
+const DANGER = "rgba(255, 5, 5, 0.5)";
 
 const Indicators = ({ title, indicators, icon, color, secondaryIcon }) => {
   const hideValues = Boolean(window.localStorage.getItem("hideValues"));
@@ -43,7 +43,7 @@ const Indicators = ({ title, indicators, icon, color, secondaryIcon }) => {
             </Typography>
           </Grid>
           <Grid item>
-            <Avatar>{icon}</Avatar>
+            <Avatar style={{ backgroundColor: color }}>{icon}</Avatar>
           </Grid>
         </Grid>
 

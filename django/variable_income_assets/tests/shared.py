@@ -1,4 +1,5 @@
 from decimal import Decimal, ROUND_HALF_UP
+from functools import singledispatch
 
 from config.settings.dynamic import dynamic_settings
 
@@ -87,10 +88,18 @@ def convert_to_percentage_and_quantitize(
     return value.quantize(Decimal(".1") ** decimal_places, rounding=rounding)
 
 
-def convert_to_float_and_quantitize(
+@singledispatch
+def convert_and_quantitize(
     value: Decimal, decimal_places: int = 2, rounding: str = ROUND_HALF_UP
 ) -> float:
     return float(value.quantize(Decimal(".1") ** decimal_places, rounding=rounding))
+
+
+@convert_and_quantitize.register
+def convert_and_quantitize(
+    value: float, decimal_places: int = 2, rounding: str = ROUND_HALF_UP
+) -> float:
+    return float(Decimal(str(value)).quantize(Decimal(".1") ** decimal_places, rounding=rounding))
 
 
 def get_current_price(asset: Asset) -> Decimal:

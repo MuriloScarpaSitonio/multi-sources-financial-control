@@ -61,6 +61,18 @@ const TransactionCurrenciesMapping = [
   { label: "Dólar", value: "USD" },
 ];
 
+const PassiveIncomeTypesMapping = [
+  {label: "Dividendo", value: "DIVIDEND"},
+  {label: "Juros sobre capital próprio", value: "JCP"},
+  {label: "Rendimento", value: "INCOME"}
+]
+
+const PassiveIncomeEventTypesMapping = [
+  { label: "Provisionado", value: "PROVISIONED" },
+  { label: "Creditado", value: "CREDITED" },
+];
+
+
 const AccessTokenStr = "accessToken";
 const RefreshTokenStr = "refreshToken";
 
@@ -75,4 +87,6 @@ export {
   RefreshTokenStr,
   TransactionsActionsMapping,
   TransactionCurrenciesMapping,
+  PassiveIncomeTypesMapping,
+  PassiveIncomeEventTypesMapping
 };

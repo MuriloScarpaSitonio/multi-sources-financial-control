@@ -12,7 +12,7 @@ from config.settings.base import BASE_API_URL
 from config.settings.dynamic import dynamic_settings
 from variable_income_assets.choices import AssetTypes, TransactionActions, TransactionCurrencies
 from variable_income_assets.models import Asset, Transaction
-from variable_income_assets.tests.shared import convert_to_float_and_quantitize
+from variable_income_assets.tests.shared import convert_and_quantitize
 
 pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "transactions"
@@ -32,7 +32,7 @@ def test__create(client, simple_asset):
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
-    assert Transaction.objects.count() == 1
+    assert Transaction.objects.filter(asset=simple_asset).count() == 1
 
 
 @pytest.mark.usefixtures("buy_transaction")
@@ -223,6 +223,8 @@ def test__update(client, buy_transaction):
     # THEN
     assert response.status_code == HTTP_200_OK
     for k, v in data.items():
+        if k == "action":
+            continue
         assert response.json()[k] == v
 
 
@@ -273,10 +275,10 @@ def test_indicators(client):
 
     assert response.status_code == 200
     assert response.json() == {
-        "avg": convert_to_float_and_quantitize(avg),
-        "current_bought": convert_to_float_and_quantitize(current_bought),
-        "current_sold": convert_to_float_and_quantitize(current_sold),
-        "diff_percentage": convert_to_float_and_quantitize(
+        "avg": convert_and_quantitize(avg),
+        "current_bought": convert_and_quantitize(current_bought),
+        "current_sold": convert_and_quantitize(current_sold),
+        "diff_percentage": convert_and_quantitize(
             (((current_bought - current_sold) / avg) - Decimal("1.0")) * Decimal("100.0")
         ),
     }
@@ -315,9 +317,9 @@ def test_historic(client):
         )
 
         result[f"{relative_date.day:02}/{relative_date.month:02}/{relative_date.year}"] = {
-            "total_sold": convert_to_float_and_quantitize(sold * Decimal("-1")),
-            "total_bought": convert_to_float_and_quantitize(bought),
-            "diff": convert_to_float_and_quantitize(bought - sold),
+            "total_sold": convert_and_quantitize(sold * Decimal("-1")),
+            "total_bought": convert_and_quantitize(bought),
+            "diff": convert_and_quantitize(bought - sold),
         }
 
         if relative_date != base_date:
@@ -330,4 +332,4 @@ def test_historic(client):
     for h in response.json()["historic"]:
         assert result[h.pop("month")] == h
 
-    assert response.json()["avg"] == convert_to_float_and_quantitize(summ / 12)
+    assert response.json()["avg"] == convert_and_quantitize(summ / 12)

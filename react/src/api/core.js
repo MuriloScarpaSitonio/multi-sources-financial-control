@@ -113,15 +113,22 @@ export class AssetsApi extends Api {
   }
 }
 
-export class IncomesApi extends Api {
+export class PassiveIncomesApi extends Api {
   resource = "incomes";
   constructor(id = null) {
     super(
-      { query: false, post: false, put: false, patch: false, delete: false },
+      { query: true, post: true, put: true, patch: true, delete: true },
       id
     );
 
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
+    this.historic = () => apiProvider.get(`${this.resource}/historic`);
+    this.assetsAggregationReport = (filters) =>
+      apiProvider.get(
+        `${this.resource}/assets_aggregation_report?${new URLSearchParams(
+          filters
+        ).toString()}`
+      );
   }
 }
 

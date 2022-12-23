@@ -14,6 +14,7 @@ import Assets from "./pages/Assets";
 import Expenses from "./pages/Expenses";
 import Home from "./pages/Home";
 import { Login } from "./pages/Login";
+import PassiveIncomes from "./pages/PassiveIncomes";
 import Revenues from "./pages/Revenues";
 import Transactions from "./pages/Transactions";
 
@@ -85,6 +86,9 @@ export default function App() {
           path="/assets/transactions"
           component={Transactions}
         />
+      </Switch>
+      <Switch>
+        <PrivateRoute exact path="/assets/incomes" component={PassiveIncomes} />
       </Switch>
     </Router>
   );

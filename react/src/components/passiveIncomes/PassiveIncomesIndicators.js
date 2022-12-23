@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 
-import axios from "axios";
-
 import Avatar from "@material-ui/core/Avatar";
 import Box from "@material-ui/core/Box";
 import Card from "@material-ui/core/Card";
@@ -12,12 +10,9 @@ import Typography from "@material-ui/core/Typography";
 
 import Skeleton from "@material-ui/lab/Skeleton";
 
-import AccountBalanceIcon from "@material-ui/icons/AccountBalance";
 import AttachMoneyIcon from "@material-ui/icons/AttachMoney";
-import TrendingUpIcon from "@material-ui/icons/TrendingUp";
-import TrendingDownIcon from "@material-ui/icons/TrendingDown";
 
-import { AssetsApi, PassiveIncomesApi } from "../../api";
+import { PassiveIncomesApi } from "../../api";
 
 const SUCCESS = "rgba(0, 201, 20, 0.5)";
 const DANGER = "rgba(255, 5, 5, 0.5)";
@@ -117,14 +112,8 @@ const Indicators = ({ title, value, icon, color, extraIndicators = <></> }) => {
   );
 };
 
-export const AssetsIndicators = ({ condensed = false }) => {
-  const [assetsIndicators, setAssetsIndicators] = useState({
-    current_total: 0,
-    ROI: 0,
-    ROI_opened: 0,
-    ROI_finished: 0,
-  });
-  const [incomesIndicators, setIncomesIndicators] = useState({
+export const PassiveIncomesIndicators = () => {
+  const [indicators, setIndicators] = useState({
     avg: 0,
     current_credited: 0,
     provisioned_future: 0,
@@ -132,47 +121,24 @@ export const AssetsIndicators = ({ condensed = false }) => {
   });
   const [isLoaded, setIsLoaded] = useState(false);
 
-  function getAssetsExtraIndicators() {
+  function getExtraIndicators() {
     return (
       <ExtraIndicators
-        firstValue={`R$ ${assetsIndicators.ROI_opened?.toLocaleString(
+        firstValue={`R$ ${indicators.provisioned_future?.toLocaleString(
           "pt-br",
           {
             minimumFractionDigits: 2,
           } || 0
         )}`}
-        firstColor={assetsIndicators.ROI_opened > 0 ? SUCCESS : DANGER}
-        firstText={"Posições abertas"}
-        secondValue={`R$ ${assetsIndicators.ROI_finished?.toLocaleString(
-          "pt-br",
-          {
-            minimumFractionDigits: 2,
-          } || 0
-        )}`}
-        secondColor={assetsIndicators.ROI_finished > 0 ? SUCCESS : DANGER}
-        secondText={"Posições finalizadas"}
-      />
-    );
-  }
-
-  function getPassiveIncomesExtraIndicators() {
-    return (
-      <ExtraIndicators
-        firstValue={`R$ ${incomesIndicators.provisioned_future?.toLocaleString(
-          "pt-br",
-          {
-            minimumFractionDigits: 2,
-          } || 0
-        )}`}
-        firstColor={incomesIndicators.provisioned_future ? SUCCESS : null}
+        firstColor={indicators.provisioned_future ? SUCCESS : null}
         firstText={"Provisionados"}
         secondValue={`${
-          incomesIndicators.diff_percentage?.toLocaleString("pt-br", {
+          indicators.diff_percentage?.toLocaleString("pt-br", {
             minimumFractionDigits: 2,
           }) || 0
         }%`}
-        secondColor={incomesIndicators.diff_percentage > 0 ? SUCCESS : DANGER}
-        secondText={`Em relação a média (R$ ${incomesIndicators.avg?.toLocaleString(
+        secondColor={indicators.diff_percentage > 0 ? SUCCESS : DANGER}
+        secondText={`Em relação a média (R$ ${indicators.avg?.toLocaleString(
           "pt-br",
           {
             minimumFractionDigits: 2,
@@ -184,40 +150,15 @@ export const AssetsIndicators = ({ condensed = false }) => {
 
   function fetchData() {
     setIsLoaded(false);
-    let assetsApi = new AssetsApi();
-    let passiveIncomesApi = new PassiveIncomesApi();
-
-    axios
-      .all([assetsApi.indicators(), passiveIncomesApi.indicators()])
-      .then(
-        axios.spread((...responses) => {
-          setAssetsIndicators(responses[0].data);
-          setIncomesIndicators(responses[1].data);
-        })
-      )
+    new PassiveIncomesApi()
+      .indicators()
+      .then((response) => setIndicators(response.data))
       //.catch((err) => setError(err))
       .finally(() => setIsLoaded(true));
   }
 
   useEffect(() => fetchData(), []);
 
-  let roiIndicators = (
-    <Grid item>
-      {isLoaded ? (
-        <Indicators
-          title={"ROI (Lucro/Prejuízo)"}
-          value={assetsIndicators.ROI}
-          icon={
-            assetsIndicators.ROI > 0 ? <TrendingUpIcon /> : <TrendingDownIcon />
-          }
-          color={assetsIndicators.ROI > 0 ? SUCCESS : DANGER}
-          extraIndicators={!condensed ? getAssetsExtraIndicators() : <></>}
-        />
-      ) : (
-        <Skeleton variant="rect" width={340} height={175} />
-      )}
-    </Grid>
-  );
   return (
     <>
       <Container
@@ -228,39 +169,21 @@ export const AssetsIndicators = ({ condensed = false }) => {
           <Grid item>
             {isLoaded ? (
               <Indicators
-                title={"PATRIMÔNIO TOTAL"}
-                value={assetsIndicators.current_total}
-                icon={<AccountBalanceIcon />}
-                color={assetsIndicators.current_total > 0 ? SUCCESS : DANGER}
+                title={"RENDA PASSIVA"}
+                value={indicators.current_credited}
+                icon={<AttachMoneyIcon />}
+                color={
+                  indicators.current_credited > indicators.avg
+                    ? SUCCESS
+                    : DANGER
+                }
+                extraIndicators={getExtraIndicators()}
               />
             ) : (
               <Skeleton variant="rect" width={340} height={175} />
             )}
           </Grid>
-          {condensed && roiIndicators}
         </Grid>
-        {!condensed && (
-          <Grid container justifyContent="center" spacing={3}>
-            {roiIndicators}
-            <Grid item>
-              {isLoaded ? (
-                <Indicators
-                  title={"RENDA PASSIVA"}
-                  value={incomesIndicators.current_credited}
-                  icon={<AttachMoneyIcon />}
-                  color={
-                    incomesIndicators.current_credited > incomesIndicators.avg
-                      ? SUCCESS
-                      : DANGER
-                  }
-                  extraIndicators={getPassiveIncomesExtraIndicators()}
-                />
-              ) : (
-                <Skeleton variant="rect" width={340} height={175} />
-              )}
-            </Grid>
-          </Grid>
-        )}
       </Container>
     </>
   );

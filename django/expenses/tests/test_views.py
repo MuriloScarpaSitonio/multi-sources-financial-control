@@ -425,6 +425,7 @@ def test_should_create_expense_if_installments_none_and_is_fixed(client):
 from dateutil.relativedelta import relativedelta
 
 
+@pytest.mark.skip("Skip while endpoint is not live")
 @pytest.mark.usefixtures("expenses")
 def test_should_create_fixed_expenses_from_last_month(client, user):
     # GIVEN

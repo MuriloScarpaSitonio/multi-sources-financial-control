@@ -26,12 +26,15 @@ import PlusOneIcon from "@material-ui/icons/PlusOne";
 
 import { FormFeedback } from "../FormFeedback";
 import { Loader } from "../Loaders";
-import { TransactionsApi } from "../../api";
+import { PassiveIncomesApi } from "../../api";
 import { getChoiceByLabel } from "../../helpers";
-import { TransactionsActionsMapping } from "../../consts";
-import { TransactionForm } from "../../forms/TransactionForm";
+import {
+  PassiveIncomeEventTypesMapping,
+  PassiveIncomeTypesMapping,
+} from "../../consts";
+import { PassiveIncomeForm } from "../../forms/PassiveIncomeForm";
 
-const TransactionCreateEditDialog = ({
+const PassiveIncomeCreateEditDialog = ({
   data,
   open,
   onClose,
@@ -42,15 +45,15 @@ const TransactionCreateEditDialog = ({
     <Dialog
       open={open}
       onClose={onClose}
-      aria-labelledby="transaction-form-dialog-title"
+      aria-labelledby="passive-income-form-dialog-title"
     >
-      <DialogTitle id="transaction-form-dialog-title">
+      <DialogTitle id="passive-income-form-dialog-title">
         {data && Object.keys(data).length > 0
-          ? "Editar transação"
-          : "Criar transação"}
+          ? "Editar rendimento passivo"
+          : "Criar rendimento passivo"}
       </DialogTitle>
       <DialogContent>
-        <TransactionForm
+        <PassiveIncomeForm
           initialData={data}
           handleClose={onClose}
           showSuccessFeedbackForm={showSuccessFeedbackForm}
@@ -61,7 +64,7 @@ const TransactionCreateEditDialog = ({
   );
 };
 
-const TransactionDeleteDialog = ({
+const PassiveIncomeDeleteDialog = ({
   id,
   open,
   onClose,
@@ -73,11 +76,11 @@ const TransactionDeleteDialog = ({
   const [alertInfos, setAlertInfos] = useState({});
 
   const handleClick = () => {
-    let api = new TransactionsApi(id);
+    let api = new PassiveIncomesApi(id);
     api
       .delete()
       .then(() => {
-        showSuccessFeedbackForm("Transação deletada com sucesso!");
+        showSuccessFeedbackForm("rendimento passivo deletado com sucesso!");
         reloadTable();
         onClose();
       })
@@ -97,10 +100,10 @@ const TransactionDeleteDialog = ({
       <Dialog
         open={open}
         onClose={onClose}
-        aria-labelledby="transaction-delete-form-dialog-title"
+        aria-labelledby="passive-income-delete-form-dialog-title"
       >
-        <DialogTitle id="transaction-delete-form-dialog-title">
-          Tem certeza que deseja deletar essa transação?
+        <DialogTitle id="passive-income-delete-form-dialog-title">
+          Tem certeza que deseja deletar esse rendimento passivo?
         </DialogTitle>
         <DialogContent>
           <DialogActions>
@@ -121,7 +124,7 @@ const TransactionDeleteDialog = ({
   );
 };
 
-export const TransactionsTable = () => {
+export const PassiveIncomesTable = () => {
   const [pageSize, setPageSize] = useState(5);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
@@ -131,21 +134,24 @@ export const TransactionsTable = () => {
     asset_code: "",
   });
 
-  const [transactionEditData, setTransactionEditData] = useState({});
+  const [passiveIncomeEditData, setPassiveIncomeEditData] = useState({});
   const [
-    editCreateTransactionDialogIsOpened,
-    setEditCreateTransactionDialogIsOpened,
+    editCreatePassiveIncomeDialogIsOpened,
+    setEditCreatePassiveIncomeDialogIsOpened,
   ] = useState(false);
-  const [deleteTransactionDialogIsOpened, setDeleteTransactionDialogIsOpened] =
-    useState(false);
-  const [transactionIdToDelete, setTransactionIdToDelete] = useState(null);
+  const [
+    deletePassiveIncomeDialogIsOpened,
+    setDeletePassiveIncomeDialogIsOpened,
+  ] = useState(false);
+  const [passiveIncomeIdToDelete, setPassiveIncomeIdToDelete] = useState(null);
 
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
 
   function getAdjustedFilters() {
     let multipleChoiceFilters = {
-      action: filters.action || [],
+      type: filters.type || [],
+      event_type: filters.event_type || [],
     };
     let _filters = new URLSearchParams({
       page: filters.page,
@@ -160,11 +166,11 @@ export const TransactionsTable = () => {
     Object.entries(multipleChoiceFilters).forEach(([key, value]) =>
       value.map((v) => _filters.append(key, v))
     );
-
+    console.log(_filters.toString());
     return _filters.toString();
   }
 
-  const [data, isLoaded] = new TransactionsApi().query(getAdjustedFilters());
+  const [data, isLoaded] = new PassiveIncomesApi().query(getAdjustedFilters());
 
   let options = {
     rowsPerPage: pageSize,
@@ -179,7 +185,10 @@ export const TransactionsTable = () => {
     pagination: true,
     sort: true,
     textLabels: {
-      body: { noMatch: "Nenhuma transação encontrada", toolTip: "Ordenar" },
+      body: {
+        noMatch: "Nenhum rendimento passivo encontrado",
+        toolTip: "Ordenar",
+      },
       toolbar: {
         search: "Pesquisar",
         viewColumns: "Selecionar colunas",
@@ -188,7 +197,7 @@ export const TransactionsTable = () => {
       pagination: {
         next: "Próxima página",
         previous: "Página anterior",
-        rowsPerPage: "Transações por página",
+        rowsPerPage: "Rendimentos passivos por página",
         displayRows: "de",
       },
     },
@@ -206,16 +215,20 @@ export const TransactionsTable = () => {
       });
     },
     onFilterChange: (column, filterList, __, changedColumnIndex) => {
-      if (column === "created_at") return;
+      if (column === "operation_date") return;
       let _filters = filterList[changedColumnIndex].map(
-        (f) => getChoiceByLabel(f, TransactionsActionsMapping).value
+        (f) =>
+          getChoiceByLabel(f, [
+            ...PassiveIncomeEventTypesMapping,
+            ...PassiveIncomeTypesMapping,
+          ]).value
       );
       setFilters({ ...filters, [column]: _filters, page: 1 });
     },
     customToolbar: () => {
       return (
         <>
-          <Tooltip title="Adicionar transação">
+          <Tooltip title="Adicionar rendimento passivo">
             <IconButton onClick={() => handleCreateEdit({})}>
               <PlusOneIcon />
             </IconButton>
@@ -243,48 +256,48 @@ export const TransactionsTable = () => {
       },
     },
     {
-      name: "action",
-      label: "Ação",
+      name: "type",
+      label: "Tipo",
       options: {
         filter: true,
         sort: false,
         filterOptions: {
-          names: ["Compra", "Venda"],
+          names: ["Dividendo", "Juros sobre capital próprio", "Rendimento"],
         },
         customFilterListOptions: {
-          render: (v) => `Ação: ${v}`,
+          render: (v) => `Tipo: ${v}`,
         },
       },
     },
     {
-      name: "price",
-      label: "Preço",
+      name: "amount",
+      label: "Valor líquido",
       options: {
         filter: false,
+        sort: true,
+        customBodyRender: (v) =>
+          `R$ ${v?.toLocaleString("pt-br", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
+          })}`,
+      },
+    },
+    {
+      name: "event_type",
+      label: "Evento",
+      options: {
+        filter: true,
         sort: false,
-        customBodyRender: (v, tableMeta) => {
-          let [currency] = tableMeta.rowData.slice(-2, -1);
-          return `${currency === "BRL" ? "R$" : "$"} ${v?.toLocaleString(
-            "pt-br",
-            {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 4,
-            }
-          )}`;
+        filterOptions: {
+          names: ["Provisionado", "Creditado"],
+        },
+        customFilterListOptions: {
+          render: (v) => `Evento: ${v}`,
         },
       },
     },
     {
-      name: "quantity",
-      label: "Quantidade",
-      options: {
-        filter: false,
-        sort: false,
-        customBodyRender: (v) => v?.toLocaleString("pt-br"),
-      },
-    },
-    {
-      name: "created_at",
+      name: "operation_date",
       label: "Quando",
       options: {
         filter: true,
@@ -364,15 +377,6 @@ export const TransactionsTable = () => {
       },
     },
     {
-      name: "currency",
-      label: "",
-      options: {
-        display: false,
-        filter: false,
-        viewColumns: false,
-      },
-    },
-    {
       name: "",
       options: {
         filter: false,
@@ -382,7 +386,7 @@ export const TransactionsTable = () => {
         customBodyRender: (_, tableMeta) => {
           return (
             <>
-              <Tooltip title="Deletar transação">
+              <Tooltip title="Deletar rendimento passivo">
                 <IconButton
                   onClick={() => {
                     handleDelete(tableMeta.rowData[0]);
@@ -391,7 +395,7 @@ export const TransactionsTable = () => {
                   <DeleteIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-              <Tooltip title="Editar transação">
+              <Tooltip title="Editar rendimento passivo">
                 <IconButton onClick={() => handleCreateEdit(tableMeta.rowData)}>
                   <EditIcon fontSize="small" />
                 </IconButton>
@@ -403,26 +407,25 @@ export const TransactionsTable = () => {
     },
   ];
 
-  const handleCreateEdit = (transactionData) => {
-    if (transactionData && Object.keys(transactionData).length > 0) {
-      let [id, asset_code, action, price, quantity, created_at, currency] =
-        transactionData;
-      setTransactionEditData({
+  const handleCreateEdit = (passiveIncomeData) => {
+    if (passiveIncomeData && Object.keys(passiveIncomeData).length > 0) {
+      let [id, asset_code, type, amount, event_type, operation_date] =
+        passiveIncomeData;
+      setPassiveIncomeEditData({
         id,
         asset_code,
-        action,
-        price,
-        quantity,
-        created_at,
-        currency,
+        type,
+        amount,
+        event_type,
+        operation_date,
       });
     }
-    setEditCreateTransactionDialogIsOpened(true);
+    setEditCreatePassiveIncomeDialogIsOpened(true);
   };
 
   const handleDelete = (id) => {
-    setTransactionIdToDelete(id);
-    setDeleteTransactionDialogIsOpened(true);
+    setPassiveIncomeIdToDelete(id);
+    setDeletePassiveIncomeDialogIsOpened(true);
   };
 
   const showSuccessFeedbackForm = (message) => {
@@ -447,21 +450,21 @@ export const TransactionsTable = () => {
     >
       {!isLoaded && <Loader />}
       <MUIDataTable data={data.results} columns={columns} options={options} />
-      <TransactionCreateEditDialog
-        data={transactionEditData}
-        open={editCreateTransactionDialogIsOpened}
+      <PassiveIncomeCreateEditDialog
+        data={passiveIncomeEditData}
+        open={editCreatePassiveIncomeDialogIsOpened}
         onClose={() => {
-          setEditCreateTransactionDialogIsOpened(false);
-          setTransactionEditData({});
+          setEditCreatePassiveIncomeDialogIsOpened(false);
+          setPassiveIncomeEditData({});
         }}
         showSuccessFeedbackForm={showSuccessFeedbackForm}
         reloadTable={reload}
       />
 
-      <TransactionDeleteDialog
-        id={transactionIdToDelete}
-        open={deleteTransactionDialogIsOpened}
-        onClose={() => setDeleteTransactionDialogIsOpened(false)}
+      <PassiveIncomeDeleteDialog
+        id={passiveIncomeIdToDelete}
+        open={deletePassiveIncomeDialogIsOpened}
+        onClose={() => setDeletePassiveIncomeDialogIsOpened(false)}
         showSuccessFeedbackForm={showSuccessFeedbackForm}
         reloadTable={reload}
       />

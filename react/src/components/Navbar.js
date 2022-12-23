@@ -260,12 +260,14 @@ const AssetsMenu = () => {
               <ListItemText primary="Transações" />
             </MenuItem>
           </Link>
-          <MenuItem>
-            <ListItemIcon>
-              <ReceiptIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText primary="Rendimentos" />
-          </MenuItem>
+          <Link href="/assets/incomes" color="inherit" underline="none">
+            <MenuItem>
+              <ListItemIcon>
+                <ReceiptIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText primary="Rendimentos" />
+            </MenuItem>
+          </Link>
           <Divider />
           <MenuItem
             onClick={() => setOpenIntegrationsMenu(!openIntegrationsMenu)}

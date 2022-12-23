@@ -189,7 +189,10 @@ async def fetch_prices(
         get_usa_stocks_prices(codes=usa_stocks_codes),
     ]
     return {
-        code: price for result in await asyncio.gather(*tasks) for code, price in result.items()
+        code: price
+        for result in await asyncio.gather(*tasks, return_exceptions=True)
+        if not isinstance(result, Exception)
+        for code, price in result.items()
     }
 
 

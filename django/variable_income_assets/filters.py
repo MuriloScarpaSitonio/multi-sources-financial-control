@@ -5,15 +5,8 @@ from django.core.exceptions import ValidationError
 
 import django_filters as filters
 
-from .choices import (
-    AssetObjectives,
-    AssetSectors,
-    AssetTypes,
-    AssetsTotalInvestedReportAggregations,
-    TransactionActions,
-    TransactionCurrencies,
-)
-from .models import Asset, Transaction
+from .choices import AssetsTotalInvestedReportAggregations
+from .models import Asset, PassiveIncome, Transaction
 
 
 class AssetFilterSet(filters.FilterSet):
@@ -130,3 +123,25 @@ class TransactionFilterSet(filters.FilterSet):
     class Meta:
         model = Transaction
         fields = ("action",)
+
+
+class PassiveIncomeFilterSet(filters.FilterSet):
+    asset_code = filters.CharFilter(field_name="asset__code", lookup_expr="icontains")
+    start_date = filters.DateFilter(field_name="operation_date", lookup_expr="gte")
+    end_date = filters.DateFilter(field_name="operation_date", lookup_expr="lte")
+
+    class Meta:
+        model = PassiveIncome
+        fields = ("type", "event_type")
+
+
+class PassiveIncomeAssetsAgreggationReportFilterSet(filters.FilterSet):
+    all = filters.BooleanFilter()
+
+    @property
+    def qs(self):
+        if self.is_valid():
+            return (
+                self.queryset if self.form.cleaned_data["all"] else self.queryset.since_a_year_ago()
+            )
+        raise filters.utils.translate_validation(error_dict=self.errors)

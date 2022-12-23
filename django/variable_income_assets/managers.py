@@ -309,22 +309,35 @@ class TransactionQuerySet(QuerySet):
         )
 
 
-class _PassiveIncomeFilters(GenericFilters):
-    def __init__(self) -> None:
-        super().__init__(date_field_name="operation_date")
-
-    @property
-    def past(self) -> Q:
-        return Q(operation_date__lt=self.base_date)
-
-
 class PassiveIncomeQuerySet(CustomQueryset, MonthlyFilterMixin):
     date_field_name = "operation_date"
-    filters = _PassiveIncomeFilters()
+    filters = GenericFilters(date_field_name="operation_date")
 
     @staticmethod
     def get_sum_expression() -> Dict[str, Sum]:
         return {"total": coalesce_sum_expression("amount")}
+
+    @property
+    def _monthly_avg_expression(self) -> CombinedExpression:
+        return coalesce_sum_expression(
+            "amount",
+            filter=(
+                Q(event_type=PassiveIncomeEventTypes.credited)
+                & self.filters.since_a_year_ago
+                & ~self.filters.current
+            ),
+        ) / (
+            Count(
+                Concat("operation_date__month", "operation_date__year", output_field=CharField()),
+                filter=(
+                    Q(event_type=PassiveIncomeEventTypes.credited)
+                    & self.filters.since_a_year_ago
+                    & ~self.filters.current
+                ),
+                distinct=True,
+            )
+            * Decimal("1.0")
+        )
 
     def credited(self) -> PassiveIncomeQuerySet:
         return self.filter(event_type=PassiveIncomeEventTypes.credited)
@@ -335,8 +348,8 @@ class PassiveIncomeQuerySet(CustomQueryset, MonthlyFilterMixin):
     def future(self) -> PassiveIncomeQuerySet:
         return self.filter(self.filters.future)
 
-    def past(self) -> PassiveIncomeQuerySet:
-        return self.filter(self.filters.past)
+    def since_a_year_ago(self) -> PassiveIncomeQuerySet:
+        return self.filter(self.filters.since_a_year_ago)
 
     def indicators(self, fixed_avg_denominator: bool) -> Dict[str, Decimal]:
         """
@@ -384,3 +397,14 @@ class PassiveIncomeQuerySet(CustomQueryset, MonthlyFilterMixin):
             )
             / avg_denominator,
         )
+
+    def monthly_avg(self) -> Dict[str, Decimal]:
+        return self.aggregate(avg=self._monthly_avg_expression)
+
+    def trunc_months(self) -> PassiveIncomeQuerySet:
+        return self.annotate(month=TruncMonth("operation_date")).values("month").annotate_sum()
+
+    def assets_aggregation(self, provisioned: bool = False) -> PassiveIncomeQuerySet:
+        """Returns the 10 assets that paid more incomes"""
+        qs = self.provisioned() if provisioned else self.credited()
+        return qs.annotate(code=F("asset__code")).aggregate_field("code")[:10]

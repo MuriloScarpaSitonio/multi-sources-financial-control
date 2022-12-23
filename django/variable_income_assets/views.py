@@ -16,16 +16,10 @@ from rest_framework.status import HTTP_200_OK
 from rest_framework.utils.serializer_helpers import ReturnList
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
+from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
 from tasks.decorators import celery_task_endpoint, start_celery_task
 
-from . import choices, serializers
-from .filters import (
-    AssetFilterSet,
-    AssetFetchCurrentPriceFilterSet,
-    AssetRoiReportFilterSet,
-    AssetTotalInvestedReportFilterSet,
-    TransactionFilterSet,
-)
+from . import choices, filters, serializers
 from .managers import AssetQuerySet, PassiveIncomeQuerySet, TransactionQuerySet
 from .models import Asset, PassiveIncome, Transaction
 from .permissions import AssetsPricesPermission, BinancePermission, CeiPermission, KuCoinPermission
@@ -40,7 +34,7 @@ from .tasks import (
 
 class AssetViewSet(GenericViewSet, ListModelMixin):
     serializer_class = serializers.AssetListSerializer
-    filterset_class = AssetFilterSet
+    filterset_class = filters.AssetFilterSet
     lookup_field = "code"
     ordering_fields = ("code", "type", "total_invested", "roi", "roi_percentage")
 
@@ -77,7 +71,7 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
         return getattr(module, choice.serializer_name)
 
     def _get_total_invested_report_data(
-        self, filterset: AssetTotalInvestedReportFilterSet
+        self, filterset: filters.AssetTotalInvestedReportFilterSet
     ) -> ReturnList:
         qs = filterset.qs
         choice = choices.AssetsTotalInvestedReportAggregations.get_choice(
@@ -89,7 +83,7 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
 
     @action(methods=("GET",), detail=False)
     def total_invested_report(self, request: Request) -> Response:
-        filterset = AssetTotalInvestedReportFilterSet(
+        filterset = filters.AssetTotalInvestedReportFilterSet(
             data=request.GET, queryset=self.get_queryset()
         )
         return Response(
@@ -98,7 +92,7 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
 
     @action(methods=("GET",), detail=False)
     def roi_report(self, request: Request) -> Response:
-        filterset = AssetRoiReportFilterSet(data=request.GET, queryset=self.get_queryset())
+        filterset = filters.AssetRoiReportFilterSet(data=request.GET, queryset=self.get_queryset())
         serializer = serializers.AssetTypeReportSerializer(filterset.qs, many=True)
         return Response(serializer.data, status=HTTP_200_OK)
 
@@ -125,7 +119,7 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
     @action(methods=("GET",), detail=False, permission_classes=(AssetsPricesPermission,))
     @celery_task_endpoint(task_name="fetch_current_assets_prices")
     def fetch_current_prices(self, request: Request, task_id: str) -> Response:
-        filterset = AssetFetchCurrentPriceFilterSet(
+        filterset = filters.AssetFetchCurrentPriceFilterSet(
             data=request.GET, queryset=self.get_queryset().opened()
         )
         fetch_current_assets_prices.apply_async(
@@ -211,6 +205,8 @@ class AssetTransactionViewSet(GenericViewSet):
 
 class PassiveIncomeViewSet(ModelViewSet):
     serializer_class = serializers.PassiveIncomeSerializer
+    filterset_class = filters.PassiveIncomeFilterSet
+    ordering_fields = ("operation_date", "amount", "asset__code")
 
     def get_queryset(self) -> PassiveIncomeQuerySet[PassiveIncome]:
         return (
@@ -241,10 +237,33 @@ class PassiveIncomeViewSet(ModelViewSet):
         )
         return Response(serializer.data, status=HTTP_200_OK)
 
+    @action(methods=("GET",), detail=False)
+    def historic(self, _: Request) -> Response:
+        qs = self.get_queryset().since_a_year_ago()
+        historic = list(qs.trunc_months().order_by("month"))
+        serializer = serializers.PassiveIncomeHistoricSerializer(
+            {
+                "historic": insert_zeros_if_no_data_in_monthly_historic_data(historic=historic),
+                **qs.monthly_avg(),
+            }
+        )
+
+        return Response(serializer.data, status=HTTP_200_OK)
+
+    @action(methods=("GET",), detail=False)
+    def assets_aggregation_report(self, request: Request) -> Response:
+        filterset = filters.PassiveIncomeAssetsAgreggationReportFilterSet(
+            data=request.GET, queryset=self.get_queryset()
+        )
+        serializer = serializers.PassiveIncomeAssetsAggregationSerializer(
+            filterset.qs.assets_aggregation(), many=True
+        )
+        return Response(serializer.data, status=HTTP_200_OK)
+
 
 class TransactionViewSet(ModelViewSet):
     serializer_class = serializers.TransactionListSerializer
-    filterset_class = TransactionFilterSet
+    filterset_class = filters.TransactionFilterSet
     ordering_fields = ("created_at", "asset__code")
 
     def get_queryset(self) -> TransactionQuerySet[Transaction]:
@@ -267,9 +286,13 @@ class TransactionViewSet(ModelViewSet):
     @action(methods=("GET",), detail=False)
     def historic(self, _: Request) -> Response:
         qs = self.get_queryset()
-        return Response(
-            serializers.TransactionHistoricSerializer(
-                {"historic": qs.historic(), "avg": qs.monthly_avg()["avg"]}
-            ).data,
-            status=HTTP_200_OK,
+        serializer = serializers.TransactionHistoricSerializer(
+            {
+                "historic": insert_zeros_if_no_data_in_monthly_historic_data(
+                    historic=list(qs.historic()),
+                    total_fields=("total_bought", "total_sold", "diff"),
+                ),
+                **qs.monthly_avg(),
+            }
         )
+        return Response(serializer.data, status=HTTP_200_OK)

@@ -13,6 +13,8 @@ from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.utils.serializer_helpers import ReturnList
 
+from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
+
 from .choices import ExpenseReportType
 from .filters import ExpenseFilterSet, ExpenseHistoricFilterSet, ExpenseReportFilterSet
 from .managers import ExpenseQueryset
@@ -59,7 +61,12 @@ class ExpenseViewSet(ModelViewSet):
     def historic(self, request: Request) -> Response:
         qs = ExpenseHistoricFilterSet(data=request.GET, queryset=self.get_queryset()).qs
         serializer = ExpenseHistoricResponseSerializer(
-            {"historic": qs.trunc_months().order_by("month"), **qs.monthly_avg()}
+            {
+                "historic": insert_zeros_if_no_data_in_monthly_historic_data(
+                    historic=list(qs.trunc_months().order_by("month"))
+                ),
+                **qs.monthly_avg(),
+            }
         )
         return Response(serializer.data, status=HTTP_200_OK)
 
@@ -75,12 +82,13 @@ class ExpenseViewSet(ModelViewSet):
 
     @action(methods=("POST",), detail=False)
     def fixed_from_last_month(self, _: Request) -> Response:
-        expenses = self._get_fixed_expenses_from_queryset()
+        # expenses = self._get_fixed_expenses_from_queryset()
 
-        data = Expense.objects.bulk_create(objs=expenses)
-        serializer = self.get_serializer(data=data, many=True)
-        serializer.is_valid()
-        return Response(serializer.data, status=HTTP_201_CREATED)
+        # data = Expense.objects.bulk_create(objs=expenses)
+        # serializer = self.get_serializer(data=data, many=True)
+        # serializer.is_valid()
+        # return Response(serializer.data, status=HTTP_201_CREATED)
+        return Response(status=HTTP_201_CREATED)
 
     def _get_fixed_expenses_from_queryset(self) -> List[Expense]:
         today = timezone.now().date()

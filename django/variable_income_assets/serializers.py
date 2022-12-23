@@ -1,4 +1,5 @@
 from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_UP, DecimalException
+from typing import Union
 
 from django.db.transaction import atomic
 
@@ -52,7 +53,35 @@ class TransactionSerializer(serializers.ModelSerializer):
         }
 
 
-class TransactionListSerializer(TransactionSerializer):
+class NestedAssetCreationMixin:
+    @staticmethod
+    def _get_or_create_asset(validated_data: dict):
+        asset_data = validated_data.pop("asset")
+        asset, created = Asset.objects.get_or_create(
+            user=validated_data.pop("user"),
+            **asset_data,
+        )
+
+        if created and asset_data.get("type") is None:
+            raise serializers.ValidationError(
+                detail={"asset.type": "If the asset does not exist, `type` is required"}
+            )
+        return asset, created
+
+    def update(
+        self, instance: Union[Transaction, PassiveIncome], validated_data: dict
+    ) -> Union[Transaction, PassiveIncome]:
+        with atomic():
+            asset, _ = Asset.objects.get_or_create(
+                user=validated_data.pop("user"),
+                **validated_data.pop("asset"),
+            )
+            validated_data.update(asset=asset)
+            return super().update(instance, validated_data)
+
+
+class TransactionListSerializer(NestedAssetCreationMixin, TransactionSerializer):
+    action = CustomChoiceField(choices=TransactionActions.choices)
     asset_code = serializers.CharField(source="asset.code")
     asset_type = serializers.ChoiceField(
         source="asset.type",
@@ -66,18 +95,9 @@ class TransactionListSerializer(TransactionSerializer):
         fields = TransactionSerializer.Meta.fields + ("asset_code", "asset_type")
 
     def create(self, validated_data: dict) -> Transaction:
-        asset_data = validated_data.pop("asset")
         is_sell_transaction = validated_data["action"] == TransactionActions.sell
         with atomic():
-            asset, created = Asset.objects.get_or_create(
-                user=validated_data.pop("user"),
-                **asset_data,
-            )
-
-            if created and asset_data.get("type") is None:
-                raise serializers.ValidationError(
-                    detail={"asset.type": "If the asset does not exist, `type` is required"}
-                )
+            asset, _ = self._get_or_create_asset(validated_data=validated_data)
 
             if is_sell_transaction:
                 if validated_data["quantity"] > asset.quantity_from_transactions:
@@ -102,23 +122,22 @@ class TransactionListSerializer(TransactionSerializer):
             validated_data.update(asset=asset)
             return super().create(validated_data=validated_data)
 
-    def update(self, instance: Transaction, validated_data: dict) -> Transaction:
-        with atomic():
-            asset, _ = Asset.objects.get_or_create(
-                user=validated_data.pop("user"),
-                **validated_data.pop("asset"),
-            )
-            validated_data.update(asset=asset)
-            return super().update(instance, validated_data)
 
-
-class PassiveIncomeSerializer(serializers.ModelSerializer):
+class PassiveIncomeSerializer(NestedAssetCreationMixin, serializers.ModelSerializer):
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    asset_code = serializers.CharField(source="asset.code")
     type = CustomChoiceField(choices=PassiveIncomeTypes.choices)
     event_type = CustomChoiceField(choices=PassiveIncomeEventTypes.choices)
 
     class Meta:
         model = PassiveIncome
-        fields = ("type", "event_type", "operation_date", "amount")
+        fields = ("id", "asset_code", "type", "event_type", "operation_date", "amount", "user")
+
+    def create(self, validated_data: dict) -> PassiveIncome:
+        with atomic():
+            asset, _ = self._get_or_create_asset(validated_data=validated_data)
+            validated_data.update(asset=asset)
+            return super().create(validated_data=validated_data)
 
 
 class AssetSerializer(serializers.ModelSerializer):
@@ -321,3 +340,20 @@ class AssetTotalInvestedBySectorReportSerializer(_AssetReportSerializer):
 
 class AssetTotalInvestedByObjectiveReportSerializer(_AssetReportSerializer):
     objective = CustomChoiceField(choices=AssetObjectives.choices)
+
+
+class _PassiveIncomeHistoricSerializer(serializers.Serializer):
+    total = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
+    month = serializers.DateField(format="%d/%m/%Y")
+
+
+class PassiveIncomeHistoricSerializer(serializers.Serializer):
+    historic = _PassiveIncomeHistoricSerializer(many=True)
+    avg = serializers.DecimalField(
+        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+    )
+
+
+class PassiveIncomeAssetsAggregationSerializer(serializers.Serializer):
+    code = serializers.CharField()
+    total = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)

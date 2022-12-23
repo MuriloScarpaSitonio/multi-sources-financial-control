@@ -65,6 +65,26 @@ def another_asset(user):
 
 
 @pytest.fixture
+def assets_w_incomes(user):
+    for i in range(10):
+        asset = AssetFactory(
+            code=str(i),
+            type=AssetTypes.stock,
+            sector=AssetSectors.utilities,
+            objective=AssetObjectives.dividend,
+            user=user,
+        )
+
+        PassiveIncomeFactory(
+            type=PassiveIncomeTypes.dividend,
+            amount=1,
+            event_type=PassiveIncomeEventTypes.credited,
+            asset=asset,
+            operation_date=timezone.now().date() - relativedelta(months=i * 2),
+        )
+
+
+@pytest.fixture
 def crypto_asset(user):
     return AssetFactory(
         code="QRDO",
@@ -222,6 +242,17 @@ def simple_income(simple_asset):
         amount=200,
         event_type=PassiveIncomeEventTypes.credited,
         asset=simple_asset,
+        operation_date=timezone.now().date(),
+    )
+
+
+@pytest.fixture
+def another_income(another_asset):
+    return PassiveIncomeFactory(
+        type=PassiveIncomeTypes.dividend,
+        amount=200,
+        event_type=PassiveIncomeEventTypes.credited,
+        asset=another_asset,
         operation_date=timezone.now().date(),
     )
 
