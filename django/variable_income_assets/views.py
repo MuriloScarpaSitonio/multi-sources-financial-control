@@ -16,6 +16,8 @@ from rest_framework.status import HTTP_200_OK
 from rest_framework.utils.serializer_helpers import ReturnList
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
+
 from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
 from tasks.decorators import celery_task_endpoint, start_celery_task
 
@@ -39,18 +41,20 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
     ordering_fields = ("code", "type", "total_invested", "roi", "roi_percentage")
 
     def get_queryset(self) -> AssetQuerySet[Asset]:
-        qs = self.request.user.assets.all()
+        if self.request.user.is_authenticated:
+            qs = self.request.user.assets.all()
 
-        return (
-            (
-                qs.prefetch_related("transactions", "incomes")
-                .opened()
-                .annotate_for_serializer()
-                .order_by("-total_invested")
+            return (
+                (
+                    qs.prefetch_related("transactions", "incomes")
+                    .opened()
+                    .annotate_for_serializer()
+                    .order_by("-total_invested")
+                )
+                if self.action == "list"
+                else qs
             )
-            if self.action == "list"
-            else qs
-        )
+        return Asset.objects.none()  # drf-spectacular
 
     def get_serializer_context(self):
         return {
@@ -96,13 +100,15 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
         serializer = serializers.AssetTypeReportSerializer(filterset.qs, many=True)
         return Response(serializer.data, status=HTTP_200_OK)
 
+    @extend_schema(deprecated=True)
     @action(methods=("GET",), detail=False, permission_classes=(CeiPermission,))
-    @celery_task_endpoint(task=sync_cei_transactions_task)
+    @celery_task_endpoint(task=sync_cei_transactions_task, deprecated=True)
     def sync_cei_transactions(self, _: Request, task_id: str) -> Response:
         return Response({"task_id": task_id}, status=HTTP_200_OK)
 
+    @extend_schema(deprecated=True)
     @action(methods=("GET",), detail=False, permission_classes=(CeiPermission,))
-    @celery_task_endpoint(task=sync_cei_passive_incomes_task)
+    @celery_task_endpoint(task=sync_cei_passive_incomes_task, deprecated=True)
     def sync_cei_passive_incomes(self, _: Request, task_id: str) -> Response:
         return Response({"task_id": task_id}, status=HTTP_200_OK)
 
@@ -169,9 +175,16 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
 
 
 class AssetTransactionViewSet(GenericViewSet):
+    serializer_class = serializers.AssetTransactionSimulateEndpointSerializer  # drf-spectacular
+
     def get_related_queryset(self) -> AssetQuerySet[Asset]:
         return self.request.user.assets.all()
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="code", type=OpenApiTypes.STR, location=OpenApiParameter.PATH)
+        ],
+    )
     @action(methods=("POST",), detail=False)
     def simulate(self, request: Request, code: str) -> Response:
         asset = get_object_or_404(self.get_related_queryset(), code=code)
@@ -267,8 +280,10 @@ class TransactionViewSet(ModelViewSet):
     ordering_fields = ("created_at", "asset__code")
 
     def get_queryset(self) -> TransactionQuerySet[Transaction]:
-        qs = Transaction.objects.filter(asset__user=self.request.user)
-        return qs if self.action == "list" else qs.since_a_year_ago()
+        if self.request.user.is_authenticated:
+            qs = Transaction.objects.filter(asset__user=self.request.user)
+            return qs if self.action == "list" else qs.since_a_year_ago()
+        return Transaction.objects.none()  # drf-spectacular
 
     @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:

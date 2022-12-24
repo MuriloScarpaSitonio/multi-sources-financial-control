@@ -47,6 +47,7 @@ def get_db() -> Iterator[Session]:
     path="/cei/transactions",
     response_model=List[CeiTransaction],
     responses={status.HTTP_404_NOT_FOUND: {"model": NotFoundResponse}},
+    deprecated=True,
 )
 async def fetch_cei_transactions(
     username: str,
@@ -63,6 +64,7 @@ async def fetch_cei_transactions(
     path="/cei/passive_incomes",
     response_model=List[PassiveIncome],
     responses={status.HTTP_404_NOT_FOUND: {"model": NotFoundResponse}},
+    deprecated=True,
 )
 async def fetch_passive_incomes(
     username: str, date: Optional[date_typing] = None, db: Session = Depends(get_db)
@@ -87,6 +89,7 @@ async def fetch_kucoin_transactions(username: str, db: Session = Depends(get_db)
     path="/kucoin/prices",
     response_model=AssetCurrentPrice,
     responses={status.HTTP_404_NOT_FOUND: {"model": NotFoundResponse}},
+    deprecated=True,
 )
 async def fetch_kucoin_prices(
     username: str, codes: List[str] = Query(...), db: Session = Depends(get_db)
@@ -96,7 +99,7 @@ async def fetch_kucoin_prices(
         return await client.get_prices(codes=codes)
 
 
-@app.get(path="/b3/prices", response_model=AssetCurrentPrice)
+@app.get(path="/b3/prices", response_model=AssetCurrentPrice, deprecated=True)
 async def fetch_b3_current_prices(codes: List[str] = Query(...)):
     async with BrApiClient() as client:
         return await client.get_b3_prices(codes=codes)
@@ -112,6 +115,7 @@ async def get_crypto_prices(codes: List[str] = Query(...), currency: str = Query
     path="/binance/prices",
     response_model=AssetCurrentPrice,
     responses={status.HTTP_404_NOT_FOUND: {"model": NotFoundResponse}},
+    deprecated=True,
 )
 async def fetch_binance_prices(
     username: str, codes: List[str] = Query(...), db: Session = Depends(get_db)

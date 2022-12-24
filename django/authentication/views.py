@@ -8,6 +8,8 @@ from rest_framework.request import Request
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet
 
+from drf_spectacular.utils import extend_schema, extend_schema_view
+
 import requests
 
 from .models import CustomUser
@@ -24,6 +26,13 @@ class UserViewSet(
     queryset = CustomUser.objects.all()
 
 
+@extend_schema_view(
+    get=extend_schema(exclude=True),
+    post=extend_schema(exclude=True),
+    put=extend_schema(exclude=True),
+    patch=extend_schema(exclude=True),
+    delete=extend_schema(exclude=True),
+)
 class APIGatewayView(APIView):  # pragma: no cover
     url: str
     key: str

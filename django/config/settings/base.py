@@ -152,8 +152,9 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Multi Sources Financial Control API",
-    "DESCRIPTION": "B3, USA stocks and cryptos crawler + expenses tracker",
-    "VERSION": "1.0.0",
+    "DESCRIPTION": "B3, USA stocks and cryptos crawler + expenses and revenues tracker",
+    "VERSION": "0.0.1",
+    "ENUM_NAME_OVERRIDES": {"AssetTypeEnum": "variable_income_assets.choices.AssetTypes.choices"},
 }
 
 CORS_ALLOW_ALL_ORIGINS = True

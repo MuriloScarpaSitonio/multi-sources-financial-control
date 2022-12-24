@@ -1,10 +1,9 @@
 from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_UP, DecimalException
-from typing import Union
+from typing import List, Union
 
 from django.db.transaction import atomic
 
 from rest_framework import serializers
-from rest_framework.utils.serializer_helpers import ReturnList
 
 from config.settings.dynamic import dynamic_settings
 from shared.serializers_utils import CustomChoiceField
@@ -176,6 +175,14 @@ class AssetSerializer(serializers.ModelSerializer):
         )
 
 
+class AssetTransactionSimulateEndpointSerializer(serializers.Serializer):
+    old = AssetSerializer()
+    new = AssetSerializer()
+
+
+from drf_spectacular.utils import extend_schema_field
+
+
 class AssetListSerializer(serializers.ModelSerializer):
     type = CustomChoiceField(choices=AssetTypes.choices)
     sector = CustomChoiceField(choices=AssetSectors.choices)
@@ -248,10 +255,12 @@ class AssetListSerializer(serializers.ModelSerializer):
             result = Decimal()
         return result * Decimal("100.0")
 
-    def get_transactions(self, obj: Asset) -> ReturnList:
+    @extend_schema_field(TransactionSerializer(many=True))
+    def get_transactions(self, obj: Asset) -> List[TransactionSerializer]:  # drf-spectacular
         return TransactionSerializer(obj.transactions.all()[:5], many=True).data
 
-    def get_passive_incomes(self, obj: Asset) -> ReturnList:
+    @extend_schema_field(PassiveIncomeSerializer(many=True))
+    def get_passive_incomes(self, obj: Asset) -> List[PassiveIncomeSerializer]:  # drf-spectacular
         return PassiveIncomeSerializer(obj.incomes.all()[:5], many=True).data
 
 

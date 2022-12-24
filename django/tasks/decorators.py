@@ -21,7 +21,10 @@ def start_celery_task(task_name: str, user: CustomUser) -> str:
 
 
 def celery_task_endpoint(
-    *, task: Optional[Task] = None, task_name: Optional[str] = None
+    *,
+    task: Optional[Task] = None,
+    task_name: Optional[str] = None,
+    deprecated: bool = False,
 ) -> Callable:
     # if task is None and task_name is None:
     #     raise
@@ -32,9 +35,12 @@ def celery_task_endpoint(
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(self, request, *args, **kwargs):
-            task_id = start_celery_task(task_name=task_name or task.name, user=request.user)
-            if task is not None:
-                task.apply_async(task_id=task_id, kwargs={"username": request.user.username})
+            if not deprecated:
+                task_id = start_celery_task(task_name=task_name or task.name, user=request.user)
+                if task is not None:
+                    task.apply_async(task_id=task_id, kwargs={"username": request.user.username})
+            else:
+                task_id = None
             return func(self, request, task_id, *args, **kwargs)
 
         return wrapper
