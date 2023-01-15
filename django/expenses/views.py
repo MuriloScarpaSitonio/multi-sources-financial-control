@@ -1,7 +1,9 @@
 from decimal import Decimal
 from typing import List, Type
 
+from django.db.models import Q
 from django.utils import timezone
+
 
 from dateutil.relativedelta import relativedelta
 from djchoices.choices import ChoiceItem
@@ -15,7 +17,7 @@ from rest_framework.utils.serializer_helpers import ReturnList
 
 from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
 
-from .choices import ExpenseReportType
+from .choices import ExpenseCategory, ExpenseReportType
 from .filters import ExpenseFilterSet, ExpenseHistoricFilterSet, ExpenseReportFilterSet
 from .managers import ExpenseQueryset
 from .models import Expense
@@ -79,6 +81,19 @@ class ExpenseViewSet(ModelViewSet):
 
         serializer = ExpenseIndicatorsSerializer({**qs, "diff": percentage})
         return Response(serializer.data, status=HTTP_200_OK)
+
+    @action(methods=("GET",), detail=False)
+    def cnpj(self, _):
+        qs = (
+            Expense.objects.since_a_year_ago()
+            .filter(category=ExpenseCategory.cnpj)
+            .exclude(
+                Q(description__icontains="Contabilidade")
+                | Q(description__icontains="Agilize")
+                | Q(description__icontains="Taxa")
+            )
+        )
+        return Response(qs.trunc_months().order_by("month"), status=HTTP_200_OK)
 
     @action(methods=("POST",), detail=False)
     def fixed_from_last_month(self, _: Request) -> Response:

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod, abstractproperty
 from datetime import date, datetime
 from decimal import Decimal, DecimalException
-from typing import Any, Dict, Iterable, List, Optional, Set, Type, Union
+from typing import Any, Dict, Iterable, List, Literal, Optional, Set, Type, Union
 from typing_extensions import TypedDict
 from bson import Decimal128, ObjectId
 from pydantic import BaseModel, validator
@@ -45,6 +45,7 @@ class AbstractQueryFilter(BaseModel, ABC):
     description: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    sort: Optional[Literal["value", "-value", "created_at", "-created_at", ""]] = None
 
     @abstractproperty
     def base_filter(self) -> Any:
@@ -71,9 +72,14 @@ class AbstractQueryRepository(ABC):
         description: Optional[str] = None,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
+        sort: Optional[str] = None,
     ) -> Iterable[Revenue]:
         self.filters = self.filter_class(
-            user_id=self.user_id, description=description, start_date=start_date, end_date=end_date
+            user_id=self.user_id,
+            description=description,
+            start_date=start_date,
+            end_date=end_date,
+            sort=sort,
         )
         return self._list()
 
@@ -140,7 +146,7 @@ class RevenuesMongoFilter(AbstractQueryFilter):
         return {"$lte": mongo._convert(v)} if v is not None else v
 
     def resolve(self) -> Dict[str, Union[str, Dict[str, Union[str, datetime]]]]:
-        result = self.dict(exclude_none=True)
+        result = self.dict(exclude_none=True, exclude={"sort"})
         date_filters = {**result.pop("start_date", {}), **result.pop("end_date", {})}
         filters = {
             **self.base_filter,
@@ -197,8 +203,9 @@ class MongoQueryRepository(AbstractQueryRepository):
         return self._collection.find_one(filter={"_id": revenue_id, **self.filters.base_filter})
 
     def _list(self) -> Cursor:
+        sort = self.filters.sort or "-_id"
         return self._collection.find(filter=self.filters.resolve()).sort(
-            "created_at", direction=DESCENDING
+            sort.lstrip("-"), direction=DESCENDING if sort.startswith("-") else ASCENDING
         )
 
     def count(self) -> int:

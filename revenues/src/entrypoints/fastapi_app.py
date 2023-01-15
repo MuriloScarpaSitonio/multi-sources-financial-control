@@ -120,6 +120,7 @@ def list_revenues_endpoint(
     description: Optional[str] = None,
     start_date: Union[date, None, str] = None,
     end_date: Union[date, None, str] = None,
+    ordering: Optional[str] = None,
 ):
     # fastapi considers a query param equals to `?start_date=` as an empty string
     # so this endpoint would return "422 Unprocessable Entity" for `date` params.
@@ -128,7 +129,7 @@ def list_revenues_endpoint(
     end_date = end_date or None
     with MongoUnitOfWork(user_id=user_id, session=session) as uow:
         cursor = uow.revenues.query.list(
-            description=description, start_date=start_date, end_date=end_date
+            description=description, start_date=start_date, end_date=end_date, sort=ordering
         )
         return mongo.paginate(cursor=cursor, total=uow.revenues.query.count(), page=page, size=size)
 

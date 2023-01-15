@@ -49,6 +49,8 @@ export class ExpensesApi extends Api {
 
     this.bulkCreateFixed = () =>
       apiProvider.post(`${this.resource}/fixed_from_last_month`);
+
+    this.cnpj = () => apiProvider.get(`${this.resource}/cnpj`);
   }
 }
 
@@ -63,6 +65,8 @@ export class RevenuesApi extends Api {
     this.indicators = () =>
       apiProvider.get(`${this.resource}/reports/indicators`);
     this.historic = () => apiProvider.get(`${this.resource}/reports/historic`);
+    this.salaries = () =>
+      apiProvider.get(`${this.resource}?description=Salário&size=13`);
   }
 }
 

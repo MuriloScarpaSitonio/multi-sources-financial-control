@@ -73,7 +73,7 @@ function getTabProps(index) {
   };
 }
 
-const ExpenseHistoricChartComponent = ({ data, fetchHistoricData }) => {
+const ExpenseRevenueHistoricChartComponent = ({ data }) => {
   const ONLY_DIFF_TEXT = "Diferença entre receitas e despesas";
   const BUY_AND_SELL_TEXT = "Receitas e despesas";
 
@@ -245,10 +245,7 @@ export const HomeReports = () => {
 
       <TabPanel value={tabValue} index={0}>
         {!isLoaded && <Loader />}
-        <ExpenseHistoricChartComponent
-          data={data}
-          fetchHistoricData={fetchHistoricData}
-        />
+        <ExpenseRevenueHistoricChartComponent data={data} />
       </TabPanel>
       <TabPanel value={tabValue} index={1}>
         {!isLoaded && <Loader />}

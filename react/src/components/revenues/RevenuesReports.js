@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import axios from "axios";
+
 import {
   BarChart,
   Bar,
@@ -10,18 +12,22 @@ import {
   YAxis,
 } from "recharts";
 
+import ArrowDropDownIcon from "@material-ui/icons/ArrowDropDown";
 import Box from "@material-ui/core/Box";
+import Button from "@material-ui/core/Button";
 import Card from "@material-ui/core/Card";
+import CardContent from "@material-ui/core/CardContent";
 import CardHeader from "@material-ui/core/CardHeader";
 import Divider from "@material-ui/core/Divider";
-import CardContent from "@material-ui/core/CardContent";
 import Grid from "@material-ui/core/Grid";
+import Menu from "@material-ui/core/Menu";
+import MenuItem from "@material-ui/core/MenuItem";
 import Tab from "@material-ui/core/Tab";
 import Tabs from "@material-ui/core/Tabs";
 import Typography from "@material-ui/core/Typography";
 
 import { Loader } from "../Loaders";
-import { RevenuesApi } from "../../api";
+import { ExpensesApi, RevenuesApi } from "../../api";
 import { makeStyles } from "@material-ui/core/styles";
 
 const chartWidth = 950;
@@ -107,6 +113,105 @@ const RevenuesHistoricChartComponent = ({ data }) => {
   );
 };
 
+const SalaryTaxHistoricComparationChart = ({ data }) => {
+  const ONLY_DIFF_TEXT = "Percentual de gastos com CNPJ";
+  const BUY_AND_SELL_TEXT = "Gastos com CNPJ e salários";
+
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [buttonText, setButtonText] = useState(ONLY_DIFF_TEXT);
+  const [menuText, setMenuText] = useState(BUY_AND_SELL_TEXT);
+
+  const handleClick = (event) => setAnchorEl(event.currentTarget);
+  const handleClose = () => {
+    setButtonText(menuText);
+    setMenuText(buttonText);
+    setAnchorEl(null);
+  };
+
+  let chart =
+    buttonText === ONLY_DIFF_TEXT ? (
+      <>
+        <Bar dataKey="percentage" fill={currentDataFillColor} />
+        <ReferenceLine
+          y={data.avg}
+          label="Média"
+          stroke="#e65100"
+          strokeDasharray="3 3"
+        />
+      </>
+    ) : (
+      <>
+        <Bar dataKey="salary" stackId="a" fill="rgba(0, 201, 20, 0.2)" />
+        <Bar dataKey="CNPJ" stackId="a" fill="rgba(255, 5, 5, 0.2)" />
+      </>
+    );
+  return (
+    <Card elevation={6}>
+      <CardHeader
+        action={
+          <>
+            <Button
+              endIcon={<ArrowDropDownIcon />}
+              size="small"
+              variant="text"
+              aria-controls="basic-menu"
+              aria-haspopup="true"
+              onClick={handleClick}
+            >
+              {buttonText}
+            </Button>
+            <Menu
+              id="basic-menu"
+              keepMounted
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleClose}
+              anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+              transformOrigin={{ vertical: "top", horizontal: "center" }}
+              getContentAnchorEl={null}
+            >
+              <MenuItem onClick={handleClose}>{menuText}</MenuItem>
+            </Menu>
+          </>
+        }
+      />
+      <Divider />
+      <CardContent>
+        <BarChart
+          width={chartWidth}
+          height={chartHeight}
+          stackOffset="sign"
+          data={data.historic}
+        >
+          <CartesianGrid stroke="#eee" />
+          <XAxis dataKey="month" />
+          <YAxis />
+          {buttonText !== ONLY_DIFF_TEXT && (
+            <ReferenceLine y={0} stroke="#000" />
+          )}
+          <ChartTooltip
+            cursor={{ fill: "#f5f5f5" }}
+            separator=": "
+            formatter={(value) =>
+              buttonText === ONLY_DIFF_TEXT
+                ? `${value.toLocaleString("pt-br", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })} %`
+                : `R$ ${value.toLocaleString("pt-br", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`
+            }
+            labelFormatter={(_) => ""}
+          />
+          {chart}
+        </BarChart>
+      </CardContent>
+    </Card>
+  );
+};
+
 export const RevenuesReports = () => {
   const [data, setData] = useState([]);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -115,13 +220,56 @@ export const RevenuesReports = () => {
 
   const classes = useStyles();
 
+  let api = new RevenuesApi();
+
   function fetchHistoricData() {
-    let api = new RevenuesApi();
     setIsLoaded(false);
     api
       .historic()
       .then((response) => setData(response.data))
       //.catch((err) => setError(err))
+      .finally(() => setIsLoaded(true));
+  }
+
+  function fetch() {
+    setIsLoaded(false);
+
+    axios
+      .all([api.salaries(), new ExpensesApi().cnpj()])
+      .then(
+        axios.spread((...responses) => {
+          let salaries = responses[0].data.items;
+          let cnpjExpenses = responses[1].data;
+
+          function formatDate(m) {
+            const [year, month] = m.split("-");
+            return `${month}/${year}`;
+          }
+
+          let result = salaries
+            .slice(0)
+            .reverse()
+            .map((d, index) => {
+              return {
+                CNPJ: cnpjExpenses[index].total * -1,
+                salary: d.value,
+                percentage: (cnpjExpenses[index].total / d.value) * 100,
+                month: formatDate(cnpjExpenses[index].month),
+              };
+            });
+          function getAvg(r) {
+            let total = 0;
+            for (const d of r.slice(0, -1)) {
+              total += d.percentage;
+            }
+            return total / (r.length - 1);
+          }
+          setData({
+            historic: result,
+            avg: getAvg(result),
+          });
+        })
+      )
       .finally(() => setIsLoaded(true));
   }
 
@@ -131,6 +279,9 @@ export const RevenuesReports = () => {
     switch (newValue) {
       case 0:
         fetchHistoricData();
+        break;
+      case 1:
+        fetch();
         break;
       default:
         break;
@@ -148,11 +299,16 @@ export const RevenuesReports = () => {
         className={classes.tabs}
       >
         <Tab label="Histórico" {...getTabProps(0)} />
+        <Tab label="Salários x impostos" {...getTabProps(1)} />
       </Tabs>
 
       <TabPanel value={tabValue} index={0}>
         {!isLoaded && <Loader />}
         <RevenuesHistoricChartComponent data={data} />
+      </TabPanel>
+      <TabPanel value={tabValue} index={1}>
+        {!isLoaded && <Loader />}
+        <SalaryTaxHistoricComparationChart data={data} fetchHistoricData />
       </TabPanel>
     </Grid>
   );
