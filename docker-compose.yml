@@ -1,36 +1,12 @@
 version: "3.7"
 
 services:
-  django:
-    container_name: django
-    build:
-      context: ./django
-    volumes:
-      - ./django:/app/django
-    ports:
-      - 8000:8000
-    environment: # used only for superuser creation on the first time
-      - ADMIN_USERNAME=murilo
-      - ADMIN_PASSWORD=test
-      - ASSETS_INTEGRATIONS_URL=http://assets_integrations:5000/
-    command: python manage.py runserver 0.0.0.0:8000
-
-  # react:
-  #   container_name: react
-  #   build:
-  #     context: ./react
-  #   volumes:
-  #     - ./react:/app/react
-  #     - /app/react/node_modules
-  #   ports:
-  #     - 3000:3000
-  #   depends_on:
-  #     - django
 
   assets_integrations:
     container_name: assets_integrations
     build:
       context: ./assets_integrations
+      dockerfile: Dockerfile.local
     volumes:
       - ./assets_integrations:/app/assets_integrations
       - ./django/db.sqlite3:/app/assets_integrations/db.sqlite3
@@ -40,35 +16,71 @@ services:
       - DATABASE_URL=sqlite:///db.sqlite3
     command: uvicorn src.main:app --reload --host=0.0.0.0 --port=5000
 
+  django:
+    container_name: django
+    build:
+      context: ./django
+      dockerfile: Dockerfile.local
+    volumes:
+      - ./django:/app/django
+    ports:
+      - 8000:8000
+    environment: # used only for superuser creation on the first time
+      - ADMIN_USERNAME=murilo
+      - ADMIN_PASSWORD=test
+      - ASSETS_INTEGRATIONS_URL=http://assets_integrations:5000/
+      - REVENUES_API_URL=http://revenues:5050/
+    depends_on:
+      - assets_integrations
+    command: python manage.py runserver 0.0.0.0:8000
+
   revenues:
     container_name: revenues
     build:
       context: ./revenues
+      dockerfile: Dockerfile.local
     volumes:
       - ./revenues:/app/revenues
-      - ./django/db.sqlite3:/app/revenues/db.sqlite3
     ports:
       - 5050:5050
     environment:
-      - DATABASE_URL=sqlite:///db.sqlite3
-    command: uvicorn src.main:app --reload --host=0.0.0.0 --port=5050
+      - DATABASE_URL=mongodb://mongoservice:27017
+    extra_hosts: 
+      - "mongoservice:172.17.0.1" # don't forget to edit /etc/mongod.conf (`bindIp` config)
 
-  rabbitmq:
-    image: rabbitmq:3.9.5-management
-    container_name: rabbitmq
-    ports:
-      - 5672:5672
-      - 15672:15672
+    command: uvicorn src.entrypoints.fastapi_app:app --reload --host=0.0.0.0 --port=5050
 
-  celery:
-    container_name: celery
-    restart: always
+  react:
+    container_name: react
     build:
-      context: ./django
+      context: ./react
+      dockerfile: Dockerfile.local
     volumes:
-      - ./django:/app/django
-    entrypoint: []
-    command: celery --app=config worker --loglevel=INFO --without-heartbeat --without-gossip --without-mingle --concurrency=200
+      - ./react:/app/react
+    ports:
+      - 3000:3000
     depends_on:
-      - rabbitmq
       - django
+      - revenues
+    command: npm start
+
+
+  # rabbitmq:
+  #   image: rabbitmq:3.9.5-management
+  #   container_name: rabbitmq
+  #   ports:
+  #     - 5672:5672
+  #     - 15672:15672
+
+  # celery:
+  #   container_name: celery
+  #   restart: always
+  #   build:
+  #     context: ./django
+  #   volumes:
+  #     - ./django:/app/django
+  #   entrypoint: []
+  #   command: celery --app=config worker --loglevel=INFO --without-heartbeat --without-gossip --without-mingle --concurrency=200
+  #   depends_on:
+  #     - rabbitmq
+  #     - django

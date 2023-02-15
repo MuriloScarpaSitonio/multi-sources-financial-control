@@ -31,10 +31,14 @@ class GenericQuerySetExpressions(_GenericQuerySetMixin):
     def __init__(
         self,
         prefix: Optional[str] = None,
-        dollar_conversion_rate: Decimal = dynamic_settings.DOLLAR_CONVERSION_RATE,
+        dollar_conversion_rate: Optional[Decimal] = None,
     ) -> None:
         super().__init__(prefix=prefix)
-        self.dollar_conversion_rate = Value(dollar_conversion_rate)
+        self.dollar_conversion_rate = (
+            Value(dollar_conversion_rate)
+            if dollar_conversion_rate is not None
+            else Value(dynamic_settings.DOLLAR_CONVERSION_RATE)
+        )
         self.filters = GenericQuerySetFilters(prefix=prefix)
 
     @property
@@ -109,8 +113,10 @@ class GenericQuerySetExpressions(_GenericQuerySetMixin):
             default=expression,
         )
 
-    def get_adjusted_avg_price(self, incomes: Union[Expression, Value]) -> CombinedExpression:
-        return ((self.quantity_balance * self.avg_price) - incomes) / self.quantity_balance
+    def get_adjusted_avg_price(self, incomes: Union[Expression, Value]) -> Coalesce:
+        return Coalesce(
+            ((self.quantity_balance * self.avg_price) - incomes) / self.quantity_balance, Decimal()
+        )
 
     def get_total_adjusted(self, incomes: Union[Expression, Value]) -> CombinedExpression:
         return (self.quantity_balance * self.avg_price) - incomes - self.total_sold

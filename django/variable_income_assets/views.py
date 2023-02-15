@@ -244,7 +244,11 @@ class PassiveIncomeViewSet(ModelViewSet):
             if first_transaction_date is not None
             else False
         )
-        percentage = ((qs["current_credited"] / qs["avg"]) - Decimal("1.0")) * Decimal("100.0")
+        percentage = (
+            ((qs["current_credited"] / qs["avg"]) - Decimal("1.0")) * Decimal("100.0")
+            if qs["avg"]
+            else Decimal()
+        )
         serializer = serializers.PassiveIncomesIndicatorsSerializer(
             {**qs, "diff_percentage": percentage}
         )
@@ -291,8 +295,11 @@ class TransactionViewSet(ModelViewSet):
 
         # TODO: do this via SQL
         percentage_invested = (
-            ((qs["current_bought"] - qs["current_sold"]) / qs["avg"]) - Decimal("1.0")
-        ) * Decimal("100.0")
+            (((qs["current_bought"] - qs["current_sold"]) / qs["avg"]) - Decimal("1.0"))
+            * Decimal("100.0")
+            if qs["avg"]
+            else Decimal()
+        )
         serializer = serializers.TransactionsIndicatorsSerializer(
             {**qs, "diff_percentage": percentage_invested}
         )

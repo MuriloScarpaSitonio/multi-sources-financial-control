@@ -166,7 +166,6 @@ export const PassiveIncomesTable = () => {
     Object.entries(multipleChoiceFilters).forEach(([key, value]) =>
       value.map((v) => _filters.append(key, v))
     );
-    console.log(_filters.toString());
     return _filters.toString();
   }
 

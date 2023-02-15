@@ -157,6 +157,30 @@ const ExpenseRevenueHistoricChartComponent = ({ data }) => {
           />
           {chart}
         </BarChart>
+        {/* {data.historic.length > 0 ? (
+          <BarChart
+            width={chartWidth}
+            height={chartHeight}
+            stackOffset="sign"
+            data={data.historic}
+          >
+            <CartesianGrid stroke="#eee" />
+            <XAxis dataKey="month" />
+            <YAxis />
+            {buttonText !== ONLY_DIFF_TEXT && (
+              <ReferenceLine y={0} stroke="#000" />
+            )}
+            <ChartTooltip
+              cursor={{ fill: "#f5f5f5" }}
+              separator=": "
+              formatter={(value) => `R$ ${value.toLocaleString("pt-br")}`}
+              labelFormatter={(_) => ""}
+            />
+            {chart}
+          </BarChart>
+        ) : (
+          "No data"
+        )} */}
       </CardContent>
     </Card>
   );

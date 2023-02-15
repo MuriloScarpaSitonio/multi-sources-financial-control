@@ -6,7 +6,7 @@ from aiohttp.client_exceptions import ClientError
 
 
 class BrApiClient:
-    API_URL = "https://brapi.ga"
+    API_URL = "https://brapi.dev"
 
     def __init__(self, timeout: int = 30) -> None:
         self._session = ClientSession(

@@ -14,7 +14,6 @@ from rest_framework.status import (
     HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
 )
-from authentication.models import CustomUser
 
 from expenses.choices import ExpenseCategory, ExpenseSource, ExpenseReportType
 from expenses.models import Expense
@@ -218,6 +217,18 @@ def test_should_get_reports(client, of, field_name):
     assert response.status_code == HTTP_200_OK
 
 
+@pytest.mark.parametrize("of", list(ExpenseReportType.values))
+def test__report__wo_data(client, of):
+    # GIVEN
+
+    # WHEN
+    response = client.get(f"{URL}/report?of={of}")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert response.json() == []
+
+
 @pytest.mark.usefixtures("report_data")
 @pytest.mark.parametrize(
     "of, field_name",
@@ -295,7 +306,7 @@ def test_should_get_historic_data(client, filters):
         ) == _convert_and_quantize(response_json["avg"])
 
 
-@pytest.mark.usefixtures("expenses")
+@pytest.mark.usefixtures("report_data")
 def test_should_get_indicators(client):
     # GIVEN
     today = timezone.now().date()
@@ -335,6 +346,17 @@ def test_should_get_indicators(client):
         ),
         "future": future,
     }
+
+
+def test__indicators__wo_data(client):
+    # GIVEN
+
+    # WHEN
+    response = client.get(f"{URL}/indicators")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert response.json() == {"total": 0.0, "avg": 0.0, "diff": 0.0, "future": 0.0}
 
 
 def test_should_create_multiple_expenses_if_installments(client):

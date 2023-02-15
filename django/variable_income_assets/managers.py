@@ -198,7 +198,7 @@ class AssetQuerySet(QuerySet):
                 ROI=coalesce_sum_expression("roi"),
                 ROI_opened=coalesce_sum_expression("roi", filter=Q(quantity_balance__gt=0)),
                 ROI_finished=coalesce_sum_expression("roi", filter=Q(quantity_balance__lte=0)),
-                current_total=Sum("total"),
+                current_total=coalesce_sum_expression("total"),
             )
         )
 
@@ -282,7 +282,7 @@ class TransactionQuerySet(QuerySet):
         return self._annotate_totals().aggregate(
             current_bought=coalesce_sum_expression("total_bought", filter=self.filters.current),
             current_sold=coalesce_sum_expression("total_sold", filter=self.filters.current),
-            avg=self._monthly_avg_expression,
+            avg=Coalesce(self._monthly_avg_expression, Decimal()),
         )
 
     def monthly_avg(self) -> Dict[str, Decimal]:
@@ -387,15 +387,18 @@ class PassiveIncomeQuerySet(CustomQueryset, MonthlyFilterMixin):
                     & (self.filters.future | self.filters.current)
                 ),
             ),
-            avg=coalesce_sum_expression(
-                "amount",
-                filter=(
-                    Q(event_type=PassiveIncomeEventTypes.credited)
-                    & self.filters.since_a_year_ago
-                    & ~self.filters.current
-                ),
-            )
-            / avg_denominator,
+            avg=Coalesce(
+                coalesce_sum_expression(
+                    "amount",
+                    filter=(
+                        Q(event_type=PassiveIncomeEventTypes.credited)
+                        & self.filters.since_a_year_ago
+                        & ~self.filters.current
+                    ),
+                )
+                / avg_denominator,
+                Decimal(),
+            ),
         )
 
     def monthly_avg(self) -> Dict[str, Decimal]:

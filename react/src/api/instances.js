@@ -27,24 +27,21 @@ const logout = () => {
 };
 
 privateAxios.interceptors.response.use(
-  (response) => {
-    //console.log('privateAxios =', response.data)
-    return response;
-  },
+  (response) => response,
   (error) => {
-    const {
-      config,
-      response: { status },
-    } = error;
+    const { config, response } = error;
     const originalRequest = config;
-    if (status === 401) {
-      apiProvider
+    if (response?.status === 401) {
+      return apiProvider
         .refreshToken()
         .then(() => {
           let headers = getAuthHeaders();
           privateAxios.defaults.headers = headers;
           originalRequest.headers = headers;
-          return privateAxios(originalRequest);
+          if (["put", "patch", "post"].includes(originalRequest.method)) {
+            originalRequest.data = JSON.parse(originalRequest.data);
+          }
+          return privateAxios(originalRequest).then((response) => response);
         })
         .catch((err) => {
           logout();

@@ -5,7 +5,7 @@ from typing import Dict
 
 from django.db.models import Count, Q, Sum, CharField
 from django.db.models.expressions import CombinedExpression
-from django.db.models.functions import Concat, TruncMonth
+from django.db.models.functions import Coalesce, Concat, TruncMonth
 
 from shared.managers_utils import CustomQueryset, GenericFilters, MonthlyFilterMixin
 from shared.utils import coalesce_sum_expression
@@ -85,7 +85,7 @@ class ExpenseQueryset(CustomQueryset, MonthlyFilterMixin):
         return self.aggregate(
             total=coalesce_sum_expression("price", filter=self.filters.current),
             future=coalesce_sum_expression("price", filter=self.filters.future),
-            avg=self._monthly_avg_expression,
+            avg=Coalesce(self._monthly_avg_expression, Decimal()),
         )
 
     def monthly_avg(self) -> Dict[str, Decimal]:

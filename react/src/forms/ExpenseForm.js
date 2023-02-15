@@ -108,7 +108,6 @@ export const ExpenseForm = ({
   const [isLoaded, setIsLoaded] = useState(true);
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
-  // console.log("initialData =", initialData)
 
   const {
     control,
@@ -229,8 +228,12 @@ export const ExpenseForm = ({
                   <Controller
                     name="is_fixed"
                     control={control}
-                    render={({ field }) => (
-                      <Switch {...field} checked={initialData.isFixed} />
+                    defaultValue={initialData.isFixed}
+                    render={({ field: { value, onChange } }) => (
+                      <Switch
+                        checked={value}
+                        onChange={(_, data) => onChange(data)}
+                      />
                     )}
                   />
                 </Grid>

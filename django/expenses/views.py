@@ -36,7 +36,7 @@ class ExpenseViewSet(ModelViewSet):
     def get_queryset(self) -> ExpenseQueryset:
         if self.request.user.is_authenticated:
             return (
-                self.request.user.expenses.since_a_year_ago()
+                self.request.user.expenses.current_month_and_past()
                 if self.action == "list"
                 else self.request.user.expenses.all()
             )
@@ -75,15 +75,18 @@ class ExpenseViewSet(ModelViewSet):
     @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:
         qs = self.get_queryset().indicators()
-
         # TODO: do this via SQL
-        percentage = ((qs["total"] / qs["avg"]) - Decimal("1.0")) * Decimal("100.0")
+        percentage = (
+            (((qs["total"] / qs["avg"]) - Decimal("1.0")) * Decimal("100.0"))
+            if qs["avg"]
+            else Decimal()
+        )
 
         serializer = ExpenseIndicatorsSerializer({**qs, "diff": percentage})
         return Response(serializer.data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
-    def cnpj(self, _):
+    def cnpj(self, _: Request) -> Response:
         qs = (
             Expense.objects.since_a_year_ago()
             .filter(category=ExpenseCategory.cnpj)

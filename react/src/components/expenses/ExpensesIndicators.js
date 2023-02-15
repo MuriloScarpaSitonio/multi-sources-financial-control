@@ -351,7 +351,7 @@ export const ExpensesIndicators = ({ condensed = false }) => {
           {isLoaded ? (
             <LinearProgressWithLabel
               value={
-                (expensesIndicators.total / revenuesIndicators.total) * 100
+                (expensesIndicators.total / revenuesIndicators.total) * 100 || 0
               }
             />
           ) : (

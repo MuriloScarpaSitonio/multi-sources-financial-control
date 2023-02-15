@@ -85,7 +85,11 @@ def revenue_historic_endpoint(
     session: MongoSession = Depends(get_session),
 ):
     with MongoUnitOfWork(user_id=user_id, session=session) as uow:
-        return {"historic": uow.revenues.query.historic(), **uow.revenues.query.avg().next()}
+        try:
+            avg_dict = uow.revenues.query.avg().next()
+        except StopIteration:
+            avg_dict = {"avg": Decimal()}
+        return {"historic": uow.revenues.query.historic(), **avg_dict}
 
 
 @app.get("/revenues/reports/indicators", response_model=IndicatorsResponseType)
@@ -125,11 +129,12 @@ def list_revenues_endpoint(
     # fastapi considers a query param equals to `?start_date=` as an empty string
     # so this endpoint would return "422 Unprocessable Entity" for `date` params.
     # NOTE: for a bigger project, consider using a middleware
-    start_date = start_date or None
-    end_date = end_date or None
     with MongoUnitOfWork(user_id=user_id, session=session) as uow:
         cursor = uow.revenues.query.list(
-            description=description, start_date=start_date, end_date=end_date, sort=ordering
+            description=description,
+            start_date=start_date or None,
+            end_date=end_date or None,
+            sort=ordering or None,
         )
         return mongo.paginate(cursor=cursor, total=uow.revenues.query.count(), page=page, size=size)
 

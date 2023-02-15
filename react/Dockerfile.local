@@ -1,4 +1,4 @@
-FROM node:12.18.1-alpine3.10
+FROM node:16.13.1-alpine3.13
 
 WORKDIR /app/react
 
@@ -7,5 +7,4 @@ ENV CHOKIDAR_USEPOLLING=true
 
 COPY ./package.json .
 RUN npm install 
-
-CMD ["npm", "start"] 
+RUN mkdir -p node_modules/.cache && chmod -R 777 node_modules/.cache

@@ -84,6 +84,12 @@ export const Login = (props) => {
         setShowAlert(true);
       });
   };
+  // if (
+  //   localStorage.getItem(AccessTokenStr) &&
+  //   localStorage.getItem(RefreshTokenStr)
+  // ) {
+  //   props.history.push("/home");
+  // }
   return (
     <Container component="main" maxWidth="xs">
       <div className={classes.paper}>

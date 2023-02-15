@@ -45,7 +45,7 @@ class AbstractQueryFilter(BaseModel, ABC):
     description: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
-    sort: Optional[Literal["value", "-value", "created_at", "-created_at", ""]] = None
+    sort: Optional[Literal["value", "-value", "created_at", "-created_at"]] = None
 
     @abstractproperty
     def base_filter(self) -> Any:
@@ -148,10 +148,7 @@ class RevenuesMongoFilter(AbstractQueryFilter):
     def resolve(self) -> Dict[str, Union[str, Dict[str, Union[str, datetime]]]]:
         result = self.dict(exclude_none=True, exclude={"sort"})
         date_filters = {**result.pop("start_date", {}), **result.pop("end_date", {})}
-        filters = {
-            **self.base_filter,
-            **result,
-        }
+        filters = {**self.base_filter, **result}
         return {"created_at": date_filters, **filters} if date_filters else filters
 
 
@@ -255,16 +252,21 @@ class MongoQueryRepository(AbstractQueryRepository):
         # endregion: Last month total query
 
         # region: Calculate percentage
-        avg = self.avg().next()["avg"].to_decimal()
+        try:
+            avg = self.avg().next()["avg"].to_decimal()
+        except StopIteration:
+            avg = Decimal()
+
         try:
             last_month_total_dict = last_month_total_cursor.next()
         except StopIteration:
             last_month_total_dict = {"total": Decimal128("0.0")}
         total = last_month_total_dict["total"].to_decimal()
+
         try:
             percentage = ((total / avg) - Decimal("1.0")) * Decimal("100.0")
         except DecimalException:
-            percentage = Decimal("0.0")
+            percentage = Decimal()
         # endregion: Calculate percentage
 
         return {
