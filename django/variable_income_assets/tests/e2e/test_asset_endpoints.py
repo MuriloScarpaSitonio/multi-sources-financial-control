@@ -162,6 +162,7 @@ def test_list_assets_aggregate_data(client):
             assert result["percentage_invested"] < result["current_percentage"]
 
 
+@pytest.mark.skip("Integration is deprecated")
 def test_should_call_sync_cei_transactions_task_celery_task(client, user, mocker):
     # GIVEN
     mocked_task = mocker.patch(
@@ -252,6 +253,7 @@ def test_should_raise_permission_error_sync_binance_if_user_has_not_set_credenti
     }
 
 
+@pytest.mark.skip("Integration is deprecated")
 def test_should_call_sync_cei_passive_incomes_task_celery_task(client, user, mocker):
     # GIVEN
     mocked_task = mocker.patch(

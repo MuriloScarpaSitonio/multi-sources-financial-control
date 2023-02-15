@@ -14,14 +14,14 @@ class TimeStampToDateField(Field):
 
 
 class CeiTransactionChoiceField(ChoiceField):
-    def to_internal_value(self, value: str) -> str:
+    def to_internal_value(self, value: str) -> str:  # pragma: no cover
         if value.upper() in self.choice_strings_to_values:
             return value
         self.fail("invalid_choice", input=value)
 
 
 class CeiPassiveIncomeChoiceField(ChoiceField):
-    def to_internal_value(self, value: str) -> str:
+    def to_internal_value(self, value: str) -> str:  # pragma: no cover
         value = value.upper()
         if value in self.choice_strings_to_values:
             return value

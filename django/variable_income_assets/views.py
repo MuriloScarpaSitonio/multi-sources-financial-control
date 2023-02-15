@@ -104,13 +104,13 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
     @action(methods=("GET",), detail=False, permission_classes=(CeiPermission,))
     @celery_task_endpoint(task=sync_cei_transactions_task, deprecated=True)
     def sync_cei_transactions(self, _: Request, task_id: str) -> Response:
-        return Response({"task_id": task_id}, status=HTTP_200_OK)
+        return Response({"task_id": task_id, "warning": "Integration is deprecated"}, status=299)
 
     @extend_schema(deprecated=True)
     @action(methods=("GET",), detail=False, permission_classes=(CeiPermission,))
     @celery_task_endpoint(task=sync_cei_passive_incomes_task, deprecated=True)
     def sync_cei_passive_incomes(self, _: Request, task_id: str) -> Response:
-        return Response({"task_id": task_id}, status=HTTP_200_OK)
+        return Response({"task_id": task_id, "warning": "Integration is deprecated"}, status=299)
 
     @action(methods=("GET",), detail=False, permission_classes=(KuCoinPermission,))
     @celery_task_endpoint(task=sync_kucoin_transactions_task)

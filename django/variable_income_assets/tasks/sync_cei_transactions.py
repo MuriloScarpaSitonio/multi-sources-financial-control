@@ -25,7 +25,7 @@ def _resolve_code(code: str, market_type: str) -> str:
 @atomic
 def _save_cei_transactions(
     response: requests.models.Response, user: CustomUser, task_history: TaskHistory
-) -> None:
+) -> None:  # pragma: no cover
     assets = dict()
     for data in response.json():
         code = _resolve_code(
@@ -72,7 +72,7 @@ def _save_cei_transactions(
     base=TaskWithHistory,
     notification_display="Transações do CEI",
 )
-def sync_cei_transactions_task(self, username: str) -> int:
+def sync_cei_transactions_task(self, username: str) -> int:  # pragma: no cover
     last_run_at = self.get_last_run(username=username)
     url = build_url(
         url=settings.ASSETS_INTEGRATIONS_URL,

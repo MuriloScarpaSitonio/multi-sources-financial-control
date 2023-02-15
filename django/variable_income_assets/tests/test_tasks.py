@@ -26,6 +26,19 @@ pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "assets"
 
 
+@pytest.mark.parametrize("endpoint", ("sync_cei_transactions", "sync_cei_passive_incomes"))
+def test_deprecated_integrations(client, endpoint):
+    # GIVEN
+
+    # WHEN
+    response = client.get(f"{URL}/{endpoint}")
+
+    # THEN
+    assert response.status_code == 299
+    assert response.json() == {"task_id": None, "warning": "Integration is deprecated"}
+
+
+@pytest.mark.skip("Integration is deprecated")
 def test_sync_cei_transactions_should_create_asset_and_transaction(
     user, client, requests_mock, cei_transactions_response
 ):
@@ -60,6 +73,7 @@ def test_sync_cei_transactions_should_create_asset_and_transaction(
     ).exists()
 
 
+@pytest.mark.skip("Integration is deprecated")
 @pytest.mark.usefixtures("simple_asset")
 def test_sync_cei_transactions_should_not_create_asset_if_already_exists(
     user, client, requests_mock, cei_transactions_response
@@ -92,6 +106,7 @@ def test_sync_cei_transactions_should_not_create_asset_if_already_exists(
     ).exists()
 
 
+@pytest.mark.skip("Integration is deprecated")
 @pytest.mark.usefixtures("simple_asset")
 def test_sync_cei_transactions_should_not_create_asset_if_unit_alread_exists(
     user, client, requests_mock, cei_transactions_response
@@ -213,6 +228,7 @@ def test_should_skip_kucoin_transaction_if_already_exists(
     assert Transaction.objects.count() == len(kucoin_transactions_response) - 1
 
 
+@pytest.mark.skip("Integration is deprecated")
 def test__sync_cei_passive_incomes_task__create(user, simple_asset, requests_mock, client):
     # GIVEN
     requests_mock.get(
@@ -260,6 +276,7 @@ def test__sync_cei_passive_incomes_task__create(user, simple_asset, requests_moc
     )
 
 
+@pytest.mark.skip("Integration is deprecated")
 def test__sync_cei_passive_incomes_task__create_income_and_asset(user, requests_mock, client):
     # GIVEN
     requests_mock.get(
@@ -303,6 +320,7 @@ def test__sync_cei_passive_incomes_task__create_income_and_asset(user, requests_
     )
 
 
+@pytest.mark.skip("Integration is deprecated")
 def test__sync_cei_passive_incomes_task__update_event_type(
     user, simple_asset, requests_mock, client
 ):

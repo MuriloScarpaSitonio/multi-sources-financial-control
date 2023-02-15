@@ -18,7 +18,7 @@ from ..models import Asset
 @atomic
 def _save_cei_passive_incomes(
     response: requests.models.Response, user: CustomUser, task_history: TaskHistory
-) -> None:
+) -> None:  # pragma: no cover
     assets = dict()
     for data in response.json():
 
@@ -45,7 +45,7 @@ def _save_cei_passive_incomes(
     base=TaskWithHistory,
     notification_display="Renda passiva do CEI",
 )
-def sync_cei_passive_incomes_task(self, username: str) -> int:
+def sync_cei_passive_incomes_task(self, username: str) -> int:  # pragma: no cover
     url = build_url(
         url=settings.ASSETS_INTEGRATIONS_URL,
         parts=("cei/", "passive_incomes"),
