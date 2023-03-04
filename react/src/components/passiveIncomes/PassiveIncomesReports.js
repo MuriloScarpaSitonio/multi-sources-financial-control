@@ -102,22 +102,57 @@ const PassiveIncomeHorizontalBarChartComponent = ({
   data,
   fetchAssetsAggregationData,
 }) => {
-  const LAST_12_MONTHS_REPORT_TEXT = "Últimos 12 meses";
-  const ALL_TIME_REPORT_TEXT = "Todo o período";
+  const CREDITED_REPORT_TEXT = "Creditados";
+  const PROVISIONED_REPORT_TEXT = "Provisionados";
+  const BOTH_REPORT_TEXT = "Creditados + Provisionados";
+
+  const CREDITED_REPORT_TEXT_LAST_YEAR = "Creditados (últimos 12 meses)";
+  // const BOTH_REPORT_TEXT_LAST_YEAR =
+  //   "Creditados (últimos 12 meses) + Provisionados";
 
   const [anchorEl, setAnchorEl] = useState(null);
-  const [buttonText, setButtonText] = useState(LAST_12_MONTHS_REPORT_TEXT);
-  const [menuText, setMenuText] = useState(ALL_TIME_REPORT_TEXT);
+  const [buttonText, setButtonText] = useState(CREDITED_REPORT_TEXT_LAST_YEAR);
+  const [menuItems, setMenuItems] = useState([
+    CREDITED_REPORT_TEXT,
+    PROVISIONED_REPORT_TEXT,
+    // BOTH_REPORT_TEXT_LAST_YEAR,
+    BOTH_REPORT_TEXT,
+  ]);
+
+  const filtersMap = {};
+  filtersMap[CREDITED_REPORT_TEXT_LAST_YEAR] = {
+    all: false,
+    credited: true,
+    provisioned: false,
+  };
+  filtersMap[CREDITED_REPORT_TEXT] = {
+    all: true,
+    credited: true,
+    provisioned: false,
+  };
+  filtersMap[PROVISIONED_REPORT_TEXT] = {
+    all: true,
+    credited: false,
+    provisioned: true,
+  };
+  // filtersMap[BOTH_REPORT_TEXT_LAST_YEAR] = {
+  //   all: false,
+  //   credited: true,
+  //   provisioned: true,
+  // };
+  filtersMap[BOTH_REPORT_TEXT] = {
+    all: true,
+    credited: true,
+    provisioned: true,
+  };
 
   const handleClick = (event) => setAnchorEl(event.currentTarget);
-  const handleClose = () => {
-    // we haven't changed it yet
-    menuText === LAST_12_MONTHS_REPORT_TEXT
-      ? fetchAssetsAggregationData()
-      : fetchAssetsAggregationData({ all: true });
-
-    setButtonText(menuText);
-    setMenuText(buttonText);
+  const handleClose = (event, index) => {
+    fetchAssetsAggregationData(filtersMap[event.target.innerText]);
+    const newItems = [...menuItems];
+    newItems.splice(index, 1);
+    setMenuItems([...newItems, buttonText]);
+    setButtonText(event.target.innerText);
     setAnchorEl(null);
   };
   return (
@@ -145,7 +180,11 @@ const PassiveIncomeHorizontalBarChartComponent = ({
               transformOrigin={{ vertical: "top", horizontal: "center" }}
               getContentAnchorEl={null}
             >
-              <MenuItem onClick={handleClose}>{menuText}</MenuItem>
+              {menuItems.map((item, index) => (
+                <MenuItem onClick={(e) => handleClose(e, index)}>
+                  {item}
+                </MenuItem>
+              ))}
             </Menu>
           </>
         }
@@ -210,7 +249,11 @@ export const PassiveIncomesReports = () => {
         fetchHistoricData();
         break;
       case 1:
-        fetchAssetsAggregationData();
+        fetchAssetsAggregationData({
+          all: false,
+          credited: true,
+          provisioned: false,
+        });
         break;
       default:
         break;

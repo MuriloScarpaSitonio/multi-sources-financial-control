@@ -1,3 +1,5 @@
+from typing import List
+
 from django.conf import settings
 from django.db.transaction import atomic
 from django.utils import timezone
@@ -15,28 +17,33 @@ from ..choices import AssetTypes
 from ..models import Asset
 
 
-@atomic
 def _save_cei_passive_incomes(
-    response: requests.models.Response, user: CustomUser, task_history: TaskHistory
+    incomes_data: List[str], user: CustomUser, task_history: TaskHistory
 ) -> None:  # pragma: no cover
     assets = dict()
-    for data in response.json():
+    for data in incomes_data:
+        try:
+            code = data.pop("raw_negotiation_code")
+            asset = assets.get(code)
+            with atomic():
+                if asset is None:
+                    asset, _ = Asset.objects.get_or_create(
+                        user=user,
+                        code=code,
+                        type=AssetTypes.stock,
+                    )
 
-        code = data.pop("raw_negotiation_code")
-        asset = assets.get(code)
-        if asset is None:
-            asset, _ = Asset.objects.get_or_create(
-                user=user,
-                code=code,
-                type=AssetTypes.stock,
-            )
+                assets.update({asset.code: asset})
 
-        serializer = CeiPassiveIncomeSerializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        income, created = serializer.update_or_create(asset=asset)
-        if created:
-            income.fetched_by = task_history
-            income.save(update_fields=("fetched_by",))
+                serializer = CeiPassiveIncomeSerializer(data=data)
+                serializer.is_valid(raise_exception=True)
+                income, created = serializer.update_or_create(asset=asset)
+                if created:
+                    income.fetched_by = task_history
+                    income.save(update_fields=("fetched_by",))
+        except Exception:
+            # TODO: log error
+            continue
 
 
 @shared_task(
@@ -44,6 +51,7 @@ def _save_cei_passive_incomes(
     name="sync_cei_passive_incomes_task",
     base=TaskWithHistory,
     notification_display="Renda passiva do CEI",
+    deprecated=True,
 )
 def sync_cei_passive_incomes_task(self, username: str) -> int:  # pragma: no cover
     url = build_url(
@@ -56,7 +64,7 @@ def sync_cei_passive_incomes_task(self, username: str) -> int:  # pragma: no cov
         },
     )
     _save_cei_passive_incomes(
-        response=requests.get(url),
+        incomes_data=requests.get(url).json(),
         user=CustomUser.objects.get(username=username),
         task_history=TaskHistory.objects.get(pk=self.request.id),
     )

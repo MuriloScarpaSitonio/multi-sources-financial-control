@@ -17,6 +17,7 @@ from .choices import (
     TransactionActions,
     TransactionCurrencies,
 )
+from .domain.models import Asset as AssetDomainModel
 from .managers import AssetQuerySet, PassiveIncomeQuerySet, TransactionQuerySet
 
 
@@ -82,6 +83,13 @@ class Asset(models.Model):
         return self.transactions.roi(incomes=self.total_credited_incomes, percentage=percentage)[
             "ROI"
         ]
+
+    def to_domain(self) -> AssetDomainModel:
+        return AssetDomainModel(
+            quantity=self.quantity_from_transactions,
+            avg_price=self.avg_price_from_transactions,
+            currency=self.currency_from_transactions,
+        )
 
 
 class Transaction(models.Model):

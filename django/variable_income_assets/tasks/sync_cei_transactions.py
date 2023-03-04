@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from typing import List
 
 from django.conf import settings
 from django.db.transaction import atomic
@@ -22,48 +23,38 @@ def _resolve_code(code: str, market_type: str) -> str:
     return code[:-1] if market_type == "fractional_share" else code
 
 
-@atomic
 def _save_cei_transactions(
-    response: requests.models.Response, user: CustomUser, task_history: TaskHistory
+    transactions_data: List[dict], user: CustomUser, task_history_id: int
 ) -> None:  # pragma: no cover
     assets = dict()
-    for data in response.json():
-        code = _resolve_code(
-            code=data.pop("raw_negotiation_code"), market_type=data.pop("market_type")
-        )
-        serializer = CeiTransactionSerializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        asset = assets.get(code)
-        if asset is None:
-            asset, created = Asset.objects.get_or_create(
-                user=user,
-                code=code,
-                type=AssetTypes.stock,
+    for data in transactions_data:
+        try:
+            code = _resolve_code(
+                code=data.pop("raw_negotiation_code"), market_type=data.pop("market_type")
             )
-            if created:
-                asset.current_price = serializer.validated_data["unit_price"]
-                asset.current_price_updated_at = datetime.combine(
-                    serializer.validated_data["operation_date"],
-                    datetime.min.time(),
-                    tzinfo=timezone.utc,
-                )
-                asset.save(update_fields=("current_price", "current_price_updated_at"))
 
-        transaction, created = serializer.get_or_create(asset=asset)
+            serializer = CeiTransactionSerializer(data=data)
+            serializer.is_valid(raise_exception=True)
 
-        update_fields = []
-        if transaction.action == TransactionActions.sell:
-            # we must save each transaction individually to make sure we are setting
-            # `initial_price` accorddingly
-            transaction.initial_price = asset.avg_price_from_transactions
-            update_fields.append("initial_price")
+            asset = assets.get(code)
+            with atomic():
+                if asset is None:
+                    asset, asset_created = Asset.objects.get_or_create(
+                        user=user, code=code, defaults={"type": AssetTypes.stock}
+                    )
+                    if asset_created:
+                        asset.current_price = serializer.validated_data["unit_price"]
+                        asset.current_price_updated_at = datetime.combine(
+                            serializer.validated_data["operation_date"],
+                            datetime.min.time(),
+                            tzinfo=timezone.utc,
+                        )
+                        asset.save(update_fields=("current_price", "current_price_updated_at"))
 
-        if created:
-            transaction.fetched_by = task_history
-            update_fields.append("fetched_by")
-
-        if update_fields:
-            transaction.save(update_fields=update_fields)
+                serializer.create(asset=asset, task_history_id=task_history_id)
+        except Exception:
+            # TODO: log error
+            continue
 
 
 @shared_task(
@@ -71,6 +62,7 @@ def _save_cei_transactions(
     name="sync_cei_transactions_task",
     base=TaskWithHistory,
     notification_display="Transações do CEI",
+    deprecated=True,
 )
 def sync_cei_transactions_task(self, username: str) -> int:  # pragma: no cover
     last_run_at = self.get_last_run(username=username)
@@ -85,7 +77,7 @@ def sync_cei_transactions_task(self, username: str) -> int:  # pragma: no cover
         },
     )
     _save_cei_transactions(
-        response=requests.get(url),
+        transactions_data=requests.get(url).json(),
         user=CustomUser.objects.get(username=username),
-        task_history=TaskHistory.objects.get(pk=self.request.id),
+        task_history_id=self.request.id,
     )

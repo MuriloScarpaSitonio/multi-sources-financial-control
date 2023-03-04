@@ -108,23 +108,23 @@ const AssetTotalInvestedChartComponent = ({
   const PERCENTAGE_REPORT_TEXT_CURRENT = "Percentual (atual)";
   const TOTAL_AMOUNT_REPORT_TEXT_CURRENT = "Montante investido (atual)";
 
-  const FILTERS_MAP = {};
-  FILTERS_MAP[PERCENTAGE_REPORT_TEXT] = {
+  const filtersMap = {};
+  filtersMap[PERCENTAGE_REPORT_TEXT] = {
     percentage: true,
     current: false,
     group_by: aggregation,
   };
-  FILTERS_MAP[TOTAL_AMOUNT_REPORT_TEXT] = {
+  filtersMap[TOTAL_AMOUNT_REPORT_TEXT] = {
     percentage: false,
     current: false,
     group_by: aggregation,
   };
-  FILTERS_MAP[PERCENTAGE_REPORT_TEXT_CURRENT] = {
+  filtersMap[PERCENTAGE_REPORT_TEXT_CURRENT] = {
     percentage: true,
     current: true,
     group_by: aggregation,
   };
-  FILTERS_MAP[TOTAL_AMOUNT_REPORT_TEXT_CURRENT] = {
+  filtersMap[TOTAL_AMOUNT_REPORT_TEXT_CURRENT] = {
     percentage: false,
     current: true,
     group_by: aggregation,
@@ -140,7 +140,7 @@ const AssetTotalInvestedChartComponent = ({
 
   const handleClick = (event) => setAnchorEl(event.currentTarget);
   const handleClose = (event, index) => {
-    fetchReportData(FILTERS_MAP[event.target.innerText]);
+    fetchReportData(filtersMap[event.target.innerText]);
     const newItems = [...menuItems];
     newItems.splice(index, 1);
     setMenuItems([...newItems, buttonText]);
@@ -148,7 +148,7 @@ const AssetTotalInvestedChartComponent = ({
     setAnchorEl(null);
   };
 
-  let chart = FILTERS_MAP[buttonText].percentage ? (
+  let chart = filtersMap[buttonText].percentage ? (
     <AssetPiechart data={data} nameKey={aggregation.toLowerCase()} />
   ) : (
     <AssetHorizontalBarChart data={data} dataKey={aggregation.toLowerCase()} />
@@ -198,13 +198,13 @@ export const AssetRoiChartComponent = ({ data, fetchReportData }) => {
   const OPENED_REPORT_TEXT = "Abertos";
   const FINISHED_REPORT_TEXT = "Fechados";
 
-  const FILTERS_MAP = {};
-  FILTERS_MAP[ALL_REPORT_TEXT] = { opened: true, finished: true };
-  FILTERS_MAP[OPENED_REPORT_TEXT] = {
+  const filtersMap = {};
+  filtersMap[ALL_REPORT_TEXT] = { opened: true, finished: true };
+  filtersMap[OPENED_REPORT_TEXT] = {
     opened: true,
     finished: false,
   };
-  FILTERS_MAP[FINISHED_REPORT_TEXT] = {
+  filtersMap[FINISHED_REPORT_TEXT] = {
     opened: false,
     finished: true,
   };
@@ -218,7 +218,7 @@ export const AssetRoiChartComponent = ({ data, fetchReportData }) => {
 
   const handleClick = (event) => setAnchorEl(event.currentTarget);
   const handleClose = (event, index) => {
-    fetchReportData(FILTERS_MAP[event.target.innerText]);
+    fetchReportData(filtersMap[event.target.innerText]);
     const newItems = [...menuItems];
     newItems.splice(index, 1);
     setMenuItems([...newItems, buttonText]);

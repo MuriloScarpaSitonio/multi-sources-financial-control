@@ -28,7 +28,7 @@ import { FormFeedback } from "../FormFeedback";
 import { Loader } from "../Loaders";
 import { TransactionsApi } from "../../api";
 import { getChoiceByLabel } from "../../helpers";
-import { TransactionsActionsMapping } from "../../consts";
+import { AssetsTypesMapping, TransactionsActionsMapping } from "../../consts";
 import { TransactionForm } from "../../forms/TransactionForm";
 
 const TransactionCreateEditDialog = ({
@@ -146,6 +146,7 @@ export const TransactionsTable = () => {
   function getAdjustedFilters() {
     let multipleChoiceFilters = {
       action: filters.action || [],
+      asset_type: filters.asset_type || [],
     };
     let _filters = new URLSearchParams({
       page: filters.page,
@@ -208,7 +209,11 @@ export const TransactionsTable = () => {
     onFilterChange: (column, filterList, __, changedColumnIndex) => {
       if (column === "created_at") return;
       let _filters = filterList[changedColumnIndex].map(
-        (f) => getChoiceByLabel(f, TransactionsActionsMapping).value
+        (f) =>
+          getChoiceByLabel(f, [
+            ...TransactionsActionsMapping,
+            ...AssetsTypesMapping,
+          ]).value
       );
       setFilters({ ...filters, [column]: _filters, page: 1 });
     },
@@ -240,6 +245,20 @@ export const TransactionsTable = () => {
       options: {
         filter: false,
         sort: true,
+      },
+    },
+    {
+      name: "asset_type",
+      label: "Tipo",
+      options: {
+        filter: true,
+        sort: false,
+        filterOptions: {
+          names: AssetsTypesMapping.map((v) => v.label),
+        },
+        customFilterListOptions: {
+          render: (v) => `Tipo: ${v}`,
+        },
       },
     },
     {

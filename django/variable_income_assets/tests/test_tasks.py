@@ -17,7 +17,13 @@ from authentication.tests.conftest import (
 )
 from config.settings.base import BASE_API_URL
 
-from ..choices import AssetTypes, PassiveIncomeEventTypes, PassiveIncomeTypes
+from ..choices import (
+    AssetObjectives,
+    AssetSectors,
+    AssetTypes,
+    PassiveIncomeEventTypes,
+    PassiveIncomeTypes,
+)
 from ..models import Asset, PassiveIncome, Transaction
 
 
@@ -185,15 +191,32 @@ def test_sync_kucoin_transactions_should_create_asset_and_transaction(
 
     # THEN
     assert (
-        Asset.objects.filter(user=user_with_kucoin_integration, type=AssetTypes.crypto).count() == 2
+        Asset.objects.filter(
+            user=user_with_kucoin_integration,
+            type=AssetTypes.crypto,
+            sector=AssetSectors.tech,
+            objective=AssetObjectives.growth,
+            current_price_updated_at__isnull=False,
+        ).count()
+        == 2
+    )
+    assert (
+        Asset.objects.filter(
+            user=user_with_kucoin_integration,
+            code=kucoin_transactions_response[0]["code"],
+            current_price=kucoin_transactions_response[0]["price"],
+        ).count()
+        == 1
     )
     assert sorted(list(Asset.objects.values_list("code", flat=True))) == sorted(
-        list({item["code"] for item in kucoin_transactions_response})
+        list({item["code"] for item in kucoin_transactions_response} ^ {"VELO"})
     )
 
-    assert Transaction.objects.count() == len(kucoin_transactions_response)
+    assert Transaction.objects.count() == len(kucoin_transactions_response) - 1
 
     for item in kucoin_transactions_response:
+        if item["code"] == "VELO":  # first transaction was "SELL"
+            continue
         assert Transaction.objects.filter(
             asset__user=user_with_kucoin_integration,
             asset__code=item["code"],
@@ -225,7 +248,7 @@ def test_should_skip_kucoin_transaction_if_already_exists(
     kucoin_client.get(f"{URL}/sync_kucoin_transactions")
 
     # THEN
-    assert Transaction.objects.count() == len(kucoin_transactions_response) - 1
+    assert Transaction.objects.count() == len(kucoin_transactions_response) - 2
 
 
 @pytest.mark.skip("Integration is deprecated")

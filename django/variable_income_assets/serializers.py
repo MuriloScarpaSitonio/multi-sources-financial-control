@@ -1,9 +1,9 @@
 from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_UP, DecimalException
-from typing import List, Union
+from typing import List
 
-from django.db.transaction import atomic
-
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
+from rest_framework.exceptions import NotFound
 
 from config.settings.dynamic import dynamic_settings
 from shared.serializers_utils import CustomChoiceField
@@ -17,6 +17,8 @@ from .choices import (
     TransactionActions,
     TransactionCurrencies,
 )
+from .domain.exceptions import ValidationError as DomainValidationError
+from .domain.models import Asset as AssetDomainModel, TransactionDTO
 from .models import Asset, PassiveIncome, Transaction
 
 
@@ -52,77 +54,48 @@ class TransactionSerializer(serializers.ModelSerializer):
         }
 
 
-class NestedAssetCreationMixin:
-    @staticmethod
-    def _get_or_create_asset(validated_data: dict):
-        asset_data = validated_data.pop("asset")
-        asset, created = Asset.objects.get_or_create(
-            user=validated_data.pop("user"),
-            **asset_data,
-        )
-
-        if created and asset_data.get("type") is None:
-            raise serializers.ValidationError(
-                detail={"asset.type": "If the asset does not exist, `type` is required"}
-            )
-        return asset, created
-
-    def update(
-        self, instance: Union[Transaction, PassiveIncome], validated_data: dict
-    ) -> Union[Transaction, PassiveIncome]:
-        with atomic():
-            asset, _ = Asset.objects.get_or_create(
-                user=validated_data.pop("user"),
-                **validated_data.pop("asset"),
-            )
-            validated_data.update(asset=asset)
-            return super().update(instance, validated_data)
-
-
-class TransactionListSerializer(NestedAssetCreationMixin, TransactionSerializer):
+class TransactionListSerializer(TransactionSerializer):
     action = CustomChoiceField(choices=TransactionActions.choices)
     asset_code = serializers.CharField(source="asset.code")
-    asset_type = serializers.ChoiceField(
-        source="asset.type",
-        choices=AssetTypes.choices,
-        write_only=True,
-        required=False,
-        allow_blank=False,
-    )
 
     class Meta(TransactionSerializer.Meta):
-        fields = TransactionSerializer.Meta.fields + ("asset_code", "asset_type")
+        fields = TransactionSerializer.Meta.fields + ("asset_code",)
 
-    def create(self, validated_data: dict) -> Transaction:
-        is_sell_transaction = validated_data["action"] == TransactionActions.sell
-        with atomic():
-            asset, _ = self._get_or_create_asset(validated_data=validated_data)
+    def create(self, validated_data):
+        try:
+            asset: Asset = Asset.objects.get(
+                user=validated_data.pop("user"), code=validated_data.pop("asset")["code"]
+            )
+        except Asset.DoesNotExist:
+            raise NotFound({"asset": "Not found."})
 
-            if is_sell_transaction:
-                if validated_data["quantity"] > asset.quantity_from_transactions:
-                    raise serializers.ValidationError(
-                        detail={"action": "You can't sell more assets than you own"}
-                    )
-                if "initial_price" not in validated_data:
-                    validated_data.update(initial_price=asset.avg_price_from_transactions)
+        try:
+            transaction = asset.to_domain().add_transaction(
+                transaction_dto=TransactionDTO(**validated_data)
+            )
+            transaction.asset_id = asset.pk
+            transaction.save()
+            return transaction
+        except DomainValidationError as e:
+            raise serializers.ValidationError({e.field: e.message})
 
-            if (
-                asset.currency_from_transactions  # this value is cached
-                and asset.currency_from_transactions != validated_data["currency"]
-            ):
-                raise serializers.ValidationError(
-                    detail={
-                        "currency": (
-                            "Only one currency per asset is supported. "
-                            f"Current currency: {asset.currency_from_transactions}"
-                        )
-                    }
-                )
-            validated_data.update(asset=asset)
-            return super().create(validated_data=validated_data)
+    def update(self, instance: Transaction, validated_data: dict):
+        try:
+            validated_data.pop("user")
+            validated_data.pop("asset")
+            if "created_at" not in validated_data:
+                validated_data.update(created_at=instance.created_at)
+
+            asset: AssetDomainModel = instance.asset.to_domain()
+
+            asset.update_transaction(dto=TransactionDTO(**validated_data), transaction=instance)
+            instance.save()
+            return instance
+        except DomainValidationError as e:
+            raise serializers.ValidationError({e.field: e.message})
 
 
-class PassiveIncomeSerializer(NestedAssetCreationMixin, serializers.ModelSerializer):
+class PassiveIncomeSerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     asset_code = serializers.CharField(source="asset.code")
     type = CustomChoiceField(choices=PassiveIncomeTypes.choices)
@@ -132,11 +105,19 @@ class PassiveIncomeSerializer(NestedAssetCreationMixin, serializers.ModelSeriali
         model = PassiveIncome
         fields = ("id", "asset_code", "type", "event_type", "operation_date", "amount", "user")
 
+    def update(self, instance: PassiveIncome, validated_data: dict) -> PassiveIncome:
+        validated_data.pop("asset")
+        return super().update(instance, validated_data)
+
     def create(self, validated_data: dict) -> PassiveIncome:
-        with atomic():
-            asset, _ = self._get_or_create_asset(validated_data=validated_data)
-            validated_data.update(asset=asset)
-            return super().create(validated_data=validated_data)
+        validated_data.update(
+            asset_id=(
+                Asset.objects.only("pk")
+                .get(user=validated_data.pop("user"), code=validated_data.pop("asset")["code"])
+                .pk
+            )
+        )
+        return super().create(validated_data=validated_data)
 
 
 class AssetSerializer(serializers.ModelSerializer):
@@ -178,9 +159,6 @@ class AssetSerializer(serializers.ModelSerializer):
 class AssetTransactionSimulateEndpointSerializer(serializers.Serializer):
     old = AssetSerializer()
     new = AssetSerializer()
-
-
-from drf_spectacular.utils import extend_schema_field
 
 
 class AssetListSerializer(serializers.ModelSerializer):

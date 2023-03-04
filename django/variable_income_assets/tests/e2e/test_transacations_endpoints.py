@@ -5,13 +5,25 @@ from django.utils import timezone
 import pytest
 
 from dateutil.relativedelta import relativedelta
-from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST
+from rest_framework.status import (
+    HTTP_200_OK,
+    HTTP_201_CREATED,
+    HTTP_400_BAD_REQUEST,
+    HTTP_404_NOT_FOUND,
+)
 
-from authentication.tests.conftest import client, secrets, user
+from authentication.tests.conftest import (
+    client,
+    kucoin_client,
+    kucoin_secrets,
+    secrets,
+    user,
+    user_with_kucoin_integration,
+)
 from config.settings.base import BASE_API_URL
 from config.settings.dynamic import dynamic_settings
-from variable_income_assets.choices import AssetTypes, TransactionActions, TransactionCurrencies
-from variable_income_assets.models import Asset, Transaction
+from variable_income_assets.choices import TransactionActions, TransactionCurrencies
+from variable_income_assets.models import Transaction
 from variable_income_assets.tests.shared import convert_and_quantitize
 
 pytestmark = pytest.mark.django_db
@@ -79,29 +91,16 @@ def test__create__sell_wo_initial_price_should_use_avg_price(client, simple_asse
     )
 
 
-def test__create__asset_and_transaction(client):
+def test__create__should_raise_error_if_asset_does_not_exist(client):
     # GIVEN
-    data = {
-        "action": TransactionActions.buy,
-        "price": 10,
-        "quantity": 100,
-        "asset_code": "ALUP11",
-        "asset_type": AssetTypes.stock,
-    }
+    data = {"action": TransactionActions.buy, "price": 10, "quantity": 100, "asset_code": "ALUP11"}
 
     # WHEN
     response = client.post(URL, data=data)
 
     # THEN
-    assert response.status_code == HTTP_201_CREATED
-
-    asset = Asset.objects.get(code="ALUP11", type=AssetTypes.stock)
-    assert Asset.objects.count() == 1
-    assert asset.transactions.count() == 1
-    assert (
-        asset.transactions.filter(action=TransactionActions.buy, price=10, quantity=100).count()
-        == 1
-    )
+    assert response.status_code == HTTP_404_NOT_FOUND
+    assert response.json() == {"asset": "Not found."}
 
 
 @pytest.mark.usefixtures("buy_transaction")
@@ -124,27 +123,7 @@ def test__create__should_raise_error_if_initial_price_is_null(client, simple_ass
     assert Transaction.objects.filter(action=TransactionActions.sell).count() == 0
 
 
-def test__create__should_raise_error_if_asset_does_not_exist_and_not_type(client):
-    # GIVEN
-    data = {
-        "action": TransactionActions.buy,
-        "price": 10,
-        "quantity": 100,
-        "asset_code": "ALUP11",
-    }
-
-    # WHEN
-    response = client.post(URL, data=data)
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"asset.type": "If the asset does not exist, `type` is required"}
-    assert Asset.objects.count() == 0
-
-
-def test__create__should_raise_error_if_selling_transaction_and_no_transactions(
-    client, simple_asset
-):
+def test__create__should_raise_error_if_sell_transaction_and_no_transactions(client, simple_asset):
     # GIVEN
     data = {
         "action": TransactionActions.sell,
@@ -163,7 +142,7 @@ def test__create__should_raise_error_if_selling_transaction_and_no_transactions(
 
 
 @pytest.mark.usefixtures("simple_asset")
-def test__create__should_raise_error_if_selling_transaction_and_no_asset(client):
+def test__create__should_raise_error_if_sell_transaction_and_no_asset(client):
     # GIVEN
     data = {
         "action": TransactionActions.sell,
@@ -226,6 +205,159 @@ def test__update(client, buy_transaction):
         if k == "action":
             continue
         assert response.json()[k] == v
+
+    buy_transaction.refresh_from_db()
+    assert buy_transaction.price == data["price"]
+
+
+@pytest.mark.usefixtures("simple_asset")
+def test__update__transaction_does_not_belong_to_user(kucoin_client, buy_transaction):
+    # GIVEN
+    data = {
+        "action": buy_transaction.action,
+        "price": buy_transaction.price + 1,
+        "quantity": buy_transaction.quantity,
+        "asset_code": buy_transaction.asset.code,
+    }
+
+    # WHEN
+    response = kucoin_client.put(f"{URL}/{buy_transaction.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_404_NOT_FOUND
+    assert response.json() == {"detail": "Not found."}
+
+
+@pytest.mark.usefixtures("buy_transaction")
+def test__update__sell_wo_initial_price_should_use_avg_price(
+    client, simple_asset, sell_transaction
+):
+    # GIVEN
+    data = {
+        "action": sell_transaction.action,
+        "price": sell_transaction.price * 2,
+        "quantity": sell_transaction.quantity,
+        "asset_code": simple_asset.code,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{sell_transaction.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert (
+        Transaction.objects.filter(
+            action=TransactionActions.sell, initial_price=simple_asset.avg_price_from_transactions
+        ).count()
+        == 1
+    )
+
+
+def test__update__should_raise_error_if_initial_price_is_null(
+    client, simple_asset, sell_transaction
+):
+    # GIVEN
+    data = {
+        "action": sell_transaction.action,
+        "price": sell_transaction.price * 2,
+        "quantity": sell_transaction.quantity,
+        "asset_code": simple_asset.code,
+        "initial_price": None,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{sell_transaction.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"initial_price": ["This field may not be null."]}
+
+
+def test__update__should_raise_error_if_sell_transaction_and_no_transactions(
+    client, simple_asset, buy_transaction
+):
+    # GIVEN
+    data = {
+        "action": TransactionActions.sell,
+        "price": buy_transaction.price,
+        "quantity": 0.1,
+        "asset_code": simple_asset.code,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{buy_transaction.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"action": "You can't sell more assets than you own"}
+
+    assert Transaction.objects.filter(action=TransactionActions.buy).count() == 1
+    assert Transaction.objects.filter(action=TransactionActions.sell).count() == 0
+
+
+@pytest.mark.usefixtures("buy_transaction")
+def test__update__sell__should_raise_error_if_negative_quantity(
+    client, simple_asset, sell_transaction
+):
+    # GIVEN
+    data = {
+        "action": sell_transaction.action,
+        "price": sell_transaction.price,
+        "quantity": sell_transaction.quantity * 2,
+        "asset_code": simple_asset.code,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{sell_transaction.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"action": "You can't sell more assets than you own"}
+
+
+@pytest.mark.usefixtures("simple_asset")
+def test__create__should_raise_error_if_sell_transaction_and_no_asset(client):
+    # GIVEN
+    data = {
+        "action": TransactionActions.sell,
+        "price": 10,
+        "quantity": 100,
+        "asset_code": "ALUP11",
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"action": "You can't sell more assets than you own"}
+    assert Transaction.objects.count() == 0
+
+
+@pytest.mark.usefixtures("buy_transaction")
+def test__create__should_raise_error_if_different_currency(client, simple_asset):
+    # GIVEN
+    data = {
+        "action": TransactionActions.buy,
+        "price": 10,
+        "quantity": 100,
+        "asset_code": simple_asset.code,
+        "currency": TransactionCurrencies.dollar,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "currency": (
+            "Only one currency per asset is supported. "
+            f"Current currency: {TransactionCurrencies.real}"
+        )
+    }
+
+    assert Transaction.objects.count() == 1
 
 
 @pytest.mark.usefixtures("transactions_indicators_data")

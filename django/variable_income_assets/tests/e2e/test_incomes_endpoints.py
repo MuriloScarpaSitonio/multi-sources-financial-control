@@ -142,7 +142,7 @@ def test__historic(client):
 
 
 @pytest.mark.usefixtures("passive_incomes", "another_income", "assets_w_incomes")
-@pytest.mark.parametrize("filters", ("", "all=true"))
+@pytest.mark.parametrize("filters", ("credited=True", "credited=True&all=true"))
 def test__assets_aggregation_report(client, simple_asset, another_asset, filters):
     # GIVEN
 
@@ -150,18 +150,14 @@ def test__assets_aggregation_report(client, simple_asset, another_asset, filters
     response = client.get(f"{URL}/assets_aggregation_report?{filters}")
 
     # THEN
-    if filters:
+    if "all" in filters:
         assert len(response.json()) == 10
     else:
         assert len(response.json()) == 9
 
     for r in response.json():
         qs = PassiveIncome.objects.credited().filter(asset__code=r["code"])
-        if not filters:
+        if "all" not in filters:
             qs = qs.since_a_year_ago()
-            if r["code"] == "ALUP11":
-                print(qs.values("operation_date", "amount"))
-        else:
-            if r["code"] == "ALUP11":
-                print(qs.values("operation_date", "amount"))
+
         assert convert_and_quantitize(qs.sum()["total"]) == r["total"]

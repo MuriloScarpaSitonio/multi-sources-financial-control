@@ -93,6 +93,7 @@ def crypto_asset(user):
         objective=AssetObjectives.growth,
         user=user,
         current_price=6,
+        current_price_updated_at=timezone.now(),
     )
 
 
@@ -222,16 +223,29 @@ def kucoin_transactions_response():
             "quantity": 32.98106896,
             "created_at": 1638800630.73,
         },
+        {
+            "id": "61ae1cea70405300010f4d07",
+            "code": "VELO",
+            "currency": "USDT",
+            "action": "SELL",
+            "price": 5.4408,
+            "quantity": 32.98106896,
+            "created_at": 1638800630.73,
+        },
     ]
 
 
 @pytest.fixture
 def buy_transaction(simple_asset):
     return TransactionFactory(
-        action=TransactionActions.buy,
-        price=10,
-        asset=simple_asset,
-        quantity=50,
+        action=TransactionActions.buy, price=10, asset=simple_asset, quantity=50
+    )
+
+
+@pytest.fixture
+def sell_transaction(simple_asset):
+    return TransactionFactory(
+        action=TransactionActions.sell, price=20, asset=simple_asset, quantity=50, initial_price=10
     )
 
 

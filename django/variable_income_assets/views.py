@@ -272,9 +272,7 @@ class PassiveIncomeViewSet(ModelViewSet):
         filterset = filters.PassiveIncomeAssetsAgreggationReportFilterSet(
             data=request.GET, queryset=self.get_queryset()
         )
-        serializer = serializers.PassiveIncomeAssetsAggregationSerializer(
-            filterset.qs.assets_aggregation(), many=True
-        )
+        serializer = serializers.PassiveIncomeAssetsAggregationSerializer(filterset.qs, many=True)
         return Response(serializer.data, status=HTTP_200_OK)
 
 

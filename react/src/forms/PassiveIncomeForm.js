@@ -190,16 +190,7 @@ export const PassiveIncomeForm = ({
               render={({ field: { onChange, value } }) => (
                 <>
                   <Autocomplete
-                    freeSolo
                     onChange={(_, asset) => onChange(asset)}
-                    onInputChange={(e, v, r) => {
-                      if (e && e.type === "change") {
-                        onChange({ value: v, label: v });
-                      }
-                      if (r === "clear") {
-                        return;
-                      }
-                    }}
                     value={value}
                     clearText="Limpar"
                     closeText="Fechar"

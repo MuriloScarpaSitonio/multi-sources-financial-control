@@ -51,7 +51,12 @@ const SimulateTransactionResponseDialog = ({
               minimumFractionDigits: 2,
               maximumFractionDigits: 4,
             }
-          )}`}</DialogContentText>
+          )} (${formData.currency} ${(
+            formData.price * formData.quantity
+          )?.toLocaleString("pt-br", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
+          })})`}</DialogContentText>
         ) : (
           <DialogContentText>{`Total de ${
             formData.currency
@@ -64,7 +69,10 @@ const SimulateTransactionResponseDialog = ({
               minimumFractionDigits: 2,
               maximumFractionDigits: 4,
             }
-          )}`}</DialogContentText>
+          )}  (${(formData.total / formData.price)?.toLocaleString("pt-br", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
+          })} ativos)`}</DialogContentText>
         )}
 
         <TableContainer>

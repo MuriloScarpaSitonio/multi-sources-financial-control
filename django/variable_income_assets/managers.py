@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 from django.db.models import CharField, Count, F, OuterRef, Q, QuerySet, Subquery, Sum, Value
 from django.db.models.expressions import CombinedExpression
@@ -407,7 +407,17 @@ class PassiveIncomeQuerySet(CustomQueryset, MonthlyFilterMixin):
     def trunc_months(self) -> PassiveIncomeQuerySet:
         return self.annotate(month=TruncMonth("operation_date")).values("month").annotate_sum()
 
-    def assets_aggregation(self, provisioned: bool = False) -> PassiveIncomeQuerySet:
+    def assets_aggregation(
+        self, credited: bool = True, provisioned: bool = False
+    ) -> PassiveIncomeQuerySet:
         """Returns the 10 assets that paid more incomes"""
-        qs = self.provisioned() if provisioned else self.credited()
+        if credited and not provisioned:
+            qs = self.credited()
+        if provisioned and not credited:
+            qs = self.provisioned()
+        if provisioned and credited:
+            qs = self.all()
+        if not credited and not provisioned:
+            qs = self.none()
+
         return qs.annotate(code=F("asset__code")).aggregate_field("code")[:10]

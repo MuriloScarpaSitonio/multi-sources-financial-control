@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 
 import django_filters as filters
 
-from .choices import AssetsTotalInvestedReportAggregations
+from .choices import AssetsTotalInvestedReportAggregations, AssetTypes
 from .models import Asset, PassiveIncome, Transaction
 
 
@@ -117,6 +117,7 @@ class AssetRoiReportFilterSet(filters.FilterSet):
 
 class TransactionFilterSet(filters.FilterSet):
     asset_code = filters.CharFilter(field_name="asset__code", lookup_expr="icontains")
+    asset_type = filters.ChoiceFilter(field_name="asset__type", choices=AssetTypes.choices)
     start_date = filters.DateFilter(field_name="created_at", lookup_expr="gte")
     end_date = filters.DateFilter(field_name="created_at", lookup_expr="lte")
 
@@ -137,11 +138,24 @@ class PassiveIncomeFilterSet(filters.FilterSet):
 
 class PassiveIncomeAssetsAgreggationReportFilterSet(filters.FilterSet):
     all = filters.BooleanFilter()
+    credited = filters.BooleanFilter()
+    provisioned = filters.BooleanFilter()
 
     @property
     def qs(self):
         if self.is_valid():
-            return (
+            # if self.form.cleaned_data["all"] == {
+            #     "all": False,
+            #     "credited": True,
+            #     "provisioned": True,
+            # }:
+            #     # TODO
+            #     # special case when only `credited` incomes should be filtered by `since_a_year_ago`
+            _qs = (
                 self.queryset if self.form.cleaned_data["all"] else self.queryset.since_a_year_ago()
+            )
+            return _qs.assets_aggregation(
+                credited=self.form.cleaned_data["credited"],
+                provisioned=self.form.cleaned_data["provisioned"],
             )
         raise filters.utils.translate_validation(error_dict=self.errors)

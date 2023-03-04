@@ -12,6 +12,7 @@ from ...choices import (
     TransactionActions,
     TransactionCurrencies,
 )
+from ...domain.models import TransactionDTO
 from ...models import Asset, PassiveIncome, Transaction
 
 
@@ -28,16 +29,22 @@ class CryptoTransactionSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=TransactionActions.choices)
 
     def is_valid(self, raise_exception: bool = False) -> bool:
-        result = super().is_valid(raise_exception=raise_exception)
         already_exists = Transaction.objects.filter(external_id=self.data["id"]).exists()
         if already_exists and raise_exception:
             raise CryptoTransactionAlreadyExistsException
-        return result and not already_exists
+        return not already_exists or super().is_valid(raise_exception=raise_exception)
 
     def create(self, asset: Asset, task_history_id: int) -> Transaction:
         data = deepcopy(self.validated_data)
-        data.update({"external_id": data.pop("id")})
-        return Transaction.objects.create(asset=asset, fetched_by_id=task_history_id, **data)
+        external_id = data.pop("id")
+
+        transaction = asset.to_domain().add_transaction(transaction_dto=TransactionDTO(**data))
+        transaction.asset_id = asset.pk
+        transaction.external_id = external_id
+        transaction.fetched_by_id = task_history_id
+        transaction.save()
+
+        return transaction
 
 
 class CeiTransactionSerializer(serializers.Serializer):
@@ -46,14 +53,19 @@ class CeiTransactionSerializer(serializers.Serializer):
     operation_date = serializers.DateField(input_formats=(ISO_8601,))
     action = CeiTransactionChoiceField(choices=TransactionActions.choices)
 
-    def get_or_create(self, asset: Asset) -> Tuple[Transaction, bool]:
-        return Transaction.objects.get_or_create(
-            asset=asset,
-            price=self.validated_data["unit_price"],
-            quantity=self.validated_data["unit_amount"],
-            created_at=self.validated_data["operation_date"],
-            defaults={"action": getattr(TransactionActions, self.validated_data["action"])},
+    def create(self, asset: Asset, task_history_id: int) -> Transaction:
+        transaction = asset.to_domain().add_transaction(
+            transaction_dto=TransactionDTO(
+                action=getattr(TransactionActions, self.validated_data["action"]),
+                quantity=self.validated_data["unit_amount"],
+                created_at=self.validated_data["operation_date"],
+                price=self.validated_data["unit_price"],
+            )
         )
+        transaction.asset_id = asset.pk
+        transaction.fetched_by_id = task_history_id
+        transaction.save()
+        return transaction
 
 
 class CeiPassiveIncomeSerializer(serializers.Serializer):
