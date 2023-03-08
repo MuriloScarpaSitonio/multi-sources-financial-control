@@ -80,13 +80,16 @@ export class AuthenticationApi {
 export class AssetsApi extends Api {
   resource = "assets";
   constructor(code = null) {
-    super({
-      query: true,
-      post: false,
-      put: false,
-      patch: false,
-      delete: false,
-    });
+    super(
+      {
+        query: true,
+        post: true,
+        put: true,
+        patch: false,
+        delete: false,
+      },
+      code
+    );
     this.simulateTransaction = (code, data) =>
       apiProvider.post(`${this.resource}/${code}/transactions/simulate`, data);
 

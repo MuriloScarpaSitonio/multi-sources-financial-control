@@ -1,16 +1,33 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Dict, Optional, Union
+from typing import Dict, Union
 
-from django.db.models import CharField, Count, F, OuterRef, Q, QuerySet, Subquery, Sum, Value
+from django.db.models import (
+    Case,
+    CharField,
+    Count,
+    F,
+    OuterRef,
+    Q,
+    QuerySet,
+    Subquery,
+    Sum,
+    Value,
+    When,
+)
 from django.db.models.expressions import CombinedExpression
 from django.db.models.functions import Concat, Coalesce, TruncMonth
 
 from shared.managers_utils import CustomQueryset, GenericFilters, MonthlyFilterMixin
 from shared.utils import coalesce_sum_expression
 
-from .choices import AssetTypes, AssetsTotalInvestedReportAggregations, PassiveIncomeEventTypes
+from .choices import (
+    AssetTypes,
+    AssetsTotalInvestedReportAggregations,
+    PassiveIncomeEventTypes,
+    TransactionCurrencies,
+)
 from .expressions import GenericQuerySetExpressions
 
 
@@ -29,11 +46,18 @@ class AssetQuerySet(QuerySet):
             .values("credited_incomes")
         )
 
+    def _transactions_count_alias(self) -> AssetQuerySet:
+        return self.alias(transactions_count=Count("transactions"))
+
     def _annotate_quantity_balance(self) -> AssetQuerySet:
         return self.annotate(quantity_balance=self.expressions.quantity_balance).order_by()
 
     def opened(self) -> AssetQuerySet:
-        return self._annotate_quantity_balance().filter(quantity_balance__gt=0)
+        return (
+            self._transactions_count_alias()
+            ._annotate_quantity_balance()
+            .filter(Q(transactions_count=0) | Q(quantity_balance__gt=0))
+        )
 
     def finished(self) -> AssetQuerySet:
         return self._annotate_quantity_balance().filter(quantity_balance__lte=0)
@@ -51,7 +75,20 @@ class AssetQuerySet(QuerySet):
         from .models import Transaction  # avoid circular ImportError
 
         subquery = Transaction.objects.filter(asset=OuterRef("pk"))
-        return self.annotate(currency=Subquery(subquery.values("currency")[:1]))
+        return self.annotate(
+            currency=Coalesce(
+                Subquery(subquery.values("currency")[:1]),
+                Case(
+                    When(
+                        Q(type=AssetTypes.stock)
+                        | Q(type=AssetTypes.fii)
+                        | Q(type=AssetTypes.crypto),  # best effort strategy
+                        then=Value(TransactionCurrencies.real),
+                    ),
+                    When(type=AssetTypes.stock_usa, then=Value(TransactionCurrencies.dollar)),
+                ),
+            )
+        )
 
     def annotate_roi(
         self, percentage: bool = False, annotate_passive_incomes_subquery: bool = True
@@ -103,7 +140,9 @@ class AssetQuerySet(QuerySet):
         return self.annotate(avg_price=self.expressions.avg_price)
 
     def annotate_total_invested(self) -> AssetQuerySet:
-        return self.annotate(total_invested=F("avg_price") * F("quantity_balance"))
+        return self.annotate(
+            total_invested=Coalesce(F("avg_price") * F("quantity_balance"), Decimal())
+        )
 
     def annotate_current_total(self, field_name: str = "current_total") -> AssetQuerySet:
         return self.annotate(**{field_name: self.expressions.current_total})

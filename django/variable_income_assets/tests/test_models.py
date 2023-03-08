@@ -11,7 +11,7 @@ from .shared import (
     get_avg_price_bute_force,
     get_roi_brute_force,
 )
-from ..choices import TransactionActions
+from ..choices import TransactionActions, TransactionCurrencies
 from ..models import Asset, Transaction
 
 pytestmark = pytest.mark.django_db
@@ -20,7 +20,7 @@ pytestmark = pytest.mark.django_db
 @pytest.mark.usefixtures("transactions")
 class TestModels:
 
-    # Region: Tests DRY
+    # region: Tests DRY
     def _test_roi(self, asset: Asset, percentage: bool = False):
         # WHEN
         roi = get_roi_brute_force(asset=asset)
@@ -70,87 +70,100 @@ class TestModels:
             avg_price * quantity, 6
         )
 
-    # End region: Tests DRY
+    # endregion: Tests DRY
 
-    # Region: Tests
-    def test_should_calculate_avg_price(self, simple_asset):
+    # region: Tests
+    def test_should_calculate_avg_price(self, stock_asset):
         # GIVEN
 
         # WHEN
-        expected = get_avg_price_bute_force(asset=simple_asset)
+        expected = get_avg_price_bute_force(asset=stock_asset)
 
         # THEN
-        assert round(simple_asset.avg_price_from_transactions, 6) == round(expected, 6)
+        assert round(stock_asset.avg_price_from_transactions, 6) == round(expected, 6)
 
     @pytest.mark.usefixtures("passive_incomes")
-    def test_should_calculate_adjusted_avg_price(self, simple_asset):
+    def test_should_calculate_adjusted_avg_price(self, stock_asset):
         # GIVEN
 
         # WHEN
-        expected = get_adjusted_avg_price_brute_forte(asset=simple_asset)
+        expected = get_adjusted_avg_price_brute_forte(asset=stock_asset)
 
         # THEN
-        assert round(simple_asset.adjusted_avg_price_from_transactions, 6) == round(expected, 6)
+        assert round(stock_asset.adjusted_avg_price_from_transactions, 6) == round(expected, 6)
 
-    def test_should_calculate_quantity(self, simple_asset):
+    def test_should_calculate_quantity(self, stock_asset):
         # GIVEN
 
         # WHEN
-        expected = get_adjusted_quantity_brute_force(asset=simple_asset)
+        expected = get_adjusted_quantity_brute_force(asset=stock_asset)
 
         # THEN
-        assert simple_asset.quantity_from_transactions == expected
+        assert stock_asset.quantity_from_transactions == expected
 
     @pytest.mark.usefixtures("passive_incomes")
-    def test_should_calculate_adjusted_total_invested(self, simple_asset):
-        self._test_total_invested(asset=simple_asset)
+    def test_should_calculate_adjusted_total_invested(self, stock_asset):
+        self._test_total_invested(asset=stock_asset)
 
-    def test_should_calculate_total_invested(self, simple_asset):
-        self._test_total_invested(asset=simple_asset)
+    def test_should_calculate_total_invested(self, stock_asset):
+        self._test_total_invested(asset=stock_asset)
 
-    def test_should_calculate_asset_roi(self, simple_asset):
-        self._test_asset_roi(asset=simple_asset)
-
-    @pytest.mark.usefixtures("passive_incomes")
-    def test_should_calculate_asset_roi_w_passive_incomes(self, simple_asset):
-        self._test_asset_roi(asset=simple_asset)
+    def test_should_calculate_asset_roi(self, stock_asset):
+        self._test_asset_roi(asset=stock_asset)
 
     @pytest.mark.usefixtures("passive_incomes")
-    def test_should_calculate_asset_roi_w_non_distinct_passive_incomes(self, simple_asset):
+    def test_should_calculate_asset_roi_w_passive_incomes(self, stock_asset):
+        self._test_asset_roi(asset=stock_asset)
+
+    @pytest.mark.usefixtures("passive_incomes")
+    def test_should_calculate_asset_roi_w_non_distinct_passive_incomes(self, stock_asset):
         # GIVEN
-        for income in simple_asset.incomes.all():
+        for income in stock_asset.incomes.all():
             income.amount = 250
             income.save()
 
-        self._test_asset_roi(asset=simple_asset)
+        self._test_asset_roi(asset=stock_asset)
 
-    def test_should_calculate_negative_asset_roi(self, simple_asset):
-        self._test_asset_roi(asset=simple_asset, current_price=1)
+    def test_should_calculate_negative_asset_roi(self, stock_asset):
+        self._test_asset_roi(asset=stock_asset, current_price=1)
 
-    def test_should_calculate_finished_asset_roi(self, simple_asset):
-        self._test_finished_asset_roi(asset=simple_asset, price=15)
+    def test_should_calculate_finished_asset_roi(self, stock_asset):
+        self._test_finished_asset_roi(asset=stock_asset, price=15)
 
-    def test_should_calculate_finished_negative_asset_roi(self, simple_asset):
-        self._test_finished_asset_roi(asset=simple_asset, price=1)
+    def test_should_calculate_finished_negative_asset_roi(self, stock_asset):
+        self._test_finished_asset_roi(asset=stock_asset, price=1)
 
-    def test_should_calculate_asset_roi_percentage(self, simple_asset):
-        self._test_roi(asset=simple_asset, percentage=True)
-
-    @pytest.mark.usefixtures("passive_incomes")
-    def test_should_calculate_asset_roi_percentage_w_incomes(self, simple_asset):
-        self._test_roi(asset=simple_asset, percentage=True)
-
-    def test_should_calculate_negative_asset_roi_percentage(self, simple_asset):
-        self._test_asset_roi(asset=simple_asset, percentage=True, current_price=1)
+    def test_should_calculate_asset_roi_percentage(self, stock_asset):
+        self._test_roi(asset=stock_asset, percentage=True)
 
     @pytest.mark.usefixtures("passive_incomes")
-    def test_should_calculate_negative_asset_roi_percentage_w_incomes(self, simple_asset):
-        self._test_asset_roi(asset=simple_asset, percentage=True, current_price=1)
+    def test_should_calculate_asset_roi_percentage_w_incomes(self, stock_asset):
+        self._test_roi(asset=stock_asset, percentage=True)
 
-    def test_should_calculate_finished_asset_roi_percentage(self, simple_asset):
-        self._test_finished_asset_roi(asset=simple_asset, price=15, percentage=True)
+    def test_should_calculate_negative_asset_roi_percentage(self, stock_asset):
+        self._test_asset_roi(asset=stock_asset, percentage=True, current_price=1)
 
-    def test_should_calculate_finished_negative_asset_roi_percentage(self, simple_asset):
-        self._test_finished_asset_roi(asset=simple_asset, price=1, percentage=True)
+    @pytest.mark.usefixtures("passive_incomes")
+    def test_should_calculate_negative_asset_roi_percentage_w_incomes(self, stock_asset):
+        self._test_asset_roi(asset=stock_asset, percentage=True, current_price=1)
 
-    # End region: Tests
+    def test_should_calculate_finished_asset_roi_percentage(self, stock_asset):
+        self._test_finished_asset_roi(asset=stock_asset, price=15, percentage=True)
+
+    def test_should_calculate_finished_negative_asset_roi_percentage(self, stock_asset):
+        self._test_finished_asset_roi(asset=stock_asset, price=1, percentage=True)
+
+    def test__currency__wo_transactions(
+        self, stock_usa_asset, crypto_asset, another_stock_asset, fii_asset
+    ):
+        # GIVEN
+
+        # WHEN
+
+        # THEN
+        assert stock_usa_asset.guess_currency() == TransactionCurrencies.dollar
+        assert crypto_asset.guess_currency() == TransactionCurrencies.real
+        assert another_stock_asset.guess_currency() == TransactionCurrencies.real
+        assert fii_asset.guess_currency() == TransactionCurrencies.real
+
+    # endregion: Tests

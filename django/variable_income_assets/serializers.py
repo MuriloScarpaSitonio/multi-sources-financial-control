@@ -1,6 +1,8 @@
 from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_UP, DecimalException
 from typing import List
 
+from django.utils import timezone
+
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.exceptions import NotFound
@@ -121,6 +123,53 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
 
 
 class AssetSerializer(serializers.ModelSerializer):
+    type = CustomChoiceField(choices=AssetTypes.choices)
+    sector = CustomChoiceField(choices=AssetSectors.choices)
+    objective = CustomChoiceField(choices=AssetObjectives.choices)
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
+    class Meta:
+        model = Asset
+        fields = (
+            "id",
+            "code",
+            "type",
+            "sector",
+            "objective",
+            "user",
+            "current_price",
+            "current_price_updated_at",
+        )
+        extra_kwargs = {"current_price_updated_at": {"read_only": True}}
+
+    @property
+    def validated_data(self) -> dict:
+        _validated_data = super().validated_data
+        if "current_price" in _validated_data:
+            _validated_data.update(current_price_updated_at=timezone.now())
+        return _validated_data
+
+    # def validate(self, data: dict):
+    #     choice = AssetSectors.get_choice(data["sector"])
+    #     if data["type"] not in choice.valid_types:
+    #         raise serializers.ValidationError(
+    #             {
+    #                 "type_sector": f"{data['type']} is not a valid type of asset for the {data['sector']} "
+    #                 f"sector. Valid choices: {', '.join(choice.valid_types)}"
+    #             }
+    #         )
+    #     return data
+
+    def validate_code(self, code: str) -> str:
+        if (
+            self.instance is None
+            and Asset.objects.filter(user=self.context["request"].user, code=code).exists()
+        ):
+            raise serializers.ValidationError("Asset with given code already exists", code="unique")
+        return code
+
+
+class AssetSimulateSerializer(serializers.ModelSerializer):
     roi = serializers.SerializerMethodField(read_only=True)
     roi_percentage = serializers.SerializerMethodField(read_only=True)
     adjusted_avg_price = serializers.SerializerMethodField(read_only=True)
@@ -157,8 +206,8 @@ class AssetSerializer(serializers.ModelSerializer):
 
 
 class AssetTransactionSimulateEndpointSerializer(serializers.Serializer):
-    old = AssetSerializer()
-    new = AssetSerializer()
+    old = AssetSimulateSerializer()
+    new = AssetSimulateSerializer()
 
 
 class AssetListSerializer(serializers.ModelSerializer):
@@ -188,6 +237,7 @@ class AssetListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Asset
         fields = (
+            "id",
             "code",
             "type",
             "sector",
@@ -195,6 +245,7 @@ class AssetListSerializer(serializers.ModelSerializer):
             "user",
             "quantity_balance",
             "current_price",
+            "current_price_updated_at",
             "adjusted_avg_price",
             "roi",
             "roi_percentage",

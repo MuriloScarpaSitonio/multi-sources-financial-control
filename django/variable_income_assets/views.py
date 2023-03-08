@@ -8,7 +8,7 @@ from django.utils import timezone
 from djchoices import ChoiceItem
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
-from rest_framework.mixins import ListModelMixin
+from rest_framework.mixins import CreateModelMixin, ListModelMixin, UpdateModelMixin
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.serializers import Serializer
@@ -34,8 +34,7 @@ from .tasks import (
 )
 
 
-class AssetViewSet(GenericViewSet, ListModelMixin):
-    serializer_class = serializers.AssetListSerializer
+class AssetViewSet(GenericViewSet, ListModelMixin, CreateModelMixin, UpdateModelMixin):
     filterset_class = filters.AssetFilterSet
     lookup_field = "code"
     ordering_fields = ("code", "type", "total_invested", "roi", "roi_percentage")
@@ -56,13 +55,25 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
             )
         return Asset.objects.none()  # drf-spectacular
 
+    def get_serializer_class(self):
+        return (
+            serializers.AssetListSerializer
+            if self.action == "list"
+            else serializers.AssetSerializer
+        )
+
     def get_serializer_context(self):
-        return {
-            **super().get_serializer_context(),
-            **self.get_queryset().aggregate(
-                current_total_agg=Sum("current_total"), total_invested_agg=Sum("total_invested")
-            ),
-        }
+        context = super().get_serializer_context()
+        return (
+            {
+                **context,
+                **self.get_queryset().aggregate(
+                    current_total_agg=Sum("current_total"), total_invested_agg=Sum("total_invested")
+                ),
+            }
+            if self.action == "list"
+            else context
+        )
 
     @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:
@@ -165,11 +176,13 @@ class AssetViewSet(GenericViewSet, ListModelMixin):
         # TODO: change `list` endpoint to support `fields` kwarg on serializer and set the return values
         # by doing `/assets?fields=code,currency`
         return Response(
-            self.get_queryset()
-            .opened()
-            .annotate_currency()
-            .values("code", "currency")
-            .order_by("code"),
+            data=(
+                self.get_queryset()
+                .opened()
+                .annotate_currency()
+                .values("code", "currency")
+                .order_by("code")
+            ),
             status=HTTP_200_OK,
         )
 
@@ -198,7 +211,7 @@ class AssetTransactionViewSet(GenericViewSet):
         else:
             kwargs["quantity"] = data["total"] / data["price"]
 
-        old = serializers.AssetSerializer(instance=asset).data
+        old = serializers.AssetSimulateSerializer(instance=asset).data
         with djtransaction.atomic():
             Transaction.objects.create(
                 asset=asset,
@@ -211,7 +224,7 @@ class AssetTransactionViewSet(GenericViewSet):
             del asset.__dict__["adjusted_avg_price_from_transactions"]
             del asset.__dict__["quantity_from_transactions"]
 
-            new = serializers.AssetSerializer(instance=asset).data
+            new = serializers.AssetSimulateSerializer(instance=asset).data
             djtransaction.set_rollback(True)
         return Response({"old": old, "new": new}, status=HTTP_200_OK)
 

@@ -83,7 +83,7 @@ class GenericQuerySetExpressions(_GenericQuerySetMixin):
 
     @property
     def avg_price(self) -> Coalesce:
-        return self.total_bought / self.quantity_bought
+        return Coalesce(self.total_bought / self.quantity_bought, Decimal())
 
     @property
     def current_total(self) -> Case:

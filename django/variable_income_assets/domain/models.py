@@ -66,11 +66,13 @@ class Asset:
 
         if transaction_dto.is_sale and transaction_dto.initial_price is None:
             transaction_dto.initial_price = self.avg_price
-        from ..models import Transaction
 
         data = asdict(transaction_dto)
         if data["created_at"] is None:
             data.pop("created_at")
+
+        from ..models import Transaction  # avoid circular import error
+
         return Transaction(**data)
 
     def update_transaction(self, dto: TransactionDTO, transaction: Transaction) -> Transaction:

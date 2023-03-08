@@ -19,14 +19,14 @@ pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "incomes"
 
 
-def test__create(client, simple_asset):
+def test__create(client, stock_asset):
     # GIVEN
     data = {
         "type": PassiveIncomeTypes.dividend,
         "event_type": PassiveIncomeEventTypes.credited,
         "amount": 100,
         "operation_date": "06/12/2029",
-        "asset_code": simple_asset.code,
+        "asset_code": stock_asset.code,
     }
 
     # WHEN
@@ -34,10 +34,10 @@ def test__create(client, simple_asset):
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
-    assert PassiveIncome.objects.filter(asset=simple_asset).count() == 1
+    assert PassiveIncome.objects.filter(asset=stock_asset).count() == 1
 
 
-@pytest.mark.usefixtures("simple_asset")
+@pytest.mark.usefixtures("stock_asset")
 def test__update(client, simple_income):
     # GIVEN
     data = {
@@ -59,7 +59,7 @@ def test__update(client, simple_income):
         assert response.json()[k] == v
 
 
-@pytest.mark.usefixtures("simple_asset")
+@pytest.mark.usefixtures("stock_asset")
 def test__delete(client, simple_income):
     # GIVEN
 
@@ -72,7 +72,7 @@ def test__delete(client, simple_income):
 
 
 @pytest.mark.usefixtures("passive_incomes")
-def test__indicators(client, simple_asset, another_asset, crypto_asset):
+def test__indicators(client, stock_asset, stock_usa_asset, crypto_asset):
     # GIVEN
     today = timezone.now().date()
     current_credited = sum(
@@ -143,7 +143,7 @@ def test__historic(client):
 
 @pytest.mark.usefixtures("passive_incomes", "another_income", "assets_w_incomes")
 @pytest.mark.parametrize("filters", ("credited=True", "credited=True&all=true"))
-def test__assets_aggregation_report(client, simple_asset, another_asset, filters):
+def test__assets_aggregation_report(client, stock_asset, stock_usa_asset, filters):
     # GIVEN
 
     # WHEN

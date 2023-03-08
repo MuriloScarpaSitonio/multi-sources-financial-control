@@ -3,7 +3,12 @@ import operator
 
 import pytest
 
-from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN
+from rest_framework.status import (
+    HTTP_200_OK,
+    HTTP_201_CREATED,
+    HTTP_400_BAD_REQUEST,
+    HTTP_403_FORBIDDEN,
+)
 
 from authentication.tests.conftest import (
     binance_client,
@@ -42,6 +47,116 @@ from variable_income_assets.models import Asset, Transaction
 
 pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "assets"
+
+
+def test__create(client):
+    # GIVEN
+    data = {
+        "type": AssetTypes.fii,
+        "sector": AssetSectors.utilities,
+        "objective": AssetObjectives.dividend,
+        "code": "IGR",
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+    assert response.json()["current_price_updated_at"] is None
+
+
+def test__create__same_code(client, stock_asset):
+    # GIVEN
+    data = {
+        "type": AssetTypes.fii,
+        "sector": AssetSectors.utilities,
+        "objective": AssetObjectives.dividend,
+        "code": stock_asset.code,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"code": ["Asset with given code already exists"]}
+
+
+def test__create__w_current_price(client):
+    # GIVEN
+    data = {
+        "type": AssetTypes.fii,
+        "sector": AssetSectors.utilities,
+        "objective": AssetObjectives.dividend,
+        "code": "IGR",
+        "current_price": "10.25",
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+    assert response.json()["current_price_updated_at"] is not None
+
+
+@pytest.mark.skip("Skip while is not implemented")
+def test__create__wrong_sector_type_set(client):
+    # GIVEN
+    data = {
+        "type": AssetTypes.fii,
+        "sector": AssetSectors.industrials,
+        "objective": AssetObjectives.dividend,
+        "code": "IGR",
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "type_sector": [
+            f"{AssetTypes.fii} is not a valid type of asset for the "
+            f"{AssetSectors.industrials} sector. Valid choices: {AssetTypes.stock}, {AssetTypes.stock_usa}"
+        ]
+    }
+
+
+def test__update(client, stock_asset):
+    # GIVEN
+    data = {
+        "type": stock_asset.type,
+        "sector": stock_asset.sector,
+        "objective": AssetObjectives.growth,
+        "code": stock_asset.code,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{stock_asset.code}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert response.json()["current_price_updated_at"] is None
+
+
+def test__update__w_current_price(client, stock_asset):
+    # GIVEN
+    data = {
+        "type": stock_asset.type,
+        "sector": stock_asset.sector,
+        "objective": AssetObjectives.growth,
+        "code": stock_asset.code,
+        "current_price": 11,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{stock_asset.code}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert response.json()["current_price_updated_at"] is not None
 
 
 @pytest.mark.usefixtures("transactions", "passive_incomes")
@@ -89,13 +204,13 @@ def test_should_filter_assets(client, filter_by, count):
         ("loss_asset_both_transactions_incomes_loss", operator.lt),
     ),
 )
-def test_should_list_assets(client, simple_asset, fixture, operation, request):
+def test_should_list_assets(client, stock_asset, fixture, operation, request):
     # GIVEN
     request.getfixturevalue(fixture)
 
-    roi = get_roi_brute_force(asset=simple_asset)
-    avg_price = get_adjusted_avg_price_brute_forte(asset=simple_asset)
-    total_bought = get_total_bought_brute_force(asset=simple_asset)
+    roi = get_roi_brute_force(asset=stock_asset)
+    avg_price = get_adjusted_avg_price_brute_forte(asset=stock_asset)
+    total_bought = get_total_bought_brute_force(asset=stock_asset)
 
     # WHEN
     response = client.get(URL)
@@ -284,13 +399,13 @@ def test_should_raise_permission_error_sync_cei_passive_incomes_if_user_has_not_
 
 
 @pytest.mark.usefixtures("assets", "transactions")
-def test_should_call_fetch_current_assets_prices_celery_task(client, user, another_asset, mocker):
+def test_should_call_fetch_current_assets_prices_celery_task(client, user, stock_usa_asset, mocker):
     # GIVEN
     mocked_task = mocker.patch(
         "variable_income_assets.views.fetch_current_assets_prices.apply_async"
     )
     Transaction.objects.create(
-        action=TransactionActions.buy, price=50, asset=another_asset, quantity=100
+        action=TransactionActions.buy, price=50, asset=stock_usa_asset, quantity=100
     )
 
     # WHEN
@@ -317,17 +432,23 @@ def test_should_raise_permission_error_fetch_current_prices_if_user_has_not_set_
     }
 
 
-@pytest.mark.usefixtures("assets", "transactions")
-def test_should_raise_error_if_asset_is_finished_fetch_current_assets_prices(client):
+@pytest.mark.usefixtures("transactions", "another_stock_asset_transactions")
+def test_should_raise_error_if_asset_is_finished_fetch_current_assets_prices(
+    client, stock_asset, another_stock_asset
+):
     # GIVEN
 
     # WHEN
-    response = client.get(f"{URL}/fetch_current_prices?code=ALUP11&code=URA")
+    response = client.get(
+        f"{URL}/fetch_current_prices?code={stock_asset.code}&code={another_stock_asset.code}"
+    )
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {
-        "code": ["Select a valid choice. URA is not one of the available choices."]
+        "code": [
+            f"Select a valid choice. {another_stock_asset.code} is not one of the available choices."
+        ]
     }
 
 
@@ -642,14 +763,14 @@ def test_should_sync_all(request, user_fixture_name, client_fixture_name, tasks_
 
 
 @pytest.mark.usefixtures("transactions")
-def test_should_simulate_transaction_w_quantity(client, simple_asset):
+def test_should_simulate_transaction_w_quantity(client, stock_asset):
     # GIVEN
-    simple_asset.current_price = 100
-    simple_asset.save()
+    stock_asset.current_price = 100
+    stock_asset.save()
 
     # WHEN
     response = client.post(
-        f"{URL}/{simple_asset.code}/transactions/simulate", data={"price": 50, "quantity": 100}
+        f"{URL}/{stock_asset.code}/transactions/simulate", data={"price": 50, "quantity": 100}
     )
     response_json = response.json()
 
@@ -663,14 +784,14 @@ def test_should_simulate_transaction_w_quantity(client, simple_asset):
 
 
 @pytest.mark.usefixtures("transactions")
-def test_should_simulate_transaction_w_total(client, simple_asset):
+def test_should_simulate_transaction_w_total(client, stock_asset):
     # GIVEN
-    simple_asset.current_price = 100
-    simple_asset.save()
+    stock_asset.current_price = 100
+    stock_asset.save()
 
     # WHEN
     response = client.post(
-        f"{URL}/{simple_asset.code}/transactions/simulate", data={"price": 50, "total": 5000}
+        f"{URL}/{stock_asset.code}/transactions/simulate", data={"price": 50, "total": 5000}
     )
     response_json = response.json()
 
@@ -683,11 +804,11 @@ def test_should_simulate_transaction_w_total(client, simple_asset):
     assert response_json["old"]["adjusted_avg_price"] < response_json["new"]["adjusted_avg_price"]
 
 
-def test_should_not_simulate_transaction_wo_total_and_quantity(client, simple_asset):
+def test_should_not_simulate_transaction_wo_total_and_quantity(client, stock_asset):
     # GIVEN
 
     # WHEN
-    response = client.post(f"{URL}/{simple_asset.code}/transactions/simulate", data={"price": 50})
+    response = client.post(f"{URL}/{stock_asset.code}/transactions/simulate", data={"price": 50})
 
     # THEN
     assert response.status_code == 400
@@ -718,12 +839,35 @@ def test_should_normalize_avg_price_with_currency_when_simulating_transaction(cl
     )
 
 
-@pytest.mark.usefixtures("transactions", "crypto_transaction")
-def test__codes_and_currencies_endpoint(client, simple_asset, another_asset, crypto_asset):
+@pytest.mark.usefixtures(
+    "transactions",
+    "crypto_transaction",
+    "another_stock_asset",
+    "another_stock_asset_transactions",
+    "stock_usa_transaction",
+)
+def test__codes_and_currencies_endpoint(
+    client,
+    stock_asset,
+    yet_another_stock_asset,
+    stock_usa_asset,
+    another_stock_usa_asset,
+    crypto_asset,
+    another_crypto_asset,
+    fii_asset,
+):
     # GIVEN
     expected = [
-        {"code": a.code, "currency": a.currency_from_transactions}
-        for a in (simple_asset, crypto_asset)  # `another_asset` is closed
+        {"code": a.code, "currency": a.guess_currency()}
+        for a in (
+            stock_asset,  # has transactions
+            crypto_asset,  # has transactions
+            stock_usa_asset,  # has transactions
+            yet_another_stock_asset,  # notransactions
+            another_stock_usa_asset,  # no transactions
+            another_crypto_asset,  # no transactions
+            fii_asset,  # no transactions
+        )  # `another_stock_asset` is closed
     ]
 
     # WHEN

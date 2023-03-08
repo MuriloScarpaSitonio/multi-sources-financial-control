@@ -20,11 +20,9 @@ from ..models import Asset
 def _save_cei_passive_incomes(
     incomes_data: List[str], user: CustomUser, task_history: TaskHistory
 ) -> None:  # pragma: no cover
-    assets = dict()
     for data in incomes_data:
         try:
             code = data.pop("raw_negotiation_code")
-            asset = assets.get(code)
             with atomic():
                 if asset is None:
                     asset, _ = Asset.objects.get_or_create(
@@ -32,8 +30,6 @@ def _save_cei_passive_incomes(
                         code=code,
                         type=AssetTypes.stock,
                     )
-
-                assets.update({asset.code: asset})
 
                 serializer = CeiPassiveIncomeSerializer(data=data)
                 serializer.is_valid(raise_exception=True)

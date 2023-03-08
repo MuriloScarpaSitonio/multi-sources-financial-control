@@ -288,7 +288,6 @@ export const ExpenseForm = ({
             style={{ width: "42%", marginRight: "2%" }}
             error={!!errors.source}
           >
-            {" "}
             <Controller
               name="source"
               control={control}

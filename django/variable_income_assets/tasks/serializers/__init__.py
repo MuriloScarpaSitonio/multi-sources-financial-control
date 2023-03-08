@@ -16,10 +16,6 @@ from ...domain.models import TransactionDTO
 from ...models import Asset, PassiveIncome, Transaction
 
 
-class CryptoTransactionAlreadyExistsException(Exception):
-    pass
-
-
 class CryptoTransactionSerializer(serializers.Serializer):
     id = serializers.CharField()
     currency = CustomChoiceField(choices=TransactionCurrencies.choices)
@@ -28,11 +24,10 @@ class CryptoTransactionSerializer(serializers.Serializer):
     created_at = TimeStampToDateField()
     action = serializers.ChoiceField(choices=TransactionActions.choices)
 
-    def is_valid(self, raise_exception: bool = False) -> bool:
-        already_exists = Transaction.objects.filter(external_id=self.data["id"]).exists()
-        if already_exists and raise_exception:
-            raise CryptoTransactionAlreadyExistsException
-        return not already_exists or super().is_valid(raise_exception=raise_exception)
+    def validate_id(self, external_id: str) -> str:
+        if Transaction.objects.filter(external_id=external_id).exists():
+            raise serializers.ValidationError("Transaction already exists")
+        return external_id
 
     def create(self, asset: Asset, task_history_id: int) -> Transaction:
         data = deepcopy(self.validated_data)

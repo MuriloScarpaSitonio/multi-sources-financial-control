@@ -43,7 +43,7 @@ def celery_always_eager(settings):
 
 
 @pytest.fixture
-def simple_asset(user):
+def stock_asset(user):
     return AssetFactory(
         code="ALUP11",
         type=AssetTypes.stock,
@@ -54,9 +54,64 @@ def simple_asset(user):
 
 
 @pytest.fixture
-def another_asset(user):
+def another_stock_asset(user):
+    return AssetFactory(
+        code="BBAS3",
+        type=AssetTypes.stock,
+        sector=AssetSectors.finance,
+        objective=AssetObjectives.dividend,
+        user=user,
+    )
+
+
+@pytest.fixture
+def yet_another_stock_asset(user):
+    return AssetFactory(
+        code="BBSE3",
+        type=AssetTypes.stock,
+        sector=AssetSectors.finance,
+        objective=AssetObjectives.dividend,
+        user=user,
+    )
+
+
+@pytest.fixture
+def fii_asset(user):
+    return AssetFactory(
+        code="FII11",
+        type=AssetTypes.fii,
+        sector=AssetSectors.essential_consumption,
+        objective=AssetObjectives.dividend,
+        user=user,
+    )
+
+
+@pytest.fixture
+def stock_usa_asset(user):
     return AssetFactory(
         code="URA",
+        type=AssetTypes.stock_usa,
+        sector=AssetSectors.utilities,
+        objective=AssetObjectives.growth,
+        user=user,
+    )
+
+
+@pytest.fixture
+def stock_usa_transaction(stock_usa_asset):
+    TransactionFactory(
+        action=TransactionActions.buy,
+        price=10,
+        asset=stock_usa_asset,
+        quantity=50,
+        currency=TransactionCurrencies.dollar,
+    )
+
+
+@pytest.fixture
+def another_stock_usa_asset(user):
+    return AssetFactory(
+        code="BABA",
         type=AssetTypes.stock_usa,
         sector=AssetSectors.utilities,
         objective=AssetObjectives.growth,
@@ -98,24 +153,35 @@ def crypto_asset(user):
 
 
 @pytest.fixture
-def assets(simple_asset, another_asset, crypto_asset):
-    return simple_asset, another_asset, crypto_asset
+def another_crypto_asset(user):
+    return AssetFactory(
+        code="BTC",
+        type=AssetTypes.crypto,
+        sector=AssetSectors.tech,
+        objective=AssetObjectives.growth,
+        user=user,
+    )
 
 
 @pytest.fixture
-def transactions(simple_asset, simple_task_history):
+def assets(stock_asset, stock_usa_asset, crypto_asset):
+    return stock_asset, stock_usa_asset, crypto_asset
+
+
+@pytest.fixture
+def transactions(stock_asset, simple_task_history):
     for i in range(1, 4):
         TransactionFactory(
             action=TransactionActions.buy,
             price=randint(5, 10),
-            asset=simple_asset,
+            asset=stock_asset,
             quantity=100 * i,
             fetched_by=simple_task_history,
         )
     TransactionFactory(
         action=TransactionActions.sell,
         price=10,
-        asset=simple_asset,
+        asset=stock_asset,
         quantity=100,
         initial_price=5,
         fetched_by=simple_task_history,
@@ -123,7 +189,7 @@ def transactions(simple_asset, simple_task_history):
     TransactionFactory(
         action=TransactionActions.sell,
         price=10,
-        asset=simple_asset,
+        asset=stock_asset,
         quantity=50,
         initial_price=5,
         fetched_by=simple_task_history,
@@ -142,20 +208,39 @@ def crypto_transaction(crypto_asset):
 
 
 @pytest.fixture
-def passive_incomes(simple_asset):
+def another_stock_asset_transactions(another_stock_asset):
+    TransactionFactory(
+        action=TransactionActions.buy,
+        price=10,
+        asset=another_stock_asset,
+        quantity=50,
+        currency=TransactionCurrencies.real,
+    )
+    TransactionFactory(
+        action=TransactionActions.sell,
+        price=10,
+        asset=another_stock_asset,
+        quantity=50,
+        currency=TransactionCurrencies.real,
+        initial_price=10,
+    )
+
+
+@pytest.fixture
+def passive_incomes(stock_asset):
     for i in range(4):
         PassiveIncomeFactory(
             type=PassiveIncomeTypes.dividend,
             amount=randint(100, 500),
             event_type=PassiveIncomeEventTypes.credited,
-            asset=simple_asset,
+            asset=stock_asset,
             operation_date=timezone.now().date() - relativedelta(month=i),
         )
         PassiveIncomeFactory(
             type=PassiveIncomeTypes.dividend,
             amount=randint(100, 500),
             event_type=PassiveIncomeEventTypes.provisioned,
-            asset=simple_asset,
+            asset=stock_asset,
             operation_date=timezone.now().date() + relativedelta(month=i),
         )
 
@@ -189,8 +274,8 @@ def cei_transactions_response():
 
 
 @pytest.fixture
-def fetch_current_assets_prices_response(simple_asset):
-    return {simple_asset.code: 100.78}
+def fetch_current_assets_prices_response(stock_asset):
+    return {stock_asset.code: 100.78}
 
 
 @pytest.fixture
@@ -224,7 +309,7 @@ def kucoin_transactions_response():
             "created_at": 1638800630.73,
         },
         {
-            "id": "61ae1cea70405300010f4d07",
+            "id": "61ae1cea70405300010f4d08",
             "code": "VELO",
             "currency": "USDT",
             "action": "SELL",
@@ -236,53 +321,53 @@ def kucoin_transactions_response():
 
 
 @pytest.fixture
-def buy_transaction(simple_asset):
+def buy_transaction(stock_asset):
     return TransactionFactory(
-        action=TransactionActions.buy, price=10, asset=simple_asset, quantity=50
+        action=TransactionActions.buy, price=10, asset=stock_asset, quantity=50
     )
 
 
 @pytest.fixture
-def sell_transaction(simple_asset):
+def sell_transaction(stock_asset):
     return TransactionFactory(
-        action=TransactionActions.sell, price=20, asset=simple_asset, quantity=50, initial_price=10
+        action=TransactionActions.sell, price=20, asset=stock_asset, quantity=50, initial_price=10
     )
 
 
 @pytest.fixture
-def simple_income(simple_asset):
+def simple_income(stock_asset):
     return PassiveIncomeFactory(
         type=PassiveIncomeTypes.dividend,
         amount=200,
         event_type=PassiveIncomeEventTypes.credited,
-        asset=simple_asset,
+        asset=stock_asset,
         operation_date=timezone.now().date(),
     )
 
 
 @pytest.fixture
-def another_income(another_asset):
+def another_income(stock_usa_asset):
     return PassiveIncomeFactory(
         type=PassiveIncomeTypes.dividend,
         amount=200,
         event_type=PassiveIncomeEventTypes.credited,
-        asset=another_asset,
+        asset=stock_usa_asset,
         operation_date=timezone.now().date(),
     )
 
 
 # 6 - ativo aberto, apenas transações de compra, lucro
 @pytest.fixture
-def profit_asset_bought_transactions(simple_asset, buy_transaction):
-    simple_asset.current_price = 15
-    simple_asset.save()
+def profit_asset_bought_transactions(stock_asset, buy_transaction):
+    stock_asset.current_price = 15
+    stock_asset.save()
 
 
 # 7 - ativo aberto, apenas transações de compra, prejuízo
 @pytest.fixture
-def loss_asset_bought_transactions(simple_asset, buy_transaction):
-    simple_asset.current_price = 5
-    simple_asset.save()
+def loss_asset_bought_transactions(stock_asset, buy_transaction):
+    stock_asset.current_price = 5
+    stock_asset.save()
 
 
 # 8 - ativo aberto, apenas transações de compra, lucro + incomes
@@ -294,13 +379,13 @@ def profit_asset_bought_transactions_incomes(profit_asset_bought_transactions, s
 # 9 - ativo aberto, apenas transações de compra, prejuízo + incomes = lucro
 @pytest.fixture
 def loss_asset_bought_transactions_incomes_profit(
-    simple_asset, loss_asset_bought_transactions, simple_income
+    stock_asset, loss_asset_bought_transactions, simple_income
 ):
     PassiveIncomeFactory(
         type=PassiveIncomeTypes.dividend,
         amount=200,
         event_type=PassiveIncomeEventTypes.credited,
-        asset=simple_asset,
+        asset=stock_asset,
         operation_date=timezone.now().date(),
     )
 
@@ -313,24 +398,24 @@ def loss_asset_bought_transactions_incomes_loss(loss_asset_bought_transactions, 
 
 # 11 - ativo aberto, transações de compra e venda, lucro
 @pytest.fixture
-def profit_asset_both_transactions(simple_asset, profit_asset_bought_transactions):
+def profit_asset_both_transactions(stock_asset, profit_asset_bought_transactions):
     TransactionFactory(
         action=TransactionActions.sell,
         price=15,
         initial_price=10,
-        asset=simple_asset,
+        asset=stock_asset,
         quantity=25,
     )
 
 
 # 12 - ativo aberto, transações de compra e venda, prejuízo
 @pytest.fixture
-def loss_asset_both_transactions(simple_asset, loss_asset_bought_transactions):
+def loss_asset_both_transactions(stock_asset, loss_asset_bought_transactions):
     TransactionFactory(
         action=TransactionActions.sell,
         price=5,
         initial_price=10,
-        asset=simple_asset,
+        asset=stock_asset,
         quantity=25,
     )
 
@@ -344,57 +429,57 @@ def profit_asset_both_transactions_incomes(profit_asset_both_transactions, simpl
 # 14 - ativo aberto, transações de compra e venda, prejuízo + incomes = lucro
 @pytest.fixture
 def loss_asset_both_transactions_incomes_profit(
-    simple_asset, loss_asset_both_transactions, simple_income
+    stock_asset, loss_asset_both_transactions, simple_income
 ):
     PassiveIncomeFactory(
         type=PassiveIncomeTypes.dividend,
         amount=51,
         event_type=PassiveIncomeEventTypes.credited,
-        asset=simple_asset,
+        asset=stock_asset,
         operation_date=timezone.now().date(),
     )
 
 
 # 15 - ativo aberto, transações de compra e venda, prejuízo + incomes = prejuízo
 @pytest.fixture
-def loss_asset_both_transactions_incomes_loss(simple_asset, loss_asset_both_transactions):
+def loss_asset_both_transactions_incomes_loss(stock_asset, loss_asset_both_transactions):
     PassiveIncomeFactory(
         type=PassiveIncomeTypes.dividend,
         amount=1,
         event_type=PassiveIncomeEventTypes.credited,
-        asset=simple_asset,
+        asset=stock_asset,
         operation_date=timezone.now().date(),
     )
 
 
 @pytest.fixture
 def indicators_data(
-    simple_asset, another_asset, crypto_asset, transactions, crypto_transaction, passive_incomes
+    stock_asset, stock_usa_asset, crypto_asset, transactions, crypto_transaction, passive_incomes
 ):
-    simple_asset.current_price = 100
-    simple_asset.save()
+    stock_asset.current_price = 100
+    stock_asset.save()
 
     # finish an asset
     TransactionFactory(
         action=TransactionActions.buy,
         price=10,
-        asset=another_asset,
+        asset=stock_usa_asset,
         quantity=50,
     )
     TransactionFactory(
         action=TransactionActions.sell,
         initial_price=10,
         price=20,
-        asset=another_asset,
+        asset=stock_usa_asset,
         quantity=50,
     )
 
 
 @pytest.fixture
-def report_data(indicators_data, another_asset, user):
+def report_data(indicators_data, stock_usa_asset, user):
     # set to ensure this asset won't appear on the report as it's finished
-    another_asset.current_price = 100
-    another_asset.save()
+    stock_usa_asset.current_price = 100
+    stock_usa_asset.save()
 
     asset = AssetFactory(
         code="RANDOM",
@@ -420,21 +505,21 @@ def report_data(indicators_data, another_asset, user):
 
 
 @pytest.fixture
-def transactions_indicators_data(simple_asset, crypto_transaction):
+def transactions_indicators_data(stock_asset, crypto_transaction):
     today = timezone.now().date()
 
     for i in range(4):
         TransactionFactory(
             action=TransactionActions.buy,
             price=randint(5, 10),
-            asset=simple_asset,
+            asset=stock_asset,
             quantity=randint(100, 1000),
         )
     for i in range(3):
         TransactionFactory(
             action=TransactionActions.sell,
             price=randint(5, 10),
-            asset=simple_asset,
+            asset=stock_asset,
             quantity=randint(100, 1000),
             initial_price=5,
         )
@@ -444,14 +529,14 @@ def transactions_indicators_data(simple_asset, crypto_transaction):
         TransactionFactory(
             action=TransactionActions.buy,
             price=randint(5, 10),
-            asset=simple_asset,
+            asset=stock_asset,
             quantity=randint(100, 1000),
             created_at=base_date + relativedelta(months=i),
         )
         TransactionFactory(
             action=TransactionActions.sell,
             price=randint(5, 10),
-            asset=simple_asset,
+            asset=stock_asset,
             quantity=randint(100, 1000),
             created_at=base_date + relativedelta(months=i),
             initial_price=5,

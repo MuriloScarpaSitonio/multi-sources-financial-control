@@ -33,14 +33,14 @@ const AssetsObjectivesMapping = [
 const AssetsSectorsMapping = [
   { label: "Bens industriais", value: "INDUSTRIALS" },
   { label: "Comunicações", value: "COMMUNICATION" },
-  { label: "Consumo cíclico", value: "CONSUMER DISCRETIONARY" },
-  { label: "Consumo não cíclico", value: "CONSUMER STAPLES" },
+  { label: "Consumo não cíclico", value: "CONSUMER DISCRETIONARY" },
+  { label: "Consumo cíclico", value: "CONSUMER STAPLES" },
   { label: "Financeiro", value: "FINANCIALS" },
   { label: "Materiais básicos", value: "MATERIALS" },
   { label: "Saúde", value: "HEALTH CARE" },
   { label: "Petróleo, gás e biocombustíveis", value: "RAW ENERGY" },
   { label: "Tecnologia", value: "TECH" },
-  { label: "Utilidade Pública", value: "UTILITIES" },
+  { label: "Utilidade pública", value: "UTILITIES" },
   { label: "Desconhecido", value: "UNKNOWN" },
 ];
 
@@ -62,16 +62,15 @@ const TransactionCurrenciesMapping = [
 ];
 
 const PassiveIncomeTypesMapping = [
-  {label: "Dividendo", value: "DIVIDEND"},
-  {label: "Juros sobre capital próprio", value: "JCP"},
-  {label: "Rendimento", value: "INCOME"}
-]
+  { label: "Dividendo", value: "DIVIDEND" },
+  { label: "Juros sobre capital próprio", value: "JCP" },
+  { label: "Rendimento", value: "INCOME" },
+];
 
 const PassiveIncomeEventTypesMapping = [
   { label: "Provisionado", value: "PROVISIONED" },
   { label: "Creditado", value: "CREDITED" },
 ];
-
 
 const AccessTokenStr = "accessToken";
 const RefreshTokenStr = "refreshToken";
@@ -88,5 +87,5 @@ export {
   TransactionsActionsMapping,
   TransactionCurrenciesMapping,
   PassiveIncomeTypesMapping,
-  PassiveIncomeEventTypesMapping
+  PassiveIncomeEventTypesMapping,
 };

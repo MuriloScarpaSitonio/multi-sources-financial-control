@@ -30,13 +30,13 @@ pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "transactions"
 
 
-def test__create(client, simple_asset):
+def test__create(client, stock_asset):
     # GIVEN
     data = {
         "action": TransactionActions.buy,
         "price": 10,
         "quantity": 100,
-        "asset_code": simple_asset.code,
+        "asset_code": stock_asset.code,
     }
 
     # WHEN
@@ -44,17 +44,17 @@ def test__create(client, simple_asset):
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
-    assert Transaction.objects.filter(asset=simple_asset).count() == 1
+    assert Transaction.objects.filter(asset=stock_asset).count() == 1
 
 
 @pytest.mark.usefixtures("buy_transaction")
-def test__create__sell_w_initial_price(client, simple_asset):
+def test__create__sell_w_initial_price(client, stock_asset):
     # GIVEN
     data = {
         "action": TransactionActions.sell,
         "price": 10,
         "quantity": 50,
-        "asset_code": simple_asset.code,
+        "asset_code": stock_asset.code,
         "initial_price": 8,
     }
 
@@ -68,13 +68,13 @@ def test__create__sell_w_initial_price(client, simple_asset):
 
 
 @pytest.mark.usefixtures("buy_transaction")
-def test__create__sell_wo_initial_price_should_use_avg_price(client, simple_asset):
+def test__create__sell_wo_initial_price_should_use_avg_price(client, stock_asset):
     # GIVEN
     data = {
         "action": TransactionActions.sell,
         "price": 10,
         "quantity": 50,
-        "asset_code": simple_asset.code,
+        "asset_code": stock_asset.code,
     }
 
     # WHEN
@@ -85,7 +85,7 @@ def test__create__sell_wo_initial_price_should_use_avg_price(client, simple_asse
     assert Transaction.objects.count() == 2
     assert (
         Transaction.objects.filter(
-            action=TransactionActions.sell, initial_price=simple_asset.avg_price_from_transactions
+            action=TransactionActions.sell, initial_price=stock_asset.avg_price_from_transactions
         ).count()
         == 1
     )
@@ -104,13 +104,13 @@ def test__create__should_raise_error_if_asset_does_not_exist(client):
 
 
 @pytest.mark.usefixtures("buy_transaction")
-def test__create__should_raise_error_if_initial_price_is_null(client, simple_asset):
+def test__create__should_raise_error_if_initial_price_is_null(client, stock_asset):
     # GIVEN
     data = {
         "action": TransactionActions.sell,
         "price": 10,
         "quantity": 100,
-        "asset_code": simple_asset.code,
+        "asset_code": stock_asset.code,
         "initial_price": None,
     }
 
@@ -123,13 +123,13 @@ def test__create__should_raise_error_if_initial_price_is_null(client, simple_ass
     assert Transaction.objects.filter(action=TransactionActions.sell).count() == 0
 
 
-def test__create__should_raise_error_if_sell_transaction_and_no_transactions(client, simple_asset):
+def test__create__should_raise_error_if_sell_transaction_and_no_transactions(client, stock_asset):
     # GIVEN
     data = {
         "action": TransactionActions.sell,
         "price": 10,
         "quantity": 100,
-        "asset_code": simple_asset.code,
+        "asset_code": stock_asset.code,
     }
 
     # WHEN
@@ -141,7 +141,7 @@ def test__create__should_raise_error_if_sell_transaction_and_no_transactions(cli
     assert Transaction.objects.count() == 0
 
 
-@pytest.mark.usefixtures("simple_asset")
+@pytest.mark.usefixtures("stock_asset")
 def test__create__should_raise_error_if_sell_transaction_and_no_asset(client):
     # GIVEN
     data = {
@@ -161,13 +161,13 @@ def test__create__should_raise_error_if_sell_transaction_and_no_asset(client):
 
 
 @pytest.mark.usefixtures("buy_transaction")
-def test__create__should_raise_error_if_different_currency(client, simple_asset):
+def test__create__should_raise_error_if_different_currency(client, stock_asset):
     # GIVEN
     data = {
         "action": TransactionActions.buy,
         "price": 10,
         "quantity": 100,
-        "asset_code": simple_asset.code,
+        "asset_code": stock_asset.code,
         "currency": TransactionCurrencies.dollar,
     }
 
@@ -186,7 +186,7 @@ def test__create__should_raise_error_if_different_currency(client, simple_asset)
     assert Transaction.objects.count() == 1
 
 
-@pytest.mark.usefixtures("simple_asset")
+@pytest.mark.usefixtures("stock_asset")
 def test__update(client, buy_transaction):
     # GIVEN
     data = {
@@ -210,7 +210,7 @@ def test__update(client, buy_transaction):
     assert buy_transaction.price == data["price"]
 
 
-@pytest.mark.usefixtures("simple_asset")
+@pytest.mark.usefixtures("stock_asset")
 def test__update__transaction_does_not_belong_to_user(kucoin_client, buy_transaction):
     # GIVEN
     data = {
@@ -229,15 +229,13 @@ def test__update__transaction_does_not_belong_to_user(kucoin_client, buy_transac
 
 
 @pytest.mark.usefixtures("buy_transaction")
-def test__update__sell_wo_initial_price_should_use_avg_price(
-    client, simple_asset, sell_transaction
-):
+def test__update__sell_wo_initial_price_should_use_avg_price(client, stock_asset, sell_transaction):
     # GIVEN
     data = {
         "action": sell_transaction.action,
         "price": sell_transaction.price * 2,
         "quantity": sell_transaction.quantity,
-        "asset_code": simple_asset.code,
+        "asset_code": stock_asset.code,
     }
 
     # WHEN
@@ -247,21 +245,21 @@ def test__update__sell_wo_initial_price_should_use_avg_price(
     assert response.status_code == HTTP_200_OK
     assert (
         Transaction.objects.filter(
-            action=TransactionActions.sell, initial_price=simple_asset.avg_price_from_transactions
+            action=TransactionActions.sell, initial_price=stock_asset.avg_price_from_transactions
         ).count()
         == 1
     )
 
 
 def test__update__should_raise_error_if_initial_price_is_null(
-    client, simple_asset, sell_transaction
+    client, stock_asset, sell_transaction
 ):
     # GIVEN
     data = {
         "action": sell_transaction.action,
         "price": sell_transaction.price * 2,
         "quantity": sell_transaction.quantity,
-        "asset_code": simple_asset.code,
+        "asset_code": stock_asset.code,
         "initial_price": None,
     }
 
@@ -274,14 +272,14 @@ def test__update__should_raise_error_if_initial_price_is_null(
 
 
 def test__update__should_raise_error_if_sell_transaction_and_no_transactions(
-    client, simple_asset, buy_transaction
+    client, stock_asset, buy_transaction
 ):
     # GIVEN
     data = {
         "action": TransactionActions.sell,
         "price": buy_transaction.price,
         "quantity": 0.1,
-        "asset_code": simple_asset.code,
+        "asset_code": stock_asset.code,
     }
 
     # WHEN
@@ -297,14 +295,14 @@ def test__update__should_raise_error_if_sell_transaction_and_no_transactions(
 
 @pytest.mark.usefixtures("buy_transaction")
 def test__update__sell__should_raise_error_if_negative_quantity(
-    client, simple_asset, sell_transaction
+    client, stock_asset, sell_transaction
 ):
     # GIVEN
     data = {
         "action": sell_transaction.action,
         "price": sell_transaction.price,
         "quantity": sell_transaction.quantity * 2,
-        "asset_code": simple_asset.code,
+        "asset_code": stock_asset.code,
     }
 
     # WHEN
@@ -315,7 +313,7 @@ def test__update__sell__should_raise_error_if_negative_quantity(
     assert response.json() == {"action": "You can't sell more assets than you own"}
 
 
-@pytest.mark.usefixtures("simple_asset")
+@pytest.mark.usefixtures("stock_asset")
 def test__create__should_raise_error_if_sell_transaction_and_no_asset(client):
     # GIVEN
     data = {
@@ -335,13 +333,13 @@ def test__create__should_raise_error_if_sell_transaction_and_no_asset(client):
 
 
 @pytest.mark.usefixtures("buy_transaction")
-def test__create__should_raise_error_if_different_currency(client, simple_asset):
+def test__create__should_raise_error_if_different_currency(client, stock_asset):
     # GIVEN
     data = {
         "action": TransactionActions.buy,
         "price": 10,
         "quantity": 100,
-        "asset_code": simple_asset.code,
+        "asset_code": stock_asset.code,
         "currency": TransactionCurrencies.dollar,
     }
 

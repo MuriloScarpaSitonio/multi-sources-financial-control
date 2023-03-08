@@ -80,7 +80,7 @@ def test_sync_cei_transactions_should_create_asset_and_transaction(
 
 
 @pytest.mark.skip("Integration is deprecated")
-@pytest.mark.usefixtures("simple_asset")
+@pytest.mark.usefixtures("stock_asset")
 def test_sync_cei_transactions_should_not_create_asset_if_already_exists(
     user, client, requests_mock, cei_transactions_response
 ):
@@ -113,7 +113,7 @@ def test_sync_cei_transactions_should_not_create_asset_if_already_exists(
 
 
 @pytest.mark.skip("Integration is deprecated")
-@pytest.mark.usefixtures("simple_asset")
+@pytest.mark.usefixtures("stock_asset")
 def test_sync_cei_transactions_should_not_create_asset_if_unit_alread_exists(
     user, client, requests_mock, cei_transactions_response
 ):
@@ -252,7 +252,7 @@ def test_should_skip_kucoin_transaction_if_already_exists(
 
 
 @pytest.mark.skip("Integration is deprecated")
-def test__sync_cei_passive_incomes_task__create(user, simple_asset, requests_mock, client):
+def test__sync_cei_passive_incomes_task__create(user, stock_asset, requests_mock, client):
     # GIVEN
     requests_mock.get(
         build_url(
@@ -269,7 +269,7 @@ def test__sync_cei_passive_incomes_task__create(user, simple_asset, requests_moc
                 "income_type": "dividend",
                 "net_value": 502,
                 "operation_date": "2022-01-23",
-                "raw_negotiation_code": simple_asset.code,
+                "raw_negotiation_code": stock_asset.code,
                 "event_type": "credited",
             }
         ],
@@ -282,14 +282,14 @@ def test__sync_cei_passive_incomes_task__create(user, simple_asset, requests_moc
     assert response.status_code == 200
     assert (
         Asset.objects.filter(
-            code=simple_asset.code, user=simple_asset.user, type=simple_asset.type
+            code=stock_asset.code, user=stock_asset.user, type=stock_asset.type
         ).count()
         == 1
     )
     assert (
         PassiveIncome.objects.filter(
             fetched_by__id=response.json()["task_id"],
-            asset=simple_asset,
+            asset=stock_asset,
             type=PassiveIncomeTypes.dividend,
             amount=502,
             event_type=PassiveIncomeEventTypes.credited,
@@ -345,11 +345,11 @@ def test__sync_cei_passive_incomes_task__create_income_and_asset(user, requests_
 
 @pytest.mark.skip("Integration is deprecated")
 def test__sync_cei_passive_incomes_task__update_event_type(
-    user, simple_asset, requests_mock, client
+    user, stock_asset, requests_mock, client
 ):
     # GIVEN
     PassiveIncome.objects.create(
-        asset=simple_asset,
+        asset=stock_asset,
         type=PassiveIncomeTypes.dividend,
         amount=502,
         event_type=PassiveIncomeEventTypes.provisioned,
@@ -371,7 +371,7 @@ def test__sync_cei_passive_incomes_task__update_event_type(
                 "income_type": "dividend",
                 "net_value": 502,
                 "operation_date": "2022-01-23",
-                "raw_negotiation_code": simple_asset.code,
+                "raw_negotiation_code": stock_asset.code,
                 "event_type": "credited",
             }
         ],
@@ -385,7 +385,7 @@ def test__sync_cei_passive_incomes_task__update_event_type(
     assert (
         PassiveIncome.objects.filter(
             fetched_by__isnull=True,
-            asset=simple_asset,
+            asset=stock_asset,
             type=PassiveIncomeTypes.dividend,
             amount=502,
             event_type=PassiveIncomeEventTypes.credited,

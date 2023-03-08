@@ -26,7 +26,6 @@ def _resolve_code(code: str, market_type: str) -> str:
 def _save_cei_transactions(
     transactions_data: List[dict], user: CustomUser, task_history_id: int
 ) -> None:  # pragma: no cover
-    assets = dict()
     for data in transactions_data:
         try:
             code = _resolve_code(
@@ -36,20 +35,18 @@ def _save_cei_transactions(
             serializer = CeiTransactionSerializer(data=data)
             serializer.is_valid(raise_exception=True)
 
-            asset = assets.get(code)
             with atomic():
-                if asset is None:
-                    asset, asset_created = Asset.objects.get_or_create(
-                        user=user, code=code, defaults={"type": AssetTypes.stock}
+                asset, created = Asset.objects.get_or_create(
+                    user=user, code=code, defaults={"type": AssetTypes.stock}
+                )
+                if created:
+                    asset.current_price = serializer.validated_data["unit_price"]
+                    asset.current_price_updated_at = datetime.combine(
+                        serializer.validated_data["operation_date"],
+                        datetime.min.time(),
+                        tzinfo=timezone.utc,
                     )
-                    if asset_created:
-                        asset.current_price = serializer.validated_data["unit_price"]
-                        asset.current_price_updated_at = datetime.combine(
-                            serializer.validated_data["operation_date"],
-                            datetime.min.time(),
-                            tzinfo=timezone.utc,
-                        )
-                        asset.save(update_fields=("current_price", "current_price_updated_at"))
+                    asset.save(update_fields=("current_price", "current_price_updated_at"))
 
                 serializer.create(asset=asset, task_history_id=task_history_id)
         except Exception:

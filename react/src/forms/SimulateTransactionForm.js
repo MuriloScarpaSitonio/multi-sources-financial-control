@@ -240,6 +240,7 @@ export const SimulateTransactionForm = ({ handleClose }) => {
   const [codes, setCodes] = useState([]);
   const [responseData, setResponseData] = useState({});
   const [formData, setFormData] = useState({});
+  console.log(codes);
 
   let api = new AssetsApi();
 
@@ -250,7 +251,11 @@ export const SimulateTransactionForm = ({ handleClose }) => {
           response.data.map((asset) => ({
             label: asset.code,
             value: asset.code,
-            currency: asset.currency === "BRL" ? "R$" : "$",
+            currency: asset.currency
+              ? asset.currency === "BRL"
+                ? "R$"
+                : "$"
+              : "",
           }))
         );
       }),

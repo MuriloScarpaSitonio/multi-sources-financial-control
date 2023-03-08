@@ -7,15 +7,20 @@ import Dialog from "@material-ui/core/Dialog";
 import DialogContent from "@material-ui/core/DialogContent";
 import DialogTitle from "@material-ui/core/DialogTitle";
 import IconButton from "@material-ui/core/IconButton";
+import Paper from "@material-ui/core/Paper";
 import TableCell from "@material-ui/core/TableCell";
 import TableRow from "@material-ui/core/TableRow";
 import Tooltip from "@material-ui/core/Tooltip";
 import Tab from "@material-ui/core/Tab";
 import Tabs from "@material-ui/core/Tabs";
+
 import MergeTypeIcon from "@material-ui/icons/MergeType";
+import PlusOneIcon from "@material-ui/icons/PlusOne";
 
 import { AssetsApi } from "../../api";
 import { SimulateTransactionForm } from "../../forms/SimulateTransactionForm";
+import { AssetsForm } from "../../forms/AssetsForm";
+import { FormFeedback } from "../FormFeedback";
 import { Loader } from "../Loaders";
 import {
   AssetsObjectivesMapping,
@@ -47,7 +52,24 @@ const SimulateTransactionDialog = ({
     </Dialog>
   );
 };
-
+const AssetCreateDialog = ({ open, onClose, showFeedbackForm }) => {
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      aria-labelledby="asset-form-dialog-title"
+    >
+      <DialogTitle id="asset-form-dialog-title">Criar ativo</DialogTitle>
+      <DialogContent>
+        <AssetsForm
+          initialData={{}}
+          handleClose={onClose}
+          showFeedbackForm={showFeedbackForm}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+};
 const TransactionsTable = ({ code, data }) => (
   <MUIDataTable
     title={`Últimas 5 transações de ${code}`}
@@ -69,8 +91,13 @@ const TransactionsTable = ({ code, data }) => (
           filter: false,
           sort: false,
           customBodyRender: (v, tableMeta) => {
-            let currency =
-              tableMeta.tableData[0].currency === "BRL" ? "R$" : "$";
+            let tableCurrency = tableMeta.tableData[0].currency;
+            var currency;
+            if (tableCurrency) {
+              currency = tableCurrency === "BRL" ? "R$" : "$";
+            } else {
+              currency = "?";
+            }
             return `${currency} ${v?.toLocaleString("pt-br", {
               minimumFractionDigits: 2,
               maximumFractionDigits: 4,
@@ -192,8 +219,18 @@ export const AssetsTable = () => {
     simulateTransactionDialogIsOpened,
     setSimulateTransactionDialogIsOpened,
   ] = useState(false);
+  const [createAssetDialogIsOpened, setCreateAssetDialogIsOpened] =
+    useState(false);
 
   const [data, isLoaded] = new AssetsApi().query(getAdjustedFilters());
+  const [tabValue, setTabValue] = useState(0);
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertInfos, setAlertInfos] = useState({});
+
+  const showFeedbackForm = (message, severity = "success") => {
+    setAlertInfos({ message, severity });
+    setShowAlert(true);
+  };
 
   function getAdjustedFilters() {
     let multipleChoiceFilters = {
@@ -216,8 +253,6 @@ export const AssetsTable = () => {
     return _filters.toString();
   }
 
-  const [value, setValue] = useState(0);
-
   const options = {
     filterType: "multiselect",
     serverSide: true,
@@ -226,18 +261,21 @@ export const AssetsTable = () => {
     rowsPerPageOptions: [5, 10, 20, 50, 100],
     selectableRows: "none",
     setRowProps: (row) => {
-      if (row[9].includes("-")) {
+      if (row[10].includes("-")) {
         // negative values
         return {
           style: { background: "rgba(255, 5, 5, 0.2)" },
         };
       }
-      if (!row[9].includes("undefined")) {
-        // positive values
-        return {
-          style: { background: "rgba(0, 201, 20, 0.2)" },
-        };
-      }
+      // if (!row[10].includes("undefined")) {
+      //   // positive values
+      //   return {
+      //     style: { background: "rgba(0, 201, 20, 0.2)" },
+      //   };
+      // }
+      return {
+        style: { background: "rgba(0, 201, 20, 0.2)" },
+      };
     },
     textLabels: {
       body: { noMatch: "Nenhum ativo encontrado", toolTip: "Ordenar" },
@@ -281,32 +319,71 @@ export const AssetsTable = () => {
     expandableRows: true,
     expandableRowsHeader: false,
     expandableRowsOnClick: true,
-    renderExpandableRow: (rowData, _) => {
+    renderExpandableRow: (rowData) => {
       const colSpan = rowData.length + 1;
       const [transactions, incomes] = rowData.slice(-2);
 
+      const [
+        id,
+        sector,
+        objective,
+        code,
+        type,
+        avg_price,
+        current_price,
+        current_price_updated_at,
+      ] = rowData;
+      console.log(rowData);
+      console.log(current_price);
       return (
         <>
           <TableRow>
             <TableCell sx={{ paddingLeft: "20px" }} colSpan={colSpan}>
               <Tabs
-                value={value}
-                onChange={(e, newValue) => setValue(newValue)}
+                value={tabValue}
+                onChange={(_, newTabValue) => setTabValue(newTabValue)}
                 TabIndicatorProps={{ style: { background: "#cfcfcf" } }}
               >
+                <Tab label="Configurações" />
                 <Tab label="Transações" />
                 <Tab label="Rendimentos" />
               </Tabs>
             </TableCell>
           </TableRow>
-          {value === 0 && (
+          {tabValue === 0 && (
+            <TableRow>
+              <TableCell sx={{ paddingLeft: "20px" }} colSpan={colSpan}>
+                <Paper elevation={3}>
+                  <AssetsForm
+                    initialData={{
+                      id,
+                      sector,
+                      objective,
+                      code,
+                      type,
+                      current_price: current_price.key,
+                      current_price_updated_at: new Date(
+                        current_price_updated_at
+                      ).toLocaleString("pt-br"),
+                      currencySymbol: avg_price.includes("R")
+                        ? avg_price.slice(0, 3)
+                        : avg_price.slice(0, 2),
+                    }}
+                    handleClose={() => {}}
+                    showFeedbackForm={showFeedbackForm}
+                  />
+                </Paper>
+              </TableCell>
+            </TableRow>
+          )}
+          {tabValue === 1 && (
             <TableRow>
               <TableCell sx={{ paddingLeft: "20px" }} colSpan={colSpan}>
                 <TransactionsTable code={rowData[3].key} data={transactions} />
               </TableCell>
             </TableRow>
           )}
-          {value === 1 && (
+          {tabValue === 2 && (
             <TableRow>
               <TableCell sx={{ paddingLeft: "20px" }} colSpan={colSpan}>
                 <PassiveIncomeTable code={rowData[3].key} data={incomes} />
@@ -317,11 +394,20 @@ export const AssetsTable = () => {
       );
     },
     customToolbar: () => (
-      <Tooltip title="Simular transação">
-        <IconButton onClick={() => setSimulateTransactionDialogIsOpened(true)}>
-          <MergeTypeIcon />
-        </IconButton>
-      </Tooltip>
+      <>
+        <Tooltip title="Simular transação">
+          <IconButton
+            onClick={() => setSimulateTransactionDialogIsOpened(true)}
+          >
+            <MergeTypeIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Adicionar ativo">
+          <IconButton onClick={() => setCreateAssetDialogIsOpened(true)}>
+            <PlusOneIcon />
+          </IconButton>
+        </Tooltip>
+      </>
     ),
   };
 
@@ -370,20 +456,6 @@ export const AssetsTable = () => {
       options: {
         filter: false,
         sort: true,
-        customBodyRender: (v, tableMeta) => {
-          return (
-            <Tooltip
-              key={v}
-              title={
-                <span
-                  style={{ whiteSpace: "pre-line" }}
-                >{`Setor: ${tableMeta.rowData[1]}\nObjetivo: ${tableMeta.rowData[2]}`}</span>
-              }
-            >
-              <p>{v}</p>
-            </Tooltip>
-          );
-        },
       },
     },
     {
@@ -406,15 +478,19 @@ export const AssetsTable = () => {
       options: {
         filter: false,
         sort: false,
-        customBodyRender: (v, tableMeta) =>
-          `${
-            tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
-              ? "R$ "
-              : "$ "
-          } ${v?.toLocaleString("pt-br", {
+        customBodyRender: (v, tableMeta) => {
+          let tableCurrency = tableMeta.tableData[tableMeta.rowIndex].currency;
+          var currency;
+          if (tableCurrency) {
+            currency = tableCurrency === "BRL" ? "R$" : "$";
+          } else {
+            currency = "";
+          }
+          return `${currency} ${v?.toLocaleString("pt-br", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 4,
-          })}`,
+          })}`;
+        },
       },
     },
     {
@@ -424,15 +500,35 @@ export const AssetsTable = () => {
         filter: false,
         sort: false,
         customBodyRender: (v, tableMeta) => {
-          return `${
-            tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
-              ? "R$ "
-              : "$ "
-          } ${v?.toLocaleString("pt-br", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 4,
-          })}`;
+          let tableCurrency = tableMeta.tableData[tableMeta.rowIndex].currency;
+          var currency;
+          if (tableCurrency) {
+            currency = tableCurrency === "BRL" ? "R$" : "$";
+          } else {
+            currency = "";
+          }
+          return (
+            <Tooltip
+              key={v}
+              title={`Atualizado pela última vez às ${new Date(
+                tableMeta.rowData[7]
+              ).toLocaleString("pt-br")}`}
+            >
+              <p>{`${currency} ${v?.toLocaleString("pt-br", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 4,
+              })}`}</p>
+            </Tooltip>
+          );
         },
+      },
+    },
+    {
+      name: "current_price_updated_at",
+      options: {
+        display: false,
+        filter: false,
+        viewColumns: false,
       },
     },
     {
@@ -524,6 +620,7 @@ export const AssetsTable = () => {
     },
   ];
 
+  console.log(data.results);
   return (
     <Container
       style={{ position: "relative", marginTop: "15px" }}
@@ -534,6 +631,19 @@ export const AssetsTable = () => {
       <SimulateTransactionDialog
         open={simulateTransactionDialogIsOpened}
         onClose={() => setSimulateTransactionDialogIsOpened(false)}
+      />
+      <AssetCreateDialog
+        open={createAssetDialogIsOpened}
+        onClose={() => {
+          setCreateAssetDialogIsOpened(false);
+        }}
+        showFeedbackForm={showFeedbackForm}
+      />
+      <FormFeedback
+        open={showAlert}
+        onClose={() => setShowAlert(false)}
+        message={alertInfos.message}
+        severity={alertInfos.severity}
       />
     </Container>
   );
