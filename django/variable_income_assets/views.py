@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Type
 
 from django.db import transaction as djtransaction
-from django.db.models import Sum
+from django.db.models import Subquery, Sum
 from django.utils import timezone
 
 from djchoices import ChoiceItem
@@ -22,9 +22,13 @@ from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
 from tasks.decorators import celery_task_endpoint, start_celery_task
 
 from . import choices, filters, serializers
-from .managers import AssetQuerySet, PassiveIncomeQuerySet, TransactionQuerySet
-from .models import Asset, PassiveIncome, Transaction
+from .domain.commands import DeleteTransaction
+from .domain.models import Asset as AssetDomainModel
+from .models import Asset, AssetReadModel, PassiveIncome, Transaction
+from .models.managers import AssetQuerySet, PassiveIncomeQuerySet, TransactionQuerySet
 from .permissions import AssetsPricesPermission, BinancePermission, CeiPermission, KuCoinPermission
+from .service_layer import messagebus
+from .service_layer.unit_of_work import DjangoUnitOfWork
 from .tasks import (
     sync_binance_transactions_task,
     sync_cei_transactions_task,
@@ -35,29 +39,19 @@ from .tasks import (
 
 
 class AssetViewSet(GenericViewSet, ListModelMixin, CreateModelMixin, UpdateModelMixin):
-    filterset_class = filters.AssetFilterSet
+    filterset_class = filters.AssetReadFilterSet
     lookup_field = "code"
     ordering_fields = ("code", "type", "total_invested", "roi", "roi_percentage")
 
-    def get_queryset(self) -> AssetQuerySet[Asset]:
+    def get_queryset(self) -> AssetQuerySet[AssetReadModel]:
         if self.request.user.is_authenticated:
-            qs = self.request.user.assets.all()
-
-            return (
-                (
-                    qs.prefetch_related("transactions", "incomes")
-                    .opened()
-                    .annotate_for_serializer()
-                    .order_by("-total_invested")
-                )
-                if self.action == "list"
-                else qs
-            )
-        return Asset.objects.none()  # drf-spectacular
+            qs = AssetReadModel.objects.filter(user_id=self.request.user.id)
+            return qs.opened().order_by("-total_invested") if self.action == "list" else qs
+        return AssetReadModel.objects.none()  # drf-spectacular
 
     def get_serializer_class(self):
         return (
-            serializers.AssetListSerializer
+            serializers.AssetReadModelSerializer
             if self.action == "list"
             else serializers.AssetSerializer
         )
@@ -67,8 +61,13 @@ class AssetViewSet(GenericViewSet, ListModelMixin, CreateModelMixin, UpdateModel
         return (
             {
                 **context,
-                **self.get_queryset().aggregate(
-                    current_total_agg=Sum("current_total"), total_invested_agg=Sum("total_invested")
+                **(
+                    self.get_queryset()
+                    .annotate_current_total()
+                    .aggregate(
+                        current_total_agg=Sum("current_total"),
+                        total_invested_agg=Sum("total_invested"),
+                    )
                 ),
             }
             if self.action == "list"
@@ -176,13 +175,7 @@ class AssetViewSet(GenericViewSet, ListModelMixin, CreateModelMixin, UpdateModel
         # TODO: change `list` endpoint to support `fields` kwarg on serializer and set the return values
         # by doing `/assets?fields=code,currency`
         return Response(
-            data=(
-                self.get_queryset()
-                .opened()
-                .annotate_currency()
-                .values("code", "currency")
-                .order_by("code")
-            ),
+            data=self.get_queryset().values("code", "currency").order_by("code"),
             status=HTTP_200_OK,
         )
 
@@ -299,6 +292,14 @@ class TransactionViewSet(ModelViewSet):
             qs = Transaction.objects.filter(asset__user=self.request.user)
             return qs if self.action == "list" else qs.since_a_year_ago()
         return Transaction.objects.none()  # drf-spectacular
+
+    def perform_destroy(self, instance: Transaction):
+        asset_domain: AssetDomainModel = instance.asset.to_domain()
+        asset_domain.validate_delete_transaction_command(transaction=instance)
+        messagebus.handle(
+            message=DeleteTransaction(transaction=instance, asset=asset_domain),
+            uow=DjangoUnitOfWork(asset_pk=instance.asset_id),
+        )
 
     @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:

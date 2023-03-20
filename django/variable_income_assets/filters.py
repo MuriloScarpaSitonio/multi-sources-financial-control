@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 import django_filters as filters
 
 from .choices import AssetsTotalInvestedReportAggregations, AssetTypes
-from .models import Asset, PassiveIncome, Transaction
+from .models import Asset, AssetReadModel, PassiveIncome, Transaction
 
 
 class AssetFilterSet(filters.FilterSet):
@@ -15,6 +15,14 @@ class AssetFilterSet(filters.FilterSet):
     class Meta:
         model = Asset
         exclude = ("current_price", "user")
+
+
+class AssetReadFilterSet(filters.FilterSet):
+    code = filters.CharFilter(lookup_expr="icontains")
+
+    class Meta:
+        model = AssetReadModel
+        exclude = ("current_price", "current_price_updated_at", "user_id")
 
 
 class AssetFetchCurrentPriceFilterSet(filters.FilterSet):

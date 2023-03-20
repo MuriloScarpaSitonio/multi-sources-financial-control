@@ -22,29 +22,17 @@ from django.db.models.functions import Concat, Coalesce, TruncMonth
 from shared.managers_utils import CustomQueryset, GenericFilters, MonthlyFilterMixin
 from shared.utils import coalesce_sum_expression
 
-from .choices import (
+from ...choices import (
     AssetTypes,
     AssetsTotalInvestedReportAggregations,
     PassiveIncomeEventTypes,
     TransactionCurrencies,
 )
-from .expressions import GenericQuerySetExpressions
+from ...expressions import GenericQuerySetExpressions
 
 
 class AssetQuerySet(QuerySet):
     expressions = GenericQuerySetExpressions(prefix="transactions")
-
-    @staticmethod
-    def _get_passive_incomes_subquery() -> PassiveIncomeQuerySet:
-        from .models import PassiveIncome  # avoid circular ImportError
-
-        return (
-            PassiveIncome.objects.filter(asset=OuterRef("pk"))
-            .values("asset__pk")  # group by as we can't aggregate directly
-            .credited()
-            .annotate(credited_incomes=Sum("amount"))
-            .values("credited_incomes")
-        )
 
     def _transactions_count_alias(self) -> AssetQuerySet:
         return self.alias(transactions_count=Count("transactions"))
@@ -60,7 +48,11 @@ class AssetQuerySet(QuerySet):
         )
 
     def finished(self) -> AssetQuerySet:
-        return self._annotate_quantity_balance().filter(quantity_balance__lte=0)
+        return (
+            self._transactions_count_alias()
+            ._annotate_quantity_balance()
+            .filter(transactions_count__gt=0, quantity_balance__lte=0)
+        )
 
     def stocks(self) -> AssetQuerySet:  # pragma: no cover
         return self.filter(type=AssetTypes.stock)
@@ -70,176 +62,6 @@ class AssetQuerySet(QuerySet):
 
     def cryptos(self) -> AssetQuerySet:  # pragma: no cover
         return self.filter(type=AssetTypes.crypto)
-
-    def annotate_currency(self) -> AssetQuerySet:
-        from .models import Transaction  # avoid circular ImportError
-
-        subquery = Transaction.objects.filter(asset=OuterRef("pk"))
-        return self.annotate(
-            currency=Coalesce(
-                Subquery(subquery.values("currency")[:1]),
-                Case(
-                    When(
-                        Q(type=AssetTypes.stock)
-                        | Q(type=AssetTypes.fii)
-                        | Q(type=AssetTypes.crypto),  # best effort strategy
-                        then=Value(TransactionCurrencies.real),
-                    ),
-                    When(type=AssetTypes.stock_usa, then=Value(TransactionCurrencies.dollar)),
-                ),
-            )
-        )
-
-    def annotate_roi(
-        self, percentage: bool = False, annotate_passive_incomes_subquery: bool = True
-    ) -> AssetQuerySet:
-        if annotate_passive_incomes_subquery:
-            subquery = self._get_passive_incomes_subquery()
-
-        roi_expression = self.expressions.current_total - self.expressions.get_total_adjusted(
-            incomes=Coalesce(F("credited_incomes_total"), Decimal())
-        )
-        field_name = "roi"
-
-        if percentage:
-            roi_expression /= self.expressions.total_bought
-            roi_expression *= Decimal("100.0")
-            field_name = "roi_percentage"
-
-        return (
-            self.annotate(
-                credited_incomes_total=Subquery(subquery.values("credited_incomes"))
-            ).annotate(**{field_name: Coalesce(roi_expression, Decimal())})
-            if annotate_passive_incomes_subquery
-            else self.annotate(**{field_name: Coalesce(roi_expression, Decimal())})
-        )
-
-    def annotate_adjusted_avg_price(
-        self, annotate_passive_incomes_subquery: bool = True
-    ) -> AssetQuerySet:
-        if annotate_passive_incomes_subquery:  # pragma: no cover
-            subquery = self._get_passive_incomes_subquery()
-
-        expression = self.expressions.get_adjusted_avg_price(
-            incomes=Coalesce(F("credited_incomes_total"), Decimal())
-        )
-        return (
-            self.annotate(
-                credited_incomes_total=Subquery(subquery.values("credited_incomes"))
-            ).annotate(adjusted_avg_price=Coalesce(expression, Decimal()))
-            if annotate_passive_incomes_subquery
-            else self.annotate(adjusted_avg_price=Coalesce(expression, Decimal()))
-        )
-
-    def annotate_total_adjusted_invested(self) -> AssetQuerySet:  # pragma: no cover
-        return self.annotate(
-            total_adjusted_invested=F("adjusted_avg_price") * F("quantity_balance")
-        )
-
-    def annotate_avg_price(self) -> AssetQuerySet:
-        return self.annotate(avg_price=self.expressions.avg_price)
-
-    def annotate_total_invested(self) -> AssetQuerySet:
-        return self.annotate(
-            total_invested=Coalesce(F("avg_price") * F("quantity_balance"), Decimal())
-        )
-
-    def annotate_current_total(self, field_name: str = "current_total") -> AssetQuerySet:
-        return self.annotate(**{field_name: self.expressions.current_total})
-
-    def annotate_for_serializer(self) -> AssetQuerySet:
-        return (
-            self.annotate_currency()
-            .annotate_roi()
-            .annotate_roi(percentage=True, annotate_passive_incomes_subquery=False)
-            .annotate_adjusted_avg_price(annotate_passive_incomes_subquery=False)
-            .annotate_avg_price()
-            .annotate_total_invested()
-            .annotate_current_total()
-        )
-
-    def total_invested_report(self, group_by: str, current: bool) -> AssetQuerySet:
-        from .models import Transaction  # avoid circular ImportError
-
-        subquery = (
-            Transaction.objects.filter(asset=OuterRef("pk"))
-            .values("asset__pk")  # group by as we can't aggregate directly
-            .annotate(balance=TransactionQuerySet.expressions.quantity_balance)
-        )
-
-        subquery = (
-            subquery.annotate(total=TransactionQuerySet.expressions.current_total)
-            if current
-            else subquery.annotate(
-                avg_price=TransactionQuerySet.expressions.avg_price,
-                total=F("avg_price") * F("balance"),
-            )
-        )
-
-        choice = AssetsTotalInvestedReportAggregations.get_choice(group_by)
-        return (
-            self.annotate(total_from_transactions=Subquery(subquery.values("total")))
-            .values(choice.field_name)
-            .annotate(total=Sum("total_from_transactions"))
-            .filter(total__gt=0)
-            .order_by("-total")
-        )
-
-    def roi_report(self, opened: bool = True, finished: bool = True) -> AssetQuerySet:
-        from .models import PassiveIncome, Transaction
-
-        incomes_subquery = (
-            PassiveIncome.objects.filter(asset__transactions=OuterRef("pk"))
-            .values("asset__transactions")  # group by as we can't aggregate directly
-            .credited()
-            .annotate(credited_incomes=Sum("amount"))
-            .values("credited_incomes")
-        )
-        subquery = (
-            Transaction.objects.filter(asset=OuterRef("pk"))
-            .values("asset__pk")  # group by as we can't aggregate directly
-            .annotate(
-                credited_incomes_total=Subquery(incomes_subquery.values("credited_incomes")),
-                roi=(
-                    TransactionQuerySet.expressions.current_total
-                    - TransactionQuerySet.expressions.get_total_adjusted(
-                        incomes=Coalesce(F("credited_incomes_total"), Decimal())
-                    )
-                ),
-                balance=TransactionQuerySet.expressions.quantity_balance,
-            )
-        )
-
-        qs = (
-            self.annotate(
-                roi_from_transactions=Subquery(subquery.values("roi")),
-                transactions_balance=Subquery(subquery.values("balance")),
-            )
-            .values("type")
-            .annotate(total=Sum("roi_from_transactions"))
-            .order_by("-total")
-        )
-        if opened and not finished:
-            qs = qs.filter(transactions_balance__gt=0)
-        if finished and not opened:
-            qs = qs.filter(transactions_balance__lte=0)
-        if not opened and not finished:
-            qs = qs.none()
-
-        return qs
-
-    def indicators(self) -> Dict[str, Decimal]:
-        return (
-            self._annotate_quantity_balance()
-            .annotate_roi()
-            .annotate_current_total(field_name="total")
-            .aggregate(
-                ROI=coalesce_sum_expression("roi"),
-                ROI_opened=coalesce_sum_expression("roi", filter=Q(quantity_balance__gt=0)),
-                ROI_finished=coalesce_sum_expression("roi", filter=Q(quantity_balance__lte=0)),
-                current_total=coalesce_sum_expression("total"),
-            )
-        )
 
 
 class TransactionQuerySet(QuerySet):

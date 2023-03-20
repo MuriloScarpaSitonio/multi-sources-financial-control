@@ -1,17 +1,34 @@
+from django.core.exceptions import ValidationError
+
 from djchoices import DjangoChoices, ChoiceItem
 
 
-class TransactionActions(DjangoChoices):
+class DjangoChoicesCustomValidator(DjangoChoices):
+    @classmethod
+    def custom_validator(cls, value: str) -> None:
+        # This way we don't create a new migration if any of the choices changes
+        if value not in cls.values:
+            raise ValidationError(
+                "'%(value)s' is not a valid choice for {class_name}. Valid values: {valid_values}",
+                params={
+                    "value": value,
+                    "class_name": cls.__name__,
+                    "valid_values": ", ".join(cls.values),
+                },
+            )
+
+
+class TransactionActions(DjangoChoicesCustomValidator):
     buy = ChoiceItem("BUY", label="Compra")
     sell = ChoiceItem("SELL", label="Venda")
 
 
-class TransactionCurrencies(DjangoChoices):
+class TransactionCurrencies(DjangoChoicesCustomValidator):
     real = ChoiceItem("BRL", label="Real")
     dollar = ChoiceItem("USD", label="Dólar")
 
 
-class AssetTypes(DjangoChoices):
+class AssetTypes(DjangoChoicesCustomValidator):
     stock = ChoiceItem("STOCK", label="Ação B3")
     stock_usa = ChoiceItem("STOCK_USA", label="Ação EUA")
     crypto = ChoiceItem("CRYPTO", label="Criptoativos")
@@ -27,7 +44,7 @@ ASSET_TYPE_CURRENCY_MAP = {
 
 
 # TODO: add validation for `valid_types`
-class AssetSectors(DjangoChoices):
+class AssetSectors(DjangoChoicesCustomValidator):
     industrials = ChoiceItem(
         "INDUSTRIALS",
         label="Bens industriais",
@@ -78,14 +95,14 @@ class AssetSectors(DjangoChoices):
     unknown = ChoiceItem("UNKNOWN", label="Desconhecido")
 
 
-class AssetObjectives(DjangoChoices):
+class AssetObjectives(DjangoChoicesCustomValidator):
     growth = ChoiceItem("GROWTH", label="Crescimento")
     dividend = ChoiceItem("DIVIDEND", label="Dividendo")
     unknown = ChoiceItem("UNKNOWN", label="Desconhecido")
 
 
 # TODO: add validation for `valid_types`
-class PassiveIncomeTypes(DjangoChoices):
+class PassiveIncomeTypes(DjangoChoicesCustomValidator):
     dividend = ChoiceItem(
         "DIVIDEND",
         label="Dividendo",
@@ -101,7 +118,7 @@ class PassiveIncomeTypes(DjangoChoices):
     )
 
 
-class PassiveIncomeEventTypes(DjangoChoices):
+class PassiveIncomeEventTypes(DjangoChoicesCustomValidator):
     provisioned = ChoiceItem("PROVISIONED", label="Provisionado")
     credited = ChoiceItem("CREDITED", label="Creditado")
 

@@ -69,19 +69,20 @@ def save_crypto_transactions(
             serializer = CryptoTransactionSerializer(data=data)
             serializer.is_valid(raise_exception=True)
 
-            with atomic():
-                asset, created = Asset.objects.get_or_create(
-                    user=user,
-                    code=code,
-                    type=AssetTypes.crypto,
-                    defaults={"sector": AssetSectors.tech, "objective": AssetObjectives.growth},
-                )
-                if created:
-                    asset.current_price = serializer.data["price"]
-                    asset.current_price_updated_at = timezone.now()
-                    asset.save(update_fields=("current_price", "current_price_updated_at"))
+            # TODO: check with `uow` features
+            # with atomic():
+            asset, created = Asset.objects.get_or_create(
+                user=user,
+                code=code,
+                type=AssetTypes.crypto,
+                defaults={"sector": AssetSectors.tech, "objective": AssetObjectives.growth},
+            )
+            if created:
+                asset.current_price = serializer.data["price"]
+                asset.current_price_updated_at = timezone.now()
+                asset.save(update_fields=("current_price", "current_price_updated_at"))
 
-                serializer.create(asset=asset, task_history_id=task_history_id)
+            serializer.create(asset=asset, task_history_id=task_history_id)
         except Exception:
             # TODO: log error
             continue

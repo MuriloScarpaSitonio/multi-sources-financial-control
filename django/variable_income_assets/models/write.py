@@ -3,12 +3,15 @@ from typing import Optional
 
 from django.conf import settings
 from django.db import models
+from django.db.transaction import atomic
 from django.utils.functional import cached_property
 
 from shared.models_utils import serializable_today_function
 from tasks.models import TaskHistory
 
-from .choices import (
+from .managers import AssetQuerySet, PassiveIncomeQuerySet, TransactionQuerySet
+from .read import AssetReadModel
+from ..choices import (
     AssetObjectives,
     AssetSectors,
     AssetTypes,
@@ -18,18 +21,19 @@ from .choices import (
     TransactionActions,
     TransactionCurrencies,
 )
-from .domain.models import Asset as AssetDomainModel
-from .managers import AssetQuerySet, PassiveIncomeQuerySet, TransactionQuerySet
+from ..domain.models import Asset as AssetDomainModel
 
 
 class Asset(models.Model):
     code = models.CharField(max_length=10)
-    type = models.CharField(max_length=10, choices=AssetTypes.choices)
+    type = models.CharField(max_length=10, validators=[AssetTypes.custom_validator])
     sector = models.CharField(
-        max_length=50, choices=AssetSectors.choices, default=AssetSectors.unknown
+        max_length=50, validators=[AssetSectors.custom_validator], default=AssetSectors.unknown
     )
     objective = models.CharField(
-        max_length=50, choices=AssetObjectives.choices, default=AssetObjectives.unknown
+        max_length=50,
+        validators=[AssetObjectives.custom_validator],
+        default=AssetObjectives.unknown,
     )
     current_price = models.DecimalField(decimal_places=6, max_digits=13, blank=True, null=True)
     current_price_updated_at = models.DateTimeField(blank=True, null=True)
@@ -99,23 +103,33 @@ class Asset(models.Model):
             currency=self.currency_from_transactions,
         )
 
+    def save(self, *args, **kwargs) -> None:
+        super().save(*args, **kwargs)
+
+        from ..tasks import upsert_asset_read_model
+
+        upsert_asset_read_model.delay(asset_id=self.pk)
+
+    def delete(self, *args, **kwargs):
+        with atomic():
+            AssetReadModel.objects.get(write_model_pk=self.pk).delete()
+            return super().delete(*args, **kwargs)
+
 
 class Transaction(models.Model):
     external_id = models.CharField(max_length=100, blank=True, null=True)
-    action = models.CharField(max_length=4, choices=TransactionActions.choices)
+    action = models.CharField(max_length=4, validators=[TransactionActions.custom_validator])
     price = models.DecimalField(decimal_places=8, max_digits=15)
     currency = models.CharField(
-        max_length=6, choices=TransactionCurrencies.choices, default=TransactionCurrencies.real
+        max_length=6,
+        validators=[TransactionCurrencies.custom_validator],
+        default=TransactionCurrencies.real,
     )
     quantity = models.DecimalField(
         decimal_places=8, max_digits=15  # crypto needs a lot of decimal places
     )
     created_at = models.DateField(default=serializable_today_function)
-    asset = models.ForeignKey(
-        to=Asset,
-        on_delete=models.CASCADE,
-        related_name="transactions",
-    )
+    asset = models.ForeignKey(to=Asset, on_delete=models.CASCADE, related_name="transactions")
     # only useful for selling transactions, as it's used when calculating the ROI
     initial_price = models.DecimalField(decimal_places=6, max_digits=13, blank=True, null=True)
     fetched_by = models.ForeignKey(
@@ -138,21 +152,15 @@ class Transaction(models.Model):
 
 
 class PassiveIncome(models.Model):
-    type = models.CharField(max_length=8, choices=PassiveIncomeTypes.choices)
-    event_type = models.CharField(max_length=11, choices=PassiveIncomeEventTypes.choices)
+    type = models.CharField(max_length=8, validators=[PassiveIncomeTypes.custom_validator])
+    event_type = models.CharField(
+        max_length=11, validators=[PassiveIncomeEventTypes.custom_validator]
+    )
     amount = models.DecimalField(decimal_places=2, max_digits=6)
     operation_date = models.DateField()
-    asset = models.ForeignKey(
-        to=Asset,
-        on_delete=models.CASCADE,
-        related_name="incomes",
-    )
+    asset = models.ForeignKey(to=Asset, on_delete=models.CASCADE, related_name="incomes")
     fetched_by = models.ForeignKey(
-        to=TaskHistory,
-        null=True,
-        blank=True,
-        related_name="incomes",
-        on_delete=models.SET_NULL,
+        to=TaskHistory, null=True, blank=True, related_name="incomes", on_delete=models.SET_NULL
     )
 
     objects = PassiveIncomeQuerySet.as_manager()
@@ -164,3 +172,18 @@ class PassiveIncome(models.Model):
         return f"<PassiveIncome {self.type} {self.event_type} {self.asset.code} {self.amount}>"  # pragma: no cover
 
     __repr__ = __str__
+
+    def save(self, *args, **kwargs) -> None:
+        super().save(*args, **kwargs)
+
+        from ..tasks import upsert_asset_read_model
+
+        upsert_asset_read_model.delay(asset_id=self.asset_id)
+
+    def delete(self, *args, **kwargs):
+        result = super().delete(*args, **kwargs)
+
+        from ..tasks import upsert_asset_read_model
+
+        upsert_asset_read_model.delay(asset_id=self.asset_id)
+        return result

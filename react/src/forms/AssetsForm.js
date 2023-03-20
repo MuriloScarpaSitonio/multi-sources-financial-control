@@ -99,7 +99,6 @@ export const AssetsForm = ({ initialData, handleClose, showFeedbackForm }) => {
     const method = isCreateForm ? "post" : "put";
     const actionVerb = isCreateForm ? "criado" : "editado";
     if (isDirty) {
-      console.log(data);
       setIsLoaded(false);
       api[method]({
         ...data,
@@ -129,7 +128,6 @@ export const AssetsForm = ({ initialData, handleClose, showFeedbackForm }) => {
     });
     setShowAlert(true);
   };
-  console.log(initialData);
   return (
     <>
       <form style={{ marginLeft: "10px", marginTop: "5px" }}>

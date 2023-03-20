@@ -2,7 +2,7 @@ from typing import Dict, Optional
 
 
 class ValidationError(Exception):
-    DEFAULT_MESSAGE: Optional[str] = None
+    default_message: Optional[str] = None
 
     def __init__(
         self,
@@ -15,9 +15,9 @@ class ValidationError(Exception):
             self.message = message
         else:
             self.message = (
-                self.DEFAULT_MESSAGE % message_interpolation_params
+                self.default_message % message_interpolation_params
                 if message_interpolation_params is not None
-                else self.DEFAULT_MESSAGE
+                else self.default_message
             )
         self.field = field
         super().__init__(self.message)
@@ -28,7 +28,7 @@ class ValidationError(Exception):
 
 
 class MultipleCurrenciesNotAllowedException(ValidationError):
-    DEFAULT_MESSAGE = (
+    default_message = (
         "Only one currency per asset is supported. Current currency: %(asset_currency)s"
     )
 
@@ -39,7 +39,7 @@ class MultipleCurrenciesNotAllowedException(ValidationError):
 
 
 class NegativeQuantityNotAllowedException(ValidationError):
-    DEFAULT_MESSAGE = "You can't sell more assets than you own"
+    default_message = "You can't sell more assets than you own"
 
     def __init__(self) -> None:
         super().__init__(field="action")

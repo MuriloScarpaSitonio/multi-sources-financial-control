@@ -171,6 +171,7 @@ def test_should_success_fetch_current_assets_prices_celery_task(
         assert float(asset.current_price) == price
 
 
+@pytest.mark.django_db(transaction=True)
 def test_sync_kucoin_transactions_should_create_asset_and_transaction(
     user_with_kucoin_integration,
     kucoin_client,
@@ -198,7 +199,7 @@ def test_sync_kucoin_transactions_should_create_asset_and_transaction(
             objective=AssetObjectives.growth,
             current_price_updated_at__isnull=False,
         ).count()
-        == 2
+        == 3
     )
     assert (
         Asset.objects.filter(
@@ -209,7 +210,7 @@ def test_sync_kucoin_transactions_should_create_asset_and_transaction(
         == 1
     )
     assert sorted(list(Asset.objects.values_list("code", flat=True))) == sorted(
-        list({item["code"] for item in kucoin_transactions_response} ^ {"VELO"})
+        list({item["code"] for item in kucoin_transactions_response})
     )
 
     assert Transaction.objects.count() == len(kucoin_transactions_response) - 1
@@ -227,6 +228,7 @@ def test_sync_kucoin_transactions_should_create_asset_and_transaction(
 
 
 @pytest.mark.usefixtures("crypto_asset")
+@pytest.mark.django_db(transaction=True)
 def test_should_skip_kucoin_transaction_if_already_exists(
     user_with_kucoin_integration,
     kucoin_client,

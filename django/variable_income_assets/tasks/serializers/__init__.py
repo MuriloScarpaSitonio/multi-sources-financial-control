@@ -12,8 +12,10 @@ from ...choices import (
     TransactionActions,
     TransactionCurrencies,
 )
+from ...domain.commands import CreateTransactions
 from ...domain.models import TransactionDTO
 from ...models import Asset, PassiveIncome, Transaction
+from ...service_layer.unit_of_work import DjangoUnitOfWork
 
 
 class CryptoTransactionSerializer(serializers.Serializer):
@@ -30,16 +32,20 @@ class CryptoTransactionSerializer(serializers.Serializer):
         return external_id
 
     def create(self, asset: Asset, task_history_id: int) -> Transaction:
+        from ...service_layer import messagebus  # avoid cirtular import error
+
         data = deepcopy(self.validated_data)
         external_id = data.pop("id")
 
-        transaction = asset.to_domain().add_transaction(transaction_dto=TransactionDTO(**data))
-        transaction.asset_id = asset.pk
-        transaction.external_id = external_id
-        transaction.fetched_by_id = task_history_id
-        transaction.save()
-
-        return transaction
+        asset_domain = asset.to_domain()
+        asset_domain.add_transaction(
+            transaction_dto=TransactionDTO(
+                **data, external_id=external_id, fetched_by_id=task_history_id
+            )
+        )
+        uow = DjangoUnitOfWork(asset_pk=asset.pk)
+        messagebus.handle(message=CreateTransactions(asset=asset_domain), uow=uow)
+        return uow.assets.transactions.seen.pop()  # hacky for DRF
 
 
 class CeiTransactionSerializer(serializers.Serializer):

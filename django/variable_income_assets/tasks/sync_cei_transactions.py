@@ -11,10 +11,9 @@ from celery import shared_task
 from authentication.models import CustomUser
 from shared.utils import build_url
 from tasks.bases import TaskWithHistory
-from tasks.models import TaskHistory
 
 from .serializers import CeiTransactionSerializer
-from ..choices import AssetTypes, TransactionActions
+from ..choices import AssetTypes
 from ..models import Asset
 
 
@@ -37,7 +36,7 @@ def _save_cei_transactions(
 
             with atomic():
                 asset, created = Asset.objects.get_or_create(
-                    user=user, code=code, defaults={"type": AssetTypes.stock}
+                    user=user, code=code, type=AssetTypes.stock
                 )
                 if created:
                     asset.current_price = serializer.validated_data["unit_price"]

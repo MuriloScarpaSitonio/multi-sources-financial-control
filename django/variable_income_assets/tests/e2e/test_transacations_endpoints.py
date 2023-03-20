@@ -8,6 +8,7 @@ from dateutil.relativedelta import relativedelta
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
+    HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
     HTTP_404_NOT_FOUND,
 )
@@ -24,13 +25,15 @@ from config.settings.base import BASE_API_URL
 from config.settings.dynamic import dynamic_settings
 from variable_income_assets.choices import TransactionActions, TransactionCurrencies
 from variable_income_assets.models import Transaction
+from variable_income_assets.tasks import upsert_asset_read_model
 from variable_income_assets.tests.shared import convert_and_quantitize
 
 pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "transactions"
 
 
-def test__create(client, stock_asset):
+@pytest.mark.django_db(transaction=True)
+def test__create(client, stock_asset, mocker):
     # GIVEN
     data = {
         "action": TransactionActions.buy,
@@ -38,15 +41,20 @@ def test__create(client, stock_asset):
         "quantity": 100,
         "asset_code": stock_asset.code,
     }
+    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
 
     # WHEN
     response = client.post(URL, data=data)
 
     # THEN
+    assert mocked_task.call_count == 1
+    assert mocked_task.call_args[1] == {"asset_id": stock_asset.pk}
+
     assert response.status_code == HTTP_201_CREATED
     assert Transaction.objects.filter(asset=stock_asset).count() == 1
 
 
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.usefixtures("buy_transaction")
 def test__create__sell_w_initial_price(client, stock_asset):
     # GIVEN
@@ -67,6 +75,7 @@ def test__create__sell_w_initial_price(client, stock_asset):
     assert Transaction.objects.filter(action=TransactionActions.sell, initial_price=8).count() == 1
 
 
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.usefixtures("buy_transaction")
 def test__create__sell_wo_initial_price_should_use_avg_price(client, stock_asset):
     # GIVEN
@@ -187,7 +196,8 @@ def test__create__should_raise_error_if_different_currency(client, stock_asset):
 
 
 @pytest.mark.usefixtures("stock_asset")
-def test__update(client, buy_transaction):
+@pytest.mark.django_db(transaction=True)
+def test__update(client, buy_transaction, mocker):
     # GIVEN
     data = {
         "action": buy_transaction.action,
@@ -195,11 +205,15 @@ def test__update(client, buy_transaction):
         "quantity": buy_transaction.quantity,
         "asset_code": buy_transaction.asset.code,
     }
+    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
 
     # WHEN
     response = client.put(f"{URL}/{buy_transaction.pk}", data=data)
 
     # THEN
+    assert mocked_task.call_count == 1
+    assert mocked_task.call_args[1] == {"asset_id": buy_transaction.asset_id}
+
     assert response.status_code == HTTP_200_OK
     for k, v in data.items():
         if k == "action":
@@ -229,6 +243,7 @@ def test__update__transaction_does_not_belong_to_user(kucoin_client, buy_transac
 
 
 @pytest.mark.usefixtures("buy_transaction")
+@pytest.mark.django_db(transaction=True)
 def test__update__sell_wo_initial_price_should_use_avg_price(client, stock_asset, sell_transaction):
     # GIVEN
     data = {
@@ -463,3 +478,20 @@ def test_historic(client):
         assert result[h.pop("month")] == h
 
     assert response.json()["avg"] == convert_and_quantitize(summ / 12)
+
+
+@pytest.mark.usefixtures("stock_asset")
+@pytest.mark.django_db(transaction=True)
+def test__delete(client, buy_transaction, mocker):
+    # GIVEN
+    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+
+    # WHEN
+    response = client.delete(f"{URL}/{buy_transaction.pk}")
+
+    # THEN
+    assert mocked_task.call_count == 1
+    assert mocked_task.call_args[1] == {"asset_id": buy_transaction.asset_id}
+
+    assert response.status_code == HTTP_204_NO_CONTENT
+    assert Transaction.objects.count() == 0

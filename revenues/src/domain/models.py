@@ -7,9 +7,9 @@ from .events import Event
 
 
 class Revenue:
-    events: List[Event] = []
-
     def __init__(self, *, value: Decimal, description: str, created_at: date = date.today()):
         self.value = value
         self.description = description
         self.created_at = created_at
+
+        self.events: List[Event] = []

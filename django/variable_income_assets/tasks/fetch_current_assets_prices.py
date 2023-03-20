@@ -31,6 +31,8 @@ def fetch_current_assets_prices(codes: List[str], username: str) -> None:
     )
     response = requests.post(url, json=list(qs))
     for code, price in response.json().items():
-        qs.filter(code=code).update(
-            current_price=str(price), current_price_updated_at=timezone.now()
-        )
+        asset: Asset = Asset.objects.get(user__username=username, code=code)
+        asset.current_price = str(price)
+        asset.current_price_updated_at = timezone.now()
+        # save one at the time to trigger read model sync
+        asset.save(update_fields=("current_price", "current_price_updated_at"))

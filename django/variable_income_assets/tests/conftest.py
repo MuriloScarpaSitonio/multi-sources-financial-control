@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from dateutil.relativedelta import relativedelta
 
+from authentication.models import CustomUser
 from authentication.tests.conftest import user
 from tasks.tests.conftest import simple_task_history
 
@@ -19,12 +20,18 @@ from ..choices import (
     TransactionActions,
     TransactionCurrencies,
 )
-from ..models import Asset, Transaction, PassiveIncome
+from ..management.commands.sync_assets_cqrs import Command as SyncAssetReadModelCommand
+from ..models import Asset, AssetReadModel, Transaction, PassiveIncome
 
 
 class AssetFactory(DjangoModelFactory):
     class Meta:
         model = Asset
+
+
+class AssetReadModelFactory(DjangoModelFactory):
+    class Meta:
+        model = AssetReadModel
 
 
 class TransactionFactory(DjangoModelFactory):
@@ -43,6 +50,14 @@ def celery_always_eager(settings):
 
 
 @pytest.fixture
+def sync_assets_read_model():
+    # TODO: evaluate
+    SyncAssetReadModelCommand().handle(
+        user_ids=list(CustomUser.objects.values_list("pk", flat=True))
+    )
+
+
+@pytest.fixture
 def stock_asset(user):
     return AssetFactory(
         code="ALUP11",
@@ -50,6 +65,7 @@ def stock_asset(user):
         sector=AssetSectors.utilities,
         objective=AssetObjectives.dividend,
         user=user,
+        current_price=32,
     )
 
 
@@ -61,6 +77,7 @@ def another_stock_asset(user):
         sector=AssetSectors.finance,
         objective=AssetObjectives.dividend,
         user=user,
+        current_price=50,
     )
 
 
@@ -72,6 +89,7 @@ def yet_another_stock_asset(user):
         sector=AssetSectors.finance,
         objective=AssetObjectives.dividend,
         user=user,
+        current_price=42,
     )
 
 
@@ -83,6 +101,7 @@ def fii_asset(user):
         sector=AssetSectors.essential_consumption,
         objective=AssetObjectives.dividend,
         user=user,
+        current_price=111,
     )
 
 
@@ -94,6 +113,7 @@ def stock_usa_asset(user):
         sector=AssetSectors.utilities,
         objective=AssetObjectives.growth,
         user=user,
+        current_price=21,
     )
 
 
@@ -116,6 +136,7 @@ def another_stock_usa_asset(user):
         sector=AssetSectors.utilities,
         objective=AssetObjectives.growth,
         user=user,
+        current_price=237,
     )
 
 
@@ -160,6 +181,7 @@ def another_crypto_asset(user):
         sector=AssetSectors.tech,
         objective=AssetObjectives.growth,
         user=user,
+        current_price=50000,
     )
 
 

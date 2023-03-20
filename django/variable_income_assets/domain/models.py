@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
-
+from .events import Event
 from .exceptions import MultipleCurrenciesNotAllowedException, NegativeQuantityNotAllowedException
 from ..choices import TransactionActions, TransactionCurrencies
 
@@ -22,6 +22,8 @@ class TransactionDTO:
     price: Decimal
     created_at: Optional[datetime] = None
     initial_price: Optional[Decimal] = None
+    external_id: Optional[str] = None
+    fetched_by_id: Optional[int] = None
 
     @property
     def is_sale(self) -> bool:
@@ -38,6 +40,9 @@ class Asset:
         self.quantity = quantity
         self.avg_price = avg_price
         self.currency = currency
+
+        self._transactions: List[TransactionDTO] = []
+        self.events: List[Event] = []
 
     def _validate_transaction_currency(self, transaction_dto: TransactionDTO) -> None:
         if self.currency is not None and self.currency != transaction_dto.currency:
@@ -60,20 +65,14 @@ class Asset:
         ):
             raise NegativeQuantityNotAllowedException()
 
-    def add_transaction(self, transaction_dto: TransactionDTO) -> Transaction:
+    def add_transaction(self, transaction_dto: TransactionDTO) -> TransactionDTO:
         self._validate_transaction_currency(transaction_dto=transaction_dto)
         self._validate_transaction_quantity_on_creation(transaction_dto=transaction_dto)
 
         if transaction_dto.is_sale and transaction_dto.initial_price is None:
             transaction_dto.initial_price = self.avg_price
 
-        data = asdict(transaction_dto)
-        if data["created_at"] is None:
-            data.pop("created_at")
-
-        from ..models import Transaction  # avoid circular import error
-
-        return Transaction(**data)
+        self._transactions.append(transaction_dto)
 
     def update_transaction(self, dto: TransactionDTO, transaction: Transaction) -> Transaction:
         self._validate_transaction_currency(transaction_dto=dto)
@@ -82,7 +81,9 @@ class Asset:
         if dto.is_sale and dto.initial_price is None:
             dto.initial_price = self.avg_price
 
-        for key, value in asdict(dto).items():
-            setattr(transaction, key, value)
+        self._transactions.append(dto)
+        return dto
 
-        return transaction
+    def validate_delete_transaction_command(self, transaction: Transaction) -> None:
+        # TODO
+        pass

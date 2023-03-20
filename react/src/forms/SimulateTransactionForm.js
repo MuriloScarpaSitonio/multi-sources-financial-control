@@ -240,7 +240,6 @@ export const SimulateTransactionForm = ({ handleClose }) => {
   const [codes, setCodes] = useState([]);
   const [responseData, setResponseData] = useState({});
   const [formData, setFormData] = useState({});
-  console.log(codes);
 
   let api = new AssetsApi();
 

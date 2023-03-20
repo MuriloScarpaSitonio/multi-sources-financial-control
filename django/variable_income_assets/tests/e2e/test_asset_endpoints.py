@@ -42,7 +42,7 @@ from variable_income_assets.choices import (
     AssetTypes,
     TransactionActions,
 )
-from variable_income_assets.models import Asset, Transaction
+from variable_income_assets.models import Asset, AssetReadModel, Transaction
 
 
 pytestmark = pytest.mark.django_db
@@ -189,6 +189,7 @@ def test_should_filter_assets(client, filter_by, count):
 # 5 - ativo fechado, prejuízo + incomes = lucro
 
 
+@pytest.mark.usefixtures("sync_assets_read_model")
 @pytest.mark.parametrize(
     "fixture, operation",
     (
@@ -225,10 +226,10 @@ def test_should_list_assets(client, stock_asset, fixture, operation, request):
     assert results["adjusted_avg_price"] == float(avg_price)
 
 
-# REPETIR para transações em dólar
+# TODO: REPETIR para transações em dólar
 
 
-@pytest.mark.usefixtures("indicators_data")
+@pytest.mark.usefixtures("indicators_data", "sync_assets_read_model")
 def test_list_assets_aggregate_data(client):
     # GIVEN
     total_invested_brute_force = sum(
@@ -275,6 +276,18 @@ def test_list_assets_aggregate_data(client):
 
         elif result["roi"] > 0:
             assert result["percentage_invested"] < result["current_percentage"]
+
+
+@pytest.mark.usefixtures("another_stock_asset")
+def test__list__should_include_asset_wo_transactions(client):
+    # GIVEN
+
+    # WHEN
+    response = client.get(URL)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert response.json()["count"] == 1
 
 
 @pytest.mark.skip("Integration is deprecated")
@@ -432,7 +445,9 @@ def test_should_raise_permission_error_fetch_current_prices_if_user_has_not_set_
     }
 
 
-@pytest.mark.usefixtures("transactions", "another_stock_asset_transactions")
+@pytest.mark.usefixtures(
+    "transactions", "another_stock_asset_transactions", "sync_assets_read_model"
+)
 def test_should_raise_error_if_asset_is_finished_fetch_current_assets_prices(
     client, stock_asset, another_stock_asset
 ):
@@ -466,9 +481,11 @@ def test_should_raise_error_if_code_is_not_valid_fetch_current_prices(client):
     }
 
 
-@pytest.mark.usefixtures("indicators_data")
+@pytest.mark.usefixtures("indicators_data", "sync_assets_read_model")
 def test_should_get_indicators(client):
     # GIVEN
+    from variable_income_assets.models import Asset
+
     current_total = sum(
         get_current_total_invested_brute_force(asset) for asset in Asset.objects.all()
     )
@@ -480,13 +497,13 @@ def test_should_get_indicators(client):
 
     # THEN
     assert response.status_code == HTTP_200_OK
-    assert response.json()["current_total"] == convert_and_quantitize(current_total)
+    assert response.json()["total"] == convert_and_quantitize(current_total)
     assert response.json()["ROI_opened"] == convert_and_quantitize(roi_opened)
     assert response.json()["ROI_finished"] == convert_and_quantitize(roi_finished)
     assert response.json()["ROI"] == convert_and_quantitize(roi_opened + roi_finished)
 
 
-@pytest.mark.usefixtures("report_data")
+@pytest.mark.usefixtures("report_data", "sync_assets_read_model")
 @pytest.mark.parametrize(
     "group_by, choices_class",
     (("TYPE", AssetTypes), ("SECTOR", AssetSectors), ("OBJECTIVE", AssetObjectives)),
@@ -515,7 +532,7 @@ def test__total_invested_report(client, group_by, choices_class):
                 assert convert_and_quantitize(totals[choice]) == result["total"]
 
 
-@pytest.mark.usefixtures("report_data")
+@pytest.mark.usefixtures("report_data", "sync_assets_read_model")
 @pytest.mark.parametrize(
     "group_by, choices_class",
     (("TYPE", AssetTypes), ("SECTOR", AssetSectors), ("OBJECTIVE", AssetObjectives)),
@@ -552,7 +569,7 @@ def test__total_invested_report__percentage(client, group_by, choices_class):
                 )
 
 
-@pytest.mark.usefixtures("report_data")
+@pytest.mark.usefixtures("report_data", "sync_assets_read_model")
 @pytest.mark.parametrize(
     "group_by, choices_class",
     (("TYPE", AssetTypes), ("SECTOR", AssetSectors), ("OBJECTIVE", AssetObjectives)),
@@ -581,7 +598,7 @@ def test__current_total_invested_report(client, group_by, choices_class):
                 assert convert_and_quantitize(totals[choice]) == result["total"]
 
 
-@pytest.mark.usefixtures("report_data")
+@pytest.mark.usefixtures("report_data", "sync_assets_read_model")
 @pytest.mark.parametrize(
     "group_by, choices_class",
     (("TYPE", AssetTypes), ("SECTOR", AssetSectors), ("OBJECTIVE", AssetObjectives)),
@@ -634,7 +651,7 @@ def test__total_invested_report__should_fail_wo_required_filters(client):
     }
 
 
-@pytest.mark.usefixtures("report_data")
+@pytest.mark.usefixtures("report_data", "sync_assets_read_model")
 def test__roi_report__opened(client):
     # GIVEN
     totals = {
@@ -653,7 +670,7 @@ def test__roi_report__opened(client):
                 assert convert_and_quantitize(totals[choice]) == result["total"]
 
 
-@pytest.mark.usefixtures("report_data")
+@pytest.mark.usefixtures("report_data", "sync_assets_read_model")
 def test__roi_report__finished(client):
     # GIVEN
     totals = {
@@ -672,7 +689,7 @@ def test__roi_report__finished(client):
                 assert totals[choice] == result["total"]
 
 
-@pytest.mark.usefixtures("report_data")
+@pytest.mark.usefixtures("report_data", "sync_assets_read_model")
 def test__roi_report__all(client):
     # GIVEN
     totals = {
@@ -691,7 +708,7 @@ def test__roi_report__all(client):
                 assert convert_and_quantitize(totals[choice]) == result["total"]
 
 
-@pytest.mark.usefixtures("report_data")
+@pytest.mark.usefixtures("report_data", "sync_assets_read_model")
 def test__roi_report__none(client):
     # GIVEN
 
@@ -842,37 +859,25 @@ def test_should_normalize_avg_price_with_currency_when_simulating_transaction(cl
 @pytest.mark.usefixtures(
     "transactions",
     "crypto_transaction",
-    "another_stock_asset",
+    "another_stock_asset",  # closed
     "another_stock_asset_transactions",
     "stock_usa_transaction",
+    "stock_asset",  # has transactions
+    "crypto_asset",  # has transactions
+    "stock_usa_asset",  # has transactions
+    "yet_another_stock_asset",  # no transactions
+    "another_stock_usa_asset",  # no transactions
+    "another_crypto_asset",  # no transactions
+    "fii_asset",  # no transactions
 )
-def test__codes_and_currencies_endpoint(
-    client,
-    stock_asset,
-    yet_another_stock_asset,
-    stock_usa_asset,
-    another_stock_usa_asset,
-    crypto_asset,
-    another_crypto_asset,
-    fii_asset,
-):
+def test__codes_and_currencies_endpoint(client):
     # GIVEN
-    expected = [
-        {"code": a.code, "currency": a.guess_currency()}
-        for a in (
-            stock_asset,  # has transactions
-            crypto_asset,  # has transactions
-            stock_usa_asset,  # has transactions
-            yet_another_stock_asset,  # notransactions
-            another_stock_usa_asset,  # no transactions
-            another_crypto_asset,  # no transactions
-            fii_asset,  # no transactions
-        )  # `another_stock_asset` is closed
-    ]
 
     # WHEN
     response = client.get(f"{URL}/codes_and_currencies")
 
     # THEN
     assert response.status_code == 200
-    assert response.json() == sorted(expected, key=lambda a: a["code"])
+    assert response.json() == list(
+        AssetReadModel.objects.values("code", "currency").order_by("code")
+    )
