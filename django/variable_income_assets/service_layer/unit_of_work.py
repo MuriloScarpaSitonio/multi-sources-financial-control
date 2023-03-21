@@ -20,7 +20,7 @@ class AbstractUnitOfWork(ABC):
     def __enter__(self) -> AbstractUnitOfWork:
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args) -> None:
         self.rollback()
 
     def collect_new_events(self) -> Iterator[Event]:
@@ -29,28 +29,39 @@ class AbstractUnitOfWork(ABC):
                 yield asset.events.pop(0)
 
     @abstractmethod
-    def commit(self):
+    def commit(self) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def rollback(self):
+    def rollback(self) -> None:
         raise NotImplementedError
 
 
 class DjangoUnitOfWork(AbstractUnitOfWork):
-    def __enter__(self):
+    def __init__(self, asset_pk: int) -> None:
+        super().__init__(asset_pk)
+
+        # This is necesseray for SQLite
+        # TODO: check for PostgreSQL
+        self._inside_atomic_block = djtransaction.get_autocommit() is False
+
+    def __enter__(self) -> DjangoUnitOfWork:
         self.assets = AssetRepository(
             transaction_repository=TransactionRepository(asset_pk=self.asset_pk)
         )
-        djtransaction.set_autocommit(False)
+        if not self._inside_atomic_block:
+            djtransaction.set_autocommit(False)
         return super().__enter__()
 
     def __exit__(self, *args):
         super().__exit__(*args)
-        djtransaction.set_autocommit(True)
+        if not self._inside_atomic_block:
+            djtransaction.set_autocommit(True)
 
-    def commit(self):
-        djtransaction.commit()
+    def commit(self) -> None:
+        if not self._inside_atomic_block:
+            djtransaction.commit()
 
-    def rollback(self):
-        djtransaction.rollback()
+    def rollback(self) -> None:
+        if not self._inside_atomic_block:
+            djtransaction.rollback()

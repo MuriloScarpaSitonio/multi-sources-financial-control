@@ -199,7 +199,7 @@ def test_sync_kucoin_transactions_should_create_asset_and_transaction(
             objective=AssetObjectives.growth,
             current_price_updated_at__isnull=False,
         ).count()
-        == 3
+        == 2
     )
     assert (
         Asset.objects.filter(
@@ -210,7 +210,7 @@ def test_sync_kucoin_transactions_should_create_asset_and_transaction(
         == 1
     )
     assert sorted(list(Asset.objects.values_list("code", flat=True))) == sorted(
-        list({item["code"] for item in kucoin_transactions_response})
+        list({item["code"] for item in kucoin_transactions_response} ^ {"VELO"})
     )
 
     assert Transaction.objects.count() == len(kucoin_transactions_response) - 1

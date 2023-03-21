@@ -11,7 +11,7 @@ from shared.managers_utils import CustomQueryset, GenericFilters, MonthlyFilterM
 from shared.utils import coalesce_sum_expression
 
 from ...choices import AssetTypes, PassiveIncomeEventTypes
-from ...expressions import GenericQuerySetExpressions
+from .expressions import GenericQuerySetExpressions
 
 
 class AssetQuerySet(QuerySet):

@@ -9,7 +9,7 @@ from django.db.models.functions import Coalesce
 from config.settings.dynamic import dynamic_settings
 from shared.utils import coalesce_sum_expression
 
-from .choices import TransactionActions, TransactionCurrencies
+from ...choices import TransactionActions, TransactionCurrencies
 
 
 class _GenericQuerySetMixin:
