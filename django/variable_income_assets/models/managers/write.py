@@ -3,31 +3,14 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Dict, Union
 
-from django.db.models import (
-    Case,
-    CharField,
-    Count,
-    F,
-    OuterRef,
-    Q,
-    QuerySet,
-    Subquery,
-    Sum,
-    Value,
-    When,
-)
+from django.db.models import CharField, Count, F, Q, QuerySet, Sum, Value
 from django.db.models.expressions import CombinedExpression
 from django.db.models.functions import Concat, Coalesce, TruncMonth
 
 from shared.managers_utils import CustomQueryset, GenericFilters, MonthlyFilterMixin
 from shared.utils import coalesce_sum_expression
 
-from ...choices import (
-    AssetTypes,
-    AssetsTotalInvestedReportAggregations,
-    PassiveIncomeEventTypes,
-    TransactionCurrencies,
-)
+from ...choices import AssetTypes, PassiveIncomeEventTypes
 from ...expressions import GenericQuerySetExpressions
 
 

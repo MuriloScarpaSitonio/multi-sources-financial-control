@@ -17,9 +17,9 @@ from .choices import (
     TransactionActions,
     TransactionCurrencies,
 )
+from .domain import commands
 from .domain.exceptions import ValidationError as DomainValidationError
 from .domain.models import Asset as AssetDomainModel, TransactionDTO
-from .domain.commands import UpdateTransaction, CreateTransactions
 from .models import Asset, AssetReadModel, PassiveIncome, Transaction
 from .service_layer import messagebus
 from .service_layer.unit_of_work import DjangoUnitOfWork
@@ -76,7 +76,7 @@ class TransactionListSerializer(TransactionSerializer):
             asset_domain = asset.to_domain()
             asset_domain.add_transaction(transaction_dto=TransactionDTO(**validated_data))
             uow = DjangoUnitOfWork(asset_pk=asset.pk)
-            messagebus.handle(message=CreateTransactions(asset=asset_domain), uow=uow)
+            messagebus.handle(message=commands.CreateTransactions(asset=asset_domain), uow=uow)
             return uow.assets.transactions.seen.pop()  # hacky for DRF
         except DomainValidationError as e:
             raise serializers.ValidationError(e.detail)
@@ -94,12 +94,32 @@ class TransactionListSerializer(TransactionSerializer):
                 dto=TransactionDTO(**validated_data), transaction=instance
             )
             messagebus.handle(
-                message=UpdateTransaction(transaction=instance, asset=asset_domain),
+                message=commands.UpdateTransaction(transaction=instance, asset=asset_domain),
                 uow=DjangoUnitOfWork(asset_pk=instance.asset_id),
             )
             return instance
         except DomainValidationError as e:
-            raise serializers.ValidationError({e.field: e.message})
+            raise serializers.ValidationError(e.detail)
+
+    def delete(self) -> None:
+        asset_domain: AssetDomainModel = self.instance.asset.to_domain()
+        try:
+            asset_domain.validate_delete_transaction_command(
+                dto=TransactionDTO(
+                    action=self.instance.action,
+                    quantity=self.instance.quantity,
+                    # No need for these fields
+                    currency="",
+                    price=Decimal(),
+                )
+            )
+        except DomainValidationError as e:
+            raise serializers.ValidationError(e.detail)
+
+        messagebus.handle(
+            message=commands.DeleteTransaction(transaction=self.instance, asset=asset_domain),
+            uow=DjangoUnitOfWork(asset_pk=self.instance.asset_id),
+        )
 
 
 class PassiveIncomeSerializer(serializers.ModelSerializer):

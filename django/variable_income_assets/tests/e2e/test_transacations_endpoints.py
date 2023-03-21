@@ -495,3 +495,20 @@ def test__delete(client, buy_transaction, mocker):
 
     assert response.status_code == HTTP_204_NO_CONTENT
     assert Transaction.objects.count() == 0
+
+
+@pytest.mark.usefixtures("stock_asset", "sell_transaction")
+@pytest.mark.django_db(transaction=True)
+def test__delete__error__negative_qty(client, buy_transaction, mocker):
+    # GIVEN
+    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+
+    # WHEN
+    response = client.delete(f"{URL}/{buy_transaction.pk}")
+
+    # THEN
+    assert mocked_task.call_count == 0
+
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"action": "You can't sell more assets than you own"}
+    assert Transaction.objects.count() == 2

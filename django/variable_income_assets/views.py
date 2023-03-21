@@ -294,12 +294,7 @@ class TransactionViewSet(ModelViewSet):
         return Transaction.objects.none()  # drf-spectacular
 
     def perform_destroy(self, instance: Transaction):
-        asset_domain: AssetDomainModel = instance.asset.to_domain()
-        asset_domain.validate_delete_transaction_command(transaction=instance)
-        messagebus.handle(
-            message=DeleteTransaction(transaction=instance, asset=asset_domain),
-            uow=DjangoUnitOfWork(asset_pk=instance.asset_id),
-        )
+        serializers.TransactionListSerializer(instance=instance).delete()
 
     @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:

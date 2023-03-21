@@ -84,6 +84,6 @@ class Asset:
         self._transactions.append(dto)
         return dto
 
-    def validate_delete_transaction_command(self, transaction: Transaction) -> None:
-        # TODO
-        pass
+    def validate_delete_transaction_command(self, dto: TransactionDTO) -> None:
+        if not dto.is_sale and (self.quantity - dto.quantity) < 0:
+            raise NegativeQuantityNotAllowedException()
