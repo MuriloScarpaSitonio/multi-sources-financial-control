@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, List, Dict, Callable, Type, Union
 
-from .handlers import create_transactions, delete_transaction, update_transaction, upsert_read_model
+from . import handlers
 from .unit_of_work import AbstractUnitOfWork
 from ..domain import commands, events
 
@@ -16,16 +16,20 @@ MessageCallable = Callable[[Any, AbstractUnitOfWork], Any]
 # region: maps
 
 EVENT_HANDLERS: Dict[Type[events.Event], List[MessageCallable]] = {
-    events.TransactionsCreated: [upsert_read_model],
-    events.TransactionUpdated: [upsert_read_model],
-    events.TransactionDeleted: [upsert_read_model],
+    events.TransactionsCreated: [handlers.upsert_read_model],
+    events.TransactionUpdated: [handlers.upsert_read_model],
+    events.TransactionDeleted: [handlers.upsert_read_model],
+    events.PassiveIncomeCreated: [handlers.upsert_read_model],
+    events.PassiveIncomeUpdated: [handlers.upsert_read_model],
+    events.PassiveIncomeDeleted: [handlers.upsert_read_model],
 }
 
 COMMAND_HANDLERS: Dict[Type[commands.Command], MessageCallable] = {
-    commands.CreateTransactions: create_transactions,
-    commands.UpdateTransaction: update_transaction,
-    commands.DeleteTransaction: delete_transaction,
+    commands.CreateTransactions: handlers.create_transactions,
+    commands.UpdateTransaction: handlers.update_transaction,
+    commands.DeleteTransaction: handlers.delete_transaction,
 }
+
 
 # endregion: maps
 

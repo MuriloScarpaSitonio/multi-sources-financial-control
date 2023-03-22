@@ -22,6 +22,13 @@ class TransactionDeleted(_AssetReadModelEvent):
     pass
 
 
-@dataclass
 class PassiveIncomeCreated(_AssetReadModelEvent):
+    pass
+
+
+class PassiveIncomeUpdated(_AssetReadModelEvent):
+    pass
+
+
+class PassiveIncomeDeleted(_AssetReadModelEvent):
     pass

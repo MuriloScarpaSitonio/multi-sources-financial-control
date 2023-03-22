@@ -237,6 +237,9 @@ class PassiveIncomeViewSet(ModelViewSet):
     def get_transactions_queryset(self) -> TransactionQuerySet[Transaction]:
         return Transaction.objects.filter(asset__user=self.request.user)
 
+    def perform_destroy(self, instance: PassiveIncome):
+        serializers.PassiveIncomeSerializer(instance=instance).delete()
+
     @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:
         first_transaction_date = (

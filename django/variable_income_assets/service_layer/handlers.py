@@ -1,5 +1,3 @@
-from dataclasses import asdict
-
 from typing import Union
 
 from .unit_of_work import AbstractUnitOfWork

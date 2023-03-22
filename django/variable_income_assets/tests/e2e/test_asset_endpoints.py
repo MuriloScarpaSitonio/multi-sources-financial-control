@@ -189,7 +189,6 @@ def test_should_filter_assets(client, filter_by, count):
 # 5 - ativo fechado, prejuízo + incomes = lucro
 
 
-@pytest.mark.usefixtures("sync_assets_read_model")
 @pytest.mark.parametrize(
     "fixture, operation",
     (
@@ -208,6 +207,7 @@ def test_should_filter_assets(client, filter_by, count):
 def test_should_list_assets(client, stock_asset, fixture, operation, request):
     # GIVEN
     request.getfixturevalue(fixture)
+    request.getfixturevalue("sync_assets_read_model")
 
     roi = get_roi_brute_force(asset=stock_asset)
     avg_price = get_adjusted_avg_price_brute_forte(asset=stock_asset)

@@ -17,7 +17,7 @@ from .choices import (
     TransactionActions,
     TransactionCurrencies,
 )
-from .domain import commands
+from .domain import commands, events
 from .domain.exceptions import ValidationError as DomainValidationError
 from .domain.models import Asset as AssetDomainModel, TransactionDTO
 from .models import Asset, AssetReadModel, PassiveIncome, Transaction
@@ -134,17 +134,31 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
 
     def update(self, instance: PassiveIncome, validated_data: dict) -> PassiveIncome:
         validated_data.pop("asset")
-        return super().update(instance, validated_data)
+        income = super().update(instance, validated_data)
+        with DjangoUnitOfWork(asset_pk=instance.asset_id) as uow:
+            messagebus.handle(
+                message=events.PassiveIncomeUpdated(asset_pk=instance.asset_id), uow=uow
+            )
+        return income
 
     def create(self, validated_data: dict) -> PassiveIncome:
-        validated_data.update(
-            asset_id=(
-                Asset.objects.only("pk")
-                .get(user=validated_data.pop("user"), code=validated_data.pop("asset")["code"])
-                .pk
-            )
+        asset_pk = (
+            Asset.objects.only("pk")
+            .get(user=validated_data.pop("user"), code=validated_data.pop("asset")["code"])
+            .pk
         )
-        return super().create(validated_data=validated_data)
+        validated_data.update(asset_id=asset_pk)
+        income = super().create(validated_data=validated_data)
+        with DjangoUnitOfWork(asset_pk=asset_pk) as uow:
+            messagebus.handle(message=events.PassiveIncomeCreated(asset_pk=asset_pk), uow=uow)
+        return income
+
+    def delete(self) -> None:
+        self.instance.delete()
+        with DjangoUnitOfWork(asset_pk=self.instance.asset_id) as uow:
+            messagebus.handle(
+                message=events.PassiveIncomeDeleted(asset_pk=self.instance.asset_id), uow=uow
+            )
 
 
 class AssetSerializer(serializers.ModelSerializer):

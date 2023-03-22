@@ -172,18 +172,3 @@ class PassiveIncome(models.Model):
         return f"<PassiveIncome {self.type} {self.event_type} {self.asset.code} {self.amount}>"  # pragma: no cover
 
     __repr__ = __str__
-
-    def save(self, *args, **kwargs) -> None:
-        super().save(*args, **kwargs)
-
-        from ..tasks import upsert_asset_read_model
-
-        upsert_asset_read_model.delay(asset_id=self.asset_id)
-
-    def delete(self, *args, **kwargs):
-        result = super().delete(*args, **kwargs)
-
-        from ..tasks import upsert_asset_read_model
-
-        upsert_asset_read_model.delay(asset_id=self.asset_id)
-        return result
