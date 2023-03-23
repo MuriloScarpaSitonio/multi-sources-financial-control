@@ -2,4 +2,4 @@ from .sync_cei_transactions import sync_cei_transactions_task
 from .sync_cei_passive_incomes import sync_cei_passive_incomes_task
 from .sync_crypto_transactions import sync_binance_transactions_task, sync_kucoin_transactions_task
 from .fetch_current_assets_prices import fetch_current_assets_prices
-from .cqrs import upsert_asset_read_model
+from .cqrs import upsert_assets_read_model

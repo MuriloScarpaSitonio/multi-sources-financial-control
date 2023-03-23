@@ -3,7 +3,7 @@ from typing import Union
 from .unit_of_work import AbstractUnitOfWork
 from ..domain import commands, events
 from ..models import Transaction
-from ..tasks import upsert_asset_read_model
+from ..tasks import upsert_assets_read_model
 
 
 def create_transactions(cmd: commands.CreateTransactions, uow: AbstractUnitOfWork) -> Transaction:
@@ -37,4 +37,4 @@ def upsert_read_model(
     event: Union[events.TransactionsCreated, events.TransactionDeleted, events.TransactionUpdated],
     _: AbstractUnitOfWork,
 ) -> None:
-    upsert_asset_read_model.delay(asset_id=event.asset_pk)
+    upsert_assets_read_model.delay(asset_ids=(event.asset_pk,))

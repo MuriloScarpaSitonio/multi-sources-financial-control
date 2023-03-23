@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from decimal import Decimal
+from typing import Optional, TYPE_CHECKING
 
 from django.forms import Form
 from django.core.exceptions import ValidationError
@@ -7,6 +10,15 @@ import django_filters as filters
 
 from .choices import AssetsTotalInvestedReportAggregations, AssetTypes
 from .models import Asset, AssetReadModel, PassiveIncome, Transaction
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
+    from django.views import View
+
+
+class CQRSDjangoFilterBackend(filters.rest_framework.DjangoFilterBackend):
+    def get_filterset_class(self, view: View, _: Optional[QuerySet] = None):
+        return view.get_filterset_class()
 
 
 class AssetFilterSet(filters.FilterSet):
@@ -22,7 +34,7 @@ class AssetReadFilterSet(filters.FilterSet):
 
     class Meta:
         model = AssetReadModel
-        exclude = ("current_price", "current_price_updated_at", "user_id")
+        exclude = ("current_price", "user")
 
 
 class AssetFetchCurrentPriceFilterSet(filters.FilterSet):

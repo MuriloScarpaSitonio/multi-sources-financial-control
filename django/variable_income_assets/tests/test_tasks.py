@@ -24,7 +24,7 @@ from ..choices import (
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
 )
-from ..models import Asset, PassiveIncome, Transaction
+from ..models import Asset, AssetReadModel, PassiveIncome, Transaction
 
 
 pytestmark = pytest.mark.django_db
@@ -152,7 +152,7 @@ def test_sync_cei_transactions_should_not_create_asset_if_unit_alread_exists(
     ).exists()
 
 
-@pytest.mark.usefixtures("assets", "transactions")
+@pytest.mark.usefixtures("assets", "transactions", "sync_assets_read_model")
 def test_should_success_fetch_current_assets_prices_celery_task(
     client, requests_mock, fetch_current_assets_prices_response
 ):
@@ -169,6 +169,7 @@ def test_should_success_fetch_current_assets_prices_celery_task(
     for code, price in fetch_current_assets_prices_response.items():
         asset = Asset.objects.get(code=code)
         assert float(asset.current_price) == price
+        assert float(AssetReadModel.objects.get(write_model_pk=asset.pk).current_price) == price
 
 
 @pytest.mark.django_db(transaction=True)

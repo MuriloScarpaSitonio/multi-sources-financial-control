@@ -8,6 +8,7 @@ from rest_framework.status import (
     HTTP_201_CREATED,
     HTTP_400_BAD_REQUEST,
     HTTP_403_FORBIDDEN,
+    HTTP_404_NOT_FOUND,
 )
 
 from authentication.tests.conftest import (
@@ -64,6 +65,7 @@ def test__create(client):
     # THEN
     assert response.status_code == HTTP_201_CREATED
     assert response.json()["current_price_updated_at"] is None
+    assert AssetReadModel.objects.count() == 1
 
 
 def test__create__same_code(client, stock_asset):
@@ -124,6 +126,7 @@ def test__create__wrong_sector_type_set(client):
     }
 
 
+@pytest.mark.usefixtures("sync_assets_read_model")
 def test__update(client, stock_asset):
     # GIVEN
     data = {
@@ -138,9 +141,17 @@ def test__update(client, stock_asset):
 
     # THEN
     assert response.status_code == HTTP_200_OK
-    assert response.json()["current_price_updated_at"] is None
+
+    stock_asset.refresh_from_db()
+    assert stock_asset.current_price_updated_at is None
+    assert stock_asset.objective == AssetObjectives.growth
+    assert (
+        AssetReadModel.objects.get(write_model_pk=stock_asset.pk).objective
+        == AssetObjectives.growth
+    )
 
 
+@pytest.mark.usefixtures("sync_assets_read_model")
 def test__update__w_current_price(client, stock_asset):
     # GIVEN
     data = {
@@ -157,9 +168,31 @@ def test__update__w_current_price(client, stock_asset):
     # THEN
     assert response.status_code == HTTP_200_OK
     assert response.json()["current_price_updated_at"] is not None
+    assert (
+        AssetReadModel.objects.get(write_model_pk=stock_asset.pk).current_price_updated_at
+        is not None
+    )
 
 
-@pytest.mark.usefixtures("transactions", "passive_incomes")
+def test__update__asset_does_not_belong_to_user(kucoin_client, stock_asset):
+    # GIVEN
+    data = {
+        "type": stock_asset.type,
+        "sector": stock_asset.sector,
+        "objective": AssetObjectives.growth,
+        "code": stock_asset.code,
+        "current_price": 11,
+    }
+
+    # WHEN
+    response = kucoin_client.put(f"{URL}/{stock_asset.code}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_404_NOT_FOUND
+    assert response.json() == {"detail": "Not found."}
+
+
+@pytest.mark.usefixtures("transactions", "passive_incomes", "sync_assets_read_model")
 @pytest.mark.parametrize(
     "filter_by, count",
     (
@@ -278,7 +311,7 @@ def test_list_assets_aggregate_data(client):
             assert result["percentage_invested"] < result["current_percentage"]
 
 
-@pytest.mark.usefixtures("another_stock_asset")
+@pytest.mark.usefixtures("another_stock_asset", "sync_assets_read_model")
 def test__list__should_include_asset_wo_transactions(client):
     # GIVEN
 
@@ -411,7 +444,7 @@ def test_should_raise_permission_error_sync_cei_passive_incomes_if_user_has_not_
     }
 
 
-@pytest.mark.usefixtures("assets", "transactions")
+@pytest.mark.usefixtures("assets", "transactions", "sync_assets_read_model")
 def test_should_call_fetch_current_assets_prices_celery_task(client, user, stock_usa_asset, mocker):
     # GIVEN
     mocked_task = mocker.patch(

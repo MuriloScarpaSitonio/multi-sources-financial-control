@@ -25,7 +25,7 @@ from config.settings.base import BASE_API_URL
 from config.settings.dynamic import dynamic_settings
 from variable_income_assets.choices import TransactionActions, TransactionCurrencies
 from variable_income_assets.models import Transaction
-from variable_income_assets.tasks import upsert_asset_read_model
+from variable_income_assets.tasks import upsert_assets_read_model
 from variable_income_assets.tests.shared import convert_and_quantitize
 
 pytestmark = pytest.mark.django_db
@@ -41,14 +41,14 @@ def test__create(client, stock_asset, mocker):
         "quantity": 100,
         "asset_code": stock_asset.code,
     }
-    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+    mocked_task = mocker.patch.object(upsert_assets_read_model, "delay")
 
     # WHEN
     response = client.post(URL, data=data)
 
     # THEN
     assert mocked_task.call_count == 1
-    assert mocked_task.call_args[1] == {"asset_id": stock_asset.pk}
+    assert mocked_task.call_args[1] == {"asset_ids": (stock_asset.pk,)}
 
     assert response.status_code == HTTP_201_CREATED
     assert Transaction.objects.filter(asset=stock_asset).count() == 1
@@ -205,14 +205,14 @@ def test__update(client, buy_transaction, mocker):
         "quantity": buy_transaction.quantity,
         "asset_code": buy_transaction.asset.code,
     }
-    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+    mocked_task = mocker.patch.object(upsert_assets_read_model, "delay")
 
     # WHEN
     response = client.put(f"{URL}/{buy_transaction.pk}", data=data)
 
     # THEN
     assert mocked_task.call_count == 1
-    assert mocked_task.call_args[1] == {"asset_id": buy_transaction.asset_id}
+    assert mocked_task.call_args[1] == {"asset_ids": (buy_transaction.asset_id,)}
 
     assert response.status_code == HTTP_200_OK
     for k, v in data.items():
@@ -484,14 +484,14 @@ def test_historic(client):
 @pytest.mark.django_db(transaction=True)
 def test__delete(client, buy_transaction, mocker):
     # GIVEN
-    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+    mocked_task = mocker.patch.object(upsert_assets_read_model, "delay")
 
     # WHEN
     response = client.delete(f"{URL}/{buy_transaction.pk}")
 
     # THEN
     assert mocked_task.call_count == 1
-    assert mocked_task.call_args[1] == {"asset_id": buy_transaction.asset_id}
+    assert mocked_task.call_args[1] == {"asset_ids": (buy_transaction.asset_id,)}
 
     assert response.status_code == HTTP_204_NO_CONTENT
     assert Transaction.objects.count() == 0
@@ -501,7 +501,7 @@ def test__delete(client, buy_transaction, mocker):
 @pytest.mark.django_db(transaction=True)
 def test__delete__error__negative_qty(client, buy_transaction, mocker):
     # GIVEN
-    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+    mocked_task = mocker.patch.object(upsert_assets_read_model, "delay")
 
     # WHEN
     response = client.delete(f"{URL}/{buy_transaction.pk}")

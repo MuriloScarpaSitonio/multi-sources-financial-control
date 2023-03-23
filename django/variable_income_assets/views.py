@@ -1,31 +1,33 @@
+from __future__ import annotations
+
 from decimal import Decimal
-from typing import Type
+from typing import Type, TYPE_CHECKING, Union
 
 from django.db import transaction as djtransaction
-from django.db.models import Subquery, Sum
+from django.db.models import Sum
 from django.utils import timezone
 
-from djchoices import ChoiceItem
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
+from rest_framework.filters import OrderingFilter
 from rest_framework.mixins import CreateModelMixin, ListModelMixin, UpdateModelMixin
-from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.serializers import Serializer
 from rest_framework.status import HTTP_200_OK
-from rest_framework.utils.serializer_helpers import ReturnList
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
-
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 
 from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
 from tasks.decorators import celery_task_endpoint, start_celery_task
 
 from . import choices, filters, serializers
-from .domain.commands import DeleteTransaction
-from .domain.models import Asset as AssetDomainModel
+from .domain import events
 from .models import Asset, AssetReadModel, PassiveIncome, Transaction
-from .models.managers import AssetQuerySet, PassiveIncomeQuerySet, TransactionQuerySet
+from .models.managers import (
+    AssetQuerySet,
+    AssetReadModelQuerySet,
+    PassiveIncomeQuerySet,
+    TransactionQuerySet,
+)
 from .permissions import AssetsPricesPermission, BinancePermission, CeiPermission, KuCoinPermission
 from .service_layer import messagebus
 from .service_layer.unit_of_work import DjangoUnitOfWork
@@ -37,17 +39,33 @@ from .tasks import (
     fetch_current_assets_prices,
 )
 
+if TYPE_CHECKING:
+    from djchoices import ChoiceItem
+    from django_filters import FilterSet
+    from rest_framework.request import Request
+    from rest_framework.serializers import Serializer
+    from rest_framework.utils.serializer_helpers import ReturnList
+
 
 class AssetViewSet(GenericViewSet, ListModelMixin, CreateModelMixin, UpdateModelMixin):
-    filterset_class = filters.AssetReadFilterSet
     lookup_field = "code"
+    filter_backends = (filters.CQRSDjangoFilterBackend, OrderingFilter)
     ordering_fields = ("code", "type", "total_invested", "roi", "roi_percentage")
 
-    def get_queryset(self) -> AssetQuerySet[AssetReadModel]:
+    def get_queryset(self) -> Union[AssetReadModelQuerySet[AssetReadModel], AssetQuerySet[Asset]]:
         if self.request.user.is_authenticated:
+            if self.action in ("create", "update", "fetch_current_prices"):
+                return Asset.objects.filter(user_id=self.request.user.id)
             qs = AssetReadModel.objects.filter(user_id=self.request.user.id)
             return qs.opened().order_by("-total_invested") if self.action == "list" else qs
         return AssetReadModel.objects.none()  # drf-spectacular
+
+    def get_filterset_class(self) -> FilterSet:
+        return (
+            filters.AssetFilterSet
+            if self.action in ("create", "update", "fetch_current_prices")
+            else filters.AssetReadFilterSet
+        )
 
     def get_serializer_class(self):
         return (
@@ -73,6 +91,16 @@ class AssetViewSet(GenericViewSet, ListModelMixin, CreateModelMixin, UpdateModel
             if self.action == "list"
             else context
         )
+
+    def perform_create(self, serializer: serializers.AssetSerializer) -> None:
+        super().perform_create(serializer)
+        with DjangoUnitOfWork(asset_pk=serializer.instance.pk) as uow:
+            messagebus.handle(message=events.AssetCreated(asset_pk=serializer.instance.pk), uow=uow)
+
+    def perform_update(self, serializer: serializers.AssetReadModelSerializer) -> None:
+        super().perform_update(serializer)
+        with DjangoUnitOfWork(asset_pk=serializer.instance.pk) as uow:
+            messagebus.handle(message=events.AssetUpdated(asset_pk=serializer.instance.pk), uow=uow)
 
     @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:
@@ -237,8 +265,26 @@ class PassiveIncomeViewSet(ModelViewSet):
     def get_transactions_queryset(self) -> TransactionQuerySet[Transaction]:
         return Transaction.objects.filter(asset__user=self.request.user)
 
+    def perform_create(self, serializer: serializers.PassiveIncomeSerializer) -> None:
+        super().perform_create(serializer)
+        with DjangoUnitOfWork(asset_pk=serializer.instance.pk) as uow:
+            messagebus.handle(
+                message=events.PassiveIncomeCreated(asset_pk=serializer.instance.pk), uow=uow
+            )
+
+    def perform_update(self, serializer: serializers.PassiveIncomeSerializer) -> None:
+        super().perform_update(serializer)
+        with DjangoUnitOfWork(asset_pk=serializer.instance.asset_id) as uow:
+            messagebus.handle(
+                message=events.PassiveIncomeUpdated(asset_pk=serializer.instance.asset_id), uow=uow
+            )
+
     def perform_destroy(self, instance: PassiveIncome):
-        serializers.PassiveIncomeSerializer(instance=instance).delete()
+        super().perform_destroy(instance)
+        with DjangoUnitOfWork(asset_pk=instance.asset_id) as uow:
+            messagebus.handle(
+                message=events.PassiveIncomeDeleted(asset_pk=instance.asset_id), uow=uow
+            )
 
     @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:

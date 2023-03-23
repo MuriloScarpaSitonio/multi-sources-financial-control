@@ -3,14 +3,12 @@ from typing import Optional
 
 from django.conf import settings
 from django.db import models
-from django.db.transaction import atomic
 from django.utils.functional import cached_property
 
 from shared.models_utils import serializable_today_function
 from tasks.models import TaskHistory
 
 from .managers import AssetQuerySet, PassiveIncomeQuerySet, TransactionQuerySet
-from .read import AssetReadModel
 from ..choices import (
     AssetObjectives,
     AssetSectors,
@@ -102,18 +100,6 @@ class Asset(models.Model):
             avg_price=self.avg_price_from_transactions,
             currency=self.currency_from_transactions,
         )
-
-    def save(self, *args, **kwargs) -> None:
-        super().save(*args, **kwargs)
-
-        from ..tasks import upsert_asset_read_model
-
-        upsert_asset_read_model.delay(asset_id=self.pk)
-
-    def delete(self, *args, **kwargs):
-        with atomic():
-            AssetReadModel.objects.get(write_model_pk=self.pk).delete()
-            return super().delete(*args, **kwargs)
 
 
 class Transaction(models.Model):

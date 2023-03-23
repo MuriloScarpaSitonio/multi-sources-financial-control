@@ -32,3 +32,11 @@ class PassiveIncomeUpdated(_AssetReadModelEvent):
 
 class PassiveIncomeDeleted(_AssetReadModelEvent):
     pass
+
+
+class AssetCreated(_AssetReadModelEvent):
+    pass
+
+
+class AssetUpdated(_AssetReadModelEvent):
+    pass
