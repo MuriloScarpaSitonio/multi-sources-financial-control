@@ -31,12 +31,12 @@ class AssetReadModel(models.Model):
     currency = models.CharField(
         max_length=6, blank=True, validators=[TransactionCurrencies.custom_validator]
     )
-    quantity_balance = models.DecimalField(decimal_places=8, max_digits=15)
-    avg_price = models.DecimalField(decimal_places=8, max_digits=15)
-    adjusted_avg_price = models.DecimalField(decimal_places=8, max_digits=15)
-    roi = models.DecimalField(decimal_places=8, max_digits=15)
-    roi_percentage = models.DecimalField(decimal_places=8, max_digits=15)
-    total_invested = models.DecimalField(decimal_places=8, max_digits=15)
+    quantity_balance = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
+    avg_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
+    adjusted_avg_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
+    roi = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
+    roi_percentage = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
+    total_invested = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
     updated_at = models.DateTimeField(auto_now=True)
 
     objects = AssetReadModelQuerySet.as_manager()

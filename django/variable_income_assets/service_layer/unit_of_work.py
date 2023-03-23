@@ -41,8 +41,12 @@ class DjangoUnitOfWork(AbstractUnitOfWork):
     def __init__(self, asset_pk: int) -> None:
         super().__init__(asset_pk)
 
-        # This is necesseray for SQLite
-        # TODO: check for PostgreSQL
+        # From the docs:
+        # https://docs.djangoproject.com/en/4.1/topics/db/transactions/#django.db.transaction.set_autocommit
+        # You must ensure that no transaction is active, usually by issuing a
+        # `commit()` or a `rollback()`, before turning autocommit back on.
+        # Django will refuse to turn autocommit off when an `atomic()` block is active,
+        # because that would break atomicity.
         self._inside_atomic_block = djtransaction.get_autocommit() is False
 
     def __enter__(self) -> DjangoUnitOfWork:

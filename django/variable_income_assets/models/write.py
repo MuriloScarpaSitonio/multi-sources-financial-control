@@ -73,13 +73,6 @@ class Asset(models.Model):
         # we are accepting only one currency per asset, but this may change in the future
         return self.transactions.values_list("currency", flat=True).distinct().first()
 
-    def guess_currency(self) -> str:
-        return (
-            self.currency_from_transactions
-            if self.currency_from_transactions is not None
-            else ASSET_TYPE_CURRENCY_MAP[self.type]
-        )
-
     @property
     def total_invested_from_transactions(self) -> Decimal:  # pragma: no cover
         return self.avg_price_from_transactions * self.quantity_from_transactions

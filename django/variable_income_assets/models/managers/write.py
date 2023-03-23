@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Dict, Union
+from typing import Dict, TYPE_CHECKING, Union
 
-from django.db.models import CharField, Count, F, Q, QuerySet, Sum, Value
-from django.db.models.expressions import CombinedExpression
+from django.db.models import CharField, Count, F, OuterRef, Q, QuerySet, Subquery, Sum, Value
 from django.db.models.functions import Concat, Coalesce, TruncMonth
 
 from shared.managers_utils import CustomQueryset, GenericFilters, MonthlyFilterMixin
@@ -13,9 +12,24 @@ from shared.utils import coalesce_sum_expression
 from ...choices import AssetTypes, PassiveIncomeEventTypes
 from .expressions import GenericQuerySetExpressions
 
+if TYPE_CHECKING:
+    from django.db.models.expressions import CombinedExpression
+
 
 class AssetQuerySet(QuerySet):
     expressions = GenericQuerySetExpressions(prefix="transactions")
+
+    @staticmethod
+    def _get_passive_incomes_subquery() -> PassiveIncomeQuerySet:
+        from ..write import PassiveIncome  # avoid circular ImportError
+
+        return (
+            PassiveIncome.objects.filter(asset=OuterRef("pk"))
+            .values("asset__pk")  # group by as we can't aggregate directly
+            .credited()
+            .annotate(credited_incomes=Sum("amount"))
+            .values("credited_incomes")
+        )
 
     def _transactions_count_alias(self) -> AssetQuerySet:
         return self.alias(transactions_count=Count("transactions"))
@@ -31,11 +45,7 @@ class AssetQuerySet(QuerySet):
         )
 
     def finished(self) -> AssetQuerySet:
-        return (
-            self._transactions_count_alias()
-            ._annotate_quantity_balance()
-            .filter(transactions_count__gt=0, quantity_balance__lte=0)
-        )
+        return self._annotate_quantity_balance().filter(quantity_balance__lte=0)
 
     def stocks(self) -> AssetQuerySet:  # pragma: no cover
         return self.filter(type=AssetTypes.stock)
@@ -45,6 +55,74 @@ class AssetQuerySet(QuerySet):
 
     def cryptos(self) -> AssetQuerySet:  # pragma: no cover
         return self.filter(type=AssetTypes.crypto)
+
+    def annotate_currency(self) -> AssetQuerySet:
+        return self.annotate(currency=Coalesce(F("transactions__currency"), Value("")))
+
+    def annotate_roi(
+        self, percentage: bool = False, annotate_passive_incomes_subquery: bool = True
+    ) -> AssetQuerySet:
+        if annotate_passive_incomes_subquery:
+            subquery = self._get_passive_incomes_subquery()
+
+        roi_expression = self.expressions.current_total - self.expressions.get_total_adjusted(
+            incomes=Coalesce(F("credited_incomes_total"), Decimal())
+        )
+        field_name = "roi"
+
+        if percentage:
+            roi_expression /= self.expressions.total_bought
+            roi_expression *= Decimal("100.0")
+            field_name = "roi_percentage"
+
+        return (
+            self.annotate(
+                credited_incomes_total=Subquery(subquery.values("credited_incomes"))
+            ).annotate(**{field_name: Coalesce(roi_expression, Decimal())})
+            if annotate_passive_incomes_subquery
+            else self.annotate(**{field_name: Coalesce(roi_expression, Decimal())})
+        )
+
+    def annotate_adjusted_avg_price(
+        self, annotate_passive_incomes_subquery: bool = True
+    ) -> AssetQuerySet:
+        if annotate_passive_incomes_subquery:  # pragma: no cover
+            subquery = self._get_passive_incomes_subquery()
+
+        expression = self.expressions.get_adjusted_avg_price(
+            incomes=Coalesce(F("credited_incomes_total"), Decimal())
+        )
+        return (
+            self.annotate(
+                credited_incomes_total=Subquery(subquery.values("credited_incomes"))
+            ).annotate(adjusted_avg_price=Coalesce(expression, Decimal()))
+            if annotate_passive_incomes_subquery
+            else self.annotate(adjusted_avg_price=Coalesce(expression, Decimal()))
+        )
+
+    def annotate_total_adjusted_invested(self) -> AssetQuerySet:  # pragma: no cover
+        return self.annotate(
+            total_adjusted_invested=F("adjusted_avg_price") * F("quantity_balance")
+        )
+
+    def annotate_avg_price(self) -> AssetQuerySet:
+        return self.annotate(avg_price=self.expressions.avg_price)
+
+    def annotate_total_invested(self) -> AssetQuerySet:
+        return self.annotate(
+            total_invested=Coalesce(F("avg_price") * F("quantity_balance"), Decimal())
+        )
+
+    def annotate_read_fields(self) -> AssetQuerySet:
+        return (
+            self._annotate_quantity_balance()
+            .annotate_currency()
+            .annotate_roi()
+            .annotate_roi(percentage=True, annotate_passive_incomes_subquery=False)
+            .annotate_adjusted_avg_price(annotate_passive_incomes_subquery=False)
+            .annotate_avg_price()
+            .annotate_total_invested()
+        )
 
 
 class TransactionQuerySet(QuerySet):

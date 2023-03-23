@@ -11,7 +11,7 @@ from .shared import (
     get_avg_price_bute_force,
     get_roi_brute_force,
 )
-from ..choices import TransactionActions, TransactionCurrencies
+from ..choices import TransactionActions
 from ..models import Asset, Transaction
 
 pytestmark = pytest.mark.django_db
@@ -152,18 +152,5 @@ class TestModels:
 
     def test_should_calculate_finished_negative_asset_roi_percentage(self, stock_asset):
         self._test_finished_asset_roi(asset=stock_asset, price=1, percentage=True)
-
-    def test__currency__wo_transactions(
-        self, stock_usa_asset, crypto_asset, another_stock_asset, fii_asset
-    ):
-        # GIVEN
-
-        # WHEN
-
-        # THEN
-        assert stock_usa_asset.guess_currency() == TransactionCurrencies.dollar
-        assert crypto_asset.guess_currency() == TransactionCurrencies.real
-        assert another_stock_asset.guess_currency() == TransactionCurrencies.real
-        assert fii_asset.guess_currency() == TransactionCurrencies.real
 
     # endregion: Tests

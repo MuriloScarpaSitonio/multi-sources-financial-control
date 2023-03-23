@@ -24,7 +24,7 @@ from authentication.tests.conftest import (
 from config.settings.base import BASE_API_URL
 from variable_income_assets.models import PassiveIncome
 from variable_income_assets.choices import PassiveIncomeEventTypes, PassiveIncomeTypes
-from variable_income_assets.tasks import upsert_assets_read_model
+from variable_income_assets.tasks import upsert_asset_read_model
 from variable_income_assets.tests.shared import convert_and_quantitize
 
 
@@ -41,14 +41,14 @@ def test__create(client, stock_asset, mocker):
         "operation_date": "06/12/2029",
         "asset_code": stock_asset.code,
     }
-    mocked_task = mocker.patch.object(upsert_assets_read_model, "delay")
+    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
 
     # WHEN
     response = client.post(URL, data=data)
 
     # THEN
     assert mocked_task.call_count == 1
-    assert mocked_task.call_args[1] == {"asset_ids": (stock_asset.pk,)}
+    assert mocked_task.call_args[1] == {"asset_id": stock_asset.pk, "is_aggregate_upsert": True}
 
     assert response.status_code == HTTP_201_CREATED
     assert PassiveIncome.objects.filter(asset=stock_asset).count() == 1
@@ -82,14 +82,17 @@ def test__update(client, simple_income, mocker):
         "operation_date": simple_income.operation_date.strftime("%d/%m/%Y"),
         "asset_code": simple_income.asset.code,
     }
-    mocked_task = mocker.patch.object(upsert_assets_read_model, "delay")
+    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
 
     # WHEN
     response = client.put(f"{URL}/{simple_income.pk}", data=data)
 
     # THEN
     assert mocked_task.call_count == 1
-    assert mocked_task.call_args[1] == {"asset_ids": (simple_income.asset_id,)}
+    assert mocked_task.call_args[1] == {
+        "asset_id": simple_income.asset_id,
+        "is_aggregate_upsert": True,
+    }
 
     assert response.status_code == HTTP_200_OK
     for k, v in data.items():
@@ -120,14 +123,17 @@ def test__update__income_does_not_belong_to_user(kucoin_client, simple_income):
 @pytest.mark.usefixtures("stock_asset")
 def test__delete(client, simple_income, mocker):
     # GIVEN
-    mocked_task = mocker.patch.object(upsert_assets_read_model, "delay")
+    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
 
     # WHEN
     response = client.delete(f"{URL}/{simple_income.pk}")
 
     # THEN
     assert mocked_task.call_count == 1
-    assert mocked_task.call_args[1] == {"asset_ids": (simple_income.asset_id,)}
+    assert mocked_task.call_args[1] == {
+        "asset_id": simple_income.asset_id,
+        "is_aggregate_upsert": True,
+    }
 
     assert response.status_code == HTTP_204_NO_CONTENT
     assert PassiveIncome.objects.count() == 0

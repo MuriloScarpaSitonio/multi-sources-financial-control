@@ -8,15 +8,7 @@ from rest_framework.exceptions import NotFound
 from config.settings.dynamic import dynamic_settings
 from shared.serializers_utils import CustomChoiceField
 
-from .choices import (
-    AssetObjectives,
-    AssetSectors,
-    AssetTypes,
-    PassiveIncomeEventTypes,
-    PassiveIncomeTypes,
-    TransactionActions,
-    TransactionCurrencies,
-)
+from . import choices
 from .domain import commands
 from .domain.exceptions import ValidationError as DomainValidationError
 from .domain.models import Asset as AssetDomainModel, TransactionDTO
@@ -53,12 +45,12 @@ class TransactionSerializer(serializers.ModelSerializer):
         )
         extra_kwargs = {
             "initial_price": {"write_only": True, "allow_null": False},
-            "currency": {"default": TransactionCurrencies.real},
+            "currency": {"default": choices.TransactionCurrencies.real},
         }
 
 
 class TransactionListSerializer(TransactionSerializer):
-    action = CustomChoiceField(choices=TransactionActions.choices)
+    action = CustomChoiceField(choices=choices.TransactionActions.choices)
     asset_code = serializers.CharField(source="asset.code")
 
     class Meta(TransactionSerializer.Meta):
@@ -125,8 +117,8 @@ class TransactionListSerializer(TransactionSerializer):
 class PassiveIncomeSerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     asset_code = serializers.CharField(source="asset.code")
-    type = CustomChoiceField(choices=PassiveIncomeTypes.choices)
-    event_type = CustomChoiceField(choices=PassiveIncomeEventTypes.choices)
+    type = CustomChoiceField(choices=choices.PassiveIncomeTypes.choices)
+    event_type = CustomChoiceField(choices=choices.PassiveIncomeEventTypes.choices)
 
     class Meta:
         model = PassiveIncome
@@ -151,9 +143,9 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
 
 
 class AssetSerializer(serializers.ModelSerializer):
-    type = CustomChoiceField(choices=AssetTypes.choices)
-    sector = CustomChoiceField(choices=AssetSectors.choices)
-    objective = CustomChoiceField(choices=AssetObjectives.choices)
+    type = CustomChoiceField(choices=choices.AssetTypes.choices)
+    sector = CustomChoiceField(choices=choices.AssetSectors.choices)
+    objective = CustomChoiceField(choices=choices.AssetObjectives.choices)
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
     class Meta:
@@ -229,7 +221,7 @@ class AssetSimulateSerializer(serializers.ModelSerializer):
     def get_adjusted_avg_price(self, obj: Asset) -> Decimal:
         return (
             obj.adjusted_avg_price_from_transactions
-            if obj.currency_from_transactions == TransactionCurrencies.real
+            if obj.currency_from_transactions == choices.TransactionCurrencies.real
             else obj.adjusted_avg_price_from_transactions / dynamic_settings.DOLLAR_CONVERSION_RATE
         )
 
@@ -240,22 +232,10 @@ class AssetTransactionSimulateEndpointSerializer(serializers.Serializer):
 
 
 class AssetReadModelSerializer(serializers.ModelSerializer):
-    type = CustomChoiceField(choices=AssetTypes.choices)
-    sector = CustomChoiceField(choices=AssetSectors.choices)
-    objective = CustomChoiceField(choices=AssetObjectives.choices)
-    quantity_balance = serializers.DecimalField(
-        decimal_places=8, max_digits=15, read_only=True, rounding=ROUND_HALF_UP
-    )
-    adjusted_avg_price = serializers.SerializerMethodField(read_only=True)
-    roi = serializers.DecimalField(
-        max_digits=10, decimal_places=3, read_only=True, rounding=ROUND_HALF_UP
-    )
-    roi_percentage = serializers.DecimalField(
-        max_digits=10, decimal_places=3, read_only=True, rounding=ROUND_HALF_UP
-    )
-    total_invested = serializers.DecimalField(
-        max_digits=10, decimal_places=3, read_only=True, rounding=ROUND_HALF_UP
-    )
+    type = CustomChoiceField(read_only=True, choices=choices.AssetTypes.choices)
+    sector = CustomChoiceField(read_only=True, choices=choices.AssetSectors.choices)
+    objective = CustomChoiceField(read_only=True, choices=choices.AssetObjectives.choices)
+    currency = serializers.SerializerMethodField(read_only=True)
     percentage_invested = serializers.SerializerMethodField(read_only=True)
     current_percentage = serializers.SerializerMethodField(read_only=True)
 
@@ -279,10 +259,13 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
             "current_percentage",
         )
 
+    def get_currency(self, obj: AssetReadModel) -> str:
+        return obj.currency if obj.currency else choices.ASSET_TYPE_CURRENCY_MAP[obj.type]
+
     def get_adjusted_avg_price(self, obj: AssetReadModel) -> Decimal:
         return (
             obj.adjusted_avg_price
-            if obj.currency == TransactionCurrencies.real
+            if obj.currency == choices.TransactionCurrencies.real
             else obj.adjusted_avg_price / dynamic_settings.DOLLAR_CONVERSION_RATE
         )
 
@@ -296,7 +279,7 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
     def get_current_percentage(self, obj: Asset) -> Decimal:
         value = (
             (obj.current_price or Decimal())
-            if obj.currency == TransactionCurrencies.real
+            if obj.currency == choices.TransactionCurrencies.real
             else (obj.current_price or Decimal()) * dynamic_settings.DOLLAR_CONVERSION_RATE
         )
 
@@ -377,15 +360,15 @@ class _AssetReportSerializer(serializers.Serializer):
 
 
 class AssetTypeReportSerializer(_AssetReportSerializer):
-    type = CustomChoiceField(choices=AssetTypes.choices)
+    type = CustomChoiceField(choices=choices.AssetTypes.choices)
 
 
 class AssetTotalInvestedBySectorReportSerializer(_AssetReportSerializer):
-    sector = CustomChoiceField(choices=AssetSectors.choices)
+    sector = CustomChoiceField(choices=choices.AssetSectors.choices)
 
 
 class AssetTotalInvestedByObjectiveReportSerializer(_AssetReportSerializer):
-    objective = CustomChoiceField(choices=AssetObjectives.choices)
+    objective = CustomChoiceField(choices=choices.AssetObjectives.choices)
 
 
 class _PassiveIncomeHistoricSerializer(serializers.Serializer):

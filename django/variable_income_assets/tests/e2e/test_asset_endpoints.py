@@ -42,6 +42,7 @@ from variable_income_assets.choices import (
     AssetSectors,
     AssetTypes,
     TransactionActions,
+    TransactionCurrencies,
 )
 from variable_income_assets.models import Asset, AssetReadModel, Transaction
 
@@ -311,16 +312,24 @@ def test_list_assets_aggregate_data(client):
             assert result["percentage_invested"] < result["current_percentage"]
 
 
-@pytest.mark.usefixtures("another_stock_asset", "sync_assets_read_model")
-def test__list__should_include_asset_wo_transactions(client):
+def test__list__should_include_asset_wo_transactions(
+    client, stock_usa_asset, crypto_asset, another_stock_asset, fii_asset, sync_assets_read_model
+):
     # GIVEN
+    expected = {
+        stock_usa_asset.code: TransactionCurrencies.dollar,
+        crypto_asset.code: TransactionCurrencies.real,
+        another_stock_asset.code: TransactionCurrencies.real,
+        fii_asset.code: TransactionCurrencies.real,
+    }
 
     # WHEN
     response = client.get(URL)
 
     # THEN
     assert response.status_code == HTTP_200_OK
-    assert response.json()["count"] == 1
+    assert response.json()["count"] == 4
+    assert {r["code"]: r["currency"] for r in response.json()["results"]} == expected
 
 
 @pytest.mark.skip("Integration is deprecated")

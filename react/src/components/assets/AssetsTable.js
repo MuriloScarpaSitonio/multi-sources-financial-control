@@ -105,13 +105,10 @@ const TransactionsTable = ({ code }) => {
               filter: false,
               sort: false,
               customBodyRender: (v, tableMeta) => {
-                let tableCurrency = tableMeta.tableData[0].currency;
-                var currency;
-                if (tableCurrency) {
-                  currency = tableCurrency === "BRL" ? "R$" : "$";
-                } else {
-                  currency = "?";
-                }
+                let currency =
+                  tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
+                    ? "R$"
+                    : "$";
                 return `${currency} ${v?.toLocaleString("pt-br", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 4,
@@ -536,13 +533,10 @@ export const AssetsTable = () => {
         filter: false,
         sort: false,
         customBodyRender: (v, tableMeta) => {
-          let tableCurrency = tableMeta.tableData[tableMeta.rowIndex].currency;
-          var currency;
-          if (tableCurrency) {
-            currency = tableCurrency === "BRL" ? "R$" : "$";
-          } else {
-            currency = "";
-          }
+          let currency =
+            tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
+              ? "R$"
+              : "$";
           return `${currency} ${v?.toLocaleString("pt-br", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 4,
@@ -557,13 +551,10 @@ export const AssetsTable = () => {
         filter: false,
         sort: false,
         customBodyRender: (v, tableMeta) => {
-          let tableCurrency = tableMeta.tableData[tableMeta.rowIndex].currency;
-          var currency;
-          if (tableCurrency) {
-            currency = tableCurrency === "BRL" ? "R$" : "$";
-          } else {
-            currency = "";
-          }
+          let currency =
+            tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
+              ? "R$"
+              : "$";
           return (
             <Tooltip
               key={v}
