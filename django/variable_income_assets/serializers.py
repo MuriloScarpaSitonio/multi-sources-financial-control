@@ -1,27 +1,20 @@
 from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_UP, DecimalException
-from typing import List
 
 from django.utils import timezone
 
-from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.exceptions import NotFound
 
 from config.settings.dynamic import dynamic_settings
 from shared.serializers_utils import CustomChoiceField
 
-from .choices import (
-    AssetObjectives,
-    AssetSectors,
-    AssetTypes,
-    PassiveIncomeEventTypes,
-    PassiveIncomeTypes,
-    TransactionActions,
-    TransactionCurrencies,
-)
+from . import choices
+from .domain import commands
 from .domain.exceptions import ValidationError as DomainValidationError
 from .domain.models import Asset as AssetDomainModel, TransactionDTO
-from .models import Asset, PassiveIncome, Transaction
+from .models import Asset, AssetReadModel, PassiveIncome, Transaction
+from .service_layer import messagebus
+from .service_layer.unit_of_work import DjangoUnitOfWork
 
 
 class TransactionSimulateSerializer(serializers.Serializer):
@@ -52,12 +45,12 @@ class TransactionSerializer(serializers.ModelSerializer):
         )
         extra_kwargs = {
             "initial_price": {"write_only": True, "allow_null": False},
-            "currency": {"default": TransactionCurrencies.real},
+            "currency": {"default": choices.TransactionCurrencies.real},
         }
 
 
 class TransactionListSerializer(TransactionSerializer):
-    action = CustomChoiceField(choices=TransactionActions.choices)
+    action = CustomChoiceField(choices=choices.TransactionActions.choices)
     asset_code = serializers.CharField(source="asset.code")
 
     class Meta(TransactionSerializer.Meta):
@@ -72,14 +65,13 @@ class TransactionListSerializer(TransactionSerializer):
             raise NotFound({"asset": "Not found."})
 
         try:
-            transaction = asset.to_domain().add_transaction(
-                transaction_dto=TransactionDTO(**validated_data)
-            )
-            transaction.asset_id = asset.pk
-            transaction.save()
-            return transaction
+            asset_domain = asset.to_domain()
+            asset_domain.add_transaction(transaction_dto=TransactionDTO(**validated_data))
+            uow = DjangoUnitOfWork(asset_pk=asset.pk)
+            messagebus.handle(message=commands.CreateTransactions(asset=asset_domain), uow=uow)
+            return uow.assets.transactions.seen.pop()  # hacky for DRF
         except DomainValidationError as e:
-            raise serializers.ValidationError({e.field: e.message})
+            raise serializers.ValidationError(e.detail)
 
     def update(self, instance: Transaction, validated_data: dict):
         try:
@@ -88,20 +80,45 @@ class TransactionListSerializer(TransactionSerializer):
             if "created_at" not in validated_data:
                 validated_data.update(created_at=instance.created_at)
 
-            asset: AssetDomainModel = instance.asset.to_domain()
+            asset_domain: AssetDomainModel = instance.asset.to_domain()
 
-            asset.update_transaction(dto=TransactionDTO(**validated_data), transaction=instance)
-            instance.save()
+            asset_domain.update_transaction(
+                dto=TransactionDTO(**validated_data), transaction=instance
+            )
+            messagebus.handle(
+                message=commands.UpdateTransaction(transaction=instance, asset=asset_domain),
+                uow=DjangoUnitOfWork(asset_pk=instance.asset_id),
+            )
             return instance
         except DomainValidationError as e:
-            raise serializers.ValidationError({e.field: e.message})
+            raise serializers.ValidationError(e.detail)
+
+    def delete(self) -> None:
+        asset_domain: AssetDomainModel = self.instance.asset.to_domain()
+        try:
+            asset_domain.validate_delete_transaction_command(
+                dto=TransactionDTO(
+                    action=self.instance.action,
+                    quantity=self.instance.quantity,
+                    # No need for these fields
+                    currency="",
+                    price=Decimal(),
+                )
+            )
+        except DomainValidationError as e:
+            raise serializers.ValidationError(e.detail)
+
+        messagebus.handle(
+            message=commands.DeleteTransaction(transaction=self.instance, asset=asset_domain),
+            uow=DjangoUnitOfWork(asset_pk=self.instance.asset_id),
+        )
 
 
 class PassiveIncomeSerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     asset_code = serializers.CharField(source="asset.code")
-    type = CustomChoiceField(choices=PassiveIncomeTypes.choices)
-    event_type = CustomChoiceField(choices=PassiveIncomeEventTypes.choices)
+    type = CustomChoiceField(choices=choices.PassiveIncomeTypes.choices)
+    event_type = CustomChoiceField(choices=choices.PassiveIncomeEventTypes.choices)
 
     class Meta:
         model = PassiveIncome
@@ -112,20 +129,23 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
     def create(self, validated_data: dict) -> PassiveIncome:
-        validated_data.update(
-            asset_id=(
+        try:
+            asset_pk = (
                 Asset.objects.only("pk")
                 .get(user=validated_data.pop("user"), code=validated_data.pop("asset")["code"])
                 .pk
             )
-        )
+        except Asset.DoesNotExist:
+            raise NotFound({"asset": "Not found."})
+
+        validated_data.update(asset_id=asset_pk)
         return super().create(validated_data=validated_data)
 
 
 class AssetSerializer(serializers.ModelSerializer):
-    type = CustomChoiceField(choices=AssetTypes.choices)
-    sector = CustomChoiceField(choices=AssetSectors.choices)
-    objective = CustomChoiceField(choices=AssetObjectives.choices)
+    type = CustomChoiceField(choices=choices.AssetTypes.choices)
+    sector = CustomChoiceField(choices=choices.AssetSectors.choices)
+    objective = CustomChoiceField(choices=choices.AssetObjectives.choices)
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
     class Meta:
@@ -149,6 +169,7 @@ class AssetSerializer(serializers.ModelSerializer):
             _validated_data.update(current_price_updated_at=timezone.now())
         return _validated_data
 
+    # TODO
     # def validate(self, data: dict):
     #     choice = AssetSectors.get_choice(data["sector"])
     #     if data["type"] not in choice.valid_types:
@@ -200,7 +221,7 @@ class AssetSimulateSerializer(serializers.ModelSerializer):
     def get_adjusted_avg_price(self, obj: Asset) -> Decimal:
         return (
             obj.adjusted_avg_price_from_transactions
-            if obj.currency_from_transactions == TransactionCurrencies.real
+            if obj.currency_from_transactions == choices.TransactionCurrencies.real
             else obj.adjusted_avg_price_from_transactions / dynamic_settings.DOLLAR_CONVERSION_RATE
         )
 
@@ -210,39 +231,22 @@ class AssetTransactionSimulateEndpointSerializer(serializers.Serializer):
     new = AssetSimulateSerializer()
 
 
-class AssetListSerializer(serializers.ModelSerializer):
-    type = CustomChoiceField(choices=AssetTypes.choices)
-    sector = CustomChoiceField(choices=AssetSectors.choices)
-    objective = CustomChoiceField(choices=AssetObjectives.choices)
-    currency = serializers.CharField(read_only=True)
-    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
-    quantity_balance = serializers.DecimalField(
-        decimal_places=8, max_digits=15, read_only=True, rounding=ROUND_HALF_UP
-    )
-    adjusted_avg_price = serializers.SerializerMethodField(read_only=True)
-    roi = serializers.DecimalField(
-        max_digits=10, decimal_places=3, read_only=True, rounding=ROUND_HALF_UP
-    )
-    roi_percentage = serializers.DecimalField(
-        max_digits=10, decimal_places=3, read_only=True, rounding=ROUND_HALF_UP
-    )
-    total_invested = serializers.DecimalField(
-        max_digits=10, decimal_places=3, read_only=True, rounding=ROUND_HALF_UP
-    )
+class AssetReadModelSerializer(serializers.ModelSerializer):
+    type = CustomChoiceField(read_only=True, choices=choices.AssetTypes.choices)
+    sector = CustomChoiceField(read_only=True, choices=choices.AssetSectors.choices)
+    objective = CustomChoiceField(read_only=True, choices=choices.AssetObjectives.choices)
+    currency = serializers.SerializerMethodField(read_only=True)
     percentage_invested = serializers.SerializerMethodField(read_only=True)
     current_percentage = serializers.SerializerMethodField(read_only=True)
-    transactions = serializers.SerializerMethodField()
-    passive_incomes = serializers.SerializerMethodField()
 
     class Meta:
-        model = Asset
+        model = AssetReadModel
         fields = (
-            "id",
+            "write_model_pk",
             "code",
             "type",
             "sector",
             "objective",
-            "user",
             "quantity_balance",
             "current_price",
             "current_price_updated_at",
@@ -253,18 +257,19 @@ class AssetListSerializer(serializers.ModelSerializer):
             "currency",
             "percentage_invested",
             "current_percentage",
-            "transactions",
-            "passive_incomes",
         )
 
-    def get_adjusted_avg_price(self, obj: Asset) -> Decimal:
+    def get_currency(self, obj: AssetReadModel) -> str:
+        return obj.currency if obj.currency else choices.ASSET_TYPE_CURRENCY_MAP[obj.type]
+
+    def get_adjusted_avg_price(self, obj: AssetReadModel) -> Decimal:
         return (
             obj.adjusted_avg_price
-            if obj.currency == TransactionCurrencies.real
+            if obj.currency == choices.TransactionCurrencies.real
             else obj.adjusted_avg_price / dynamic_settings.DOLLAR_CONVERSION_RATE
         )
 
-    def get_percentage_invested(self, obj: Asset) -> Decimal:
+    def get_percentage_invested(self, obj: AssetReadModel) -> Decimal:
         try:
             result = obj.total_invested / self.context["total_invested_agg"]
         except DecimalException:  # pragma: no cover
@@ -274,7 +279,7 @@ class AssetListSerializer(serializers.ModelSerializer):
     def get_current_percentage(self, obj: Asset) -> Decimal:
         value = (
             (obj.current_price or Decimal())
-            if obj.currency == TransactionCurrencies.real
+            if obj.currency == choices.TransactionCurrencies.real
             else (obj.current_price or Decimal()) * dynamic_settings.DOLLAR_CONVERSION_RATE
         )
 
@@ -284,17 +289,9 @@ class AssetListSerializer(serializers.ModelSerializer):
             result = Decimal()
         return result * Decimal("100.0")
 
-    @extend_schema_field(TransactionSerializer(many=True))
-    def get_transactions(self, obj: Asset) -> List[TransactionSerializer]:  # drf-spectacular
-        return TransactionSerializer(obj.transactions.all()[:5], many=True).data
-
-    @extend_schema_field(PassiveIncomeSerializer(many=True))
-    def get_passive_incomes(self, obj: Asset) -> List[PassiveIncomeSerializer]:  # drf-spectacular
-        return PassiveIncomeSerializer(obj.incomes.all()[:5], many=True).data
-
 
 class AssetRoidIndicatorsSerializer(serializers.Serializer):
-    current_total = serializers.DecimalField(
+    total = serializers.DecimalField(
         max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
     ROI = serializers.DecimalField(
@@ -304,12 +301,6 @@ class AssetRoidIndicatorsSerializer(serializers.Serializer):
         max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
     ROI_finished = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
-    )
-
-
-class AssetIncomesIndicatorsSerializer(serializers.Serializer):
-    incomes = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
 
@@ -369,15 +360,15 @@ class _AssetReportSerializer(serializers.Serializer):
 
 
 class AssetTypeReportSerializer(_AssetReportSerializer):
-    type = CustomChoiceField(choices=AssetTypes.choices)
+    type = CustomChoiceField(choices=choices.AssetTypes.choices)
 
 
 class AssetTotalInvestedBySectorReportSerializer(_AssetReportSerializer):
-    sector = CustomChoiceField(choices=AssetSectors.choices)
+    sector = CustomChoiceField(choices=choices.AssetSectors.choices)
 
 
 class AssetTotalInvestedByObjectiveReportSerializer(_AssetReportSerializer):
-    objective = CustomChoiceField(choices=AssetObjectives.choices)
+    objective = CustomChoiceField(choices=choices.AssetObjectives.choices)
 
 
 class _PassiveIncomeHistoricSerializer(serializers.Serializer):

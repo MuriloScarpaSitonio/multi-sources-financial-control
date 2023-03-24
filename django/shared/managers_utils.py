@@ -1,42 +1,14 @@
 from datetime import date
+from typing import Optional
 
-from django.db.models import Q, QuerySet, Sum
+from django.db.models import Q
 from django.utils import timezone
 
 
-class SumMixin:
-    @staticmethod
-    def get_sum_expression(*args, **kwargs) -> Sum:
-        raise NotImplementedError()  # pragma: no cover
-
-    def sum(self, *args, **kwargs) -> QuerySet:
-        return self.aggregate(**self.get_sum_expression(*args, **kwargs))
-
-
-class MonthlyFilterMixin:
-    def filter_by_month_and_year(self, month: int, year: int) -> QuerySet:
-        date_field_name = getattr(self, "date_field_name", "created_at")
-        return self.filter(
-            **{
-                f"{date_field_name}__month": month,
-                f"{date_field_name}__year": year,
-            }
-        )
-
-
-class CustomQueryset(QuerySet, SumMixin):
-    def annotate_sum(self, *args, **kwargs) -> QuerySet:
-        sum_expression = self.get_sum_expression(*args, **kwargs)
-        return self.annotate(**sum_expression).order_by(f"-{list(sum_expression)[0]}")
-
-    def aggregate_field(self, field_name: str, *args, **kwargs) -> QuerySet:
-        return self.values(field_name).annotate_sum(*args, **kwargs)
-
-
-class GenericFilters:
-    def __init__(self, date_field_name: str, base_date: date = timezone.now().date()) -> None:
+class GenericDateFilters:
+    def __init__(self, date_field_name: str, base_date: Optional[date] = None) -> None:
         self.date_field_name = date_field_name
-        self.base_date = base_date
+        self.base_date = base_date if base_date is not None else timezone.now().date()
 
     @property
     def _current_year(self) -> Q:

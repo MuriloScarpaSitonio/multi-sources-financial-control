@@ -6,12 +6,25 @@ from django.db.models import Avg, Q
 
 import pytest
 
-from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_204_NO_CONTENT
+from rest_framework.status import (
+    HTTP_200_OK,
+    HTTP_201_CREATED,
+    HTTP_204_NO_CONTENT,
+    HTTP_404_NOT_FOUND,
+)
 
-from authentication.tests.conftest import client, secrets, user
+from authentication.tests.conftest import (
+    client,
+    kucoin_client,
+    kucoin_secrets,
+    secrets,
+    user,
+    user_with_kucoin_integration,
+)
 from config.settings.base import BASE_API_URL
 from variable_income_assets.models import PassiveIncome
 from variable_income_assets.choices import PassiveIncomeEventTypes, PassiveIncomeTypes
+from variable_income_assets.tasks import upsert_asset_read_model
 from variable_income_assets.tests.shared import convert_and_quantitize
 
 
@@ -19,7 +32,7 @@ pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "incomes"
 
 
-def test__create(client, stock_asset):
+def test__create(client, stock_asset, mocker):
     # GIVEN
     data = {
         "type": PassiveIncomeTypes.dividend,
@@ -28,17 +41,68 @@ def test__create(client, stock_asset):
         "operation_date": "06/12/2029",
         "asset_code": stock_asset.code,
     }
+    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
 
     # WHEN
     response = client.post(URL, data=data)
 
     # THEN
+    assert mocked_task.call_count == 1
+    assert mocked_task.call_args[1] == {"asset_id": stock_asset.pk, "is_aggregate_upsert": True}
+
     assert response.status_code == HTTP_201_CREATED
     assert PassiveIncome.objects.filter(asset=stock_asset).count() == 1
 
 
+def test__create__should_raise_error_if_asset_does_not_exist(client):
+    # GIVEN
+    data = {
+        "type": PassiveIncomeTypes.dividend,
+        "event_type": PassiveIncomeEventTypes.credited,
+        "amount": 100,
+        "operation_date": "06/12/2029",
+        "asset_code": "ALUP11",
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_404_NOT_FOUND
+    assert response.json() == {"asset": "Not found."}
+
+
 @pytest.mark.usefixtures("stock_asset")
-def test__update(client, simple_income):
+def test__update(client, simple_income, mocker):
+    # GIVEN
+    data = {
+        "type": simple_income.type,
+        "event_type": simple_income.event_type,
+        "amount": simple_income.amount + 1,
+        "operation_date": simple_income.operation_date.strftime("%d/%m/%Y"),
+        "asset_code": simple_income.asset.code,
+    }
+    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+
+    # WHEN
+    response = client.put(f"{URL}/{simple_income.pk}", data=data)
+
+    # THEN
+    assert mocked_task.call_count == 1
+    assert mocked_task.call_args[1] == {
+        "asset_id": simple_income.asset_id,
+        "is_aggregate_upsert": True,
+    }
+
+    assert response.status_code == HTTP_200_OK
+    for k, v in data.items():
+        if k in ("type", "event_type", "operation_date"):
+            continue
+        assert response.json()[k] == v
+
+
+@pytest.mark.usefixtures("stock_asset")
+def test__update__income_does_not_belong_to_user(kucoin_client, simple_income):
     # GIVEN
     data = {
         "type": simple_income.type,
@@ -49,24 +113,28 @@ def test__update(client, simple_income):
     }
 
     # WHEN
-    response = client.put(f"{URL}/{simple_income.pk}", data=data)
+    response = kucoin_client.put(f"{URL}/{simple_income.pk}", data=data)
 
     # THEN
-    assert response.status_code == HTTP_200_OK
-    for k, v in data.items():
-        if k in ("type", "event_type", "operation_date"):
-            continue
-        assert response.json()[k] == v
+    assert response.status_code == HTTP_404_NOT_FOUND
+    assert response.json() == {"detail": "Not found."}
 
 
 @pytest.mark.usefixtures("stock_asset")
-def test__delete(client, simple_income):
+def test__delete(client, simple_income, mocker):
     # GIVEN
+    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
 
     # WHEN
     response = client.delete(f"{URL}/{simple_income.pk}")
 
     # THEN
+    assert mocked_task.call_count == 1
+    assert mocked_task.call_args[1] == {
+        "asset_id": simple_income.asset_id,
+        "is_aggregate_upsert": True,
+    }
+
     assert response.status_code == HTTP_204_NO_CONTENT
     assert PassiveIncome.objects.count() == 0
 

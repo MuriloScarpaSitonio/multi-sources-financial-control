@@ -10,6 +10,7 @@ from celery import shared_task
 from shared.utils import build_url
 from tasks.bases import TaskWithHistory
 
+from ..domain.events import AssetUpdated
 from ..models import Asset
 
 
@@ -24,8 +25,7 @@ def fetch_current_assets_prices(codes: List[str], username: str) -> None:
     )
     qs = (
         Asset.objects.filter(user__username=username, code__in=codes)
-        .values("code", "type", "transactions__currency")
-        .annotate(currency=F("transactions__currency"))
+        .annotate_currency()
         .values("code", "type", "currency")
         .distinct()
     )
@@ -34,3 +34,10 @@ def fetch_current_assets_prices(codes: List[str], username: str) -> None:
         qs.filter(code=code).update(
             current_price=str(price), current_price_updated_at=timezone.now()
         )
+
+    from ..service_layer import messagebus
+    from ..service_layer.unit_of_work import DjangoUnitOfWork
+
+    for pk in qs.values_list("pk", flat=True):
+        with DjangoUnitOfWork(asset_pk=pk) as uow:
+            messagebus.handle(message=AssetUpdated(asset_pk=pk), uow=uow)

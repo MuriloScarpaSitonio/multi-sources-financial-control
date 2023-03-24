@@ -229,9 +229,9 @@ export const AssetsIndicators = ({ condensed = false }) => {
             {isLoaded ? (
               <Indicators
                 title={"PATRIMÔNIO TOTAL"}
-                value={assetsIndicators.current_total}
+                value={assetsIndicators.total}
                 icon={<AccountBalanceIcon />}
-                color={assetsIndicators.current_total > 0 ? SUCCESS : DANGER}
+                color={assetsIndicators.total > 0 ? SUCCESS : DANGER}
               />
             ) : (
               <Skeleton variant="rect" width={340} height={175} />

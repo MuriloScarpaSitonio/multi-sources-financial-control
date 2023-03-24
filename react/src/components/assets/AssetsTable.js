@@ -17,7 +17,7 @@ import Tabs from "@material-ui/core/Tabs";
 import MergeTypeIcon from "@material-ui/icons/MergeType";
 import PlusOneIcon from "@material-ui/icons/PlusOne";
 
-import { AssetsApi } from "../../api";
+import { AssetsApi, PassiveIncomesApi, TransactionsApi } from "../../api";
 import { SimulateTransactionForm } from "../../forms/SimulateTransactionForm";
 import { AssetsForm } from "../../forms/AssetsForm";
 import { FormFeedback } from "../FormFeedback";
@@ -70,143 +70,198 @@ const AssetCreateDialog = ({ open, onClose, showFeedbackForm }) => {
     </Dialog>
   );
 };
-const TransactionsTable = ({ code, data }) => (
-  <MUIDataTable
-    title={`Últimas 5 transações de ${code}`}
-    data={data}
-    columns={[
-      {
-        name: "action",
-        label: "Ação",
-        options: {
-          filter: false,
-          sort: false,
-          customBodyRender: (v) => (v === "BUY" ? "Compra" : "Venda"),
-        },
-      },
-      {
-        name: "price",
-        label: "Preço",
-        options: {
-          filter: false,
-          sort: false,
-          customBodyRender: (v, tableMeta) => {
-            let tableCurrency = tableMeta.tableData[0].currency;
-            var currency;
-            if (tableCurrency) {
-              currency = tableCurrency === "BRL" ? "R$" : "$";
-            } else {
-              currency = "?";
-            }
-            return `${currency} ${v?.toLocaleString("pt-br", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 4,
-            })}`;
-          },
-        },
-      },
-      {
-        name: "quantity",
-        label: "Quantidade",
-        options: {
-          filter: false,
-          sort: false,
-          customBodyRender: (v) => v?.toLocaleString("pt-br"),
-        },
-      },
-      {
-        name: "created_at",
-        label: "Quando",
-        options: {
-          filter: false,
-          sort: false,
-          customBodyRender: (v) => {
-            let [year, month, day] = v.split("-");
-            return `${day}/${month}/${year}`;
-          },
-        },
-      },
-    ]}
-    options={{
-      filter: false,
-      selectableRows: "none",
-      search: false,
-      download: false,
-      print: false,
-      pagination: false,
-      sort: false,
-      sortFilterList: false,
-      viewColumns: false,
-    }}
-  />
-);
+const TransactionsTable = ({ code }) => {
+  const [pageSize, setPageSize] = useState(5);
+  const [page, setPage] = useState(1);
 
-const PassiveIncomeTable = ({ code, data }) => (
-  <MUIDataTable
-    title={`Últimos 5 rendimentos de ${code}`}
-    data={data}
-    columns={[
-      {
-        name: "type",
-        label: "Tipo",
-        options: {
-          filter: false,
-          sort: false,
-          customBodyRender: (v) => v,
-        },
-      },
-      {
-        name: "event_type",
-        label: "Evento",
-        options: {
-          filter: false,
-          sort: false,
-          customBodyRender: (v) => v,
-        },
-      },
-      {
-        name: "amount",
-        label: "Valor líquido",
-        options: {
-          filter: false,
-          sort: false,
-          customBodyRender: (v) => {
-            return `R$ ${v?.toLocaleString("pt-br", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 4,
-            })}`;
+  function getAdjustedFilters() {
+    return new URLSearchParams({
+      page: page,
+      asset_code: code,
+      page_size: pageSize,
+    }).toString();
+  }
+
+  const [data, isLoaded] = new TransactionsApi().query(getAdjustedFilters());
+  return (
+    <>
+      {!isLoaded && <Loader />}
+      <MUIDataTable
+        title={`Transações de ${code}`}
+        data={data.results}
+        columns={[
+          {
+            name: "action",
+            label: "Ação",
+            options: {
+              filter: false,
+              sort: false,
+            },
           },
-        },
-      },
-      {
-        name: "operation_date",
-        label: "Quando",
-        options: {
-          filter: false,
-          sort: false,
-          customBodyRender: (v) => {
-            let [year, month, day] = v.split("-");
-            return `${day}/${month}/${year}`;
+          {
+            name: "price",
+            label: "Preço",
+            options: {
+              filter: false,
+              sort: false,
+              customBodyRender: (v, tableMeta) => {
+                let currency =
+                  tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
+                    ? "R$"
+                    : "$";
+                return `${currency} ${v?.toLocaleString("pt-br", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 4,
+                })}`;
+              },
+            },
           },
-        },
-      },
-    ]}
-    options={{
-      textLabels: {
-        body: { noMatch: "Nenhum rendimento encontrado" },
-      },
-      filter: false,
-      selectableRows: "none",
-      search: false,
-      download: false,
-      print: false,
-      pagination: false,
-      sort: false,
-      sortFilterList: false,
-      viewColumns: false,
-    }}
-  />
-);
+          {
+            name: "quantity",
+            label: "Quantidade",
+            options: {
+              filter: false,
+              sort: false,
+              customBodyRender: (v) => v?.toLocaleString("pt-br"),
+            },
+          },
+          {
+            name: "created_at",
+            label: "Quando",
+            options: {
+              filter: false,
+              sort: false,
+              customBodyRender: (v) => {
+                let [year, month, day] = v.split("-");
+                return `${day}/${month}/${year}`;
+              },
+            },
+          },
+        ]}
+        options={{
+          rowsPerPage: pageSize,
+          rowsPerPageOptions: [5, 10, 20, 50, 100],
+          count: data.count,
+          filter: false,
+          selectableRows: "none",
+          search: false,
+          download: false,
+          print: false,
+          pagination: true,
+          sort: false,
+          viewColumns: false,
+          textLabels: {
+            body: {
+              noMatch: "Nenhuma transação encontrada",
+            },
+            pagination: {
+              next: "Próxima página",
+              previous: "Página anterior",
+              rowsPerPage: "Transações por página",
+              displayRows: "de",
+            },
+          },
+          onChangeRowsPerPage: (p) => setPageSize(p),
+          onChangePage: (p) => setPage(p + 1),
+        }}
+      />
+    </>
+  );
+};
+
+const PassiveIncomeTable = ({ code }) => {
+  const [pageSize, setPageSize] = useState(5);
+  const [page, setPage] = useState(1);
+
+  function getAdjustedFilters() {
+    return new URLSearchParams({
+      page: page,
+      asset_code: code,
+      page_size: pageSize,
+    }).toString();
+  }
+
+  const [data, isLoaded] = new PassiveIncomesApi().query(getAdjustedFilters());
+  return (
+    <>
+      {!isLoaded && <Loader />}
+      <MUIDataTable
+        title={`Rendimentos de ${code}`}
+        data={data.results}
+        columns={[
+          {
+            name: "type",
+            label: "Tipo",
+            options: {
+              filter: false,
+              sort: false,
+            },
+          },
+          {
+            name: "event_type",
+            label: "Evento",
+            options: {
+              filter: false,
+              sort: false,
+            },
+          },
+          {
+            name: "amount",
+            label: "Valor líquido",
+            options: {
+              filter: false,
+              sort: false,
+              customBodyRender: (v) => {
+                return `R$ ${v?.toLocaleString("pt-br", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 4,
+                })}`;
+              },
+            },
+          },
+          {
+            name: "operation_date",
+            label: "Quando",
+            options: {
+              filter: false,
+              sort: false,
+              customBodyRender: (v) => {
+                let [year, month, day] = v.split("-");
+                return `${day}/${month}/${year}`;
+              },
+            },
+          },
+        ]}
+        options={{
+          rowsPerPage: pageSize,
+          rowsPerPageOptions: [5, 10, 20, 50, 100],
+          count: data.count,
+          filter: false,
+          selectableRows: "none",
+          search: false,
+          download: false,
+          print: false,
+          pagination: true,
+          sort: false,
+          viewColumns: false,
+          textLabels: {
+            body: {
+              noMatch: "Nenhuma rendimento encontrado",
+            },
+            pagination: {
+              next: "Próxima página",
+              previous: "Página anterior",
+              rowsPerPage: "Rendimentos por página",
+              displayRows: "de",
+            },
+          },
+          onChangeRowsPerPage: (p) => setPageSize(p),
+          onChangePage: (p) => setPage(p + 1),
+        }}
+      />
+    </>
+  );
+};
 
 export const AssetsTable = () => {
   const [pageSize, setPageSize] = useState(5);
@@ -333,8 +388,7 @@ export const AssetsTable = () => {
         current_price,
         current_price_updated_at,
       ] = rowData;
-      console.log(rowData);
-      console.log(current_price);
+
       return (
         <>
           <TableRow>
@@ -379,14 +433,14 @@ export const AssetsTable = () => {
           {tabValue === 1 && (
             <TableRow>
               <TableCell sx={{ paddingLeft: "20px" }} colSpan={colSpan}>
-                <TransactionsTable code={rowData[3].key} data={transactions} />
+                <TransactionsTable code={code} />
               </TableCell>
             </TableRow>
           )}
           {tabValue === 2 && (
             <TableRow>
               <TableCell sx={{ paddingLeft: "20px" }} colSpan={colSpan}>
-                <PassiveIncomeTable code={rowData[3].key} data={incomes} />
+                <PassiveIncomeTable code={code} />
               </TableCell>
             </TableRow>
           )}
@@ -479,13 +533,10 @@ export const AssetsTable = () => {
         filter: false,
         sort: false,
         customBodyRender: (v, tableMeta) => {
-          let tableCurrency = tableMeta.tableData[tableMeta.rowIndex].currency;
-          var currency;
-          if (tableCurrency) {
-            currency = tableCurrency === "BRL" ? "R$" : "$";
-          } else {
-            currency = "";
-          }
+          let currency =
+            tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
+              ? "R$"
+              : "$";
           return `${currency} ${v?.toLocaleString("pt-br", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 4,
@@ -500,13 +551,10 @@ export const AssetsTable = () => {
         filter: false,
         sort: false,
         customBodyRender: (v, tableMeta) => {
-          let tableCurrency = tableMeta.tableData[tableMeta.rowIndex].currency;
-          var currency;
-          if (tableCurrency) {
-            currency = tableCurrency === "BRL" ? "R$" : "$";
-          } else {
-            currency = "";
-          }
+          let currency =
+            tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
+              ? "R$"
+              : "$";
           return (
             <Tooltip
               key={v}
@@ -620,7 +668,6 @@ export const AssetsTable = () => {
     },
   ];
 
-  console.log(data.results);
   return (
     <Container
       style={{ position: "relative", marginTop: "15px" }}

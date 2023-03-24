@@ -3,17 +3,17 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Dict
 
-from django.db.models import Count, Q, Sum, CharField
+from django.db.models import Count, Q, QuerySet, Sum, CharField
 from django.db.models.expressions import CombinedExpression
 from django.db.models.functions import Coalesce, Concat, TruncMonth
 
-from shared.managers_utils import CustomQueryset, GenericFilters, MonthlyFilterMixin
+from shared.managers_utils import GenericDateFilters
 from shared.utils import coalesce_sum_expression
 
 from .choices import ExpenseReportType
 
 
-class _ExpenseFilters(GenericFilters):
+class _ExpenseDateFilters(GenericDateFilters):
     def __init__(self) -> None:
         super().__init__(date_field_name="created_at")
 
@@ -22,12 +22,8 @@ class _ExpenseFilters(GenericFilters):
         return Q(created_at__year__lt=self.base_date.year) | self._current_year
 
 
-class ExpenseQueryset(CustomQueryset, MonthlyFilterMixin):
-    filters = _ExpenseFilters()
-
-    @staticmethod
-    def get_sum_expression() -> Dict[str, Sum]:
-        return {"total": Sum("price")}
+class ExpenseQueryset(QuerySet):
+    filters = _ExpenseDateFilters()
 
     @property
     def _monthly_avg_expression(self) -> CombinedExpression:
@@ -92,4 +88,15 @@ class ExpenseQueryset(CustomQueryset, MonthlyFilterMixin):
         return self.aggregate(avg=self._monthly_avg_expression)
 
     def trunc_months(self) -> ExpenseQueryset:
-        return self.annotate(month=TruncMonth("created_at")).values("month").annotate_sum()
+        return (
+            self.annotate(month=TruncMonth("created_at"))
+            .values("month")
+            .annotate(total=Sum("price"))
+            .order_by("-total")
+        )
+
+    def sum(self) -> Dict[str, Decimal]:
+        return self.aggregate(total=Sum("price"))
+
+    def filter_by_month_and_year(self, month: int, year: int) -> ExpenseQueryset:
+        return self.filter(created_at__month=month, created_at__year=year)

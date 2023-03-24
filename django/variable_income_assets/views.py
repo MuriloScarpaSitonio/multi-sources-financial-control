@@ -1,30 +1,36 @@
+from __future__ import annotations
+
 from decimal import Decimal
-from typing import Type
+from typing import Type, TYPE_CHECKING, Union
 
 from django.db import transaction as djtransaction
 from django.db.models import Sum
 from django.utils import timezone
 
-from djchoices import ChoiceItem
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
+from rest_framework.filters import OrderingFilter
 from rest_framework.mixins import CreateModelMixin, ListModelMixin, UpdateModelMixin
-from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.serializers import Serializer
 from rest_framework.status import HTTP_200_OK
-from rest_framework.utils.serializer_helpers import ReturnList
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
-
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 
 from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
 from tasks.decorators import celery_task_endpoint, start_celery_task
 
 from . import choices, filters, serializers
-from .managers import AssetQuerySet, PassiveIncomeQuerySet, TransactionQuerySet
-from .models import Asset, PassiveIncome, Transaction
+from .domain import events
+from .models import Asset, AssetReadModel, PassiveIncome, Transaction
+from .models.managers import (
+    AssetQuerySet,
+    AssetReadModelQuerySet,
+    PassiveIncomeQuerySet,
+    TransactionQuerySet,
+)
 from .permissions import AssetsPricesPermission, BinancePermission, CeiPermission, KuCoinPermission
+from .service_layer import messagebus
+from .service_layer.unit_of_work import DjangoUnitOfWork
 from .tasks import (
     sync_binance_transactions_task,
     sync_cei_transactions_task,
@@ -33,31 +39,37 @@ from .tasks import (
     fetch_current_assets_prices,
 )
 
+if TYPE_CHECKING:
+    from djchoices import ChoiceItem
+    from django_filters import FilterSet
+    from rest_framework.request import Request
+    from rest_framework.serializers import Serializer
+    from rest_framework.utils.serializer_helpers import ReturnList
+
 
 class AssetViewSet(GenericViewSet, ListModelMixin, CreateModelMixin, UpdateModelMixin):
-    filterset_class = filters.AssetFilterSet
     lookup_field = "code"
+    filter_backends = (filters.CQRSDjangoFilterBackend, OrderingFilter)
     ordering_fields = ("code", "type", "total_invested", "roi", "roi_percentage")
 
-    def get_queryset(self) -> AssetQuerySet[Asset]:
+    def get_queryset(self) -> Union[AssetReadModelQuerySet[AssetReadModel], AssetQuerySet[Asset]]:
         if self.request.user.is_authenticated:
-            qs = self.request.user.assets.all()
+            if self.action in ("create", "update", "fetch_current_prices"):
+                return Asset.objects.filter(user_id=self.request.user.id)
+            qs = AssetReadModel.objects.filter(user_id=self.request.user.id)
+            return qs.opened().order_by("-total_invested") if self.action == "list" else qs
+        return AssetReadModel.objects.none()  # drf-spectacular
 
-            return (
-                (
-                    qs.prefetch_related("transactions", "incomes")
-                    .opened()
-                    .annotate_for_serializer()
-                    .order_by("-total_invested")
-                )
-                if self.action == "list"
-                else qs
-            )
-        return Asset.objects.none()  # drf-spectacular
+    def get_filterset_class(self) -> FilterSet:
+        return (
+            filters.AssetFilterSet
+            if self.action in ("create", "update", "fetch_current_prices")
+            else filters.AssetReadFilterSet
+        )
 
     def get_serializer_class(self):
         return (
-            serializers.AssetListSerializer
+            serializers.AssetReadModelSerializer
             if self.action == "list"
             else serializers.AssetSerializer
         )
@@ -67,13 +79,28 @@ class AssetViewSet(GenericViewSet, ListModelMixin, CreateModelMixin, UpdateModel
         return (
             {
                 **context,
-                **self.get_queryset().aggregate(
-                    current_total_agg=Sum("current_total"), total_invested_agg=Sum("total_invested")
+                **(
+                    self.get_queryset()
+                    .annotate_current_total()
+                    .aggregate(
+                        current_total_agg=Sum("current_total"),
+                        total_invested_agg=Sum("total_invested"),
+                    )
                 ),
             }
             if self.action == "list"
             else context
         )
+
+    def perform_create(self, serializer: serializers.AssetSerializer) -> None:
+        super().perform_create(serializer)
+        with DjangoUnitOfWork(asset_pk=serializer.instance.pk) as uow:
+            messagebus.handle(message=events.AssetCreated(asset_pk=serializer.instance.pk), uow=uow)
+
+    def perform_update(self, serializer: serializers.AssetReadModelSerializer) -> None:
+        super().perform_update(serializer)
+        with DjangoUnitOfWork(asset_pk=serializer.instance.pk) as uow:
+            messagebus.handle(message=events.AssetUpdated(asset_pk=serializer.instance.pk), uow=uow)
 
     @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:
@@ -176,13 +203,7 @@ class AssetViewSet(GenericViewSet, ListModelMixin, CreateModelMixin, UpdateModel
         # TODO: change `list` endpoint to support `fields` kwarg on serializer and set the return values
         # by doing `/assets?fields=code,currency`
         return Response(
-            data=(
-                self.get_queryset()
-                .opened()
-                .annotate_currency()
-                .values("code", "currency")
-                .order_by("code")
-            ),
+            data=self.get_queryset().values("code", "currency").order_by("code"),
             status=HTTP_200_OK,
         )
 
@@ -241,13 +262,31 @@ class PassiveIncomeViewSet(ModelViewSet):
             else PassiveIncome.objects.none()  # pragma: no cover -- drf-spectatular
         )
 
-    def get_transactions_queryset(self) -> TransactionQuerySet[Transaction]:
-        return Transaction.objects.filter(asset__user=self.request.user)
+    def perform_create(self, serializer: serializers.PassiveIncomeSerializer) -> None:
+        super().perform_create(serializer)
+        with DjangoUnitOfWork(asset_pk=serializer.instance.pk) as uow:
+            messagebus.handle(
+                message=events.PassiveIncomeCreated(asset_pk=serializer.instance.pk), uow=uow
+            )
+
+    def perform_update(self, serializer: serializers.PassiveIncomeSerializer) -> None:
+        super().perform_update(serializer)
+        with DjangoUnitOfWork(asset_pk=serializer.instance.asset_id) as uow:
+            messagebus.handle(
+                message=events.PassiveIncomeUpdated(asset_pk=serializer.instance.asset_id), uow=uow
+            )
+
+    def perform_destroy(self, instance: PassiveIncome):
+        super().perform_destroy(instance)
+        with DjangoUnitOfWork(asset_pk=instance.asset_id) as uow:
+            messagebus.handle(
+                message=events.PassiveIncomeDeleted(asset_pk=instance.asset_id), uow=uow
+            )
 
     @action(methods=("GET",), detail=False)
-    def indicators(self, _: Request) -> Response:
+    def indicators(self, request: Request) -> Response:
         first_transaction_date = (
-            self.get_transactions_queryset()
+            Transaction.objects.filter(asset__user=request.user)
             .order_by("created_at")
             .values_list("created_at", flat=True)
             .first()
@@ -299,6 +338,9 @@ class TransactionViewSet(ModelViewSet):
             qs = Transaction.objects.filter(asset__user=self.request.user)
             return qs if self.action == "list" else qs.since_a_year_ago()
         return Transaction.objects.none()  # drf-spectacular
+
+    def perform_destroy(self, instance: Transaction):
+        serializers.TransactionListSerializer(instance=instance).delete()
 
     @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:
