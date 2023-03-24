@@ -13,7 +13,6 @@ from ..choices import (
     AssetObjectives,
     AssetSectors,
     AssetTypes,
-    ASSET_TYPE_CURRENCY_MAP,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
     TransactionActions,

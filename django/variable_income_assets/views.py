@@ -262,9 +262,6 @@ class PassiveIncomeViewSet(ModelViewSet):
             else PassiveIncome.objects.none()  # pragma: no cover -- drf-spectatular
         )
 
-    def get_transactions_queryset(self) -> TransactionQuerySet[Transaction]:
-        return Transaction.objects.filter(asset__user=self.request.user)
-
     def perform_create(self, serializer: serializers.PassiveIncomeSerializer) -> None:
         super().perform_create(serializer)
         with DjangoUnitOfWork(asset_pk=serializer.instance.pk) as uow:
@@ -287,9 +284,9 @@ class PassiveIncomeViewSet(ModelViewSet):
             )
 
     @action(methods=("GET",), detail=False)
-    def indicators(self, _: Request) -> Response:
+    def indicators(self, request: Request) -> Response:
         first_transaction_date = (
-            self.get_transactions_queryset()
+            Transaction.objects.filter(asset__user=request.user)
             .order_by("created_at")
             .values_list("created_at", flat=True)
             .first()

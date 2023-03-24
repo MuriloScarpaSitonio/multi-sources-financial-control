@@ -6,7 +6,7 @@ from typing import Dict, TYPE_CHECKING, Union
 from django.db.models import CharField, Count, F, OuterRef, Q, QuerySet, Subquery, Sum, Value
 from django.db.models.functions import Concat, Coalesce, TruncMonth
 
-from shared.managers_utils import CustomQueryset, GenericFilters, MonthlyFilterMixin
+from shared.managers_utils import GenericDateFilters
 from shared.utils import coalesce_sum_expression
 
 from ...choices import AssetTypes, PassiveIncomeEventTypes
@@ -127,7 +127,7 @@ class AssetQuerySet(QuerySet):
 
 class TransactionQuerySet(QuerySet):
     expressions = GenericQuerySetExpressions()
-    filters = GenericFilters(date_field_name="created_at")
+    filters = GenericDateFilters(date_field_name="created_at")
 
     def _get_roi_expression(
         self, incomes: Decimal, percentage: bool
@@ -231,13 +231,9 @@ class TransactionQuerySet(QuerySet):
         )
 
 
-class PassiveIncomeQuerySet(CustomQueryset, MonthlyFilterMixin):
+class PassiveIncomeQuerySet(QuerySet):
     date_field_name = "operation_date"
-    filters = GenericFilters(date_field_name="operation_date")
-
-    @staticmethod
-    def get_sum_expression() -> Dict[str, Sum]:
-        return {"total": coalesce_sum_expression("amount")}
+    filters = GenericDateFilters(date_field_name="operation_date")
 
     @property
     def _monthly_avg_expression(self) -> CombinedExpression:
@@ -327,7 +323,12 @@ class PassiveIncomeQuerySet(CustomQueryset, MonthlyFilterMixin):
         return self.aggregate(avg=self._monthly_avg_expression)
 
     def trunc_months(self) -> PassiveIncomeQuerySet:
-        return self.annotate(month=TruncMonth("operation_date")).values("month").annotate_sum()
+        return (
+            self.annotate(month=TruncMonth("operation_date"))
+            .values("month")
+            .annotate(total=coalesce_sum_expression("amount"))
+            .order_by("-total")
+        )
 
     def assets_aggregation(
         self, credited: bool = True, provisioned: bool = False
@@ -342,4 +343,12 @@ class PassiveIncomeQuerySet(CustomQueryset, MonthlyFilterMixin):
         if not credited and not provisioned:
             qs = self.none()
 
-        return qs.annotate(code=F("asset__code")).aggregate_field("code")[:10]
+        return (
+            qs.annotate(code=F("asset__code"))
+            .values("code")
+            .annotate(total=coalesce_sum_expression("amount"))
+            .order_by("-total")[:10]
+        )
+
+    def sum(self) -> Dict[str, Decimal]:
+        return self.aggregate(total=coalesce_sum_expression("amount"))
