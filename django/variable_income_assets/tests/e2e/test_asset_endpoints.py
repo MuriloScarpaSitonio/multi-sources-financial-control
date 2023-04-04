@@ -285,7 +285,7 @@ def test_list_assets_aggregate_data(client):
             (total_invested / total_invested_brute_force) * Decimal("100.0")
         ).quantize(Decimal(".1"), rounding=ROUND_HALF_UP)
 
-        current_invested = get_current_price(asset) * qty
+        current_invested = get_current_price(asset, normalize=True) * qty
         current_percentage = (
             (current_invested / current_total_brute_force) * Decimal("100.0")
         ).quantize(Decimal(".1"), rounding=ROUND_HALF_UP)
@@ -526,8 +526,6 @@ def test_should_raise_error_if_code_is_not_valid_fetch_current_prices(client):
 @pytest.mark.usefixtures("indicators_data", "sync_assets_read_model")
 def test_should_get_indicators(client):
     # GIVEN
-    from variable_income_assets.models import Asset
-
     current_total = sum(
         get_current_total_invested_brute_force(asset) for asset in Asset.objects.all()
     )
@@ -875,7 +873,9 @@ def test_should_not_simulate_transaction_wo_total_and_quantity(client, stock_ass
 
 
 @pytest.mark.usefixtures("crypto_transaction")
-def test_should_normalize_avg_price_with_currency_when_simulating_transaction(client, crypto_asset):
+def test_should_not_normalize_avg_price_with_currency_when_simulating_transaction(
+    client, crypto_asset
+):
     # GIVEN
     price, quantity = 10, 100
     crypto_asset.current_price = 20

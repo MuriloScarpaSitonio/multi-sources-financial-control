@@ -183,7 +183,8 @@ class TransactionQuerySet(QuerySet):
 
     def _annotate_totals(self) -> TransactionQuerySet:
         return self.annotate(
-            total_bought=self.expressions.total_bought, total_sold=self.expressions.total_sold_raw
+            total_bought=self.expressions.total_bought_normalized,
+            total_sold=self.expressions.total_sold_raw,
         )
 
     @property

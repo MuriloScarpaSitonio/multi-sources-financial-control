@@ -499,10 +499,6 @@ def indicators_data(
 
 @pytest.fixture
 def report_data(indicators_data, stock_usa_asset, user):
-    # set to ensure this asset won't appear on the report as it's finished
-    stock_usa_asset.current_price = 100
-    stock_usa_asset.save()
-
     asset = AssetFactory(
         code="RANDOM",
         type=choice(AssetTypes.choices)[0],

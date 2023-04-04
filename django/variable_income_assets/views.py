@@ -81,10 +81,10 @@ class AssetViewSet(GenericViewSet, ListModelMixin, CreateModelMixin, UpdateModel
                 **context,
                 **(
                     self.get_queryset()
-                    .annotate_current_total()
+                    .annotate_totals()
                     .aggregate(
                         current_total_agg=Sum("current_total"),
-                        total_invested_agg=Sum("total_invested"),
+                        total_invested_agg=Sum("normalized_total_invested"),
                     )
                 ),
             }

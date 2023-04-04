@@ -193,7 +193,13 @@ class AssetSerializer(serializers.ModelSerializer):
 class AssetSimulateSerializer(serializers.ModelSerializer):
     roi = serializers.SerializerMethodField(read_only=True)
     roi_percentage = serializers.SerializerMethodField(read_only=True)
-    adjusted_avg_price = serializers.SerializerMethodField(read_only=True)
+    adjusted_avg_price = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        read_only=True,
+        rounding=ROUND_HALF_UP,
+        source="adjusted_avg_price_from_transactions",
+    )
     total_invested = serializers.DecimalField(
         max_digits=10,
         decimal_places=3,
@@ -218,13 +224,6 @@ class AssetSimulateSerializer(serializers.ModelSerializer):
     def get_roi_percentage(self, obj: Asset) -> Decimal:
         return obj.get_roi(percentage=True)
 
-    def get_adjusted_avg_price(self, obj: Asset) -> Decimal:
-        return (
-            obj.adjusted_avg_price_from_transactions
-            if obj.currency_from_transactions == choices.TransactionCurrencies.real
-            else obj.adjusted_avg_price_from_transactions / dynamic_settings.DOLLAR_CONVERSION_RATE
-        )
-
 
 class AssetTransactionSimulateEndpointSerializer(serializers.Serializer):
     old = AssetSimulateSerializer()
@@ -236,6 +235,8 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
     sector = CustomChoiceField(read_only=True, choices=choices.AssetSectors.choices)
     objective = CustomChoiceField(read_only=True, choices=choices.AssetObjectives.choices)
     currency = serializers.SerializerMethodField(read_only=True)
+    total_invested = serializers.SerializerMethodField(read_only=True)
+    roi = serializers.SerializerMethodField(read_only=True)
     percentage_invested = serializers.SerializerMethodField(read_only=True)
     current_percentage = serializers.SerializerMethodField(read_only=True)
 
@@ -262,16 +263,23 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
     def get_currency(self, obj: AssetReadModel) -> str:
         return obj.currency if obj.currency else choices.ASSET_TYPE_CURRENCY_MAP[obj.type]
 
-    def get_adjusted_avg_price(self, obj: AssetReadModel) -> Decimal:
+    def get_total_invested(self, obj: AssetReadModel) -> Decimal:
         return (
-            obj.adjusted_avg_price
+            obj.total_invested
             if obj.currency == choices.TransactionCurrencies.real
-            else obj.adjusted_avg_price / dynamic_settings.DOLLAR_CONVERSION_RATE
+            else obj.total_invested * dynamic_settings.DOLLAR_CONVERSION_RATE
+        )
+
+    def get_roi(self, obj: AssetReadModel) -> Decimal:
+        return (
+            obj.roi
+            if obj.currency == choices.TransactionCurrencies.real
+            else obj.roi * dynamic_settings.DOLLAR_CONVERSION_RATE
         )
 
     def get_percentage_invested(self, obj: AssetReadModel) -> Decimal:
         try:
-            result = obj.total_invested / self.context["total_invested_agg"]
+            result = self.get_total_invested(obj) / self.context["total_invested_agg"]
         except DecimalException:  # pragma: no cover
             result = Decimal()
         return result * Decimal("100.0")

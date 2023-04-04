@@ -52,14 +52,13 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
         )
 
     @property
-    def total_sold(self) -> Case:
-        expression = coalesce_sum_expression(
+    def total_sold(self) -> Expression:
+        return coalesce_sum_expression(
             (F(f"{self.prefix}price") - F(f"{self.prefix}initial_price"))
             * F(f"{self.prefix}quantity"),
             filter=self.filters.sold,
             extra=Decimal("1.0"),
         )
-        return self.get_dollar_conversion_expression(expression=expression)
 
     @property
     def total_sold_raw(self) -> Case:
@@ -71,7 +70,17 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
         return self.get_dollar_conversion_expression(expression=expression)
 
     @property
-    def total_bought(self) -> Case:
+    def total_bought(self) -> Expression:
+        return coalesce_sum_expression(
+            F(f"{self.prefix}price") * F(f"{self.prefix}quantity"),
+            filter=self.filters.bought,
+            # models.functions.Cast won't work;
+            # cast result to a decimal value using `extra`
+            extra=Decimal("1.0"),
+        )
+
+    @property
+    def total_bought_normalized(self) -> Case:
         expression = coalesce_sum_expression(
             F(f"{self.prefix}price") * F(f"{self.prefix}quantity"),
             filter=self.filters.bought,
@@ -88,21 +97,8 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
     @property
     def current_total(self) -> Case:
         # hacky
-        if not self.prefix:
-            condition = {"currency": TransactionCurrencies.real}
-            field_name = "asset__current_price"
-        else:
-            condition = {"transactions__currency": TransactionCurrencies.real}
-            field_name = "current_price"
-
-        return Case(
-            When(
-                ~Q(**condition),
-                then=Coalesce(F(field_name) * self.dollar_conversion_rate, Decimal())
-                * self.quantity_balance,
-            ),
-            default=Coalesce(F(field_name), Decimal()) * self.quantity_balance,
-        )
+        field_name = "asset__current_price" if not self.prefix else "current_price"
+        return Coalesce(F(field_name), Decimal()) * self.quantity_balance
 
     def get_dollar_conversion_expression(self, expression: Expression) -> Case:
         return Case(
