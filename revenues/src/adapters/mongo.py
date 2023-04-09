@@ -57,7 +57,7 @@ class Mongo:
 
     @classmethod
     def convert_revenue(cls, revenue: Revenue) -> RevenueMongoDoc:
-        return {k: cls._convert(v) for k, v in revenue.__dict__.items()}
+        return {k: cls._convert(v) for k, v in revenue.__dict__.items() if k != "events"}
 
 
 mongo = Mongo()

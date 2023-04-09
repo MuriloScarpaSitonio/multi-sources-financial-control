@@ -1,4 +1,5 @@
-from datetime import date
+from copy import deepcopy
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Generic, Iterator, List, Optional, Sequence, TypeVar, Union
 
@@ -6,6 +7,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 from fastapi.responses import PlainTextResponse
 
 from bson.objectid import ObjectId
+from dateutil import relativedelta
 from pydantic import BaseModel, conint, Field
 from pydantic.generics import GenericModel
 from pymongo import MongoClient
@@ -76,25 +78,13 @@ class HistoricResponse(BaseModel):
 
 # endregion: typing
 
-# region: endpoints
-from datetime import datetime
-from copy import deepcopy
-
-from dateutil import relativedelta
+# region: helpers
 
 
 def insert_zeros_if_no_data_in_monthly_historic_data(
     historic: List[HistoricResponseType],
 ) -> List[HistoricResponseType]:
-    length = len(historic)
-    if length == 13:
-        return historic
-
-    today = datetime.utcnow().replace(day=1).date() - relativedelta.relativedelta(months=1)
-    if length == 12 and datetime.strptime(
-        historic[-1]["date"], "%m/%Y"
-    ).date() == today - relativedelta.relativedelta(months=1):
-        historic.append({"date": f"{today.month}/{today.year}", "total": historic[-1]["total"]})
+    if len(historic) == 13:
         return historic
 
     _historic, diffs = deepcopy(historic), 0
@@ -116,6 +106,11 @@ def insert_zeros_if_no_data_in_monthly_historic_data(
     return _historic
 
 
+# endregion: helpers
+
+# region: endpoints
+
+
 @app.get("/revenues/reports/historic", response_model=HistoricResponse)
 def revenue_historic_endpoint(
     user_id: int = Header(...),
@@ -127,12 +122,12 @@ def revenue_historic_endpoint(
         except StopIteration:
             avg_dict = {"avg": Decimal()}
 
-        return {
-            "historic": insert_zeros_if_no_data_in_monthly_historic_data(
-                uow.revenues.query.historic()
-            ),
-            **avg_dict,
-        }
+        historic = insert_zeros_if_no_data_in_monthly_historic_data(uow.revenues.query.historic())
+        today = datetime.utcnow().replace(day=1).date()
+
+        if len(historic) == 12:
+            historic.append({"date": f"{today.month}/{today.year}", "total": historic[-1]["total"]})
+        return {"historic": historic, **avg_dict}
 
 
 @app.get("/revenues/reports/indicators", response_model=IndicatorsResponseType)

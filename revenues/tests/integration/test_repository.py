@@ -48,16 +48,16 @@ def test_repository_list(mongo_session):
     # THEN
     assert list(repo.query.list()) == [
         {
-            "_id": rev1.id,
-            "value": Decimal128(rev1.value),
-            "description": rev1.description,
+            "_id": rev2.id,
+            "value": Decimal128(rev2.value),
+            "description": rev2.description,
             "created_at": datetime.today().replace(hour=0, minute=0, second=0, microsecond=0),
             "user_id": user_id,
         },
         {
-            "_id": rev2.id,
-            "value": Decimal128(rev2.value),
-            "description": rev2.description,
+            "_id": rev1.id,
+            "value": Decimal128(rev1.value),
+            "description": rev1.description,
             "created_at": datetime.today().replace(hour=0, minute=0, second=0, microsecond=0),
             "user_id": user_id,
         },

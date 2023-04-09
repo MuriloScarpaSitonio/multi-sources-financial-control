@@ -131,12 +131,12 @@ def test__historic_w_missing_revenues(client, mongo_session):
 
     # WHEN
     response = client.get("/revenues/reports/historic")
-    for r in response.json()["historic"]:
-        print(r)
 
     # THEN
     for historic in response.json()["historic"]:
         d = datetime.strptime(historic["date"], "%m/%Y")
+        if d.date() == datetime.utcnow().replace(day=1).date():
+            d = d - relativedelta.relativedelta(months=1)
         total = (
             mongo_session._client[DATABASE_NAME][COLLECTION_NAME]
             .aggregate(
