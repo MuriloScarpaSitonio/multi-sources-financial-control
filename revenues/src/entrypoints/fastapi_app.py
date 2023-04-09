@@ -77,6 +77,43 @@ class HistoricResponse(BaseModel):
 # endregion: typing
 
 # region: endpoints
+from datetime import datetime
+from copy import deepcopy
+
+from dateutil import relativedelta
+
+
+def insert_zeros_if_no_data_in_monthly_historic_data(
+    historic: List[HistoricResponseType],
+) -> List[HistoricResponseType]:
+    length = len(historic)
+    if length == 13:
+        return historic
+
+    today = datetime.utcnow().replace(day=1).date() - relativedelta.relativedelta(months=1)
+    if length == 12 and datetime.strptime(
+        historic[-1]["date"], "%m/%Y"
+    ).date() == today - relativedelta.relativedelta(months=1):
+        historic.append({"date": f"{today.month}/{today.year}", "total": historic[-1]["total"]})
+        return historic
+
+    _historic, diffs = deepcopy(historic), 0
+    for idx, (current, _next) in enumerate(zip(historic[:], historic[1:])):
+        current_date = datetime.strptime(current["date"], "%m/%Y").date()
+        delta = relativedelta.relativedelta(
+            dt1=datetime.strptime(_next["date"], "%m/%Y").date(),
+            dt2=current_date,
+        )
+
+        diff_months = delta.months + (12 * delta.years)
+        for diff in range(1, diff_months):
+            new_date = current_date + relativedelta.relativedelta(months=diff)
+            _historic.insert(
+                idx + diff + diffs,
+                {"date": f"{new_date.month}/{new_date.year}", "total": 0},
+            )
+        diffs += diff_months - 1
+    return _historic
 
 
 @app.get("/revenues/reports/historic", response_model=HistoricResponse)
@@ -89,7 +126,13 @@ def revenue_historic_endpoint(
             avg_dict = uow.revenues.query.avg().next()
         except StopIteration:
             avg_dict = {"avg": Decimal()}
-        return {"historic": uow.revenues.query.historic(), **avg_dict}
+
+        return {
+            "historic": insert_zeros_if_no_data_in_monthly_historic_data(
+                uow.revenues.query.historic()
+            ),
+            **avg_dict,
+        }
 
 
 @app.get("/revenues/reports/indicators", response_model=IndicatorsResponseType)

@@ -282,6 +282,7 @@ def test_should_get_historic_data(client, filters):
     # WHEN
     response = client.get(f"{URL}/historic?{filters}")
     response_json = response.json()
+    print(response_json["historic"])
 
     # THEN
     assert response.status_code == HTTP_200_OK

@@ -10,6 +10,7 @@ python = "^3.8"
 python-decouple = "^3.6"
 uvicorn = {extras = ["standard"], version = "^0.17.6"}
 pymongo = "^4.1.1"
+python-dateutil = "^2.8.2"
 
 [tool.poetry.dev-dependencies]
 bandit = "^1.7.4"

@@ -23,7 +23,7 @@ import TextField from "@material-ui/core/TextField";
 import { yupResolver } from "@hookform/resolvers/yup";
 
 import { AssetsApi, PassiveIncomesApi } from "../api";
-import { getChoiceByValue } from "../helpers";
+import { getChoiceByLabel } from "../helpers";
 import { FormFeedback } from "../components/FormFeedback";
 import {
   PassiveIncomeTypesMapping,
@@ -221,7 +221,7 @@ export const PassiveIncomeForm = ({
               name="type"
               control={control}
               defaultValue={
-                getChoiceByValue(initialData.type, PassiveIncomeTypesMapping) ||
+                getChoiceByLabel(initialData.type, PassiveIncomeTypesMapping) ||
                 PassiveIncomeTypesMapping[0]
               }
               render={({ field: { onChange, value } }) => (
@@ -284,7 +284,7 @@ export const PassiveIncomeForm = ({
               name="event_type"
               control={control}
               defaultValue={
-                getChoiceByValue(
+                getChoiceByLabel(
                   initialData.event_type,
                   PassiveIncomeEventTypesMapping
                 ) || PassiveIncomeEventTypesMapping[0]

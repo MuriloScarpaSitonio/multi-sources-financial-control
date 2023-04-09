@@ -35,15 +35,17 @@ def insert_zeros_if_no_data_in_monthly_historic_data(
     if len(historic) == 13:
         return historic
 
-    _historic = deepcopy(historic)
+    _historic, diffs = deepcopy(historic), 0
     for idx, (current, _next) in enumerate(zip(historic[:], historic[1:])):
         delta = relativedelta.relativedelta(dt1=_next["month"], dt2=current["month"])
-        for diff in range(1, delta.months + (12 * delta.years)):
+        diff_months = delta.months + (12 * delta.years)
+        for diff in range(1, diff_months):
             _historic.insert(
-                idx + diff,
+                idx + diff + diffs,
                 {
                     "month": current["month"] + relativedelta.relativedelta(months=diff),
                     **{k: 0 for k in total_fields},
                 },
             )
+        diffs += diff_months - 1
     return _historic

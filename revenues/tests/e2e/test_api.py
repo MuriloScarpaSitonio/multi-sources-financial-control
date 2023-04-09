@@ -1,7 +1,10 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 import pytest
+
+from bson import Decimal128
+from dateutil import relativedelta
 
 from src.settings import COLLECTION_NAME, DATABASE_NAME, SECRET_KEY
 
@@ -119,7 +122,41 @@ def test_revenues_historic(client, mongo_session):
     assert sorted(historic[0].keys()) == ["date", "total"]
     assert historic[0]["date"] == f"{today.month}/{today.year}"
     assert str(historic[0]["total"]) == str(total)
-    assert response.json()["avg"] == sum((h["total"] for h in historic)) / len(historic)
+    assert response.json()["avg"] == sum((h["total"] for h in historic[:-1])) / len(historic)
+
+
+@pytest.mark.usefixtures("historic_data")
+def test__historic_w_missing_revenues(client, mongo_session):
+    # GIVEN
+
+    # WHEN
+    response = client.get("/revenues/reports/historic")
+    for r in response.json()["historic"]:
+        print(r)
+
+    # THEN
+    for historic in response.json()["historic"]:
+        d = datetime.strptime(historic["date"], "%m/%Y")
+        total = (
+            mongo_session._client[DATABASE_NAME][COLLECTION_NAME]
+            .aggregate(
+                [
+                    {
+                        "$match": {
+                            "created_at": {
+                                "$gte": d,
+                                "$lt": d + relativedelta.relativedelta(months=1),
+                            }
+                        }
+                    },
+                    {"$group": {"_id": None, "total": {"$sum": "$value"}}},
+                    {"$project": {"_id": 0, "total": 1}},
+                ],
+            )
+            .next()
+        )["total"]
+
+        assert historic["total"] == (total.to_decimal() if isinstance(total, Decimal128) else total)
 
 
 @pytest.mark.usefixtures("revenues")
