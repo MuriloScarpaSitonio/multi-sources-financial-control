@@ -159,10 +159,10 @@ class MongoQueryRepository(AbstractQueryRepository):
         super().__init__(user_id=user_id)
         self.session = session
         self._collection: Collection = self.session._client[DATABASE_NAME][COLLECTION_NAME]
+        self._today = date.today()
 
     @property
     def _historic_pipeline(self) -> List[Dict[str, str]]:
-        today = date.today()
         return [
             {"$match": self.filters.base_filter},
             {
@@ -181,14 +181,14 @@ class MongoQueryRepository(AbstractQueryRepository):
                     "$or": [
                         {
                             "$and": [
-                                {"_id.month": {"$gte": today.month}},
-                                {"_id.year": {"$eq": today.year - 1}},
+                                {"_id.month": {"$gte": self._today.month}},
+                                {"_id.year": {"$eq": self._today.year - 1}},
                             ]
                         },
                         {
                             "$and": [
-                                {"_id.month": {"$lte": today.month}},
-                                {"_id.year": {"$eq": today.year}},
+                                {"_id.month": {"$lte": self._today.month}},
+                                {"_id.year": {"$eq": self._today.year}},
                             ]
                         },
                     ]
@@ -228,6 +228,14 @@ class MongoQueryRepository(AbstractQueryRepository):
         return self._collection.aggregate(
             pipeline=[
                 *self._historic_pipeline,
+                {
+                    "$match": {
+                        "$or": [
+                            {"_id.month": {"$ne": self._today.month}},
+                            {"_id.year": {"$ne": self._today.year}},
+                        ]
+                    }
+                },
                 {"$group": {"_id": 0, "avg": {"$avg": "$total"}}},
                 {"$project": {"_id": 0, "avg": {"$ifNull": ["$avg", Decimal128("0.0")]}}},
             ]

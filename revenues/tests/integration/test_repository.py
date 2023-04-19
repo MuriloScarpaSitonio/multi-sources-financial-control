@@ -192,7 +192,18 @@ def test_repository_indicators(mongo_session):
         repo.add(rev2)
 
     # WHEN
-    avg = Decimal(str(fmean(date_revenues_sum_map.values()))).quantize(Decimal("0.000001"))
+    avg = Decimal(
+        str(
+            fmean(
+                [
+                    v
+                    for k, v in date_revenues_sum_map.items()
+                    # we don't evaluate the current month on the avg calculation
+                    if k != f"{today.month}/{today.year}"
+                ]
+            )
+        )
+    ).quantize(Decimal("0.000001"))
     indicators = repo.query.indicators()
 
     # THEN

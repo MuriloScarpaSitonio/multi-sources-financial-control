@@ -181,7 +181,8 @@ def test_revenues_indicators(client, mongo_session):
     # THEN
     assert response.status_code == 200
     assert sorted(response_json.keys()) == ["avg", "diff", "month", "total", "year"]
-    assert str(response_json["avg"]) == str(response_json["total"]) == str(total)
+    assert str(response_json["total"]) == str(total)
+    assert response_json["avg"] == 0  # discard current month
     assert response_json["diff"] == 0
     assert response_json["month"] == today.month
     assert response_json["year"] == today.year
