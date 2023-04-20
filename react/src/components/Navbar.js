@@ -101,6 +101,7 @@ const Notifications = () => {
     bulkUpdateNotifiedAt(data);
   };
 
+  let now = new Date();
   return (
     <>
       <Tooltip title="Notificações">
@@ -143,7 +144,7 @@ const Notifications = () => {
                 secondary={task.notification_display_text}
               />
               <p style={{ fontSize: "11px" }}>
-                há ± {getDateDiffString(new Date(task.updated_at), new Date())}
+                há ± {getDateDiffString(new Date(task.updated_at), now)}
               </p>
             </MenuItem>
           </>

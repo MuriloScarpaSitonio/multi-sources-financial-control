@@ -26,9 +26,12 @@ import TextField from "@material-ui/core/TextField";
 import { yupResolver } from "@hookform/resolvers/yup";
 
 import { AssetsApi, TransactionsApi } from "../api";
-import { getChoiceByValue } from "../helpers";
+import { getChoiceByLabel, getChoiceByValue } from "../helpers";
 import { FormFeedback } from "../components/FormFeedback";
-import { TransactionCurrenciesMapping } from "../consts.js";
+import {
+  TransactionsActionsMapping,
+  TransactionCurrenciesMapping,
+} from "../consts.js";
 
 function NumberFormatCustom(props) {
   const { inputRef, onChange, ...other } = props;
@@ -221,14 +224,18 @@ export const TransactionForm = ({
             <Controller
               name="action"
               control={control}
-              defaultValue={initialData.action || "BUY"}
               render={({ field: { onChange, value } }) => (
                 <>
                   <RadioGroup
                     value={value}
                     required
                     row
-                    defaultValue={initialData.action || "BUY"}
+                    defaultValue={
+                      getChoiceByLabel(
+                        initialData.action,
+                        TransactionsActionsMapping
+                      )?.value || "BUY"
+                    }
                     onChange={(_, v) => {
                       setIsSellTransaction(v === "SELL");
                       onChange(v);

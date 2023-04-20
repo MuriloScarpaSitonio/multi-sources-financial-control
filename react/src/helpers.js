@@ -24,18 +24,24 @@ export function getDateDiffString(dateFrom, dateTo) {
   let diff = dateTo - dateFrom;
 
   if (diff < MS_PER_MINUTE) {
-    result = `${dateFrom.getSeconds() - dateTo.getSeconds()} segundos`;
+    result = `${dateTo.getSeconds() - dateFrom.getSeconds()} segundos`;
   } else if (MS_PER_MINUTE <= diff && diff < MS_PER_HOUR) {
-    result = `${dateFrom.getMinutes() - dateTo.getMinutes()} minutos`;
+    result = `${dateTo.getMinutes() - dateFrom.getMinutes()} minutos`;
   } else if (MS_PER_HOUR <= diff && diff < MS_PER_DAY) {
-    result = `${dateFrom.getHours() - dateTo.getHours()} horas`;
+    result = `${dateTo.getHours() - dateFrom.getHours()} horas`;
   } else if (MS_PER_DAY <= diff && diff < MS_PER_MONTH) {
-    result = `${dateFrom.getDate() - dateTo.getDate()} dias`;
+    if (dateFrom.getMonth() === dateTo.getMonth()) {
+      result = `${dateTo.getDate() - dateFrom.getDate()} dias`;
+    } else {
+      result = `${
+        dateTo.getDate() + (DAYS_AT_MONTH - dateFrom.getDate())
+      } dias`;
+    }
   } else {
     result = `${
-      dateFrom.getMonth() -
-      dateTo.getMonth() +
-      12 * (dateFrom.getFullYear() - dateTo.getFullYear())
+      dateTo.getMonth() -
+      dateFrom.getMonth() +
+      12 * (dateTo.getFullYear() - dateFrom.getFullYear())
     } meses`;
   }
   return result;

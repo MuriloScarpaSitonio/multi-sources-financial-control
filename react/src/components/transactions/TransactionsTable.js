@@ -424,7 +424,7 @@ export const TransactionsTable = () => {
 
   const handleCreateEdit = (transactionData) => {
     if (transactionData && Object.keys(transactionData).length > 0) {
-      let [id, asset_code, action, price, quantity, created_at, currency] =
+      let [id, asset_code, _, action, price, quantity, created_at, currency] =
         transactionData;
       setTransactionEditData({
         id,
