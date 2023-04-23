@@ -46,3 +46,7 @@ export function getDateDiffString(dateFrom, dateTo) {
   }
   return result;
 }
+
+export function evaluateBooleanFromLocalStorage(value) {
+  return value === "true";
+}

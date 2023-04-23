@@ -52,4 +52,4 @@ privateAxios.interceptors.response.use(
   }
 );
 
-export { privateAxios, publicAxios };
+export { privateAxios, publicAxios, logout };

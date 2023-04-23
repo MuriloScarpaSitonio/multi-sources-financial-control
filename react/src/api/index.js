@@ -5,3 +5,4 @@ export { PassiveIncomesApi } from "./core";
 export { RevenuesApi } from "./core";
 export { TasksApi } from "./core";
 export { TransactionsApi } from "./core";
+export { UserApi } from "./core";

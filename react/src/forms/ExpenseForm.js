@@ -231,6 +231,7 @@ export const ExpenseForm = ({
                     defaultValue={initialData.isFixed}
                     render={({ field: { value, onChange } }) => (
                       <Switch
+                        color="primary"
                         checked={value}
                         onChange={(_, data) => onChange(data)}
                       />

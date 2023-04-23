@@ -119,7 +119,15 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = get_user_model()
-        fields = ("id", "username", "secrets")
+        fields = (
+            "id",
+            "username",
+            "has_asset_price_integration",
+            "has_cei_integration",
+            "has_kucoin_integration",
+            "has_binance_integration",
+            "secrets",
+        )
 
     @atomic
     def create(self, validated_data: Dict[str, str]) -> "UserSerializer.Meta.model":

@@ -7,11 +7,13 @@ import Button from "@material-ui/core/Button";
 import Collapse from "@material-ui/core/Collapse";
 import Divider from "@material-ui/core/Divider";
 import IconButton from "@material-ui/core/IconButton";
+import Link from "@material-ui/core/Link";
 import ListItemIcon from "@material-ui/core/ListItemIcon";
 import ListItemText from "@material-ui/core/ListItemText";
 import Menu from "@material-ui/core/Menu";
 import MenuItem from "@material-ui/core/MenuItem";
 import MenuList from "@material-ui/core/MenuList";
+import { makeStyles } from "@material-ui/core/styles";
 import Toolbar from "@material-ui/core/Toolbar";
 import Tooltip from "@material-ui/core/Tooltip";
 
@@ -20,8 +22,10 @@ import AccountCircle from "@material-ui/icons/AccountCircle";
 import AssessmentIcon from "@material-ui/icons/Assessment";
 import ExpandMore from "@material-ui/icons/ExpandMore";
 import ExpandLess from "@material-ui/icons/ExpandLess";
+import ExitToAppIcon from "@material-ui/icons/ExitToApp";
 import MonetizationOnIcon from "@material-ui/icons/MonetizationOn";
 import NotificationsIcon from "@material-ui/icons/Notifications";
+import PersonIcon from "@material-ui/icons/Person";
 import ReceiptIcon from "@material-ui/icons/Receipt";
 import SyncIcon from "@material-ui/icons/Sync";
 import TimelineIcon from "@material-ui/icons/Timeline";
@@ -30,10 +34,12 @@ import VisibilityOffIcon from "@material-ui/icons/VisibilityOff";
 import HomeIcon from "@material-ui/icons/Home";
 
 import { AssetsApi, TasksApi } from "../api";
+import { logout } from "../api/instances";
 import { FormFeedback } from "./FormFeedback";
-import { getDateDiffString } from "../helpers.js";
-import { makeStyles } from "@material-ui/core/styles";
-import { Link } from "@material-ui/core";
+import {
+  evaluateBooleanFromLocalStorage,
+  getDateDiffString,
+} from "../helpers.js";
 
 const useStyles = makeStyles({
   root: {
@@ -278,14 +284,18 @@ const AssetsMenu = () => {
           </MenuItem>
           <Collapse in={openIntegrationsMenu} timeout="auto" unmountOnExit>
             <MenuList>
-              <MenuItem
-                onClick={() =>
-                  sync("syncPrices", "Sincronização de preços em antamento!")
-                }
-              >
-                Atualizar preços
-              </MenuItem>
-              <MenuItem
+              {evaluateBooleanFromLocalStorage(
+                localStorage.getItem("user_has_asset_price_integration")
+              ) && (
+                <MenuItem
+                  onClick={() =>
+                    sync("syncPrices", "Sincronização de preços em antamento!")
+                  }
+                >
+                  Atualizar preços
+                </MenuItem>
+              )}
+              {/* <MenuItem
                 onClick={() =>
                   sync(
                     "syncCeiTransactions",
@@ -294,8 +304,8 @@ const AssetsMenu = () => {
                 }
               >
                 Sincronizar transações do CEI
-              </MenuItem>
-              <MenuItem
+              </MenuItem> */}
+              {/* <MenuItem
                 onClick={() =>
                   sync(
                     "syncCeiPassiveIncomes",
@@ -304,28 +314,36 @@ const AssetsMenu = () => {
                 }
               >
                 Sincronizar renda passiva do CEI
-              </MenuItem>
-              <MenuItem
-                onClick={() =>
-                  sync(
-                    "syncKuCoinTransactions",
-                    "Sincronização das transações da KuCoin em andamento!"
-                  )
-                }
-              >
-                Sincronizar transações da KuCoin
-              </MenuItem>
-              <MenuItem
-                sx={{ paddingLeft: 20 }}
-                onClick={() =>
-                  sync(
-                    "syncBinanceTransactions",
-                    "Sincronização das transações da Binance em andamento!"
-                  )
-                }
-              >
-                Sincronizar transações da Binance
-              </MenuItem>
+              </MenuItem> */}
+              {evaluateBooleanFromLocalStorage(
+                localStorage.getItem("user_has_kucoin_integration")
+              ) && (
+                <MenuItem
+                  onClick={() =>
+                    sync(
+                      "syncKuCoinTransactions",
+                      "Sincronização das transações da KuCoin em andamento!"
+                    )
+                  }
+                >
+                  Sincronizar transações da KuCoin
+                </MenuItem>
+              )}
+              {evaluateBooleanFromLocalStorage(
+                localStorage.getItem("user_has_binance_integration")
+              ) && (
+                <MenuItem
+                  sx={{ paddingLeft: 20 }}
+                  onClick={() =>
+                    sync(
+                      "syncBinanceTransactions",
+                      "Sincronização das transações da Binance em andamento!"
+                    )
+                  }
+                >
+                  Sincronizar transações da Binance
+                </MenuItem>
+              )}
             </MenuList>
           </Collapse>
         </MenuList>
@@ -401,6 +419,74 @@ const FinancesMenu = () => {
     </>
   );
 };
+
+const UserMenu = ({ ...props }) => {
+  const [anchorEl, setAnchorEl] = useState(null);
+
+  const open = Boolean(anchorEl);
+
+  return (
+    <>
+      <Tooltip title="Meu perfil">
+        <IconButton
+          id="user-menu-button"
+          aria-controls={open ? "user-menu" : undefined}
+          aria-expanded={open ? "true" : undefined}
+          aria-haspopup="true"
+          size="large"
+          color="black"
+          onClick={(e) => setAnchorEl(e.currentTarget)}
+        >
+          <PersonIcon />
+        </IconButton>
+      </Tooltip>
+      <Menu
+        id="user-menu"
+        MenuListProps={{
+          "aria-labelledby": "user-menu-button",
+        }}
+        getContentAnchorEl={null}
+        anchorOrigin={{
+          vertical: "bottom",
+          horizontal: "center",
+        }}
+        transformOrigin={{
+          vertical: "top",
+          horizontal: "center",
+        }}
+        anchorEl={anchorEl}
+        open={open}
+        onClose={() => setAnchorEl(null)}
+      >
+        <MenuList
+          autoFocusItem={open}
+          id="user-menu"
+          aria-labelledby="user-menu-button"
+        >
+          <Link href="/me" color="inherit" underline="none">
+            <MenuItem>
+              <ListItemIcon>
+                <AccountCircle fontSize="small" />
+              </ListItemIcon>
+              <ListItemText primary="Configurações" />
+            </MenuItem>
+          </Link>
+          <MenuItem
+            onClick={() => {
+              logout();
+              props.history.push("/home");
+            }}
+          >
+            <ListItemIcon>
+              <ExitToAppIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary="Sair" />
+          </MenuItem>
+        </MenuList>
+      </Menu>
+    </>
+  );
+};
 export const Navbar = ({ hideValuesToggler, ...props }) => {
   const [hideValues, setHideValues] = useState(
     Boolean(window.localStorage.getItem("hideValues"))
@@ -416,9 +502,7 @@ export const Navbar = ({ hideValuesToggler, ...props }) => {
           <IconButton
             size="large"
             color="black"
-            onClick={() => {
-              props.history.push("/home");
-            }}
+            onClick={() => props.history.push("/home")}
           >
             <HomeIcon />
           </IconButton>
@@ -437,11 +521,7 @@ export const Navbar = ({ hideValuesToggler, ...props }) => {
         </Box>
         <Box sx={{ flexGrow: 1, textAlign: "end" }}>
           <Notifications />
-          <Tooltip title="Meu perfil">
-            <IconButton size="large" color="black">
-              <AccountCircle />
-            </IconButton>
-          </Tooltip>
+          <UserMenu {...props} />
         </Box>
       </Toolbar>
     </AppBar>

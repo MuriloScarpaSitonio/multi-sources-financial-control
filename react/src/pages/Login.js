@@ -66,6 +66,9 @@ export const Login = (props) => {
       .then((response) => {
         localStorage.setItem(RefreshTokenStr, response.data.refresh);
         localStorage.setItem(AccessTokenStr, response.data.access);
+        for (const [key, value] of Object.entries(response.data.user)) {
+          localStorage.setItem("user_" + key, value);
+        }
         setAlertInfos({
           message: "Sucesso! Redirecionando...",
           severity: "success",

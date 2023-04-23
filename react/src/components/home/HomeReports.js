@@ -214,8 +214,6 @@ export const HomeReports = () => {
         axios.spread((...responses) => {
           let expensesHistoricData = responses[0].data.historic;
           let revenuesHistoricData = responses[1].data.historic;
-          console.log('expensesHistoricData =', expensesHistoricData)
-          console.log('revenuesHistoricData =', revenuesHistoricData)
           let result = revenuesHistoricData.map((d, index) => {
             return {
               expenses: expensesHistoricData[index].total * -1,

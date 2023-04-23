@@ -6,6 +6,9 @@ class Api {
       this.query = (filters = "") =>
         apiProvider.Query(`${this.resource}?${filters}`);
     }
+    if (methods.get) {
+      this.get = () => apiProvider.get(`${this.resource}/${id}`);
+    }
     if (methods.post) {
       this.post = (data) => apiProvider.post(this.resource, data);
     }
@@ -25,7 +28,14 @@ export class ExpensesApi extends Api {
   resource = "expenses";
   constructor(id = null) {
     super(
-      { query: true, post: true, put: true, patch: false, delete: true },
+      {
+        query: true,
+        get: false,
+        post: true,
+        put: true,
+        patch: false,
+        delete: true,
+      },
       id
     );
 
@@ -58,7 +68,14 @@ export class RevenuesApi extends Api {
   resource = "gateway/revenues";
   constructor(id = null) {
     super(
-      { query: true, post: true, put: false, patch: true, delete: true },
+      {
+        query: true,
+        get: false,
+        post: true,
+        put: false,
+        patch: true,
+        delete: true,
+      },
       id
     );
 
@@ -77,12 +94,29 @@ export class AuthenticationApi {
   }
 }
 
+export class UserApi extends Api {
+  resource = "users";
+  constructor(id = null) {
+    super(
+      {
+        query: false,
+        get: true,
+        post: true,
+        put: false,
+        patch: true,
+        delete: false,
+      },
+      id
+    );
+  }
+}
 export class AssetsApi extends Api {
   resource = "assets";
   constructor(code = null) {
     super(
       {
         query: true,
+        get: false,
         post: true,
         put: true,
         patch: false,
@@ -124,7 +158,14 @@ export class PassiveIncomesApi extends Api {
   resource = "incomes";
   constructor(id = null) {
     super(
-      { query: true, post: true, put: true, patch: true, delete: true },
+      {
+        query: true,
+        get: false,
+        post: true,
+        put: true,
+        patch: true,
+        delete: true,
+      },
       id
     );
 
@@ -143,7 +184,14 @@ export class TasksApi extends Api {
   resource = "tasks";
   constructor(id = null) {
     super(
-      { query: false, post: false, put: false, patch: false, delete: false },
+      {
+        query: false,
+        get: false,
+        post: false,
+        put: false,
+        patch: false,
+        delete: false,
+      },
       id
     );
 
@@ -162,7 +210,14 @@ export class TransactionsApi extends Api {
   resource = "transactions";
   constructor(id = null) {
     super(
-      { query: true, post: true, put: true, patch: true, delete: true },
+      {
+        query: true,
+        get: false,
+        post: true,
+        put: true,
+        patch: true,
+        delete: true,
+      },
       id
     );
 

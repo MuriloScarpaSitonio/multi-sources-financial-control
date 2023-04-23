@@ -270,6 +270,6 @@ def test_should_partial_update_user(client, user):
     assert response.status_code == HTTP_200_OK
 
     user.refresh_from_db()
-    assert response.json()["username"] == user.username
+    assert response.json()["username"] == user.username == "murilo2"
     assert old_cpf == user.secrets.cpf
     assert old_cei_password == user.secrets.cei_password

@@ -5,10 +5,13 @@ from django.conf import settings
 from rest_framework.mixins import CreateModelMixin, RetrieveModelMixin, UpdateModelMixin
 from rest_framework.response import Response
 from rest_framework.request import Request
+from rest_framework.status import HTTP_200_OK
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet
 
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 import requests
 
@@ -23,7 +26,22 @@ class UserViewSet(
     UpdateModelMixin,
 ):
     serializer_class = UserSerializer
-    queryset = CustomUser.objects.all()
+    queryset = CustomUser.objects.select_related("secrets").all()
+
+
+class TokenWUserObtainPairView(TokenObtainPairView):
+    def post(self, request: Request, *_, **__) -> Response:
+        serializer = self.get_serializer(data=request.data)
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError as e:
+            raise InvalidToken(e.args[0])
+
+        return Response(
+            {"user": UserSerializer(serializer.user).data, **serializer.validated_data},
+            status=HTTP_200_OK,
+        )
 
 
 @extend_schema_view(

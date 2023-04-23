@@ -246,18 +246,10 @@ export const RevenuesReports = () => {
             return `${month}/${year}`;
           }
 
-          const isPastRevenue = salaries[0]?.created_at
-            ? new Date(salaries[0].created_at).getMonth() !==
-              new Date().getMonth
-            : false;
           let result = salaries
             .slice(0)
             .reverse()
             .map((d, index) => {
-              if (isPastRevenue) {
-                console.log(d, cnpjExpenses[index - 2]);
-              }
-
               return {
                 CNPJ: cnpjExpenses[index].total * -1,
                 salary: d.value,
