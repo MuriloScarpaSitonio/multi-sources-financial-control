@@ -56,12 +56,7 @@ const schema = yup.object().shape({
     .typeError("Data inválida"),
 });
 
-export const RevenuesForm = ({
-  initialData,
-  handleClose,
-  showSuccessFeedbackForm,
-  reloadTable,
-}) => {
+export const RevenuesForm = ({ initialData, handleClose, reloadTable }) => {
   const [isLoaded, setIsLoaded] = useState(true);
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
@@ -86,7 +81,11 @@ export const RevenuesForm = ({
         created_at: data.created_at.toLocaleDateString("fr-CA"),
       })
         .then(() => {
-          showSuccessFeedbackForm(`Receita ${actionVerb} com sucesso!`);
+          setAlertInfos({
+            message: `Receita ${actionVerb} com sucesso!`,
+            severity: "success",
+          });
+          setShowAlert(true);
           reloadTable();
           handleClose();
         })

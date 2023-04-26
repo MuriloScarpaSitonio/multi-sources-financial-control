@@ -36,13 +36,7 @@ import {
 import PlusOneIcon from "@material-ui/icons/PlusOne";
 import Tooltip from "@material-ui/core/Tooltip";
 
-const ExpenseCreateEditDialog = ({
-  data,
-  open,
-  onClose,
-  showSuccessFeedbackForm,
-  reloadTable,
-}) => {
+const ExpenseCreateEditDialog = ({ data, open, onClose, reloadTable }) => {
   return (
     <Dialog
       open={open}
@@ -58,7 +52,6 @@ const ExpenseCreateEditDialog = ({
         <ExpenseForm
           initialData={data}
           handleClose={onClose}
-          showSuccessFeedbackForm={showSuccessFeedbackForm}
           reloadTable={reloadTable}
         />
       </DialogContent>
@@ -66,13 +59,7 @@ const ExpenseCreateEditDialog = ({
   );
 };
 
-const ExpenseDeleteDialog = ({
-  id,
-  open,
-  onClose,
-  showSuccessFeedbackForm,
-  reloadTable,
-}) => {
+const ExpenseDeleteDialog = ({ id, open, onClose, reloadTable }) => {
   const [isLoaded, setIsLoaded] = useState(true);
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
@@ -82,7 +69,11 @@ const ExpenseDeleteDialog = ({
     api
       .delete()
       .then(() => {
-        showSuccessFeedbackForm("Despesa deletada com sucesso!");
+        setAlertInfos({
+          message: "Despesa deletada com sucesso!",
+          severity: "success",
+        });
+        setShowAlert(true);
         reloadTable();
         onClose();
       })
@@ -136,7 +127,7 @@ export const ExpensesTable = () => {
     description: "",
     is_fixed: "",
   });
-  const [expenseIdToDelete, setExpenseIdToDelete] = useState({});
+  const [expenseIdToDelete, setExpenseIdToDelete] = useState(0);
 
   const [expenseEditData, setExpenseEditData] = useState({});
   const [editCreateExpenseDialogIsOpened, setEditCreateExpenseDialogIsOpened] =
@@ -144,9 +135,6 @@ export const ExpensesTable = () => {
 
   const [deleteExpenseDialogIsOpened, setDeleteExpenseDialogIsOpened] =
     useState(false);
-
-  const [showAlert, setShowAlert] = useState(false);
-  const [alertInfos, setAlertInfos] = useState({});
 
   const getAdjustedFilters = () => {
     let multipleChoiceFilters = {
@@ -175,21 +163,8 @@ export const ExpensesTable = () => {
   let api = new ExpensesApi();
   const [data, isLoaded] = api.query(getAdjustedFilters());
 
-  const reload = () => {
-    if (
-      filters.page === 1 &&
-      filters.ordering === "" &&
-      filters.description === "" &&
-      filters.is_fixed === ""
-    )
-      setFilters({ page: 1, ordering: "", description: " ", is_fixed: "" });
-    else setFilters({ page: 1, ordering: "", description: "", is_fixed: "" });
-  };
-
-  const showSuccessFeedbackForm = (message) => {
-    setAlertInfos({ message: message, severity: "success" });
-    setShowAlert(true);
-  };
+  const reload = () =>
+    setFilters({ ...filters, description: filters.description + " " });
 
   const handleDelete = (id) => {
     setExpenseIdToDelete(id);
@@ -488,21 +463,13 @@ export const ExpensesTable = () => {
           setEditCreateExpenseDialogIsOpened(false);
           setExpenseEditData({});
         }}
-        showSuccessFeedbackForm={showSuccessFeedbackForm}
         reloadTable={reload}
       />
       <ExpenseDeleteDialog
         id={expenseIdToDelete}
         open={deleteExpenseDialogIsOpened}
         onClose={() => setDeleteExpenseDialogIsOpened(false)}
-        showSuccessFeedbackForm={showSuccessFeedbackForm}
         reloadTable={reload}
-      />
-      <FormFeedback
-        open={showAlert}
-        onClose={() => setShowAlert(false)}
-        message={alertInfos.message}
-        severity={alertInfos.severity}
       />
     </Container>
   );

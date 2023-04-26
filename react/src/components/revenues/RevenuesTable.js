@@ -24,19 +24,12 @@ import DeleteIcon from "@material-ui/icons/Delete";
 import EditIcon from "@material-ui/icons/Edit";
 import PlusOneIcon from "@material-ui/icons/PlusOne";
 
-
 import { RevenuesForm } from "../../forms/RevenuesForm";
 import { FormFeedback } from "../FormFeedback";
 import { RevenuesApi } from "../../api";
 import { Loader } from "../Loaders";
 
-const RevenueCreateEditDialog = ({
-  data,
-  open,
-  onClose,
-  showSuccessFeedbackForm,
-  reloadTable,
-}) => {
+const RevenueCreateEditDialog = ({ data, open, onClose, reloadTable }) => {
   return (
     <Dialog
       open={open}
@@ -52,7 +45,6 @@ const RevenueCreateEditDialog = ({
         <RevenuesForm
           initialData={data}
           handleClose={onClose}
-          showSuccessFeedbackForm={showSuccessFeedbackForm}
           reloadTable={reloadTable}
         />
       </DialogContent>
@@ -60,13 +52,7 @@ const RevenueCreateEditDialog = ({
   );
 };
 
-const RevenueDeleteDialog = ({
-  id,
-  open,
-  onClose,
-  showSuccessFeedbackForm,
-  reloadTable,
-}) => {
+const RevenueDeleteDialog = ({ id, open, onClose, reloadTable }) => {
   const [isLoaded, setIsLoaded] = useState(true);
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
@@ -76,7 +62,11 @@ const RevenueDeleteDialog = ({
     api
       .delete()
       .then(() => {
-        showSuccessFeedbackForm("Receita deletada com sucesso!");
+        setAlertInfos({
+          message: "Receita deletada com sucesso!",
+          severity: "success",
+        });
+        setShowAlert(true);
         reloadTable();
         onClose();
       })
@@ -138,9 +128,6 @@ export const RevenuesTable = () => {
   const [deleteRevenueDialogIsOpened, setDeleteRevenueDialogIsOpened] =
     useState(false);
 
-  const [showAlert, setShowAlert] = useState(false);
-  const [alertInfos, setAlertInfos] = useState({});
-
   const getAdjustedFilters = () => {
     return new URLSearchParams({
       page: filters.page,
@@ -156,20 +143,8 @@ export const RevenuesTable = () => {
   let api = new RevenuesApi();
   const [data, isLoaded] = api.query(getAdjustedFilters());
 
-  const reload = () => {
-    if (
-      filters.page === 1 &&
-      filters.ordering === "" &&
-      filters.description === ""
-    )
-      setFilters({ page: 1, ordering: " ", description: "" });
-    else setFilters({ page: 1, ordering: "", description: "" });
-  };
-
-  const showSuccessFeedbackForm = (message) => {
-    setAlertInfos({ message: message, severity: "success" });
-    setShowAlert(true);
-  };
+  const reload = () =>
+    setFilters({ ...filters, description: filters.description + " " });
 
   const handleDelete = (id) => {
     setRevenueIdToDelete(id);
@@ -395,21 +370,13 @@ export const RevenuesTable = () => {
           setEditCreateRevenueDialogIsOpened(false);
           setRevenueEditData({});
         }}
-        showSuccessFeedbackForm={showSuccessFeedbackForm}
         reloadTable={reload}
       />
       <RevenueDeleteDialog
         id={revenueIdToDelete}
         open={deleteRevenueDialogIsOpened}
         onClose={() => setDeleteRevenueDialogIsOpened(false)}
-        showSuccessFeedbackForm={showSuccessFeedbackForm}
         reloadTable={reload}
-      />
-      <FormFeedback
-        open={showAlert}
-        onClose={() => setShowAlert(false)}
-        message={alertInfos.message}
-        severity={alertInfos.severity}
       />
     </Container>
   );

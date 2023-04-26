@@ -120,7 +120,7 @@ export class AssetsApi extends Api {
         post: true,
         put: true,
         patch: false,
-        delete: false,
+        delete: true,
       },
       code
     );

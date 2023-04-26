@@ -38,7 +38,6 @@ const PassiveIncomeCreateEditDialog = ({
   data,
   open,
   onClose,
-  showSuccessFeedbackForm,
   reloadTable,
 }) => {
   return (
@@ -56,7 +55,6 @@ const PassiveIncomeCreateEditDialog = ({
         <PassiveIncomeForm
           initialData={data}
           handleClose={onClose}
-          showSuccessFeedbackForm={showSuccessFeedbackForm}
           reloadTable={reloadTable}
         />
       </DialogContent>
@@ -64,13 +62,7 @@ const PassiveIncomeCreateEditDialog = ({
   );
 };
 
-const PassiveIncomeDeleteDialog = ({
-  id,
-  open,
-  onClose,
-  showSuccessFeedbackForm,
-  reloadTable,
-}) => {
+const PassiveIncomeDeleteDialog = ({ id, open, onClose, reloadTable }) => {
   const [isLoaded, setIsLoaded] = useState(true);
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
@@ -80,7 +72,11 @@ const PassiveIncomeDeleteDialog = ({
     api
       .delete()
       .then(() => {
-        showSuccessFeedbackForm("rendimento passivo deletado com sucesso!");
+        setAlertInfos({
+          message: "Rendimento deletado com sucesso!",
+          severity: "success",
+        });
+        setShowAlert(true);
         reloadTable();
         onClose();
       })
@@ -144,9 +140,6 @@ export const PassiveIncomesTable = () => {
     setDeletePassiveIncomeDialogIsOpened,
   ] = useState(false);
   const [passiveIncomeIdToDelete, setPassiveIncomeIdToDelete] = useState(null);
-
-  const [showAlert, setShowAlert] = useState(false);
-  const [alertInfos, setAlertInfos] = useState({});
 
   function getAdjustedFilters() {
     let multipleChoiceFilters = {
@@ -427,20 +420,8 @@ export const PassiveIncomesTable = () => {
     setDeletePassiveIncomeDialogIsOpened(true);
   };
 
-  const showSuccessFeedbackForm = (message) => {
-    setAlertInfos({ message: message, severity: "success" });
-    setShowAlert(true);
-  };
-
-  const reload = () => {
-    if (
-      filters.page === 1 &&
-      filters.ordering === "" &&
-      filters.asset_code === ""
-    )
-      setFilters({ page: 1, ordering: " ", asset_code: "" });
-    else setFilters({ page: 1, ordering: "", asset_code: "" });
-  };
+  const reload = () =>
+    setFilters({ ...filters, asset_code: filters.asset_code + " " });
 
   return (
     <Container
@@ -456,7 +437,6 @@ export const PassiveIncomesTable = () => {
           setEditCreatePassiveIncomeDialogIsOpened(false);
           setPassiveIncomeEditData({});
         }}
-        showSuccessFeedbackForm={showSuccessFeedbackForm}
         reloadTable={reload}
       />
 
@@ -464,15 +444,7 @@ export const PassiveIncomesTable = () => {
         id={passiveIncomeIdToDelete}
         open={deletePassiveIncomeDialogIsOpened}
         onClose={() => setDeletePassiveIncomeDialogIsOpened(false)}
-        showSuccessFeedbackForm={showSuccessFeedbackForm}
         reloadTable={reload}
-      />
-
-      <FormFeedback
-        open={showAlert}
-        onClose={() => setShowAlert(false)}
-        message={alertInfos.message}
-        severity={alertInfos.severity}
       />
     </Container>
   );

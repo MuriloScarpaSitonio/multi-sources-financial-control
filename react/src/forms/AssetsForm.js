@@ -7,7 +7,10 @@ import * as yup from "yup";
 import Autocomplete from "@material-ui/lab/Autocomplete";
 import Button from "@material-ui/core/Button";
 import CircularProgress from "@material-ui/core/CircularProgress";
+import Dialog from "@material-ui/core/Dialog";
 import DialogActions from "@material-ui/core/DialogActions";
+import DialogContent from "@material-ui/core/DialogContent";
+import DialogTitle from "@material-ui/core/DialogTitle";
 import FormControl from "@material-ui/core/FormControl";
 import FormGroup from "@material-ui/core/FormGroup";
 import FormHelperText from "@material-ui/core/FormHelperText";
@@ -79,10 +82,72 @@ const schema = yup.object().shape({
     .nullable(),
 });
 
-export const AssetsForm = ({ initialData, handleClose, showFeedbackForm }) => {
+const AssetDeleteDialog = ({ code, open, onClose, onSuccess }) => {
   const [isLoaded, setIsLoaded] = useState(true);
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
+
+  const onDelete = () => {
+    setIsLoaded(false);
+    new AssetsApi(code)
+      .delete()
+      .then(() => {
+        setAlertInfos({
+          message: "Ativo deletado com sucesso!",
+          severity: "success",
+        });
+        setShowAlert(true);
+        onSuccess();
+        onClose();
+      })
+      .catch((error) => {
+        setAlertInfos({
+          message: JSON.stringify(error.response.data),
+          severity: "error",
+        });
+        setShowAlert(true);
+      })
+      .finally(() => setIsLoaded(true));
+  };
+  return (
+    <>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        aria-labelledby="expense-delete-form-dialog-title"
+      >
+        <DialogTitle id="expense-delete-form-dialog-title">
+          {`Tem certeza que deseja deletar o ativo ${code}?`}
+        </DialogTitle>
+        <DialogContent>
+          <b>
+            ATENÇÃO: TODAS AS TRANSFERÊNCIAS E RENDIMENTOS TAMBÉM SERÃO
+            EXCLUÍDOS!
+          </b>
+          <DialogActions>
+            <Button onClick={onClose}>Cancelar</Button>
+            <Button color="secondary" onClick={onDelete}>
+              {!isLoaded ? <CircularProgress size={24} /> : "Deletar"}
+            </Button>
+          </DialogActions>
+        </DialogContent>
+      </Dialog>
+      <FormFeedback
+        open={showAlert}
+        onClose={() => setShowAlert(false)}
+        message={alertInfos.message}
+        severity={alertInfos.severity}
+      />
+    </>
+  );
+};
+
+export const AssetsForm = ({ initialData, onClose, onSuccess }) => {
+  const [isLoaded, setIsLoaded] = useState(true);
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertInfos, setAlertInfos] = useState({});
+
+  const [deleteDialogIsOpened, setDeleteDialogIsOpened] = useState(false);
 
   const {
     control,
@@ -94,21 +159,26 @@ export const AssetsForm = ({ initialData, handleClose, showFeedbackForm }) => {
   });
 
   const isCreateForm = Object.keys(initialData).length === 0;
+
   const onSubmit = (data) => {
-    let api = new AssetsApi(initialData.code);
     const method = isCreateForm ? "post" : "put";
     const actionVerb = isCreateForm ? "criado" : "editado";
     if (isDirty) {
       setIsLoaded(false);
-      api[method]({
-        ...data,
-        objective: data.objective.value,
-        sector: data.sector.value,
-        type: data.type.value,
-      })
+      new AssetsApi(initialData.code)
+        [method]({
+          ...data,
+          objective: data.objective.value,
+          sector: data.sector.value,
+          type: data.type.value,
+        })
         .then(() => {
-          showFeedbackForm(`Ativo ${actionVerb} com sucesso!`);
-          handleClose();
+          setAlertInfos({
+            message: `Ativo ${actionVerb} com sucesso!`,
+            severity: "success",
+          });
+          setShowAlert(true);
+          onSuccess();
         })
         .catch((error) => {
           setAlertInfos({
@@ -117,9 +187,7 @@ export const AssetsForm = ({ initialData, handleClose, showFeedbackForm }) => {
           });
           setShowAlert(true);
         })
-        .finally(() => {
-          setIsLoaded(true);
-        });
+        .finally(() => setIsLoaded(true));
       return;
     }
     setAlertInfos({
@@ -128,6 +196,7 @@ export const AssetsForm = ({ initialData, handleClose, showFeedbackForm }) => {
     });
     setShowAlert(true);
   };
+
   return (
     <>
       <form style={{ marginLeft: "10px", marginTop: "5px" }}>
@@ -305,12 +374,10 @@ export const AssetsForm = ({ initialData, handleClose, showFeedbackForm }) => {
         </FormGroup>
         <DialogActions>
           {isCreateForm ? (
-            <Button onClick={handleClose}>Cancelar</Button>
+            <Button onClick={onClose}>Cancelar</Button>
           ) : (
             <Button
-              onClick={() =>
-                showFeedbackForm("Recurso em desenvolvimento", "warning")
-              }
+              onClick={() => setDeleteDialogIsOpened(true)}
               color="secondary"
             >
               Deletar
@@ -327,6 +394,12 @@ export const AssetsForm = ({ initialData, handleClose, showFeedbackForm }) => {
           </Button>
         </DialogActions>
       </form>
+      <AssetDeleteDialog
+        code={initialData.code}
+        open={deleteDialogIsOpened}
+        onClose={() => setDeleteDialogIsOpened(false)}
+        onSuccess={onSuccess}
+      />
       <FormFeedback
         open={showAlert}
         onClose={() => setShowAlert(false)}

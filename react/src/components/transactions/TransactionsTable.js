@@ -31,13 +31,7 @@ import { getChoiceByLabel } from "../../helpers";
 import { AssetsTypesMapping, TransactionsActionsMapping } from "../../consts";
 import { TransactionForm } from "../../forms/TransactionForm";
 
-const TransactionCreateEditDialog = ({
-  data,
-  open,
-  onClose,
-  showSuccessFeedbackForm,
-  reloadTable,
-}) => {
+const TransactionCreateEditDialog = ({ data, open, onClose, reloadTable }) => {
   return (
     <Dialog
       open={open}
@@ -53,7 +47,6 @@ const TransactionCreateEditDialog = ({
         <TransactionForm
           initialData={data}
           handleClose={onClose}
-          showSuccessFeedbackForm={showSuccessFeedbackForm}
           reloadTable={reloadTable}
         />
       </DialogContent>
@@ -61,13 +54,7 @@ const TransactionCreateEditDialog = ({
   );
 };
 
-const TransactionDeleteDialog = ({
-  id,
-  open,
-  onClose,
-  showSuccessFeedbackForm,
-  reloadTable,
-}) => {
+const TransactionDeleteDialog = ({ id, open, onClose, reloadTable }) => {
   const [isLoaded, setIsLoaded] = useState(true);
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
@@ -77,7 +64,11 @@ const TransactionDeleteDialog = ({
     api
       .delete()
       .then(() => {
-        showSuccessFeedbackForm("Transação deletada com sucesso!");
+        setAlertInfos({
+          message: "Transação deletada com sucesso!",
+          severity: "success",
+        });
+        setShowAlert(true);
         reloadTable();
         onClose();
       })
@@ -139,9 +130,6 @@ export const TransactionsTable = () => {
   const [deleteTransactionDialogIsOpened, setDeleteTransactionDialogIsOpened] =
     useState(false);
   const [transactionIdToDelete, setTransactionIdToDelete] = useState(null);
-
-  const [showAlert, setShowAlert] = useState(false);
-  const [alertInfos, setAlertInfos] = useState({});
 
   function getAdjustedFilters() {
     let multipleChoiceFilters = {
@@ -444,20 +432,8 @@ export const TransactionsTable = () => {
     setDeleteTransactionDialogIsOpened(true);
   };
 
-  const showSuccessFeedbackForm = (message) => {
-    setAlertInfos({ message: message, severity: "success" });
-    setShowAlert(true);
-  };
-
-  const reload = () => {
-    if (
-      filters.page === 1 &&
-      filters.ordering === "" &&
-      filters.asset_code === ""
-    )
-      setFilters({ page: 1, ordering: " ", asset_code: "" });
-    else setFilters({ page: 1, ordering: "", asset_code: "" });
-  };
+  const reload = () =>
+    setFilters({ ...filters, asset_code: filters.asset_code + " " });
 
   return (
     <Container
@@ -473,7 +449,6 @@ export const TransactionsTable = () => {
           setEditCreateTransactionDialogIsOpened(false);
           setTransactionEditData({});
         }}
-        showSuccessFeedbackForm={showSuccessFeedbackForm}
         reloadTable={reload}
       />
 
@@ -481,15 +456,7 @@ export const TransactionsTable = () => {
         id={transactionIdToDelete}
         open={deleteTransactionDialogIsOpened}
         onClose={() => setDeleteTransactionDialogIsOpened(false)}
-        showSuccessFeedbackForm={showSuccessFeedbackForm}
         reloadTable={reload}
-      />
-
-      <FormFeedback
-        open={showAlert}
-        onClose={() => setShowAlert(false)}
-        message={alertInfos.message}
-        severity={alertInfos.severity}
       />
     </Container>
   );

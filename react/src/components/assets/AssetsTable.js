@@ -20,7 +20,6 @@ import PlusOneIcon from "@material-ui/icons/PlusOne";
 import { AssetsApi, PassiveIncomesApi, TransactionsApi } from "../../api";
 import { SimulateTransactionForm } from "../../forms/SimulateTransactionForm";
 import { AssetsForm } from "../../forms/AssetsForm";
-import { FormFeedback } from "../FormFeedback";
 import { Loader } from "../Loaders";
 import {
   AssetsObjectivesMapping,
@@ -52,7 +51,8 @@ const SimulateTransactionDialog = ({
     </Dialog>
   );
 };
-const AssetCreateDialog = ({ open, onClose, showFeedbackForm }) => {
+
+const AssetCreateDialog = ({ open, onClose, onSuccess }) => {
   return (
     <Dialog
       open={open}
@@ -61,15 +61,12 @@ const AssetCreateDialog = ({ open, onClose, showFeedbackForm }) => {
     >
       <DialogTitle id="asset-form-dialog-title">Criar ativo</DialogTitle>
       <DialogContent>
-        <AssetsForm
-          initialData={{}}
-          handleClose={onClose}
-          showFeedbackForm={showFeedbackForm}
-        />
+        <AssetsForm initialData={{}} onSuccess={onSuccess} />
       </DialogContent>
     </Dialog>
   );
 };
+
 const TransactionsTable = ({ code }) => {
   const [pageSize, setPageSize] = useState(5);
   const [page, setPage] = useState(1);
@@ -279,13 +276,6 @@ export const AssetsTable = () => {
 
   const [data, isLoaded] = new AssetsApi().query(getAdjustedFilters());
   const [tabValue, setTabValue] = useState(0);
-  const [showAlert, setShowAlert] = useState(false);
-  const [alertInfos, setAlertInfos] = useState({});
-
-  const showFeedbackForm = (message, severity = "success") => {
-    setAlertInfos({ message, severity });
-    setShowAlert(true);
-  };
 
   function getAdjustedFilters() {
     let multipleChoiceFilters = {
@@ -307,6 +297,8 @@ export const AssetsTable = () => {
 
     return _filters.toString();
   }
+
+  const reload = () => setFilters({ ...filters, code: filters.code + " " });
 
   const options = {
     filterType: "multiselect",
@@ -376,7 +368,6 @@ export const AssetsTable = () => {
     expandableRowsOnClick: true,
     renderExpandableRow: (rowData) => {
       const colSpan = rowData.length + 1;
-      const [transactions, incomes] = rowData.slice(-2);
 
       const [
         id,
@@ -423,8 +414,7 @@ export const AssetsTable = () => {
                         ? avg_price.slice(0, 3)
                         : avg_price.slice(0, 2),
                     }}
-                    handleClose={() => {}}
-                    showFeedbackForm={showFeedbackForm}
+                    onSuccess={reload}
                   />
                 </Paper>
               </TableCell>
@@ -681,16 +671,11 @@ export const AssetsTable = () => {
       />
       <AssetCreateDialog
         open={createAssetDialogIsOpened}
-        onClose={() => {
+        onClose={() => setCreateAssetDialogIsOpened(false)}
+        onSuccess={() => {
           setCreateAssetDialogIsOpened(false);
+          reload();
         }}
-        showFeedbackForm={showFeedbackForm}
-      />
-      <FormFeedback
-        open={showAlert}
-        onClose={() => setShowAlert(false)}
-        message={alertInfos.message}
-        severity={alertInfos.severity}
       />
     </Container>
   );

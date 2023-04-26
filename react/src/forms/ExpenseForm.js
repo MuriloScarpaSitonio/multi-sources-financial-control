@@ -99,12 +99,7 @@ const schema = yup.object().shape({
   }),
 });
 
-export const ExpenseForm = ({
-  initialData,
-  handleClose,
-  showSuccessFeedbackForm,
-  reloadTable,
-}) => {
+export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
   const [isLoaded, setIsLoaded] = useState(true);
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
@@ -131,7 +126,11 @@ export const ExpenseForm = ({
         source: data.source.value,
       })
         .then(() => {
-          showSuccessFeedbackForm(`Despesa ${actionVerb} com sucesso!`);
+          setAlertInfos({
+            message: `Despesa ${actionVerb} com sucesso!`,
+            severity: "success",
+          });
+          setShowAlert(true);
           reloadTable();
           handleClose();
         })

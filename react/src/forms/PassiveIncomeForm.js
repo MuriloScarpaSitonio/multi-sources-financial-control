@@ -97,7 +97,6 @@ const schema = yup.object().shape({
 export const PassiveIncomeForm = ({
   initialData,
   handleClose,
-  showSuccessFeedbackForm,
   reloadTable,
 }) => {
   const [isLoaded, setIsLoaded] = useState(true);
@@ -142,9 +141,11 @@ export const PassiveIncomeForm = ({
           operation_date: data.operation_date.toLocaleDateString("pt-br"),
         })
         .then(() => {
-          showSuccessFeedbackForm(
-            `Rendimento passivo ${actionVerb} com sucesso!`
-          );
+          setAlertInfos({
+            message: `Rendimento ${actionVerb} com sucesso!`,
+            severity: "success",
+          });
+          setShowAlert(true);
           reloadTable();
           handleClose();
         })

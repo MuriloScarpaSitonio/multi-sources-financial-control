@@ -11,7 +11,12 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
 from rest_framework.filters import OrderingFilter
-from rest_framework.mixins import CreateModelMixin, ListModelMixin, UpdateModelMixin
+from rest_framework.mixins import (
+    CreateModelMixin,
+    DestroyModelMixin,
+    ListModelMixin,
+    UpdateModelMixin,
+)
 from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
@@ -47,25 +52,26 @@ if TYPE_CHECKING:
     from rest_framework.utils.serializer_helpers import ReturnList
 
 
-class AssetViewSet(GenericViewSet, ListModelMixin, CreateModelMixin, UpdateModelMixin):
+class AssetViewSet(
+    GenericViewSet, ListModelMixin, CreateModelMixin, UpdateModelMixin, DestroyModelMixin
+):
     lookup_field = "code"
     filter_backends = (filters.CQRSDjangoFilterBackend, OrderingFilter)
     ordering_fields = ("code", "type", "total_invested", "roi", "roi_percentage")
 
+    def _is_write_action(self) -> bool:
+        return self.action in ("create", "update", "fetch_current_prices", "destroy")
+
     def get_queryset(self) -> Union[AssetReadModelQuerySet[AssetReadModel], AssetQuerySet[Asset]]:
         if self.request.user.is_authenticated:
-            if self.action in ("create", "update", "fetch_current_prices"):
+            if self._is_write_action():
                 return Asset.objects.filter(user_id=self.request.user.id)
             qs = AssetReadModel.objects.filter(user_id=self.request.user.id)
             return qs.opened().order_by("-total_invested") if self.action == "list" else qs
         return AssetReadModel.objects.none()  # drf-spectacular
 
     def get_filterset_class(self) -> FilterSet:
-        return (
-            filters.AssetFilterSet
-            if self.action in ("create", "update", "fetch_current_prices")
-            else filters.AssetReadFilterSet
-        )
+        return filters.AssetFilterSet if self._is_write_action() else filters.AssetReadFilterSet
 
     def get_serializer_class(self):
         return (
@@ -101,6 +107,10 @@ class AssetViewSet(GenericViewSet, ListModelMixin, CreateModelMixin, UpdateModel
         super().perform_update(serializer)
         with DjangoUnitOfWork(asset_pk=serializer.instance.pk) as uow:
             messagebus.handle(message=events.AssetUpdated(asset_pk=serializer.instance.pk), uow=uow)
+
+    def perform_destroy(self, instance: Asset) -> None:
+        AssetReadModel.objects.filter(write_model_pk=instance.pk).delete()
+        super().perform_destroy(instance)
 
     @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:
@@ -238,7 +248,7 @@ class AssetTransactionViewSet(GenericViewSet):
                 asset=asset,
                 action=choices.TransactionActions.buy,
                 currency=asset.currency_from_transactions,
-                **kwargs
+                **kwargs,
             )
 
             # clear cached properties

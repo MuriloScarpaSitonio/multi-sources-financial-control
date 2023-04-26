@@ -6,6 +6,7 @@ import pytest
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
+    HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
@@ -44,7 +45,7 @@ from variable_income_assets.choices import (
     TransactionActions,
     TransactionCurrencies,
 )
-from variable_income_assets.models import Asset, AssetReadModel, Transaction
+from variable_income_assets.models import Asset, AssetReadModel, PassiveIncome, Transaction
 
 
 pytestmark = pytest.mark.django_db
@@ -922,4 +923,22 @@ def test__codes_and_currencies_endpoint(client):
     assert response.status_code == 200
     assert response.json() == list(
         AssetReadModel.objects.values("code", "currency").order_by("code")
+    )
+
+
+@pytest.mark.usefixtures("transactions", "passive_incomes", "sync_assets_read_model")
+def test__delete(client, stock_asset):
+    # GIVEN
+
+    # WHEN
+    response = client.delete(f"{URL}/{stock_asset.code}")
+
+    # THEN
+    assert response.status_code == HTTP_204_NO_CONTENT
+    assert (
+        Asset.objects.count()
+        == Transaction.objects.count()
+        == PassiveIncome.objects.count()
+        == AssetReadModel.objects.count()
+        == 0
     )
