@@ -24,18 +24,29 @@ export function getDateDiffString(dateFrom, dateTo) {
   let diff = dateTo - dateFrom;
 
   if (diff < MS_PER_MINUTE) {
-    result = `${dateTo.getSeconds() - dateFrom.getSeconds()} segundos`;
+    if (dateTo.getMinutes() === dateFrom.getMinutes()) {
+      result = `${dateTo.getSeconds() - dateFrom.getSeconds()} segundos`;
+    } else {
+      result = `${dateTo.getSeconds() - dateFrom.getSeconds() + 60} segundos`;
+    }
   } else if (MS_PER_MINUTE <= diff && diff < MS_PER_HOUR) {
-    result = `${dateTo.getMinutes() - dateFrom.getMinutes()} minutos`;
+    if (dateTo.getHours() === dateFrom.getHours()) {
+      result = `${dateTo.getMinutes() - dateFrom.getMinutes()} minutos`;
+    } else {
+      result = `${dateTo.getMinutes() - dateFrom.getMinutes() + 60} minutos`;
+    }
   } else if (MS_PER_HOUR <= diff && diff < MS_PER_DAY) {
-    result = `${dateTo.getHours() - dateFrom.getHours()} horas`;
+    if (dateTo.getDate() === dateFrom.getDate()) {
+      //same day
+      result = `${dateTo.getHours() - dateFrom.getHours()} horas`;
+    } else {
+      result = `${dateTo.getHours() - dateFrom.getHours() + 24} horas`;
+    }
   } else if (MS_PER_DAY <= diff && diff < MS_PER_MONTH) {
     if (dateFrom.getMonth() === dateTo.getMonth()) {
       result = `${dateTo.getDate() - dateFrom.getDate()} dias`;
     } else {
-      result = `${
-        dateTo.getDate() + (DAYS_AT_MONTH - dateFrom.getDate())
-      } dias`;
+      result = `${dateTo.getDate() - dateFrom.getDate() + DAYS_AT_MONTH} dias`;
     }
   } else {
     result = `${
