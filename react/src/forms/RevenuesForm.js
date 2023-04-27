@@ -152,7 +152,12 @@ export const RevenuesForm = ({ initialData, handleClose, reloadTable }) => {
             <Controller
               name="created_at"
               control={control}
-              defaultValue={initialData.created_at || new Date()}
+              defaultValue={
+                initialData.created_at
+                  ? // make sure to include hours and minutes to adjust timezone
+                    new Date(initialData.created_at + "T00:00")
+                  : new Date()
+              }
               render={({ field: { onChange, value } }) => (
                 <KeyboardDatePicker
                   onChange={onChange}

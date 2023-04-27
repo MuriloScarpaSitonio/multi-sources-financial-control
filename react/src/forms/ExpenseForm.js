@@ -197,7 +197,12 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
             <Controller
               name="created_at"
               control={control}
-              defaultValue={initialData.date || new Date()}
+              defaultValue={
+                initialData.date
+                  ? new Date(initialData.date + "T00:00") // make sure to include hours and minutes
+                  : // to adjust timezone
+                    new Date()
+              }
               render={({ field: { onChange, value } }) => (
                 <KeyboardDatePicker
                   onChange={onChange}

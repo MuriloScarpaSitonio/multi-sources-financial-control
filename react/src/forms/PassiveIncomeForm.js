@@ -323,7 +323,12 @@ export const PassiveIncomeForm = ({
             <Controller
               name="operation_date"
               control={control}
-              defaultValue={initialData.operation_date || new Date()}
+              defaultValue={
+                initialData.operation_date
+                  ? // make sure to include hours and minutes to adjust timezone
+                    new Date(initialData.created_at + "T00:00")
+                  : new Date()
+              }
               render={({ field: { onChange, value } }) => (
                 <KeyboardDatePicker
                   onChange={onChange}
