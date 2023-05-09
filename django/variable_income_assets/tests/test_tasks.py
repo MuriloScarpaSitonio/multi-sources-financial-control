@@ -17,6 +17,7 @@ from authentication.tests.conftest import (
 )
 from config.settings.base import BASE_API_URL
 
+from .shared import convert_and_quantitize
 from ..choices import (
     AssetObjectives,
     AssetSectors,
@@ -169,7 +170,13 @@ def test_should_success_fetch_current_assets_prices_celery_task(
     for code, price in fetch_current_assets_prices_response.items():
         asset = Asset.objects.get(code=code)
         assert float(asset.current_price) == price
-        assert float(AssetReadModel.objects.get(write_model_pk=asset.pk).current_price) == price
+        a = AssetReadModel.objects.get(write_model_pk=asset.pk)
+        assert float(a.current_price) == price
+        assert convert_and_quantitize(a.roi) == convert_and_quantitize(asset.get_roi())
+
+        assert convert_and_quantitize(a.roi_percentage) == convert_and_quantitize(
+            asset.get_roi(percentage=True)
+        )
 
 
 def test_sync_kucoin_transactions_should_create_asset_and_transaction(

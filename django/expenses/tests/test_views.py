@@ -7,7 +7,6 @@ from django.db.models import Avg, Q
 from django.utils import timezone
 
 import pytest
-from freezegun import freeze_time
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,

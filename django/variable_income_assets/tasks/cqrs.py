@@ -36,7 +36,11 @@ def upsert_asset_read_model(asset_id: int, is_aggregate_upsert: Optional[bool] =
             },
         )
     elif is_aggregate_upsert is False:
-        asset: Asset = Asset.objects.get(pk=asset_id)
+        asset: Asset = (
+            Asset.objects.annotate_roi()
+            .annotate_roi(percentage=True, annotate_passive_incomes_subquery=False)
+            .get(pk=asset_id)
+        )
 
         AssetReadModel.objects.update_or_create(
             write_model_pk=asset.pk,
@@ -48,6 +52,8 @@ def upsert_asset_read_model(asset_id: int, is_aggregate_upsert: Optional[bool] =
                 "objective": asset.objective,
                 "current_price": asset.current_price or 0,
                 "current_price_updated_at": asset.current_price_updated_at,
+                "roi": asset.roi,
+                "roi_percentage": asset.roi_percentage,
             },
         )
     elif is_aggregate_upsert is None:
