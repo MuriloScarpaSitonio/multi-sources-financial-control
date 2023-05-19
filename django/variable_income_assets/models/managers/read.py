@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Dict
+from typing import Dict, Optional
 
 from django.db import models
 
@@ -12,36 +12,37 @@ from ...choices import AssetsTotalInvestedReportAggregations, TransactionCurrenc
 
 
 class _Expressions:
+    def __init__(
+        self,
+        dollar_conversion_rate: Optional[Decimal] = None,
+    ) -> None:
+        self.dollar_conversion_rate = (
+            models.Value(dollar_conversion_rate)
+            if dollar_conversion_rate is not None
+            else models.Value(dynamic_settings.DOLLAR_CONVERSION_RATE)
+        )
+
     @property
     def current_total_expression(self) -> models.Case:
-        expression = models.F("current_price") * models.F("quantity_balance")
-        return models.Case(
-            models.When(
-                models.Q(currency=TransactionCurrencies.dollar),
-                then=expression * models.Value(dynamic_settings.DOLLAR_CONVERSION_RATE),
-            ),
-            default=expression,
+        return self.get_dollar_conversion_expression(
+            expression=models.F("current_price") * models.F("quantity_balance")
         )
 
     @property
     def normalized_roi_expression(self) -> models.Case:
-        return models.Case(
-            models.When(
-                models.Q(currency=TransactionCurrencies.dollar),
-                then=models.F("roi") * models.Value(dynamic_settings.DOLLAR_CONVERSION_RATE),
-            ),
-            default=models.F("roi"),
-        )
+        return self.get_dollar_conversion_expression(expression=models.F("roi"))
 
     @property
     def normalized_total_invested_expression(self) -> models.Case:
+        return self.get_dollar_conversion_expression(expression=models.F("total_invested"))
+
+    def get_dollar_conversion_expression(self, expression: models.Expression) -> models.Case:
         return models.Case(
             models.When(
                 models.Q(currency=TransactionCurrencies.dollar),
-                then=models.F("total_invested")
-                * models.Value(dynamic_settings.DOLLAR_CONVERSION_RATE),
+                then=expression * self.dollar_conversion_rate,
             ),
-            default=models.F("total_invested"),
+            default=expression,
         )
 
 
@@ -85,14 +86,9 @@ class AssetReadModelQuerySet(models.QuerySet):
         if current:
             qs = self.alias(current_total=self.expressions.current_total_expression)
         else:
-            expression = models.F("avg_price") * models.F("quantity_balance")
             qs = self.alias(
-                current_total=models.Case(
-                    models.When(
-                        models.Q(currency=TransactionCurrencies.dollar),
-                        then=expression * models.Value(dynamic_settings.DOLLAR_CONVERSION_RATE),
-                    ),
-                    default=expression,
+                current_total=self.expressions.get_dollar_conversion_expression(
+                    expression=models.F("avg_price") * models.F("quantity_balance")
                 )
             )
 

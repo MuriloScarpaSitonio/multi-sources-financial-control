@@ -7,7 +7,7 @@ from django.db import transaction as djtransaction
 
 from ..adapters.repository import AssetRepository, TransactionRepository
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from ..domain.events import Event
 
 
@@ -29,11 +29,11 @@ class AbstractUnitOfWork(ABC):
                 yield asset.events.pop(0)
 
     @abstractmethod
-    def commit(self) -> None:
+    def commit(self) -> None:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
-    def rollback(self) -> None:
+    def rollback(self) -> None:  # pragma: no cover
         raise NotImplementedError
 
 

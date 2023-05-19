@@ -12,12 +12,16 @@ from shared.utils import coalesce_sum_expression
 from ...choices import AssetTypes, PassiveIncomeEventTypes
 from .expressions import GenericQuerySetExpressions
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from django.db.models.expressions import CombinedExpression
 
 
 class AssetQuerySet(QuerySet):
     expressions = GenericQuerySetExpressions(prefix="transactions")
+
+    def using_dollar_as(self, dollar_conversion_rate: Decimal) -> AssetQuerySet:
+        self.expressions.dollar_conversion_rate = dollar_conversion_rate
+        return self
 
     @staticmethod
     def _get_passive_incomes_subquery() -> PassiveIncomeQuerySet:
@@ -35,7 +39,7 @@ class AssetQuerySet(QuerySet):
         return self.alias(transactions_count=Count("transactions"))
 
     def _annotate_quantity_balance(self) -> AssetQuerySet:
-        return self.annotate(quantity_balance=self.expressions.quantity_balance).order_by()
+        return self.annotate(quantity_balance=self.expressions.get_quantity_balance()).order_by()
 
     def opened(self) -> AssetQuerySet:
         return (
@@ -71,7 +75,7 @@ class AssetQuerySet(QuerySet):
         field_name = "roi"
 
         if percentage:
-            roi_expression /= self.expressions.total_bought
+            roi_expression /= self.expressions.get_total_bought()
             roi_expression *= Decimal("100.0")
             field_name = "roi_percentage"
 
@@ -106,7 +110,7 @@ class AssetQuerySet(QuerySet):
         )
 
     def annotate_avg_price(self) -> AssetQuerySet:
-        return self.annotate(avg_price=self.expressions.avg_price)
+        return self.annotate(avg_price=self.expressions.get_avg_price())
 
     def annotate_total_invested(self) -> AssetQuerySet:
         return self.annotate(
@@ -124,10 +128,39 @@ class AssetQuerySet(QuerySet):
             .annotate_total_invested()
         )
 
+    def annotate_irpf_infos(self, year: int) -> AssetQuerySet:
+        return self.annotate_currency().annotate(
+            transactions_balance=self.expressions.get_quantity_balance(
+                extra_filters=Q(transactions__created_at__year__lte=year)
+            ),
+            avg_price=self.expressions.get_avg_price(
+                extra_filters=Q(transactions__created_at__year__lte=year)
+            ),
+            total_invested=self.expressions.get_dollar_conversion_expression(
+                F("avg_price") * F("transactions_balance")
+            ),
+        )
+
+    def annotate_credited_incomes_at_given_year(
+        self, year: int, incomes_type: PassiveIncomeEventTypes
+    ) -> AssetQuerySet:
+
+        return self.annotate(
+            credited_incomes_total=Subquery(
+                self._get_passive_incomes_subquery()
+                .filter(operation_date__year=year, type=incomes_type)
+                .values("credited_incomes")
+            )
+        )
+
 
 class TransactionQuerySet(QuerySet):
     expressions = GenericQuerySetExpressions()
     filters = GenericDateFilters(date_field_name="created_at")
+
+    def using_dollar_as(self, dollar_conversion_rate: Decimal) -> TransactionQuerySet:
+        self.expressions.dollar_conversion_rate = dollar_conversion_rate
+        return self
 
     def _get_roi_expression(
         self, incomes: Decimal, percentage: bool
@@ -154,7 +187,9 @@ class TransactionQuerySet(QuerySet):
             incomes=Value(incomes)
         )
 
-        expression = (ROI / self.expressions.total_bought) * Decimal("100.0") if percentage else ROI
+        expression = (
+            (ROI / self.expressions.get_total_bought()) * Decimal("100.0") if percentage else ROI
+        )
         return Coalesce(expression, Decimal())
 
     def bought(self) -> TransactionQuerySet:
@@ -170,16 +205,26 @@ class TransactionQuerySet(QuerySet):
         expression = (
             self.expressions.get_adjusted_avg_price(incomes=Value(incomes))
             if incomes
-            else self.expressions.avg_price
+            else self.expressions.get_avg_price()
         )
         return self.aggregate(avg_price=expression)
 
     def get_current_quantity(self) -> Dict[str, Decimal]:
-        return self.aggregate(quantity=self.expressions.quantity_balance)
+        return self.aggregate(quantity=self.expressions.get_quantity_balance())
 
     def roi(self, incomes: Decimal, percentage: bool = False) -> Dict[str, Decimal]:
         """ROI: Return On Investment"""
         return self.aggregate(ROI=self._get_roi_expression(incomes=incomes, percentage=percentage))
+
+    def annotate_raw_roi(self, normalize: bool = True) -> AssetQuerySet:
+        expression = (F("price") - F("initial_price")) * F("quantity")
+        return self.annotate(
+            roi=(
+                self.expressions.get_dollar_conversion_expression(expression=expression)
+                if normalize
+                else expression
+            )
+        )
 
     def _annotate_totals(self) -> TransactionQuerySet:
         return self.annotate(
@@ -263,9 +308,6 @@ class PassiveIncomeQuerySet(QuerySet):
 
     def provisioned(self) -> PassiveIncomeQuerySet:
         return self.filter(event_type=PassiveIncomeEventTypes.provisioned)
-
-    def future(self) -> PassiveIncomeQuerySet:
-        return self.filter(self.filters.future)
 
     def since_a_year_ago(self) -> PassiveIncomeQuerySet:
         return self.filter(self.filters.since_a_year_ago)

@@ -559,3 +559,66 @@ def transactions_indicators_data(stock_asset, crypto_transaction):
             created_at=base_date + relativedelta(months=i),
             initial_price=5,
         )
+
+
+@pytest.fixture
+def irpf_assets_data(stock_usa_asset):
+    today = timezone.now().date()
+
+    for i in range(4):
+        TransactionFactory(
+            action=TransactionActions.buy,
+            price=randint(5, 10),
+            asset=stock_usa_asset,
+            quantity=randint(100, 1000),
+            currency=TransactionCurrencies.dollar,
+        )
+        PassiveIncomeFactory(
+            type=choice(PassiveIncomeTypes.choices)[0],
+            amount=randint(100, 1000),
+            event_type=PassiveIncomeEventTypes.credited,
+            asset=stock_usa_asset,
+            operation_date=today - relativedelta(months=i),
+        )
+
+    base_date = today - relativedelta(years=3)
+    for i in range(36):
+        TransactionFactory(
+            action=TransactionActions.buy,
+            price=randint(5, 10),
+            asset=stock_usa_asset,
+            quantity=randint(100, 1000),
+            created_at=base_date + relativedelta(months=i),
+            currency=TransactionCurrencies.dollar,
+        )
+        PassiveIncomeFactory(
+            type=choice(PassiveIncomeTypes.choices)[0],
+            amount=randint(100, 1000),
+            event_type=PassiveIncomeEventTypes.credited,
+            asset=stock_usa_asset,
+            operation_date=base_date + relativedelta(months=i),
+        )
+
+
+@pytest.fixture
+def irpf_transactions_data(stock_usa_asset):
+    today = timezone.now().date()
+
+    for i in range(4):
+        quantity = randint(100, 1000)
+        price = randint(50, 100)
+        TransactionFactory(
+            action=TransactionActions.buy,
+            price=price,
+            asset=stock_usa_asset,
+            quantity=quantity,
+            currency=TransactionCurrencies.dollar,
+        )
+        TransactionFactory(
+            action=TransactionActions.sell,
+            price=price * 2,
+            initial_price=price,
+            asset=stock_usa_asset,
+            quantity=quantity,
+            currency=TransactionCurrencies.dollar,
+        )

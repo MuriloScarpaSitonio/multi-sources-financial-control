@@ -12,7 +12,7 @@ class ValidationError(Exception):
         message_interpolation_params: Optional[Dict[str, str]] = None,
     ) -> None:
         if message is not None:
-            self.message = message
+            self.message = message  # pragma: no cover
         else:
             self.message = (
                 self.default_message % message_interpolation_params

@@ -193,3 +193,20 @@ DYNAMIC_CONFIGS = {
 CRYPTOS_TO_SKIP_INTEGRATION = ("USDT",)
 
 GDRIVE_BACKUP_DB_FOLDER_ID = secret("GDRIVE_BACKUP_DB_FOLDER_ID", default="")
+
+# se a soma das vendas (e não do lucro) das ações em carteira ficarem
+# abaixo de R$ 20 mil no mês, o investidor fica isento.
+STOCKS_MONTHLY_SELL_EXEMPTION_THRESHOLD = 20_000
+
+# as vendas até R$ 35.000, mesmo que tenham lucro, ficam isentas do imposto de renda.
+# Isso acontece porque os investimentos no exterior seguem a regra da tributação de Ganho de Capital.
+STOCKS_USA_MONTHLY_SELL_EXEMPTION_THRESHOLD = 35_000
+
+# Os ganhos de capital obtidos com negociação de criptoativos ou moedas virtuais são tributados
+# sempre que as vendas totais superam R$ 35 mil por mês
+CRYPTOS_MONTHLY_SELL_EXEMPTION_THRESHOLD = 35_000
+
+# A tributação de FIIs é de 20% e é feita apenas sobre o lucro.
+# Portanto, não existe a isenção para operações normais.
+# Todas as operações realizadas com ganho de capital são tributadas nos FIIs.
+FII_MONTHLY_SELL_EXEMPTION_THRESHOLD = 0

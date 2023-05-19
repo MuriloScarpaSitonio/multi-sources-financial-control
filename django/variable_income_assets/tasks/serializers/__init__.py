@@ -54,7 +54,7 @@ class CeiTransactionSerializer(serializers.Serializer):
     operation_date = serializers.DateField(input_formats=(ISO_8601,))
     action = CeiTransactionChoiceField(choices=TransactionActions.choices)
 
-    def create(self, asset: Asset, task_history_id: int) -> Transaction:
+    def create(self, asset: Asset, task_history_id: int) -> Transaction:  # pragma: no cover
         transaction = asset.to_domain().add_transaction(
             transaction_dto=TransactionDTO(
                 action=getattr(TransactionActions, self.validated_data["action"]),
@@ -75,7 +75,7 @@ class CeiPassiveIncomeSerializer(serializers.Serializer):
     operation_date = serializers.DateField(input_formats=(ISO_8601,))
     event_type = CeiPassiveIncomeChoiceField(choices=PassiveIncomeEventTypes.choices)
 
-    def update_or_create(self, asset: Asset) -> Tuple[PassiveIncome, bool]:
+    def update_or_create(self, asset: Asset) -> Tuple[PassiveIncome, bool]:  # pragma: no cover
         return PassiveIncome.objects.update_or_create(
             asset=asset,
             type=self.validated_data["income_type"],

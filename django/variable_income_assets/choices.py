@@ -24,8 +24,8 @@ class TransactionActions(DjangoChoicesCustomValidator):
 
 
 class TransactionCurrencies(DjangoChoicesCustomValidator):
-    real = ChoiceItem("BRL", label="Real")
-    dollar = ChoiceItem("USD", label="Dólar")
+    real = ChoiceItem("BRL", label="Real", symbol="R$")
+    dollar = ChoiceItem("USD", label="Dólar", symbol="US$")
 
 
 class AssetTypes(DjangoChoicesCustomValidator):

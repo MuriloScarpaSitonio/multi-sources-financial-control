@@ -33,7 +33,7 @@ class AbstractTransactionRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def delete(self, transaction: Transaction) -> None:
+    def delete(self, transaction: Transaction) -> None:  # pragma: no cover
         raise NotImplementedError
 
 

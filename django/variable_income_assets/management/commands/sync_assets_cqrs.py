@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand, CommandParser
 from variable_income_assets.models import Asset
 from variable_income_assets.tasks import upsert_asset_read_model
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from django.core.management.base import CommandParser
 
 

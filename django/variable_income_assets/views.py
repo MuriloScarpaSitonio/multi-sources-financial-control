@@ -44,7 +44,7 @@ from .tasks import (
     fetch_current_assets_prices,
 )
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from djchoices import ChoiceItem
     from django_filters import FilterSet
     from rest_framework.request import Request
@@ -68,7 +68,7 @@ class AssetViewSet(
                 return Asset.objects.filter(user_id=self.request.user.id)
             qs = AssetReadModel.objects.filter(user_id=self.request.user.id)
             return qs.opened().order_by("-total_invested") if self.action == "list" else qs
-        return AssetReadModel.objects.none()  # drf-spectacular
+        return AssetReadModel.objects.none()  # pragma: no cover -- drf-spectacular
 
     def get_filterset_class(self) -> FilterSet:
         return filters.AssetFilterSet if self._is_write_action() else filters.AssetReadFilterSet
@@ -347,7 +347,7 @@ class TransactionViewSet(ModelViewSet):
         if self.request.user.is_authenticated:
             qs = Transaction.objects.filter(asset__user=self.request.user)
             return qs if self.action == "list" else qs.since_a_year_ago()
-        return Transaction.objects.none()  # drf-spectacular
+        return Transaction.objects.none()  # pragma: no cover -- drf-spectacular
 
     def perform_destroy(self, instance: Transaction):
         serializers.TransactionListSerializer(instance=instance).delete()

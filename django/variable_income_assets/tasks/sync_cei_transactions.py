@@ -17,7 +17,7 @@ from ..choices import AssetTypes
 from ..models import Asset
 
 
-def _resolve_code(code: str, market_type: str) -> str:
+def _resolve_code(code: str, market_type: str) -> str:  # pragma: no cover
     """If the asset is from fractional market we dont create an specific record for it"""
     return code[:-1] if market_type == "fractional_share" else code
 

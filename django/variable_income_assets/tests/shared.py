@@ -1,6 +1,8 @@
 from decimal import Decimal, ROUND_HALF_UP
 from functools import singledispatch
 
+from django.db.models import Q
+
 from config.settings.dynamic import dynamic_settings
 
 from ..choices import TransactionCurrencies
@@ -25,10 +27,10 @@ def get_total_bought_brute_force(asset: Asset):
     return result
 
 
-def get_avg_price_bute_force(asset: Asset, normalize: bool = False):
+def get_avg_price_bute_force(asset: Asset, normalize: bool = False, extra_filters: Q = Q()):
     weights = []
     quantities = []
-    for transaction in asset.transactions.bought():
+    for transaction in asset.transactions.filter(extra_filters).bought():
         weights.append(transaction.price * transaction.quantity)
         quantities.append(transaction.quantity)
 
@@ -39,15 +41,17 @@ def get_avg_price_bute_force(asset: Asset, normalize: bool = False):
     return weights / sum(quantities)
 
 
-def get_adjusted_quantity_brute_force(asset: Asset):
-    bought = (transaction.quantity for transaction in asset.transactions.bought())
-    sold = (transaction.quantity for transaction in asset.transactions.sold())
+def get_adjusted_quantity_brute_force(asset: Asset, extra_filters: Q = Q()):
+    bought = (
+        transaction.quantity for transaction in asset.transactions.filter(extra_filters).bought()
+    )
+    sold = (transaction.quantity for transaction in asset.transactions.filter(extra_filters).sold())
 
     return sum(bought) - sum(sold)
 
 
-def _get_total_credited_incomes(asset: Asset):
-    return sum((income.amount for income in asset.incomes.credited()))
+def get_total_credited_incomes_brute_force(asset: Asset, extra_filters: Q = Q()):
+    return sum((income.amount for income in asset.incomes.credited().filter(extra_filters)))
 
 
 def get_adjusted_avg_price_brute_forte(asset: Asset):
@@ -63,13 +67,15 @@ def get_adjusted_avg_price_brute_forte(asset: Asset):
     if asset.currency_from_transactions != TransactionCurrencies.real:
         weights *= dynamic_settings.DOLLAR_CONVERSION_RATE
     avg_price = weights / sum(quantities)
-    incomes_sum = sum((income.amount for income in asset.incomes.credited()))
-    return ((avg_price * adjusted_quantity) - incomes_sum) / adjusted_quantity
+
+    return (
+        (avg_price * adjusted_quantity) - get_total_credited_incomes_brute_force(asset)
+    ) / adjusted_quantity
 
 
 def get_roi_brute_force(asset: Asset, normalize: bool = True):
     total_sold = _get_total_sold_brute_force(asset=asset)
-    total_incomes = _get_total_credited_incomes(asset=asset)
+    total_incomes = get_total_credited_incomes_brute_force(asset=asset)
     adjusted_quantity = get_adjusted_quantity_brute_force(asset=asset)
     avg_price = get_avg_price_bute_force(asset=asset, normalize=False)
 
@@ -107,9 +113,12 @@ def get_current_price(asset: Asset, normalize: bool = False) -> Decimal:
     return current_price
 
 
-get_total_invested_brute_force = lambda asset, normalize=True: get_avg_price_bute_force(
-    asset, normalize=normalize
-) * get_adjusted_quantity_brute_force(asset)
+get_total_invested_brute_force = (
+    lambda asset, normalize=True, extra_filters=Q(): get_avg_price_bute_force(
+        asset, normalize=normalize, extra_filters=extra_filters
+    )
+    * get_adjusted_quantity_brute_force(asset, extra_filters=extra_filters)
+)
 
 get_current_total_invested_brute_force = lambda asset, normalize=True: get_current_price(
     asset, normalize=normalize

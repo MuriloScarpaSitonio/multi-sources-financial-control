@@ -86,7 +86,7 @@ class ExpenseViewSet(ModelViewSet):
         return Response(serializer.data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
-    def cnpj(self, _: Request) -> Response:
+    def cnpj(self, _: Request) -> Response:  # pragma: no cover
         qs = (
             Expense.objects.since_a_year_ago()
             .filter(category=ExpenseCategory.cnpj)

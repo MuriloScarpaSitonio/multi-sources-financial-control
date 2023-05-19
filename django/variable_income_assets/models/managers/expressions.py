@@ -42,16 +42,6 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
         self.filters = GenericQuerySetFilters(prefix=prefix)
 
     @property
-    def quantity_bought(self) -> Coalesce:
-        return coalesce_sum_expression(f"{self.prefix}quantity", filter=self.filters.bought)
-
-    @property
-    def quantity_balance(self) -> Coalesce:
-        return self.quantity_bought - coalesce_sum_expression(
-            f"{self.prefix}quantity", filter=self.filters.sold
-        )
-
-    @property
     def total_sold(self) -> Expression:
         return coalesce_sum_expression(
             (F(f"{self.prefix}price") - F(f"{self.prefix}initial_price"))
@@ -70,16 +60,6 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
         return self.get_dollar_conversion_expression(expression=expression)
 
     @property
-    def total_bought(self) -> Expression:
-        return coalesce_sum_expression(
-            F(f"{self.prefix}price") * F(f"{self.prefix}quantity"),
-            filter=self.filters.bought,
-            # models.functions.Cast won't work;
-            # cast result to a decimal value using `extra`
-            extra=Decimal("1.0"),
-        )
-
-    @property
     def total_bought_normalized(self) -> Case:
         expression = coalesce_sum_expression(
             F(f"{self.prefix}price") * F(f"{self.prefix}quantity"),
@@ -91,19 +71,41 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
         return self.get_dollar_conversion_expression(expression=expression)
 
     @property
-    def avg_price(self) -> Coalesce:
-        return Coalesce(self.total_bought / self.quantity_bought, Decimal())
-
-    @property
     def current_total(self) -> Case:
         # hacky
         field_name = "asset__current_price" if not self.prefix else "current_price"
-        return Coalesce(F(field_name), Decimal()) * self.quantity_balance
+        return Coalesce(F(field_name), Decimal()) * self.get_quantity_balance()
+
+    def get_avg_price(self, extra_filters: Q = Q()) -> Coalesce:
+        return Coalesce(
+            self.get_total_bought(extra_filters=extra_filters)
+            / self.get_quantity_bought(extra_filters=extra_filters),
+            Decimal(),
+        )
+
+    def get_total_bought(self, extra_filters: Q = Q()) -> Expression:
+        return coalesce_sum_expression(
+            F(f"{self.prefix}price") * F(f"{self.prefix}quantity"),
+            filter=Q(self.filters.bought, extra_filters),
+            # models.functions.Cast won't work;
+            # cast result to a decimal value using `extra`
+            extra=Decimal("1.0"),
+        )
+
+    def get_quantity_bought(self, extra_filters: Q = Q()) -> Coalesce:
+        return coalesce_sum_expression(
+            f"{self.prefix}quantity", filter=Q(self.filters.bought, extra_filters)
+        )
+
+    def get_quantity_balance(self, extra_filters: Q = Q()) -> Coalesce:
+        return self.get_quantity_bought(extra_filters=extra_filters) - coalesce_sum_expression(
+            f"{self.prefix}quantity", filter=Q(self.filters.sold, extra_filters)
+        )
 
     def get_dollar_conversion_expression(self, expression: Expression) -> Case:
         return Case(
             When(
-                ~Q(**{f"{self.prefix}currency": TransactionCurrencies.real}),
+                Q(**{f"{self.prefix}currency": TransactionCurrencies.dollar}),
                 then=expression * self.dollar_conversion_rate,
             ),
             default=expression,
@@ -111,8 +113,10 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
 
     def get_adjusted_avg_price(self, incomes: Union[Expression, Value]) -> Coalesce:
         return Coalesce(
-            ((self.quantity_balance * self.avg_price) - incomes) / self.quantity_balance, Decimal()
+            ((self.get_quantity_balance() * self.get_avg_price()) - incomes)
+            / self.get_quantity_balance(),
+            Decimal(),
         )
 
     def get_total_adjusted(self, incomes: Union[Expression, Value]) -> CombinedExpression:
-        return (self.quantity_balance * self.avg_price) - incomes - self.total_sold
+        return (self.get_quantity_balance() * self.get_avg_price()) - incomes - self.total_sold

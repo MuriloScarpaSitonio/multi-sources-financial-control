@@ -11,7 +11,7 @@ import django_filters as filters
 from .choices import AssetsTotalInvestedReportAggregations, AssetTypes
 from .models import Asset, AssetReadModel, PassiveIncome, Transaction
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from django.db.models import QuerySet
     from django.views import View
 
