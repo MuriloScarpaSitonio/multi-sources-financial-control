@@ -293,7 +293,7 @@ export const PassiveIncomeForm = ({
               render={({ field: { onChange, value } }) => (
                 <>
                   <Autocomplete
-                    onChange={(_, currency) => onChange(currency)}
+                    onChange={(_, eventType) => onChange(eventType)}
                     value={value}
                     clearText="Limpar"
                     closeText="Fechar"

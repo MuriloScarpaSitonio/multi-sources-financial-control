@@ -52,9 +52,12 @@ class TransactionSerializer(serializers.ModelSerializer):
 class TransactionListSerializer(TransactionSerializer):
     action = CustomChoiceField(choices=choices.TransactionActions.choices)
     asset_code = serializers.CharField(source="asset.code")
+    asset_type = CustomChoiceField(
+        source="asset.type", choices=choices.AssetTypes.choices, read_only=True
+    )
 
     class Meta(TransactionSerializer.Meta):
-        fields = TransactionSerializer.Meta.fields + ("asset_code",)
+        fields = TransactionSerializer.Meta.fields + ("asset_code", "asset_type")
 
     def create(self, validated_data):
         try:

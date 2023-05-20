@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 
 from django.utils import timezone
@@ -23,7 +24,8 @@ from authentication.tests.conftest import (
 )
 from config.settings.base import BASE_API_URL
 from config.settings.dynamic import dynamic_settings
-from variable_income_assets.choices import TransactionActions, TransactionCurrencies
+
+from variable_income_assets.choices import AssetTypes, TransactionActions, TransactionCurrencies
 from variable_income_assets.models import Transaction
 from variable_income_assets.tasks import upsert_asset_read_model
 from variable_income_assets.tests.shared import convert_and_quantitize
@@ -511,3 +513,47 @@ def test__delete__error__negative_qty(client, buy_transaction, mocker):
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {"action": "You can't sell more assets than you own"}
     assert Transaction.objects.count() == 2
+
+
+@pytest.mark.usefixtures("stock_asset")
+def test__delete__more_than_one_year_ago(
+    client, buy_transaction, mocker, django_assert_num_queries
+):
+    # GIVEN
+    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+    buy_transaction.created_at = datetime(year=2018, month=1, day=1)
+    buy_transaction.save()
+
+    # WHEN
+    response = client.delete(f"{URL}/{buy_transaction.pk}")
+
+    # THEN
+    assert mocked_task.called is True
+    assert response.status_code == HTTP_204_NO_CONTENT
+    assert Transaction.objects.count() == 0
+
+
+def test__list__sanity_check(client, buy_transaction):
+    # GIVEN
+
+    # WHEN
+    response = client.get(URL)
+
+    # THEN
+    assert response.json() == {
+        "count": 1,
+        "next": None,
+        "previous": None,
+        "results": [
+            {
+                "id": buy_transaction.id,
+                "action": TransactionActions.get_choice(buy_transaction.action).label,
+                "price": convert_and_quantitize(buy_transaction.price),
+                "currency": buy_transaction.currency,
+                "quantity": convert_and_quantitize(buy_transaction.quantity),
+                "created_at": buy_transaction.created_at.strftime("%Y-%m-%d"),
+                "asset_code": buy_transaction.asset.code,
+                "asset_type": AssetTypes.get_choice(buy_transaction.asset.type).label,
+            }
+        ],
+    }

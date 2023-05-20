@@ -106,6 +106,11 @@ def _(value: float, decimal_places: int = 2, rounding: str = ROUND_HALF_UP) -> f
     return float(Decimal(str(value)).quantize(Decimal(".1") ** decimal_places, rounding=rounding))
 
 
+@convert_and_quantitize.register
+def _(value: int, decimal_places: int = 2, rounding: str = ROUND_HALF_UP) -> float:
+    return float(Decimal(str(value)).quantize(Decimal(".1") ** decimal_places, rounding=rounding))
+
+
 def get_current_price(asset: Asset, normalize: bool = False) -> Decimal:
     current_price = asset.current_price or Decimal()
     if asset.currency_from_transactions != TransactionCurrencies.real and normalize:

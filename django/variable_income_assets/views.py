@@ -346,7 +346,12 @@ class TransactionViewSet(ModelViewSet):
     def get_queryset(self) -> TransactionQuerySet[Transaction]:
         if self.request.user.is_authenticated:
             qs = Transaction.objects.filter(asset__user=self.request.user)
-            return qs if self.action == "list" else qs.since_a_year_ago()
+            return (
+                qs.select_related("asset")
+                if self.action in ("list", "retrieve", "update", "destroy")
+                else qs.since_a_year_ago()
+            )
+
         return Transaction.objects.none()  # pragma: no cover -- drf-spectacular
 
     def perform_destroy(self, instance: Transaction):
