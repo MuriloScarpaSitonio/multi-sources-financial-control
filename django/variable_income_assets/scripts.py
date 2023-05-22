@@ -95,7 +95,7 @@ def _print_stocks_elegible_for_taxation(user_pk: int, year: int, debug: bool):
             qs.annotate(asset_code=F("asset__code"))
             .filter(created_at__month=month, action=TransactionActions.sell)
             .annotate_raw_roi()
-            .only("quantity", "price", "initial_price", "roi")
+            .only("quantity", "price", "initial_price")
             .order_by("asset_code")
         ):
             if debug > 1:
@@ -139,7 +139,7 @@ def _print_stocks_usa_elegible_for_taxation(
             qs.annotate(asset_code=F("asset__code"))
             .filter(created_at__month=month, action=TransactionActions.sell)
             .annotate_raw_roi(normalize=normalize)
-            .only("quantity", "price", "initial_price", "roi")
+            .only("quantity", "price", "initial_price")
             .order_by("asset_code")
         ):
             currency_symbol = "R$" if normalize else "$"
@@ -229,7 +229,7 @@ def _print_fiis_elegible_for_taxation(user_pk: int, year: int, debug: bool):
             qs.annotate(asset_code=F("asset__code"))
             .filter(created_at__month=month, action=TransactionActions.sell)
             .annotate_raw_roi()
-            .only("quantity", "price", "initial_price", "roi")
+            .only("quantity", "price", "initial_price")
             .order_by("asset_code")
         ):
             if debug > 1:
@@ -281,7 +281,7 @@ def _print_stocks_not_elegible_for_taxation(user_pk: int, year: int, debug: bool
             qs.annotate(asset_code=F("asset__code"))
             .filter(created_at__month=month, action=TransactionActions.sell)
             .annotate_raw_roi()
-            .only("quantity", "price", "initial_price", "roi")
+            .only("quantity", "price", "initial_price")
             .order_by("asset_code")
         ):
             if debug > 1:
@@ -341,7 +341,7 @@ def _print_stocks_usa_not_elegible_for_taxation(
             qs.annotate(asset_code=F("asset__code"))
             .filter(created_at__month=month, action=TransactionActions.sell)
             .annotate_raw_roi(normalize=normalize)
-            .only("quantity", "price", "initial_price", "roi")
+            .only("quantity", "price", "initial_price")
             .order_by("asset_code")
         ):
             currency_symbol = "R$" if normalize else "$"
@@ -406,7 +406,7 @@ def _print_cryptos_not_elegible_for_taxation(
             qs.annotate(asset_code=F("asset__code"))
             .filter(created_at__month=month, action=TransactionActions.sell)
             .annotate_raw_roi(normalize=normalize)
-            .only("quantity", "price", "initial_price", "roi")
+            .only("quantity", "price", "initial_price")
             .order_by("asset_code")
         ):
             currency_symbol = "R$" if normalize else "$"

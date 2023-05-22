@@ -56,12 +56,17 @@ class CustomUser(AbstractUser):
 
     @property
     def has_cei_integration(self) -> bool:
-        return self.secrets.cei_password is not None and self.secrets.cpf is not None
+        return (
+            self.secrets is not None
+            and self.secrets.cei_password is not None
+            and self.secrets.cpf is not None
+        )
 
     @property
     def has_kucoin_integration(self) -> bool:
         return (
-            self.secrets.kucoin_api_key is not None
+            self.secrets is not None
+            and self.secrets.kucoin_api_key is not None
             and self.secrets.kucoin_api_secret is not None
             and self.secrets.kucoin_api_passphrase is not None
         )
@@ -69,5 +74,7 @@ class CustomUser(AbstractUser):
     @property
     def has_binance_integration(self) -> bool:
         return (
-            self.secrets.binance_api_key is not None and self.secrets.binance_api_secret is not None
+            self.secrets is not None
+            and self.secrets.binance_api_key is not None
+            and self.secrets.binance_api_secret is not None
         )

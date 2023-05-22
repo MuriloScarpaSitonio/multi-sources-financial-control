@@ -100,7 +100,13 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
   const [isLoaded, setIsLoaded] = useState(true);
   const [codes, setCodes] = useState([]);
   const [showAlert, setShowAlert] = useState(false);
-  const [isSellTransaction, setIsSellTransaction] = useState(false);
+
+  let initialAction =
+    getChoiceByLabel(initialData.action, TransactionsActionsMapping)?.value ||
+    "BUY";
+  const [isSellTransaction, setIsSellTransaction] = useState(
+    initialAction === "SELL" || false
+  );
   const [alertInfos, setAlertInfos] = useState({});
 
   let api = new AssetsApi();
@@ -223,18 +229,13 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
             <Controller
               name="action"
               control={control}
+              defaultValue={initialAction}
               render={({ field: { onChange, value } }) => (
                 <>
                   <RadioGroup
                     value={value}
                     required
                     row
-                    defaultValue={
-                      getChoiceByLabel(
-                        initialData.action,
-                        TransactionsActionsMapping
-                      )?.value || "BUY"
-                    }
                     onChange={(_, v) => {
                       setIsSellTransaction(v === "SELL");
                       onChange(v);
