@@ -65,7 +65,7 @@ class Asset(models.Model):
 
     @cached_property
     def quantity_from_transactions(self) -> Decimal:
-        return self.transactions.get_current_quantity()["quantity"]
+        return self.transactions.get_quantity_balance()["quantity"]
 
     @cached_property
     def currency_from_transactions(self) -> Optional[str]:
@@ -87,6 +87,15 @@ class Asset(models.Model):
         ]
 
     def to_domain(self) -> AssetDomainModel:
+        if (  # comes from annotations so we don't have to do three extra
+            # queries to build the aggregations
+            hasattr(self, "quantity_balance")
+            and hasattr(self, "avg_price")
+            and hasattr(self, "currency")
+        ):
+            return AssetDomainModel(
+                quantity=self.quantity_balance, avg_price=self.avg_price, currency=self.currency
+            )
         return AssetDomainModel(
             quantity=self.quantity_from_transactions,
             avg_price=self.avg_price_from_transactions,

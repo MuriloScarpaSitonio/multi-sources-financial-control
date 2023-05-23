@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Dict, TYPE_CHECKING, Union
+from typing import Any, Dict, TYPE_CHECKING, Union
 
 from django.db.models import CharField, Count, F, OuterRef, Q, QuerySet, Subquery, Sum, Value
 from django.db.models.functions import Concat, Coalesce, TruncMonth
@@ -60,8 +60,8 @@ class AssetQuerySet(QuerySet):
     def cryptos(self) -> AssetQuerySet:  # pragma: no cover
         return self.filter(type=AssetTypes.crypto)
 
-    def annotate_currency(self) -> AssetQuerySet:
-        return self.annotate(currency=Coalesce(F("transactions__currency"), Value("")))
+    def annotate_currency(self, fallback: Any = "") -> AssetQuerySet:
+        return self.annotate(currency=Coalesce(F("transactions__currency"), Value(fallback)))
 
     def annotate_roi(
         self, percentage: bool = False, annotate_passive_incomes_subquery: bool = True
@@ -153,6 +153,11 @@ class AssetQuerySet(QuerySet):
             )
         )
 
+    def annotate_for_domain(self) -> AssetQuerySet:
+        return (
+            self._annotate_quantity_balance().annotate_currency(fallback=None).annotate_avg_price()
+        )
+
 
 class TransactionQuerySet(QuerySet):
     expressions = GenericQuerySetExpressions()
@@ -209,7 +214,7 @@ class TransactionQuerySet(QuerySet):
         )
         return self.aggregate(avg_price=expression)
 
-    def get_current_quantity(self) -> Dict[str, Decimal]:
+    def get_quantity_balance(self) -> Dict[str, Decimal]:
         return self.aggregate(quantity=self.expressions.get_quantity_balance())
 
     def roi(self, incomes: Decimal, percentage: bool = False) -> Dict[str, Decimal]:

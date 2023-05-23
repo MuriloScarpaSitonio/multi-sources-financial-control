@@ -61,7 +61,7 @@ class TransactionListSerializer(TransactionSerializer):
 
     def create(self, validated_data):
         try:
-            asset: Asset = Asset.objects.get(
+            asset: Asset = Asset.objects.annotate_for_domain().get(
                 user=validated_data.pop("user"), code=validated_data.pop("asset")["code"]
             )
         except Asset.DoesNotExist:
@@ -72,7 +72,10 @@ class TransactionListSerializer(TransactionSerializer):
             asset_domain.add_transaction(transaction_dto=TransactionDTO(**validated_data))
             uow = DjangoUnitOfWork(asset_pk=asset.pk)
             messagebus.handle(message=commands.CreateTransactions(asset=asset_domain), uow=uow)
-            return uow.assets.transactions.seen.pop()  # hacky for DRF
+            transaction = uow.assets.transactions.seen.pop()  # hacky for DRF
+            transaction.asset = asset  # set to avoid doing a query to get `Asset` infos when
+            # serializing `transaction` object
+            return transaction
         except DomainValidationError as e:
             raise serializers.ValidationError(e.detail)
 
@@ -83,7 +86,9 @@ class TransactionListSerializer(TransactionSerializer):
             if "created_at" not in validated_data:
                 validated_data.update(created_at=instance.created_at)
 
-            asset_domain: AssetDomainModel = instance.asset.to_domain()
+            asset_domain: AssetDomainModel = (
+                Asset.objects.annotate_for_domain().get(id=instance.asset_id).to_domain()
+            )
 
             asset_domain.update_transaction(
                 dto=TransactionDTO(**validated_data), transaction=instance
@@ -97,7 +102,9 @@ class TransactionListSerializer(TransactionSerializer):
             raise serializers.ValidationError(e.detail)
 
     def delete(self) -> None:
-        asset_domain: AssetDomainModel = self.instance.asset.to_domain()
+        asset_domain: AssetDomainModel = (
+            Asset.objects.annotate_for_domain().get(id=self.instance.asset_id).to_domain()
+        )
         try:
             asset_domain.validate_delete_transaction_command(
                 dto=TransactionDTO(
