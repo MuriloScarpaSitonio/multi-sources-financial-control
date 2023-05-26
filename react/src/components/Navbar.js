@@ -86,8 +86,7 @@ const Notifications = () => {
       .filter((task) => new Date(task.updated_at) > new Date(task.notified_at))
       .map((task) => task.id);
     if (tasksIds.length > 0) {
-      api.bulkUpdateNotifiedAt(tasksIds);
-      getTotalTasksUnnotified();
+      api.bulkUpdateNotifiedAt(tasksIds).then(() => getTotalTasksUnnotified());
     }
   };
 
