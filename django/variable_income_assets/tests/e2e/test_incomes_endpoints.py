@@ -139,8 +139,8 @@ def test__delete(client, simple_income, mocker):
     assert PassiveIncome.objects.count() == 0
 
 
-@pytest.mark.usefixtures("passive_incomes")
-def test__indicators(client, stock_asset, stock_usa_asset, crypto_asset):
+@pytest.mark.usefixtures("passive_incomes", "stock_asset", "stock_usa_asset", "crypto_asset")
+def test__indicators(client):
     # GIVEN
     today = timezone.now().date()
     current_credited = sum(
@@ -209,9 +209,11 @@ def test__historic(client):
             continue
 
 
-@pytest.mark.usefixtures("passive_incomes", "another_income", "assets_w_incomes")
+@pytest.mark.usefixtures(
+    "passive_incomes", "another_income", "assets_w_incomes", "stock_asset", "stock_usa_asset"
+)
 @pytest.mark.parametrize("filters", ("credited=True", "credited=True&all=true"))
-def test__assets_aggregation_report(client, stock_asset, stock_usa_asset, filters):
+def test__assets_aggregation_report(client, filters, django_assert_num_queries):
     # GIVEN
 
     # WHEN

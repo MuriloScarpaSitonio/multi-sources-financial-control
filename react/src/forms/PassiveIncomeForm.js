@@ -326,7 +326,7 @@ export const PassiveIncomeForm = ({
               defaultValue={
                 initialData.operation_date
                   ? // make sure to include hours and minutes to adjust timezone
-                    new Date(initialData.created_at + "T00:00")
+                    new Date(initialData.operation_date + "T00:00")
                   : new Date()
               }
               render={({ field: { onChange, value } }) => (

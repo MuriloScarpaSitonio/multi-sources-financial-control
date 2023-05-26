@@ -267,7 +267,7 @@ class PassiveIncomeViewSet(ModelViewSet):
 
     def get_queryset(self) -> PassiveIncomeQuerySet[PassiveIncome]:
         return (
-            PassiveIncome.objects.filter(asset__user=self.request.user)
+            PassiveIncome.objects.select_related("asset").filter(asset__user=self.request.user)
             if self.request.user.is_authenticated
             else PassiveIncome.objects.none()  # pragma: no cover -- drf-spectatular
         )
