@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod, abstractproperty
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, DecimalException
 from typing import Any, Dict, Iterable, List, Literal, Optional, Set, Type, Union
 from typing_extensions import TypedDict
@@ -38,6 +38,7 @@ class IndicatorsResponseType(TypedDict):
 
 
 # endregion: types
+
 
 # region: abstract classes
 class AbstractQueryFilter(BaseModel, ABC):
@@ -159,7 +160,7 @@ class MongoQueryRepository(AbstractQueryRepository):
         super().__init__(user_id=user_id)
         self.session = session
         self._collection: Collection = self.session._client[DATABASE_NAME][COLLECTION_NAME]
-        self._today = date.today()
+        self._today = datetime.now().astimezone(tz=timezone(offset=timedelta(hours=-3))).date()
 
     @property
     def _historic_pipeline(self) -> List[Dict[str, str]]:

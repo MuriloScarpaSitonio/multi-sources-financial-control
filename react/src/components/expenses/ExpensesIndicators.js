@@ -119,7 +119,7 @@ const RevenuesCreateDialog = ({
         <RevenuesForm
           initialData={data}
           handleClose={onClose}
-          showSuccessFeedbackForm={showSuccessFeedbackForm}
+          reloadTable={() => {}}
         />
       </DialogContent>
     </Dialog>

@@ -34,7 +34,7 @@ const StyledTooltip = withStyles((theme) => ({
 const Indicators = ({ title, indicators, icon, color, secondaryIcon }) => {
   const indicatorsMonth = indicators.month;
   const currentMonth = new Date().getMonth() + 1;
-  const isPastRevenue = parseInt(indicatorsMonth) !== currentMonth;
+  const isPastRevenue = parseInt(indicatorsMonth) < currentMonth;
   const borderStyle = isPastRevenue ? "1px solid red" : "1px solid white";
   const hideValues = Boolean(window.localStorage.getItem("hideValues"));
 
