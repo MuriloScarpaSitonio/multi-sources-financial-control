@@ -1,6 +1,13 @@
 from typing import Union
+from uuid import uuid4
+
+from django.utils import timezone
+
+from tasks.choices import TaskStates
+from tasks.models import TaskHistory
 
 from .unit_of_work import AbstractUnitOfWork
+from ..choices import AssetTypes
 from ..domain import commands, events
 from ..models import Transaction
 from ..tasks import upsert_asset_read_model
@@ -50,3 +57,30 @@ def upsert_read_model(
         asset_id=event.asset_pk,
         is_aggregate_upsert=not isinstance(event, (events.AssetCreated, events.AssetUpdated)),
     )
+
+
+def check_monthly_selling_transaction_threshold(
+    _: events.TransactionsCreated, uow: AbstractUnitOfWork
+):
+    transaction = next(iter(uow.assets.transactions.seen))
+    total_sold = next(
+        iter(
+            Transaction.objects.filter(
+                asset__user_id=transaction.asset.user_id,
+                created_at__year=transaction.created_at.year,
+                created_at__month=transaction.created_at.month,
+            )
+            .aggregate_total_sold_per_type(only={transaction.asset.type})
+            .values()
+        )
+    )
+
+    choice = AssetTypes.get_choice(transaction.asset.type)
+    if total_sold > choice.monthly_sell_threshold:
+        TaskHistory.objects.create(
+            id=uuid4(),
+            name=f"above_monthly_sell_threshold_for_{choice.value.lower()}",
+            state=TaskStates.success,
+            finished_at=timezone.now(),
+            created_by_id=transaction.asset.user_id,
+        )

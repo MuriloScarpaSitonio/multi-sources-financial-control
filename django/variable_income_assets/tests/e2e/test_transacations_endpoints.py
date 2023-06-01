@@ -24,7 +24,7 @@ from authentication.tests.conftest import (
 )
 from config.settings.base import BASE_API_URL
 from config.settings.dynamic import dynamic_settings
-
+from tasks.models import TaskHistory
 from variable_income_assets.choices import AssetTypes, TransactionActions, TransactionCurrencies
 from variable_income_assets.models import Transaction
 from variable_income_assets.tasks import upsert_asset_read_model
@@ -192,6 +192,54 @@ def test__create__should_raise_error_if_different_currency(client, stock_asset):
     }
 
     assert Transaction.objects.count() == 1
+
+
+@pytest.mark.skip("Skip while not implemented yet")
+def test__create__sell_stock_eq_threshold(client, stock_asset, mocker):
+    # GIVEN
+    Transaction.objects.create(
+        action=TransactionActions.buy, price=20, quantity=100, asset_id=stock_asset.id
+    )
+    data = {
+        "action": TransactionActions.sell,
+        "price": 200,
+        "quantity": 100,
+        "asset_code": stock_asset.code,
+    }
+    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert mocked_task.call_count == 1
+    assert TaskHistory.objects.count() == 0
+
+    assert response.status_code == HTTP_201_CREATED
+
+
+@pytest.mark.skip("Skip while not implemented yet")
+def test__create__sell_stock_gt_threshold(client, stock_asset, mocker):
+    # GIVEN
+    Transaction.objects.create(
+        action=TransactionActions.buy, price=20, quantity=100, asset_id=stock_asset.id
+    )
+    data = {
+        "action": TransactionActions.sell,
+        "price": 201,
+        "quantity": 100,
+        "asset_code": stock_asset.code,
+    }
+    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert mocked_task.call_count == 1
+    assert TaskHistory.objects.count() == 1
+
+    assert response.status_code == HTTP_201_CREATED
 
 
 @pytest.mark.usefixtures("stock_asset")

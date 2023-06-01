@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.exceptions import ValidationError
 
 from djchoices import DjangoChoices, ChoiceItem
@@ -29,10 +30,26 @@ class TransactionCurrencies(DjangoChoicesCustomValidator):
 
 
 class AssetTypes(DjangoChoicesCustomValidator):
-    stock = ChoiceItem("STOCK", label="Ação B3")
-    stock_usa = ChoiceItem("STOCK_USA", label="Ação EUA")
-    crypto = ChoiceItem("CRYPTO", label="Criptoativos")
-    fii = ChoiceItem("FII", label="Fundo de Investimento Imobiliário")
+    stock = ChoiceItem(
+        "STOCK",
+        label="Ação B3",
+        monthly_sell_threshold=settings.STOCKS_MONTHLY_SELL_EXEMPTION_THRESHOLD,
+    )
+    stock_usa = ChoiceItem(
+        "STOCK_USA",
+        label="Ação EUA",
+        monthly_sell_threshold=settings.STOCKS_USA_MONTHLY_SELL_EXEMPTION_THRESHOLD,
+    )
+    crypto = ChoiceItem(
+        "CRYPTO",
+        label="Criptoativos",
+        monthly_sell_threshold=settings.CRYPTOS_MONTHLY_SELL_EXEMPTION_THRESHOLD,
+    )
+    fii = ChoiceItem(
+        "FII",
+        label="Fundo de Investimento Imobiliário",
+        monthly_sell_threshold=settings.FII_MONTHLY_SELL_EXEMPTION_THRESHOLD,
+    )
 
 
 ASSET_TYPE_CURRENCY_MAP = {

@@ -120,3 +120,15 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
 
     def get_total_adjusted(self, incomes: Union[Expression, Value]) -> CombinedExpression:
         return (self.get_quantity_balance() * self.get_avg_price()) - incomes - self.total_sold
+
+    def get_total_raw_expression(self, aggregate: bool = False, **kwargs) -> Case:
+        expression = (
+            coalesce_sum_expression(
+                F(f"{self.prefix}price") * F(f"{self.prefix}quantity"),
+                extra=Decimal("1.0"),
+                **kwargs,
+            )
+            if aggregate
+            else F(f"{self.prefix}price") * F(f"{self.prefix}quantity")
+        )
+        return self.get_dollar_conversion_expression(expression=expression)

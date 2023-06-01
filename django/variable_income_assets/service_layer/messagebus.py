@@ -16,8 +16,14 @@ MessageCallable = Callable[[Any, AbstractUnitOfWork], Any]
 # region: maps
 
 EVENT_HANDLERS: Dict[Type[events.Event], List[MessageCallable]] = {
-    events.TransactionsCreated: [handlers.upsert_read_model],
-    events.TransactionUpdated: [handlers.upsert_read_model],
+    events.TransactionsCreated: [
+        handlers.upsert_read_model,
+        # handlers.check_monthly_selling_transaction_threshold,
+    ],
+    events.TransactionUpdated: [
+        handlers.upsert_read_model,
+        # handlers.check_monthly_selling_transaction_threshold,
+    ],
     events.TransactionDeleted: [handlers.upsert_read_model],
     events.PassiveIncomeCreated: [handlers.upsert_read_model],
     events.PassiveIncomeUpdated: [handlers.upsert_read_model],

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Any, Dict, TYPE_CHECKING, Union
+from typing import Any, Dict, Optional, Set, TYPE_CHECKING, Union
 
-from django.db.models import CharField, Count, F, OuterRef, Q, QuerySet, Subquery, Sum, Value
+from django.db.models import Case, CharField, Count, F, OuterRef, Q, QuerySet, Subquery, Sum, Value
 from django.db.models.functions import Concat, Coalesce, TruncMonth
 
 from shared.managers_utils import GenericDateFilters
@@ -144,7 +144,6 @@ class AssetQuerySet(QuerySet):
     def annotate_credited_incomes_at_given_year(
         self, year: int, incomes_type: PassiveIncomeEventTypes
     ) -> AssetQuerySet:
-
         return self.annotate(
             credited_incomes_total=Subquery(
                 self._get_passive_incomes_subquery()
@@ -252,11 +251,14 @@ class TransactionQuerySet(QuerySet):
         )
 
     def indicators(self) -> Dict[str, Decimal]:
-        return self._annotate_totals().aggregate(
+        print(f"{self.filter(self.filters.current).bought().count()=}")
+        r = self._annotate_totals().aggregate(
             current_bought=coalesce_sum_expression("total_bought", filter=self.filters.current),
             current_sold=coalesce_sum_expression("total_sold", filter=self.filters.current),
             avg=Coalesce(self._monthly_avg_expression, Decimal()),
         )
+        print(r)
+        return r
 
     def monthly_avg(self) -> Dict[str, Decimal]:
         return self._annotate_totals().aggregate(avg=self._monthly_avg_expression)
@@ -264,8 +266,7 @@ class TransactionQuerySet(QuerySet):
     def historic(self) -> TransactionQuerySet:
         return (
             self.annotate(
-                total=self.expressions.get_dollar_conversion_expression(F("price") * F("quantity")),
-                month=TruncMonth("created_at"),
+                total=self.expressions.get_total_raw_expression(), month=TruncMonth("created_at")
             )
             .values("month")
             .annotate(
@@ -280,6 +281,14 @@ class TransactionQuerySet(QuerySet):
             .values("month", "total_bought", "total_sold", "diff")
             .order_by("month")
         )
+
+    def aggregate_total_sold_per_type(self, only: Optional[Set[str]] = None) -> Dict[str, Decimal]:
+        type_expression_map: Dict[str, Case] = {}
+        for v in only & set(AssetTypes.values) if only is not None else AssetTypes.values:
+            type_expression_map[v] = self.expressions.get_total_raw_expression(
+                aggregate=True, filter=Q(asset__type=v)
+            )
+        return self.filter(self.expressions.filters.sold).aggregate(**type_expression_map)
 
 
 class PassiveIncomeQuerySet(QuerySet):
