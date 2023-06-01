@@ -109,7 +109,7 @@ class ExpenseViewSet(ModelViewSet):
         return Response(status=HTTP_201_CREATED)
 
     def _get_fixed_expenses_from_queryset(self) -> List[Expense]:  # pragma: no cover
-        today = timezone.now().date()
+        today = timezone.localdate()
         one_month_before = today - relativedelta(months=1)
         two_months_before = today - relativedelta(months=2)
         qs = (

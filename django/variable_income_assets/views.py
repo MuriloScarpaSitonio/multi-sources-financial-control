@@ -302,7 +302,7 @@ class PassiveIncomeViewSet(ModelViewSet):
             .first()
         )
         qs = self.get_queryset().indicators(
-            fixed_avg_denominator=(timezone.now().date() - first_transaction_date).days > 365
+            fixed_avg_denominator=(timezone.localdate() - first_transaction_date).days > 365
             if first_transaction_date is not None
             else False
         )

@@ -441,7 +441,7 @@ def _print_cryptos_not_elegible_for_taxation(
 
 def print_irpf_infos(
     user_pk: int,
-    year: int = timezone.now().year - 1,
+    year: int = timezone.localtime().year - 1,
     dollar_conversion_rate: Optional[Decimal] = None,
     normalize: bool = True,
     debug: int = 1,

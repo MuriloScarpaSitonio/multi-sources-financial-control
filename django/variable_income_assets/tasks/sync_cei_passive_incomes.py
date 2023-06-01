@@ -56,7 +56,7 @@ def sync_cei_passive_incomes_task(self, username: str) -> int:  # pragma: no cov
         query_params={
             "username": username,
             "start_date": self.get_last_run(username=username),
-            "end_date": timezone.now().date(),
+            "end_date": timezone.localdate(),
         },
     )
     _save_cei_passive_incomes(
