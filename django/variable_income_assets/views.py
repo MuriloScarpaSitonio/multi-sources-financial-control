@@ -22,7 +22,7 @@ from rest_framework.status import HTTP_200_OK
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
-from tasks.decorators import celery_task_endpoint, start_celery_task
+from tasks.decorators import start_task
 
 from . import choices, filters, serializers
 from .domain import events
@@ -38,8 +38,6 @@ from .service_layer import messagebus
 from .service_layer.unit_of_work import DjangoUnitOfWork
 from .tasks import (
     sync_binance_transactions_task,
-    sync_cei_transactions_task,
-    sync_cei_passive_incomes_task,
     sync_kucoin_transactions_task,
     fetch_current_assets_prices,
 )
@@ -150,62 +148,60 @@ class AssetViewSet(
 
     @extend_schema(deprecated=True)
     @action(methods=("GET",), detail=False, permission_classes=(CeiPermission,))
-    @celery_task_endpoint(task=sync_cei_transactions_task, deprecated=True)
-    def sync_cei_transactions(self, _: Request, task_id: str) -> Response:
-        return Response({"task_id": task_id, "warning": "Integration is deprecated"}, status=299)
+    def sync_cei_transactions(self, _: Request) -> Response:
+        return Response({"task_id": None, "warning": "Integration is deprecated"}, status=299)
 
     @extend_schema(deprecated=True)
     @action(methods=("GET",), detail=False, permission_classes=(CeiPermission,))
-    @celery_task_endpoint(task=sync_cei_passive_incomes_task, deprecated=True)
-    def sync_cei_passive_incomes(self, _: Request, task_id: str) -> Response:
-        return Response({"task_id": task_id, "warning": "Integration is deprecated"}, status=299)
+    def sync_cei_passive_incomes(self, _: Request) -> Response:
+        return Response({"task_id": None, "warning": "Integration is deprecated"}, status=299)
 
     @action(methods=("GET",), detail=False, permission_classes=(KuCoinPermission,))
-    @celery_task_endpoint(task=sync_kucoin_transactions_task)
-    def sync_kucoin_transactions(self, _: Request, task_id: str) -> Response:
+    def sync_kucoin_transactions(self, request: Request) -> Response:
+        task_id = start_task(task_name="sync_kucoin_transactions_task", user=request.user)
+        sync_kucoin_transactions_task(task_history_id=task_id, username=request.user.username)
         return Response({"task_id": task_id}, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False, permission_classes=(BinancePermission,))
-    @celery_task_endpoint(task=sync_binance_transactions_task)
-    def sync_binance_transactions(self, _: Request, task_id: str) -> Response:
+    def sync_binance_transactions(self, request: Request) -> Response:
+        task_id = start_task(task_name="sync_binance_transactions_task", user=request.user)
+        sync_binance_transactions_task(task_history_id=task_id, username=request.user.username)
         return Response({"task_id": task_id}, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False, permission_classes=(AssetsPricesPermission,))
-    @celery_task_endpoint(task_name="fetch_current_assets_prices")
-    def fetch_current_prices(self, request: Request, task_id: str) -> Response:
+    def fetch_current_prices(self, request: Request) -> Response:
         filterset = filters.AssetFetchCurrentPriceFilterSet(
             data=request.GET, queryset=self.get_queryset().opened()
         )
-        fetch_current_assets_prices.apply_async(
-            task_id=task_id,
-            kwargs={
-                "username": request.user.username,
-                "codes": list(filterset.qs.values_list("code", flat=True)),
-            },
+        task_id = start_task(task_name="fetch_current_assets_prices", user=request.user)
+        fetch_current_assets_prices(
+            username=request.user.username,
+            codes=list(filterset.qs.values_list("code", flat=True)),
+            task_history_id=task_id,
         )
         return Response({"task_id": task_id}, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
     def sync_all(self, request: Request) -> Response:
         TASK_USER_PROPERTY_MAP = {
-            "has_cei_integration": (sync_cei_transactions_task, sync_cei_passive_incomes_task),
+            # "has_cei_integration": (sync_cei_transactions_task, sync_cei_passive_incomes_task),
             "has_kucoin_integration": (sync_kucoin_transactions_task,),
             "has_binance_integration": (sync_binance_transactions_task,),
             "has_asset_price_integration": (fetch_current_assets_prices,),
         }
 
         response = {}
-        kwargs = {"username": request.user.username}
         qs = self.get_queryset()
         for property_name, tasks in TASK_USER_PROPERTY_MAP.items():
             if getattr(request.user, property_name):
                 for task in tasks:
-                    task_id = start_celery_task(task_name=task.name, user=request.user)
-                    task.apply_async(
-                        task_id=task_id,
-                        kwargs={**kwargs, **task.get_extra_kwargs_from_queryset(queryset=qs)},
-                    )
-                    response[task.name] = task_id
+                    task_id = start_task(task_name=task.__name__, user=request.user)
+                    if task.__name__ == "fetch_current_assets_prices":
+                        kwargs = {"codes": list(qs.opened().values_list("code", flat=True))}
+                    else:
+                        kwargs = {"task_history_id": task_id}
+                    task(username=request.user.username, **kwargs)
+                    response[task.__name__] = task_id
         return Response(response, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)

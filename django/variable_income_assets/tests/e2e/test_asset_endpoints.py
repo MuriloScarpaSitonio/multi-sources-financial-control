@@ -334,18 +334,16 @@ def test__list__should_include_asset_wo_transactions(
 
 
 @pytest.mark.skip("Integration is deprecated")
-def test_should_call_sync_cei_transactions_task_celery_task(client, user, mocker):
+def test_should_call_sync_cei_transactions_task_task(client, user, mocker):
     # GIVEN
-    mocked_task = mocker.patch(
-        "variable_income_assets.views.sync_cei_transactions_task.apply_async"
-    )
+    mocked_task = mocker.patch("variable_income_assets.views.sync_cei_transactions_task")
 
     # WHEN
     response = client.get(f"{URL}/sync_cei_transactions")
 
     # THEN
     assert response.status_code == HTTP_200_OK
-    assert mocked_task.call_args[1]["kwargs"]["username"] == user.username
+    assert mocked_task.call_args[1]["username"] == user.username
 
 
 def test_should_raise_permission_error_sync_cei_transactions_if_user_has_not_set_credentials(
@@ -363,20 +361,18 @@ def test_should_raise_permission_error_sync_cei_transactions_if_user_has_not_set
     }
 
 
-def test_should_call_sync_kucoin_transactions_celery_task(
+def test_should_call_sync_kucoin_transactions_task(
     kucoin_client, user_with_kucoin_integration, mocker
 ):
     # GIVEN
-    mocked_task = mocker.patch(
-        "variable_income_assets.views.sync_kucoin_transactions_task.apply_async"
-    )
+    mocked_task = mocker.patch("variable_income_assets.views.sync_kucoin_transactions_task")
 
     # WHEN
     response = kucoin_client.get(f"{URL}/sync_kucoin_transactions")
 
     # THEN
     assert response.status_code == HTTP_200_OK
-    assert mocked_task.call_args[1]["kwargs"]["username"] == user_with_kucoin_integration.username
+    assert mocked_task.call_args[1]["username"] == user_with_kucoin_integration.username
 
 
 def test_should_raise_permission_error_sync_kucoin_transactions_if_user_has_not_set_credentials(
@@ -394,21 +390,18 @@ def test_should_raise_permission_error_sync_kucoin_transactions_if_user_has_not_
     }
 
 
-def test_should_call_sync_binance_transactions_task_celery_task(
+def test_should_call_sync_binance_transactions_task_task(
     binance_client, user_with_binance_integration, mocker
 ):
-
     # GIVEN
-    mocked_task = mocker.patch(
-        "variable_income_assets.views.sync_binance_transactions_task.apply_async"
-    )
+    mocked_task = mocker.patch("variable_income_assets.views.sync_binance_transactions_task")
 
     # WHEN
     response = binance_client.get(f"{URL}/sync_binance_transactions")
 
     # THEN
     assert response.status_code == HTTP_200_OK
-    assert mocked_task.call_args[1]["kwargs"]["username"] == user_with_binance_integration.username
+    assert mocked_task.call_args[1]["username"] == user_with_binance_integration.username
 
 
 def test_should_raise_permission_error_sync_binance_if_user_has_not_set_credentials(client):
@@ -425,18 +418,16 @@ def test_should_raise_permission_error_sync_binance_if_user_has_not_set_credenti
 
 
 @pytest.mark.skip("Integration is deprecated")
-def test_should_call_sync_cei_passive_incomes_task_celery_task(client, user, mocker):
+def test_should_call_sync_cei_passive_incomes_task_task(client, user, mocker):
     # GIVEN
-    mocked_task = mocker.patch(
-        "variable_income_assets.views.sync_cei_passive_incomes_task.apply_async"
-    )
+    mocked_task = mocker.patch("variable_income_assets.views.sync_cei_passive_incomes_task")
 
     # WHEN
     response = client.get(f"{URL}/sync_cei_passive_incomes")
 
     # THEN
     assert response.status_code == HTTP_200_OK
-    assert mocked_task.call_args[1]["kwargs"]["username"] == user.username
+    assert mocked_task.call_args[1]["username"] == user.username
 
 
 def test_should_raise_permission_error_sync_cei_passive_incomes_if_user_has_not_set_credentials(
@@ -455,11 +446,9 @@ def test_should_raise_permission_error_sync_cei_passive_incomes_if_user_has_not_
 
 
 @pytest.mark.usefixtures("assets", "transactions", "sync_assets_read_model")
-def test_should_call_fetch_current_assets_prices_celery_task(client, user, stock_usa_asset, mocker):
+def test_should_call_fetch_current_assets_prices_task(client, user, stock_usa_asset, mocker):
     # GIVEN
-    mocked_task = mocker.patch(
-        "variable_income_assets.views.fetch_current_assets_prices.apply_async"
-    )
+    mocked_task = mocker.patch("variable_income_assets.views.fetch_current_assets_prices")
     Transaction.objects.create(
         action=TransactionActions.buy, price=50, asset=stock_usa_asset, quantity=100
     )
@@ -469,8 +458,8 @@ def test_should_call_fetch_current_assets_prices_celery_task(client, user, stock
 
     # THEN
     assert response.status_code == HTTP_200_OK
-    assert mocked_task.call_args[1]["kwargs"]["username"] == user.username
-    assert mocked_task.call_args[1]["kwargs"]["codes"] == ["ALUP11", "URA"]
+    assert mocked_task.call_args[1]["username"] == user.username
+    assert mocked_task.call_args[1]["codes"] == ["ALUP11", "URA"]
 
 
 def test_should_raise_permission_error_fetch_current_prices_if_user_has_not_set_credentials(
@@ -782,15 +771,18 @@ def test__roi_report__should_fail_wo_required_filters(client):
             "user",
             "client",
             (
-                "sync_cei_transactions_task",
-                "sync_cei_passive_incomes_task",
+                # "sync_cei_transactions_task",
+                # "sync_cei_passive_incomes_task",
                 "fetch_current_assets_prices",
             ),
         ),
         (
             "user_without_assets_price_integration",
             "client",
-            ("sync_cei_transactions_task", "sync_cei_passive_incomes_task"),
+            (
+                # "sync_cei_transactions_task",
+                # "sync_cei_passive_incomes_task",
+            ),
         ),
         ("user_with_kucoin_integration", "kucoin_client", ("sync_kucoin_transactions_task",)),
         ("user_with_binance_integration", "binance_client", ("sync_binance_transactions_task",)),
@@ -798,11 +790,15 @@ def test__roi_report__should_fail_wo_required_filters(client):
 )
 def test_should_sync_all(request, user_fixture_name, client_fixture_name, tasks_to_run, mocker):
     # GIVEN
-    path = "variable_income_assets.views.{}.apply_async"
+    path = "variable_income_assets.views.{}"
     client = request.getfixturevalue(client_fixture_name)
     user = request.getfixturevalue(user_fixture_name)
-    kwargs = {"username": user.username}
-    mocked_tasks = [mocker.patch(path.format(task_name)) for task_name in tasks_to_run]
+
+    mocked_tasks = []
+    for task_name in tasks_to_run:
+        m = mocker.patch(path.format(task_name))
+        m.__name__ = task_name
+        mocked_tasks.append(m)
 
     # WHEN
     response = client.get(f"{URL}/sync_all")
@@ -817,7 +813,9 @@ def test_should_sync_all(request, user_fixture_name, client_fixture_name, tasks_
             else {}
         )
 
-        assert mocked_task.call_args[1]["kwargs"] == {**kwargs, **extra_kwargs}
+        assert mocked_task.call_args[1]["username"] == user.username
+        for k, v in extra_kwargs.items():
+            mocked_task.call_args[1][k] == v
 
 
 @pytest.mark.usefixtures("transactions")

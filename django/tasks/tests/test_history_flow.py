@@ -2,8 +2,6 @@ import pytest
 
 from django.conf import settings
 
-from celery import states
-
 from shared.utils import build_url
 from authentication.tests.conftest import (
     kucoin_client,
@@ -13,6 +11,7 @@ from authentication.tests.conftest import (
 
 from config.settings.base import BASE_API_URL
 
+from ..choices import TaskStates
 from ..models import TaskHistory
 
 pytestmark = pytest.mark.django_db
@@ -36,7 +35,7 @@ def test_should_create_history_on_success(
     assert history.name == "sync_kucoin_transactions_task"
     assert history.created_by == user_with_kucoin_integration
     assert history.finished_at is not None
-    assert history.state == states.SUCCESS
+    assert history.state == TaskStates.success
     assert not history.error
 
 
@@ -51,5 +50,5 @@ def test_should_create_history_on_failure(kucoin_client, user_with_kucoin_integr
     assert history.name == "sync_kucoin_transactions_task"
     assert history.created_by == user_with_kucoin_integration
     assert history.finished_at is not None
-    assert history.state == states.FAILURE
+    assert history.state == TaskStates.failure
     assert history.error

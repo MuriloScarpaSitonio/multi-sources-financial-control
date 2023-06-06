@@ -2,47 +2,34 @@ from functools import wraps
 from typing import Callable, Optional
 from uuid import uuid4
 
-from django.conf import settings
-
-from celery import Task
-from rest_framework.exceptions import PermissionDenied
+from django.utils import timezone
 
 from authentication.models import CustomUser
 
+from .choices import TaskStates
 from .models import TaskHistory
 
 
-def start_celery_task(task_name: str, user: CustomUser) -> str:
+def start_task(task_name: str, user: CustomUser) -> str:
     task_id = uuid4()
-    task_history = TaskHistory.objects.create(id=task_id, name=task_name, created_by=user)
-    if settings.CELERY_TASK_ALWAYS_EAGER:
-        task_history.start()
+    TaskHistory.objects.create(
+        id=task_id,
+        name=task_name,
+        created_by=user,
+        started_at=timezone.now(),
+        state=TaskStates.started,
+    )
     return str(task_id)  # str beacause amqp does not handle uuid.UUID
 
 
-def celery_task_endpoint(
-    *,
-    task: Optional[Task] = None,
-    task_name: Optional[str] = None,
-    deprecated: bool = False,
-) -> Callable:
-    # if task is None and task_name is None:
-    #     raise
+def task_finisher(func: Callable) -> Callable:
+    @wraps(func)
+    def wrapper(*args, task_history_id: str, **kwargs):
+        error = None
+        try:
+            func(*args, task_history_id=task_history_id, **kwargs)
+        except Exception as e:
+            error = repr(e)
+        TaskHistory.objects.get(pk=task_history_id).finish(error=error)
 
-    # if task is not None and task_name is not None:
-    #     raise
-
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(self, request, *args, **kwargs):
-            if not deprecated:
-                task_id = start_celery_task(task_name=task_name or task.name, user=request.user)
-                if task is not None:
-                    task.apply_async(task_id=task_id, kwargs={"username": request.user.username})
-            else:
-                task_id = None
-            return func(self, request, task_id, *args, **kwargs)
-
-        return wrapper
-
-    return decorator
+    return wrapper

@@ -2,24 +2,18 @@ from typing import List
 
 from django.conf import settings
 from django.utils import timezone
-from django.db.models import F
 
 import requests
-from celery import shared_task
 
 from shared.utils import build_url
-from tasks.bases import TaskWithHistory
+from tasks.decorators import task_finisher
 
 from ..domain.events import AssetUpdated
 from ..models import Asset
 
 
-@shared_task(
-    name="fetch_current_assets_prices",
-    base=TaskWithHistory,
-    notification_display="Atualização de preços",
-)
-def fetch_current_assets_prices(codes: List[str], username: str) -> None:
+@task_finisher
+def fetch_current_assets_prices(task_history_id: str, codes: List[str], username: str) -> None:
     url = build_url(
         url=settings.ASSETS_INTEGRATIONS_URL, parts=("prices",), query_params={"username": username}
     )

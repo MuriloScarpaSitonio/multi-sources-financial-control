@@ -18,11 +18,6 @@ class TaskHistoryFactory(DjangoModelFactory):
         model = TaskHistory
 
 
-@pytest.fixture(autouse=True)
-def celery_always_eager(settings):
-    settings.CELERY_TASK_ALWAYS_EAGER = True
-
-
 @pytest.fixture
 def simple_task_history(user):
     return TaskHistoryFactory(

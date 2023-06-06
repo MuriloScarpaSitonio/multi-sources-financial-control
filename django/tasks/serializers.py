@@ -4,7 +4,6 @@ from rest_framework import serializers
 
 from variable_income_assets.serializers import TransactionSerializer, PassiveIncomeSerializer
 
-from .bases import TaskWithHistory
 from .choices import TaskStates
 from .managers import TaskHistoryQuerySet
 from .models import TaskHistory
@@ -36,7 +35,11 @@ class TaskHistorySerializer(serializers.ModelSerializer):
 
     def get_notification_display_title(self, obj: TaskHistory) -> str:
         # in a bigger project we'd store this kind of configuration in the DB
-        tasks_notification_display_map = TaskWithHistory.get_notification_display_map()
+        tasks_notification_display_map = {
+            "fetch_current_assets_prices": "Atualização de preços",
+            "sync_binance_transactions_task": "Transações da Binance",
+            "sync_kucoin_transactions_task": "Transações da KuCoin",
+        }
         return "Integração '{}' {}".format(
             tasks_notification_display_map[obj.name],
             TaskStates.get_choice(obj.state).notification_display,

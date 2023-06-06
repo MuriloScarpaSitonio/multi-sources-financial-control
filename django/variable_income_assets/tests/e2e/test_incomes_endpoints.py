@@ -41,7 +41,9 @@ def test__create(client, stock_asset, mocker):
         "operation_date": "06/12/2029",
         "asset_code": stock_asset.code,
     }
-    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+    mocked_task = mocker.patch(
+        "variable_income_assets.service_layer.handlers.upsert_asset_read_model"
+    )
 
     # WHEN
     response = client.post(URL, data=data)
@@ -82,7 +84,9 @@ def test__update(client, simple_income, mocker):
         "operation_date": simple_income.operation_date.strftime("%d/%m/%Y"),
         "asset_code": simple_income.asset.code,
     }
-    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+    mocked_task = mocker.patch(
+        "variable_income_assets.service_layer.handlers.upsert_asset_read_model"
+    )
 
     # WHEN
     response = client.put(f"{URL}/{simple_income.pk}", data=data)
@@ -123,7 +127,9 @@ def test__update__income_does_not_belong_to_user(kucoin_client, simple_income):
 @pytest.mark.usefixtures("stock_asset")
 def test__delete(client, simple_income, mocker):
     # GIVEN
-    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+    mocked_task = mocker.patch(
+        "variable_income_assets.service_layer.handlers.upsert_asset_read_model"
+    )
 
     # WHEN
     response = client.delete(f"{URL}/{simple_income.pk}")

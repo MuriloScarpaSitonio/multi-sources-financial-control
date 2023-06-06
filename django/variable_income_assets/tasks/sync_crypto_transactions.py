@@ -5,24 +5,20 @@ from django.conf import settings
 from django.utils import timezone
 
 import requests
-from celery import shared_task
 
 from authentication.models import CustomUser
 from shared.utils import build_url
-from tasks.bases import TaskWithHistory
+from tasks.choices import TaskStates
+from tasks.decorators import task_finisher
+from tasks.models import TaskHistory
 
 from .serializers import CryptoTransactionSerializer
 from ..choices import AssetObjectives, AssetSectors, AssetTypes
 from ..models import Asset
 
 
-@shared_task(
-    bind=True,
-    name="sync_kucoin_transactions_task",
-    base=TaskWithHistory,
-    notification_display="Transações da KuCoin",
-)
-def sync_kucoin_transactions_task(self, username: str) -> int:
+@task_finisher
+def sync_kucoin_transactions_task(task_history_id: str, username: str) -> int:
     url = build_url(
         url=settings.ASSETS_INTEGRATIONS_URL,
         parts=("kucoin/", "transactions"),
@@ -31,31 +27,37 @@ def sync_kucoin_transactions_task(self, username: str) -> int:
     save_crypto_transactions(
         transactions_data=requests.get(url).json(),
         user=CustomUser.objects.get(username=username),
-        task_history_id=self.request.id,
+        task_history_id=task_history_id,
     )
 
 
-@shared_task(
-    bind=True,
-    name="sync_binance_transactions_task",
-    base=TaskWithHistory,
-    notification_display="Transações da Binance",
-)
-def sync_binance_transactions_task(self, username: str) -> int:
+@task_finisher
+def sync_binance_transactions_task(task_history_id: str, username: str) -> int:
     url = build_url(
         url=settings.ASSETS_INTEGRATIONS_URL,
         parts=("binance/", "transactions"),
-        query_params={"username": username, "start_datetime": self.get_last_run(username=username)},
+        query_params={
+            "username": username,
+            "start_datetime": (
+                TaskHistory.objects.filter(
+                    name="sync_binance_transactions_task",
+                    state=TaskStates.success,
+                    created_by__username=username,
+                )
+                .values_list("finished_at", flat=True)
+                .first()
+            ),
+        },
     )
     save_crypto_transactions(
         transactions_data=requests.get(url).json(),
         user=CustomUser.objects.get(username=username),
-        task_history_id=self.request.id,
+        task_history_id=task_history_id,
     )
 
 
 def save_crypto_transactions(
-    transactions_data: List[dict], user: CustomUser, task_history_id: int
+    transactions_data: List[dict], user: CustomUser, task_history_id: str
 ) -> None:
     for data in transactions_data:
         try:
@@ -70,7 +72,7 @@ def save_crypto_transactions(
             serializer.is_valid(raise_exception=True)
 
             with atomic():
-                asset, created = Asset.objects.get_or_create(
+                asset, created = Asset.objects.annotate_for_domain().get_or_create(
                     user=user,
                     code=code,
                     type=AssetTypes.crypto,
@@ -81,7 +83,7 @@ def save_crypto_transactions(
                     asset.current_price_updated_at = timezone.now()
                     asset.save(update_fields=("current_price", "current_price_updated_at"))
 
-                serializer.create(asset=asset, task_history_id=task_history_id)
+                serializer.create(asset=asset, task_history_id=task_history_id, new_asset=created)
         except Exception:
             # TODO: log error
             continue

@@ -11,6 +11,7 @@ class Command:
 @dataclass
 class CreateTransactions(Command):
     asset: AssetDomainModel
+    new_asset: bool = False
 
 
 @dataclass

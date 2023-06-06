@@ -6,11 +6,12 @@ from django.db.transaction import atomic
 from django.utils import timezone
 
 import requests
-from celery import shared_task
 
 from authentication.models import CustomUser
 from shared.utils import build_url
-from tasks.bases import TaskWithHistory
+from tasks.choices import TaskStates
+from tasks.decorators import task_finisher
+from tasks.models import TaskHistory
 
 from .serializers import CeiTransactionSerializer
 from ..choices import AssetTypes
@@ -53,15 +54,17 @@ def _save_cei_transactions(
             continue
 
 
-@shared_task(
-    bind=True,
-    name="sync_cei_transactions_task",
-    base=TaskWithHistory,
-    notification_display="Transações do CEI",
-    deprecated=True,
-)
-def sync_cei_transactions_task(self, username: str) -> int:  # pragma: no cover
-    last_run_at = self.get_last_run(username=username)
+@task_finisher
+def sync_cei_transactions_task(task_history_id: str, username: str) -> int:  # pragma: no cover
+    last_run_at = (
+        TaskHistory.objects.filter(
+            name="sync_cei_transactions_task",
+            state=TaskStates.success,
+            created_by__username=username,
+        )
+        .values_list("finished_at", flat=True)
+        .first()
+    )
     url = build_url(
         url=settings.ASSETS_INTEGRATIONS_URL,
         parts=("cei/", "transactions"),
@@ -75,5 +78,5 @@ def sync_cei_transactions_task(self, username: str) -> int:  # pragma: no cover
     _save_cei_transactions(
         transactions_data=requests.get(url).json(),
         user=CustomUser.objects.get(username=username),
-        task_history_id=self.request.id,
+        task_history_id=task_history_id,
     )

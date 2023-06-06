@@ -171,18 +171,6 @@ REVENUES_API_SECRET_KEY = secret(
     "REVENUES_API_SECRET_KEY", default="^ko+7^$@c4=!mzn58hdgs8xydak4@by7g&@@%&4a_kgb42g&__"
 )
 
-CELERY_BROKER_URL = secret("CELERY_BROKER_URL", default="amqp://guest:guest@rabbitmq:5672")
-CELERY_IGNORE_RESULT = True
-CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 600  # 10min
-CELERY_WORKER_PREFETCH_MULTIPLIER = 1
-CELERY_CREATE_MISSING_QUEUES = True
-CELERY_TASK_ALWAYS_EAGER = True
-CELERY_ACCEPT_CONTENT = ["application/json"]
-CELERY_RESULT_SERIALIZER = "json"
-CELERY_TASK_SERIALIZER = "json"
-
-
 DYNAMIC_BACKEND = "config.settings.dynamic.backends.memory.MemoryBackend"
 DYNAMIC_CONFIGS = {
     "DOLLAR_CONVERSION_RATE": {

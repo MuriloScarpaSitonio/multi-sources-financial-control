@@ -27,7 +27,6 @@ from config.settings.dynamic import dynamic_settings
 from tasks.models import TaskHistory
 from variable_income_assets.choices import AssetTypes, TransactionActions, TransactionCurrencies
 from variable_income_assets.models import Transaction
-from variable_income_assets.tasks import upsert_asset_read_model
 from variable_income_assets.tests.shared import convert_and_quantitize
 
 pytestmark = pytest.mark.django_db
@@ -42,7 +41,9 @@ def test__create(client, stock_asset, mocker):
         "quantity": 100,
         "asset_code": stock_asset.code,
     }
-    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+    mocked_task = mocker.patch(
+        "variable_income_assets.service_layer.handlers.upsert_asset_read_model"
+    )
 
     # WHEN
     response = client.post(URL, data=data)
@@ -56,7 +57,7 @@ def test__create(client, stock_asset, mocker):
 
 
 @pytest.mark.usefixtures("buy_transaction")
-def test__create__sell_w_initial_price(client, stock_asset):
+def test__create__sell_w_initial_price(client, stock_asset, mocker):
     # GIVEN
     data = {
         "action": TransactionActions.sell,
@@ -65,6 +66,7 @@ def test__create__sell_w_initial_price(client, stock_asset):
         "asset_code": stock_asset.code,
         "initial_price": 8,
     }
+    mocker.patch("variable_income_assets.service_layer.handlers.upsert_asset_read_model")
 
     # WHEN
     response = client.post(URL, data=data)
@@ -76,7 +78,7 @@ def test__create__sell_w_initial_price(client, stock_asset):
 
 
 @pytest.mark.usefixtures("buy_transaction")
-def test__create__sell_wo_initial_price_should_use_avg_price(client, stock_asset):
+def test__create__sell_wo_initial_price_should_use_avg_price(client, stock_asset, mocker):
     # GIVEN
     data = {
         "action": TransactionActions.sell,
@@ -84,6 +86,7 @@ def test__create__sell_wo_initial_price_should_use_avg_price(client, stock_asset
         "quantity": 50,
         "asset_code": stock_asset.code,
     }
+    mocker.patch("variable_income_assets.service_layer.handlers.upsert_asset_read_model")
 
     # WHEN
     response = client.post(URL, data=data)
@@ -206,7 +209,9 @@ def test__create__sell_stock_eq_threshold(client, stock_asset, mocker):
         "quantity": 100,
         "asset_code": stock_asset.code,
     }
-    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+    mocked_task = mocker.patch(
+        "variable_income_assets.service_layer.handlers.upsert_asset_read_model"
+    )
 
     # WHEN
     response = client.post(URL, data=data)
@@ -230,7 +235,9 @@ def test__create__sell_stock_gt_threshold(client, stock_asset, mocker):
         "quantity": 100,
         "asset_code": stock_asset.code,
     }
-    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+    mocked_task = mocker.patch(
+        "variable_income_assets.service_layer.handlers.upsert_asset_read_model"
+    )
 
     # WHEN
     response = client.post(URL, data=data)
@@ -251,7 +258,9 @@ def test__update(client, buy_transaction, mocker):
         "quantity": buy_transaction.quantity,
         "asset_code": buy_transaction.asset.code,
     }
-    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+    mocked_task = mocker.patch(
+        "variable_income_assets.service_layer.handlers.upsert_asset_read_model"
+    )
 
     # WHEN
     response = client.put(f"{URL}/{buy_transaction.pk}", data=data)
@@ -292,7 +301,9 @@ def test__update__transaction_does_not_belong_to_user(kucoin_client, buy_transac
 
 
 @pytest.mark.usefixtures("buy_transaction")
-def test__update__sell_wo_initial_price_should_use_avg_price(client, stock_asset, sell_transaction):
+def test__update__sell_wo_initial_price_should_use_avg_price(
+    client, stock_asset, sell_transaction, mocker
+):
     # GIVEN
     data = {
         "action": sell_transaction.action,
@@ -300,6 +311,7 @@ def test__update__sell_wo_initial_price_should_use_avg_price(client, stock_asset
         "quantity": sell_transaction.quantity,
         "asset_code": stock_asset.code,
     }
+    mocker.patch("variable_income_assets.service_layer.handlers.upsert_asset_read_model")
 
     # WHEN
     response = client.put(f"{URL}/{sell_transaction.pk}", data=data)
@@ -531,7 +543,9 @@ def test_historic(client):
 @pytest.mark.usefixtures("stock_asset")
 def test__delete(client, buy_transaction, mocker):
     # GIVEN
-    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+    mocked_task = mocker.patch(
+        "variable_income_assets.service_layer.handlers.upsert_asset_read_model"
+    )
 
     # WHEN
     response = client.delete(f"{URL}/{buy_transaction.pk}")
@@ -550,7 +564,9 @@ def test__delete(client, buy_transaction, mocker):
 @pytest.mark.usefixtures("stock_asset", "sell_transaction")
 def test__delete__error__negative_qty(client, buy_transaction, mocker):
     # GIVEN
-    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+    mocked_task = mocker.patch(
+        "variable_income_assets.service_layer.handlers.upsert_asset_read_model"
+    )
 
     # WHEN
     response = client.delete(f"{URL}/{buy_transaction.pk}")
@@ -568,7 +584,9 @@ def test__delete__more_than_one_year_ago(
     client, buy_transaction, mocker, django_assert_num_queries
 ):
     # GIVEN
-    mocked_task = mocker.patch.object(upsert_asset_read_model, "delay")
+    mocked_task = mocker.patch(
+        "variable_income_assets.service_layer.handlers.upsert_asset_read_model"
+    )
     buy_transaction.created_at = datetime(year=2018, month=1, day=1)
     buy_transaction.save()
 

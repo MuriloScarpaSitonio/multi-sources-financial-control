@@ -10,8 +10,9 @@ class _AssetReadModelEvent(Event):
     asset_pk: int
 
 
+@dataclass
 class TransactionsCreated(_AssetReadModelEvent):
-    pass
+    new_asset: bool = False
 
 
 class TransactionUpdated(_AssetReadModelEvent):
@@ -22,8 +23,9 @@ class TransactionDeleted(_AssetReadModelEvent):
     pass
 
 
+@dataclass
 class PassiveIncomeCreated(_AssetReadModelEvent):
-    pass
+    new_asset: bool = False
 
 
 class PassiveIncomeUpdated(_AssetReadModelEvent):

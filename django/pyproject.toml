@@ -7,7 +7,6 @@ version = "0.1.0"
 [tool.poetry.dependencies]
 Django = "^3.2.5"
 asgiref = "^3.4.1"
-celery = {version = "5.1.2", extras = ["redis"]}
 cryptography = "^3.4.8"
 django-choices = "^1.7.2"
 django-cors-headers = "3.8.0"

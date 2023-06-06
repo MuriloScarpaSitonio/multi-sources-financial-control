@@ -10,7 +10,6 @@ from config.settings.base import BASE_API_URL
 from variable_income_assets.models import Transaction
 from variable_income_assets.tests.conftest import stock_asset, transactions
 
-from ..bases import TaskWithHistory
 from ..choices import TaskStates
 from ..models import TaskHistory
 
@@ -56,10 +55,10 @@ def test_should_list_tasks(client, simple_task_history):
     "task_name, expected_notification_display_text",
     [
         ("fetch_current_assets_prices", "Preços atualizados"),
-        ("sync_cei_transactions_task", "0 transações encontradas"),
+        # ("sync_cei_transactions_task", "0 transações encontradas"),
         ("sync_binance_transactions_task", "0 transações encontradas"),
         ("sync_kucoin_transactions_task", "0 transações encontradas"),
-        ("sync_cei_passive_incomes_task", "0 rendimentos passivos encontrados"),
+        # ("sync_cei_passive_incomes_task", "0 rendimentos passivos encontrados"),
     ],
 )
 def test_should_notification_display_correctly(
@@ -78,8 +77,11 @@ def test_should_notification_display_correctly(
 
     assert result["notification_display_text"] == expected_notification_display_text
 
-    # we have to load it after the request
-    tasks_notification_display_map = TaskWithHistory.get_notification_display_map()
+    tasks_notification_display_map = {
+        "fetch_current_assets_prices": "Atualização de preços",
+        "sync_binance_transactions_task": "Transações da Binance",
+        "sync_kucoin_transactions_task": "Transações da KuCoin",
+    }
     expected_notification_display_title = "Integração '{}' {}".format(
         tasks_notification_display_map[simple_task_history.name],
         TaskStates.get_choice(simple_task_history.state).notification_display,

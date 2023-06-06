@@ -154,7 +154,7 @@ def test_sync_cei_transactions_should_not_create_asset_if_unit_alread_exists(
 
 
 @pytest.mark.usefixtures("assets", "transactions", "sync_assets_read_model")
-def test_should_success_fetch_current_assets_prices_celery_task(
+def test_should_success_fetch_current_assets_prices_task(
     client, requests_mock, fetch_current_assets_prices_response
 ):
     # GIVEN
@@ -185,6 +185,7 @@ def test_sync_kucoin_transactions_should_create_asset_and_transaction(
     crypto_asset,
     requests_mock,
     kucoin_transactions_response,
+    sync_assets_read_model,  # no idea why @pytest.mark.usefixtures does not work here
 ):
     # GIVEN
     crypto_asset.user = user_with_kucoin_integration
@@ -234,7 +235,7 @@ def test_sync_kucoin_transactions_should_create_asset_and_transaction(
         ).exists()
 
 
-@pytest.mark.usefixtures("crypto_asset")
+@pytest.mark.usefixtures("crypto_asset", "sync_assets_read_model")
 def test_should_skip_kucoin_transaction_if_already_exists(
     user_with_kucoin_integration,
     kucoin_client,

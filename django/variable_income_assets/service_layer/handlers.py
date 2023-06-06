@@ -18,7 +18,9 @@ def create_transactions(cmd: commands.CreateTransactions, uow: AbstractUnitOfWor
         for dto in cmd.asset._transactions:
             uow.assets.transactions.add(dto=dto)
 
-        cmd.asset.events.append(events.TransactionsCreated(asset_pk=uow.asset_pk))
+        cmd.asset.events.append(
+            events.TransactionsCreated(asset_pk=uow.asset_pk, new_asset=cmd.new_asset)
+        )
         uow.assets.seen.add(cmd.asset)
         uow.commit()
 
@@ -53,9 +55,24 @@ def upsert_read_model(
     ],
     _: AbstractUnitOfWork,
 ) -> None:
-    upsert_asset_read_model.delay(
+    upsert_asset_read_model(
         asset_id=event.asset_pk,
-        is_aggregate_upsert=not isinstance(event, (events.AssetCreated, events.AssetUpdated)),
+        is_aggregate_upsert=(
+            not isinstance(event, (events.AssetCreated, events.AssetUpdated))
+            # It's possible that the `Asset` is created together with the first
+            # `Transaction` or `PassiveIncome` via an integration.
+            # If that's the case then we need to use `None` so all fields are updated.
+            # I prefered to do this together with these events other than emiting
+            # an specific event (i.e. `events.AssetCreated`) which would call this
+            # function with `is_aggregate_upsert=False` - and would thus update the
+            # `Asset`'s specific fields first because, in a production environment,
+            # these events would be processed asynchronously which means that
+            # unless we use some sort of `FIFO` queue we might process
+            # `events.TransactionsCreated | events.PassiveIncomeCreated` before
+            # `events.AssetCreated` even if the latter was emitted first
+            if not getattr(event, "new_asset", False)
+            else None
+        ),
     )
 
 

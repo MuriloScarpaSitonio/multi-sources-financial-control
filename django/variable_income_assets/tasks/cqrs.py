@@ -1,11 +1,8 @@
 from typing import Optional
 
-from celery import shared_task
-
 from ..models import Asset, AssetReadModel
 
 
-@shared_task
 def upsert_asset_read_model(asset_id: int, is_aggregate_upsert: Optional[bool] = None) -> None:
     """Upsert the respective `AssetReadModel` of a given `Asset` (write model).
 

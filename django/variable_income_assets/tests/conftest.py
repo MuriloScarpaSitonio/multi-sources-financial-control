@@ -44,11 +44,6 @@ class PassiveIncomeFactory(DjangoModelFactory):
         model = PassiveIncome
 
 
-@pytest.fixture(autouse=True)
-def celery_always_eager(settings):
-    settings.CELERY_TASK_ALWAYS_EAGER = True
-
-
 @pytest.fixture
 def sync_assets_read_model():
     # TODO: evaluate

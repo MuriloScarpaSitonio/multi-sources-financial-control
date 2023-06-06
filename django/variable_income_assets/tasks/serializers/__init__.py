@@ -31,7 +31,7 @@ class CryptoTransactionSerializer(serializers.Serializer):
             raise serializers.ValidationError("Transaction already exists")
         return external_id
 
-    def create(self, asset: Asset, task_history_id: int) -> Transaction:
+    def create(self, asset: Asset, task_history_id: int, new_asset: bool) -> Transaction:
         from ...service_layer import messagebus  # avoid cirtular import error
 
         data = deepcopy(self.validated_data)
@@ -44,7 +44,9 @@ class CryptoTransactionSerializer(serializers.Serializer):
             )
         )
         uow = DjangoUnitOfWork(asset_pk=asset.pk)
-        messagebus.handle(message=CreateTransactions(asset=asset_domain), uow=uow)
+        messagebus.handle(
+            message=CreateTransactions(asset=asset_domain, new_asset=new_asset), uow=uow
+        )
         return uow.assets.transactions.seen.pop()  # hacky for DRF
 
 
