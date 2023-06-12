@@ -270,9 +270,9 @@ class PassiveIncomeViewSet(ModelViewSet):
 
     def perform_create(self, serializer: serializers.PassiveIncomeSerializer) -> None:
         super().perform_create(serializer)
-        with DjangoUnitOfWork(asset_pk=serializer.instance.pk) as uow:
+        with DjangoUnitOfWork(asset_pk=serializer.instance.asset_id) as uow:
             messagebus.handle(
-                message=events.PassiveIncomeCreated(asset_pk=serializer.instance.pk), uow=uow
+                message=events.PassiveIncomeCreated(asset_pk=serializer.instance.asset_id), uow=uow
             )
 
     def perform_update(self, serializer: serializers.PassiveIncomeSerializer) -> None:
