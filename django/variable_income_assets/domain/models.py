@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from .events import Event
 from .exceptions import MultipleCurrenciesNotAllowedException, NegativeQuantityNotAllowedException
@@ -20,10 +20,10 @@ class TransactionDTO:
     currency: TransactionCurrencies
     quantity: Decimal
     price: Decimal
-    created_at: Optional[datetime] = None
-    initial_price: Optional[Decimal] = None
-    external_id: Optional[str] = None
-    fetched_by_id: Optional[int] = None
+    created_at: datetime | None = None
+    initial_price: Decimal | None = None
+    external_id: str | None = None
+    fetched_by_id: int | None = None
 
     @property
     def is_sale(self) -> bool:
@@ -35,14 +35,14 @@ class Asset:
         self,
         quantity: Decimal,
         avg_price: Decimal,
-        currency: Optional[TransactionCurrencies] = None,
+        currency: TransactionCurrencies | None = None,
     ) -> None:
         self.quantity = quantity
         self.avg_price = avg_price
         self.currency = currency
 
-        self._transactions: List[TransactionDTO] = []
-        self.events: List[Event] = []
+        self._transactions: list[TransactionDTO] = []
+        self.events: list[Event] = []
 
     def _validate_transaction_currency(self, transaction_dto: TransactionDTO) -> None:
         if self.currency is not None and self.currency != transaction_dto.currency:

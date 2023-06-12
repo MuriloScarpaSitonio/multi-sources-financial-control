@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Dict, Optional
+from typing import Self
 
 from django.db import models
 
 from config.settings.dynamic import dynamic_settings
-from shared.utils import coalesce_sum_expression
 
 from ...choices import AssetsTotalInvestedReportAggregations, TransactionCurrencies
 
@@ -14,7 +13,7 @@ from ...choices import AssetsTotalInvestedReportAggregations, TransactionCurrenc
 class _Expressions:
     def __init__(
         self,
-        dollar_conversion_rate: Optional[Decimal] = None,
+        dollar_conversion_rate: Decimal | None = None,
     ) -> None:
         self.dollar_conversion_rate = (
             models.Value(dollar_conversion_rate)
@@ -49,13 +48,13 @@ class _Expressions:
 class AssetReadModelQuerySet(models.QuerySet):
     expressions = _Expressions()
 
-    def annotate_totals(self) -> AssetReadModelQuerySet:
+    def annotate_totals(self) -> Self:
         return self.annotate(
             current_total=self.expressions.current_total_expression,
             normalized_total_invested=self.expressions.normalized_total_invested_expression,
         )
 
-    def opened(self) -> AssetReadModelQuerySet:
+    def opened(self) -> Self:
         return self.filter(
             models.Q(quantity_balance__gt=0)
             # if no currency it means that we couldn't get it from the transactions
@@ -63,25 +62,25 @@ class AssetReadModelQuerySet(models.QuerySet):
             | models.Q(currency="")
         )
 
-    def finished(self) -> AssetReadModelQuerySet:
+    def finished(self) -> Self:
         return self.filter(quantity_balance__lte=0)
 
-    def indicators(self) -> Dict[str, Decimal]:
+    def indicators(self) -> dict[str, Decimal]:
         return self.annotate(
             current_total=self.expressions.current_total_expression,
             normalized_roi=self.expressions.normalized_roi_expression,
         ).aggregate(
-            ROI=coalesce_sum_expression("normalized_roi"),
-            ROI_opened=coalesce_sum_expression(
-                "normalized_roi", filter=models.Q(quantity_balance__gt=0)
+            ROI=models.Sum("normalized_roi", default=Decimal()),
+            ROI_opened=models.Sum(
+                "normalized_roi", filter=models.Q(quantity_balance__gt=0), default=Decimal()
             ),
-            ROI_finished=coalesce_sum_expression(
-                "normalized_roi", filter=models.Q(quantity_balance__lte=0)
+            ROI_finished=models.Sum(
+                "normalized_roi", filter=models.Q(quantity_balance__lte=0), default=Decimal()
             ),
-            total=coalesce_sum_expression("current_total"),
+            total=models.Sum("current_total", default=Decimal()),
         )
 
-    def total_invested_report(self, group_by: str, current: bool) -> AssetReadModelQuerySet:
+    def total_invested_report(self, group_by: str, current: bool) -> Self:
         choice = AssetsTotalInvestedReportAggregations.get_choice(group_by)
         if current:
             qs = self.alias(current_total=self.expressions.current_total_expression)
@@ -99,7 +98,7 @@ class AssetReadModelQuerySet(models.QuerySet):
             .order_by("-total")
         )
 
-    def roi_report(self, opened: bool = True, finished: bool = True) -> AssetReadModelQuerySet:
+    def roi_report(self, opened: bool = True, finished: bool = True) -> Self:
         qs = (
             self.alias(normalized_roi=self.expressions.normalized_roi_expression)
             .values("type")

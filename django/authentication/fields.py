@@ -1,4 +1,4 @@
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from cryptography.fernet import Fernet
 
@@ -25,15 +25,13 @@ class EncryptedField(CharField):
     def get_internal_type(self) -> str:
         return "BinaryField"
 
-    def get_db_prep_save(
-        self, value: Any, connection: "BaseDatabaseWrapper"
-    ) -> Optional[memoryview]:
+    def get_db_prep_save(self, value: Any, connection: "BaseDatabaseWrapper") -> memoryview | None:
         value = super().get_db_prep_save(value, connection)
         if value is not None:
             encrypted_value = self.fernet.encrypt(data=force_bytes(s=value))
             return connection.Database.Binary(encrypted_value)
 
-    def from_db_value(self, value: bytes, *_) -> Optional[str]:
+    def from_db_value(self, value: bytes, *_) -> str | None:
         if value is not None:
             decrypted_value = self.fernet.decrypt(token=value)
             return force_str(s=decrypted_value)

@@ -1,5 +1,3 @@
-from typing import Tuple
-
 from django.contrib import admin
 from django.db.models import QuerySet
 
@@ -15,7 +13,7 @@ class TransactionSellInitialPriceAdminFilter(admin.SimpleListFilter):  # pragma:
     # Parameter for the filter that will be used in the URL query.
     parameter_name = "initial_price__isnull"
 
-    def lookups(self, *_, **__) -> Tuple[Tuple[str, str], Tuple[str, str]]:
+    def lookups(self, *_, **__) -> tuple[tuple[str, str], tuple[str, str]]:
         """
         Returns a list of tuples. The first element in each
         tuple is the coded value for the option that will

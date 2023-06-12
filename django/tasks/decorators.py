@@ -1,5 +1,5 @@
 from functools import wraps
-from typing import Callable, Optional
+from typing import Callable
 from uuid import uuid4
 
 from django.utils import timezone

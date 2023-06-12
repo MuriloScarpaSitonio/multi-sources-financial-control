@@ -1,4 +1,4 @@
-from typing import List, Optional, Type, TYPE_CHECKING
+from typing import Type, TYPE_CHECKING
 
 from rest_framework.routers import DefaultRouter, Route
 
@@ -16,7 +16,7 @@ class NestedMixin:
         self,
         parent_router: DefaultRouter,
         parent_prefix: str,
-        lookup: Optional[str] = None,
+        lookup: str | None = None,
         *args,
         **kwargs,
     ):
@@ -32,7 +32,7 @@ class NestedMixin:
 
         self.parent_regex = f"{parent_prefix}/{self._get_lookup_regex(parent_viewset)}/"
 
-        nested_routes: List["Route"] = []
+        nested_routes: list["Route"] = []
         for route in self.routes:
             route_contents = route._asdict()
 

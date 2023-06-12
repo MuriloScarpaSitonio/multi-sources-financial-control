@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.db.models import F
@@ -442,7 +442,7 @@ def _print_cryptos_not_elegible_for_taxation(
 def print_irpf_infos(
     user_pk: int,
     year: int = timezone.localtime().year - 1,
-    dollar_conversion_rate: Optional[Decimal] = None,
+    dollar_conversion_rate: Decimal | None = None,
     normalize: bool = True,
     debug: int = 1,
 ):  # pragma: no cover

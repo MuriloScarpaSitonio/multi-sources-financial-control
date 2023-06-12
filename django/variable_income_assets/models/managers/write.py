@@ -1,13 +1,24 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Any, Dict, Optional, Set, TYPE_CHECKING, Union
+from typing import Any, Self, TYPE_CHECKING
 
-from django.db.models import Case, CharField, Count, F, OuterRef, Q, QuerySet, Subquery, Sum, Value
-from django.db.models.functions import Concat, Coalesce, TruncMonth
+from django.db.models import (
+    Case,
+    CharField,
+    Count,
+    DecimalField,
+    F,
+    OuterRef,
+    Q,
+    QuerySet,
+    Subquery,
+    Sum,
+    Value,
+)
+from django.db.models.functions import Cast, Concat, Coalesce, TruncMonth
 
 from shared.managers_utils import GenericDateFilters
-from shared.utils import coalesce_sum_expression
 
 from ...choices import AssetTypes, PassiveIncomeEventTypes
 from .expressions import GenericQuerySetExpressions
@@ -19,12 +30,12 @@ if TYPE_CHECKING:  # pragma: no cover
 class AssetQuerySet(QuerySet):
     expressions = GenericQuerySetExpressions(prefix="transactions")
 
-    def using_dollar_as(self, dollar_conversion_rate: Decimal) -> AssetQuerySet:
+    def using_dollar_as(self, dollar_conversion_rate: Decimal) -> Self:
         self.expressions.dollar_conversion_rate = dollar_conversion_rate
         return self
 
     @staticmethod
-    def _get_passive_incomes_subquery() -> PassiveIncomeQuerySet:
+    def _get_passive_incomes_subquery() -> Self:
         from ..write import PassiveIncome  # avoid circular ImportError
 
         return (
@@ -35,37 +46,37 @@ class AssetQuerySet(QuerySet):
             .values("credited_incomes")
         )
 
-    def _transactions_count_alias(self) -> AssetQuerySet:
+    def _transactions_count_alias(self) -> Self:
         return self.alias(transactions_count=Count("transactions"))
 
-    def _annotate_quantity_balance(self) -> AssetQuerySet:
+    def _annotate_quantity_balance(self) -> Self:
         return self.annotate(quantity_balance=self.expressions.get_quantity_balance()).order_by()
 
-    def opened(self) -> AssetQuerySet:
+    def opened(self) -> Self:
         return (
             self._transactions_count_alias()
             ._annotate_quantity_balance()
             .filter(Q(transactions_count=0) | Q(quantity_balance__gt=0))
         )
 
-    def finished(self) -> AssetQuerySet:
+    def finished(self) -> Self:
         return self._annotate_quantity_balance().filter(quantity_balance__lte=0)
 
-    def stocks(self) -> AssetQuerySet:  # pragma: no cover
+    def stocks(self) -> Self:  # pragma: no cover
         return self.filter(type=AssetTypes.stock)
 
-    def stocks_usa(self) -> AssetQuerySet:  # pragma: no cover
+    def stocks_usa(self) -> Self:  # pragma: no cover
         return self.filter(type=AssetTypes.stock_usa)
 
-    def cryptos(self) -> AssetQuerySet:  # pragma: no cover
+    def cryptos(self) -> Self:  # pragma: no cover
         return self.filter(type=AssetTypes.crypto)
 
-    def annotate_currency(self, fallback: Any = "") -> AssetQuerySet:
+    def annotate_currency(self, fallback: Any = "") -> Self:
         return self.annotate(currency=Coalesce(F("transactions__currency"), Value(fallback)))
 
     def annotate_roi(
         self, percentage: bool = False, annotate_passive_incomes_subquery: bool = True
-    ) -> AssetQuerySet:
+    ) -> Self:
         if annotate_passive_incomes_subquery:
             subquery = self._get_passive_incomes_subquery()
 
@@ -87,9 +98,7 @@ class AssetQuerySet(QuerySet):
             else self.annotate(**{field_name: Coalesce(roi_expression, Decimal())})
         )
 
-    def annotate_adjusted_avg_price(
-        self, annotate_passive_incomes_subquery: bool = True
-    ) -> AssetQuerySet:
+    def annotate_adjusted_avg_price(self, annotate_passive_incomes_subquery: bool = True) -> Self:
         if annotate_passive_incomes_subquery:  # pragma: no cover
             subquery = self._get_passive_incomes_subquery()
 
@@ -104,20 +113,20 @@ class AssetQuerySet(QuerySet):
             else self.annotate(adjusted_avg_price=Coalesce(expression, Decimal()))
         )
 
-    def annotate_total_adjusted_invested(self) -> AssetQuerySet:  # pragma: no cover
+    def annotate_total_adjusted_invested(self) -> Self:  # pragma: no cover
         return self.annotate(
             total_adjusted_invested=F("adjusted_avg_price") * F("quantity_balance")
         )
 
-    def annotate_avg_price(self) -> AssetQuerySet:
+    def annotate_avg_price(self) -> Self:
         return self.annotate(avg_price=self.expressions.get_avg_price())
 
-    def annotate_total_invested(self) -> AssetQuerySet:
+    def annotate_total_invested(self) -> Self:
         return self.annotate(
             total_invested=Coalesce(F("avg_price") * F("quantity_balance"), Decimal())
         )
 
-    def annotate_read_fields(self) -> AssetQuerySet:
+    def annotate_read_fields(self) -> Self:
         return (
             self._annotate_quantity_balance()
             .annotate_currency()
@@ -128,7 +137,7 @@ class AssetQuerySet(QuerySet):
             .annotate_total_invested()
         )
 
-    def annotate_irpf_infos(self, year: int) -> AssetQuerySet:
+    def annotate_irpf_infos(self, year: int) -> Self:
         return self.annotate_currency().annotate(
             transactions_balance=self.expressions.get_quantity_balance(
                 extra_filters=Q(transactions__created_at__year__lte=year)
@@ -143,7 +152,7 @@ class AssetQuerySet(QuerySet):
 
     def annotate_credited_incomes_at_given_year(
         self, year: int, incomes_type: PassiveIncomeEventTypes
-    ) -> AssetQuerySet:
+    ) -> Self:
         return self.annotate(
             credited_incomes_total=Subquery(
                 self._get_passive_incomes_subquery()
@@ -152,7 +161,7 @@ class AssetQuerySet(QuerySet):
             )
         )
 
-    def annotate_for_domain(self) -> AssetQuerySet:
+    def annotate_for_domain(self) -> Self:
         return (
             self._annotate_quantity_balance().annotate_currency(fallback=None).annotate_avg_price()
         )
@@ -162,26 +171,24 @@ class TransactionQuerySet(QuerySet):
     expressions = GenericQuerySetExpressions()
     filters = GenericDateFilters(date_field_name="created_at")
 
-    def using_dollar_as(self, dollar_conversion_rate: Decimal) -> TransactionQuerySet:
+    def using_dollar_as(self, dollar_conversion_rate: Decimal) -> Self:
         self.expressions.dollar_conversion_rate = dollar_conversion_rate
         return self
 
-    def _get_roi_expression(
-        self, incomes: Decimal, percentage: bool
-    ) -> Union[Sum, CombinedExpression]:
+    def _get_roi_expression(self, incomes: Decimal, percentage: bool) -> Sum | CombinedExpression:
         """
         We are passing the incomes explicity instead of defining a expression such as
         ```
-        PASSIVE_INCOMES_TOTAL = coalesce_sum_expression(
+        PASSIVE_INCOMES_TOTAL = Sum(
             "asset__incomes__amount",
             filter=Q(asset__incomes__event_type=PassiveIncomeEventTypes.credited),
-            extra=Decimal("1.0"),
+            default=Decimal()
         )
         ```
         at `GenericQuerySetExpressions` because we are using SQLite,
         which does not support the `DISTINCT ON` clause.
 
-        This means that if we pass `distinct=True` to `coalesce_sum_expression`,
+        This means that if we pass `distinct=True` to `Sum`,
         we'd get only one income if their `amount`s are equal. In a production environment,
         ie, using PostgreSQL, we could do something like
         `self.distinct('asset__incomes').aggregate(...)` to distinct the incomes and avoid
@@ -196,16 +203,16 @@ class TransactionQuerySet(QuerySet):
         )
         return Coalesce(expression, Decimal())
 
-    def bought(self) -> TransactionQuerySet:
+    def bought(self) -> Self:
         return self.filter(self.expressions.filters.bought)
 
-    def sold(self) -> TransactionQuerySet:
+    def sold(self) -> Self:
         return self.filter(self.expressions.filters.sold)
 
-    def since_a_year_ago(self) -> TransactionQuerySet:
+    def since_a_year_ago(self) -> Self:
         return self.filter(self.filters.since_a_year_ago)
 
-    def avg_price(self, incomes: Decimal = Decimal()) -> Dict[str, Decimal]:
+    def avg_price(self, incomes: Decimal = Decimal()) -> dict[str, Decimal]:
         expression = (
             self.expressions.get_adjusted_avg_price(incomes=Value(incomes))
             if incomes
@@ -213,14 +220,14 @@ class TransactionQuerySet(QuerySet):
         )
         return self.aggregate(avg_price=expression)
 
-    def get_quantity_balance(self) -> Dict[str, Decimal]:
+    def get_quantity_balance(self) -> dict[str, Decimal]:
         return self.aggregate(quantity=self.expressions.get_quantity_balance())
 
-    def roi(self, incomes: Decimal, percentage: bool = False) -> Dict[str, Decimal]:
+    def roi(self, incomes: Decimal, percentage: bool = False) -> dict[str, Decimal]:
         """ROI: Return On Investment"""
         return self.aggregate(ROI=self._get_roi_expression(incomes=incomes, percentage=percentage))
 
-    def annotate_raw_roi(self, normalize: bool = True) -> AssetQuerySet:
+    def annotate_raw_roi(self, normalize: bool = True) -> Self:
         expression = (F("price") - F("initial_price")) * F("quantity")
         return self.annotate(
             roi=(
@@ -230,7 +237,7 @@ class TransactionQuerySet(QuerySet):
             )
         )
 
-    def _annotate_totals(self) -> TransactionQuerySet:
+    def _annotate_totals(self) -> Self:
         return self.annotate(
             total_bought=self.expressions.total_bought_normalized,
             total_sold=self.expressions.total_sold_raw,
@@ -239,42 +246,44 @@ class TransactionQuerySet(QuerySet):
     @property
     def _monthly_avg_expression(self) -> CombinedExpression:
         return (
-            coalesce_sum_expression("total_bought", filter=~self.filters.current)
-            - coalesce_sum_expression("total_sold", filter=~self.filters.current)
+            Sum("total_bought", filter=~self.filters.current, default=Decimal())
+            - Sum("total_sold", filter=~self.filters.current, default=Decimal())
         ) / (
             Count(
                 Concat("created_at__month", "created_at__year", output_field=CharField()),
                 filter=~self.filters.current,
                 distinct=True,
             )
-            * Decimal("1.0")
+            * Cast(1.0, DecimalField())
         )
 
-    def indicators(self) -> Dict[str, Decimal]:
-        print(f"{self.filter(self.filters.current).bought().count()=}")
-        r = self._annotate_totals().aggregate(
-            current_bought=coalesce_sum_expression("total_bought", filter=self.filters.current),
-            current_sold=coalesce_sum_expression("total_sold", filter=self.filters.current),
+    def indicators(self) -> dict[str, Decimal]:
+        return self._annotate_totals().aggregate(
+            current_bought=Sum("total_bought", filter=self.filters.current, default=Decimal()),
+            current_sold=Sum("total_sold", filter=self.filters.current, default=Decimal()),
             avg=Coalesce(self._monthly_avg_expression, Decimal()),
         )
-        print(r)
-        return r
 
-    def monthly_avg(self) -> Dict[str, Decimal]:
+    def monthly_avg(self) -> dict[str, Decimal]:
         return self._annotate_totals().aggregate(avg=self._monthly_avg_expression)
 
-    def historic(self) -> TransactionQuerySet:
+    def historic(self) -> Self:
         return (
             self.annotate(
                 total=self.expressions.get_total_raw_expression(), month=TruncMonth("created_at")
             )
             .values("month")
             .annotate(
-                total_bought=coalesce_sum_expression(
-                    "total", filter=self.expressions.filters.bought
+                total_bought=Sum(
+                    "total", filter=self.expressions.filters.bought, default=Decimal()
                 ),
-                total_sold=coalesce_sum_expression(
-                    "total", filter=self.expressions.filters.sold, extra=Decimal("-1")
+                total_sold=(
+                    Sum(
+                        "total",
+                        filter=self.expressions.filters.sold,
+                        default=Decimal(),
+                    )
+                    * Cast(-1.0, DecimalField())
                 ),
                 diff=F("total_bought") + F("total_sold"),
             )
@@ -282,8 +291,8 @@ class TransactionQuerySet(QuerySet):
             .order_by("month")
         )
 
-    def aggregate_total_sold_per_type(self, only: Optional[Set[str]] = None) -> Dict[str, Decimal]:
-        type_expression_map: Dict[str, Case] = {}
+    def aggregate_total_sold_per_type(self, only: set[str] | None = None) -> dict[str, Decimal]:
+        type_expression_map: dict[str, Case] = {}
         for v in only & set(AssetTypes.values) if only is not None else AssetTypes.values:
             type_expression_map[v] = self.expressions.get_total_raw_expression(
                 aggregate=True, filter=Q(asset__type=v)
@@ -297,13 +306,14 @@ class PassiveIncomeQuerySet(QuerySet):
 
     @property
     def _monthly_avg_expression(self) -> CombinedExpression:
-        return coalesce_sum_expression(
+        return Sum(
             "amount",
             filter=(
                 Q(event_type=PassiveIncomeEventTypes.credited)
                 & self.filters.since_a_year_ago
                 & ~self.filters.current
             ),
+            default=Decimal(),
         ) / (
             Count(
                 Concat("operation_date__month", "operation_date__year", output_field=CharField()),
@@ -314,19 +324,19 @@ class PassiveIncomeQuerySet(QuerySet):
                 ),
                 distinct=True,
             )
-            * Decimal("1.0")
+            * Cast(1.0, DecimalField())
         )
 
-    def credited(self) -> PassiveIncomeQuerySet:
+    def credited(self) -> Self:
         return self.filter(event_type=PassiveIncomeEventTypes.credited)
 
-    def provisioned(self) -> PassiveIncomeQuerySet:
+    def provisioned(self) -> Self:
         return self.filter(event_type=PassiveIncomeEventTypes.provisioned)
 
-    def since_a_year_ago(self) -> PassiveIncomeQuerySet:
+    def since_a_year_ago(self) -> Self:
         return self.filter(self.filters.since_a_year_ago)
 
-    def indicators(self, fixed_avg_denominator: bool) -> Dict[str, Decimal]:
+    def indicators(self, fixed_avg_denominator: bool) -> dict[str, Decimal]:
         """
         Args:
             fixed_avg_denominator (bool): If True the denominator will be 12, indicating the last 12 months. If False,
@@ -347,49 +357,50 @@ class PassiveIncomeQuerySet(QuerySet):
                     ),
                     distinct=True,
                 )
-                * Decimal("1.0")
+                * Cast(1.0, DecimalField())
             )
         )
         return self.aggregate(
-            current_credited=coalesce_sum_expression(
+            current_credited=Sum(
                 "amount",
                 filter=Q(event_type=PassiveIncomeEventTypes.credited) & self.filters.current,
+                default=Decimal(),
             ),
-            provisioned_future=coalesce_sum_expression(
+            provisioned_future=Sum(
                 "amount",
                 filter=(
                     Q(event_type=PassiveIncomeEventTypes.provisioned)
                     & (self.filters.future | self.filters.current)
                 ),
+                default=Decimal(),
             ),
             avg=Coalesce(
-                coalesce_sum_expression(
+                Sum(
                     "amount",
                     filter=(
                         Q(event_type=PassiveIncomeEventTypes.credited)
                         & self.filters.since_a_year_ago
                         & ~self.filters.current
                     ),
+                    default=Decimal(),
                 )
                 / avg_denominator,
                 Decimal(),
             ),
         )
 
-    def monthly_avg(self) -> Dict[str, Decimal]:
+    def monthly_avg(self) -> dict[str, Decimal]:
         return self.aggregate(avg=self._monthly_avg_expression)
 
-    def trunc_months(self) -> PassiveIncomeQuerySet:
+    def trunc_months(self) -> Self:
         return (
             self.annotate(month=TruncMonth("operation_date"))
             .values("month")
-            .annotate(total=coalesce_sum_expression("amount"))
+            .annotate(total=Sum("amount", default=Decimal()))
             .order_by("-total")
         )
 
-    def assets_aggregation(
-        self, credited: bool = True, provisioned: bool = False
-    ) -> PassiveIncomeQuerySet:
+    def assets_aggregation(self, credited: bool = True, provisioned: bool = False) -> Self:
         """Returns the 10 assets that paid more incomes"""
         if credited and not provisioned:
             qs = self.credited()
@@ -403,9 +414,9 @@ class PassiveIncomeQuerySet(QuerySet):
         return (
             qs.annotate(code=F("asset__code"))
             .values("code")
-            .annotate(total=coalesce_sum_expression("amount"))
+            .annotate(total=Sum("amount", default=Decimal()))
             .order_by("-total")[:10]
         )
 
-    def sum(self) -> Dict[str, Decimal]:
-        return self.aggregate(total=coalesce_sum_expression("amount"))
+    def sum(self) -> dict[str, Decimal]:
+        return self.aggregate(total=Sum("amount", default=Decimal()))

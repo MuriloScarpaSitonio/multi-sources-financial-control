@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Union
 
 import pytest
 
@@ -19,7 +18,6 @@ pytestmark = pytest.mark.django_db
 
 @pytest.mark.usefixtures("transactions")
 class TestModels:
-
     # region: Tests DRY
     def _test_roi(self, asset: Asset, percentage: bool = False):
         # WHEN
@@ -36,7 +34,7 @@ class TestModels:
         assert round(asset.get_roi(percentage=percentage), 6) == round(expected, 6)
 
     def _test_asset_roi(
-        self, asset: Asset, current_price: Union[int, Decimal] = 20, percentage: bool = False
+        self, asset: Asset, current_price: int | Decimal = 20, percentage: bool = False
     ):
         # GIVEN
         asset.current_price = current_price
@@ -45,7 +43,7 @@ class TestModels:
         self._test_roi(asset=asset, percentage=percentage)
 
     def _test_finished_asset_roi(
-        self, asset: Asset, price: Union[int, Decimal], percentage: bool = False
+        self, asset: Asset, price: int | Decimal, percentage: bool = False
     ):
         # GIVEN
         Transaction.objects.create(

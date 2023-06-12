@@ -1,11 +1,10 @@
 import sqlite3
-from typing import Optional
 
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 
 
-def backup_db(gdrive_folder_id: Optional[str] = None) -> None:
+def backup_db(gdrive_folder_id: str | None = None) -> None:
     src = sqlite3.connect("db.sqlite3")
     dst = sqlite3.connect("backup.sqlite3")
     with dst:

@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import List, Type
+from typing import Type
 
 from django.db.models import Q
 from django.utils import timezone
@@ -108,7 +108,7 @@ class ExpenseViewSet(ModelViewSet):
         # return Response(serializer.data, status=HTTP_201_CREATED)
         return Response(status=HTTP_201_CREATED)
 
-    def _get_fixed_expenses_from_queryset(self) -> List[Expense]:  # pragma: no cover
+    def _get_fixed_expenses_from_queryset(self) -> list[Expense]:  # pragma: no cover
         today = timezone.localdate()
         one_month_before = today - relativedelta(months=1)
         two_months_before = today - relativedelta(months=2)

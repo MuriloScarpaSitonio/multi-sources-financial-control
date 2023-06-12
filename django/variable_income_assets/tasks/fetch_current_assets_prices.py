@@ -1,5 +1,3 @@
-from typing import List
-
 from django.conf import settings
 from django.utils import timezone
 
@@ -13,7 +11,7 @@ from ..models import Asset
 
 
 @task_finisher
-def fetch_current_assets_prices(task_history_id: str, codes: List[str], username: str) -> None:
+def fetch_current_assets_prices(task_history_id: str, codes: list[str], username: str) -> None:
     url = build_url(
         url=settings.ASSETS_INTEGRATIONS_URL, parts=("prices",), query_params={"username": username}
     )

@@ -1,15 +1,12 @@
-from typing import Dict, Optional
-
-
 class ValidationError(Exception):
-    default_message: Optional[str] = None
+    default_message: str | None = None
 
     def __init__(
         self,
         *,
         field: str,
-        message: Optional[str] = None,
-        message_interpolation_params: Optional[Dict[str, str]] = None,
+        message: str | None = None,
+        message_interpolation_params: dict[str, str] | None = None,
     ) -> None:
         if message is not None:
             self.message = message  # pragma: no cover
@@ -23,7 +20,7 @@ class ValidationError(Exception):
         super().__init__(self.message)
 
     @property
-    def detail(self) -> Dict[str, str]:
+    def detail(self) -> dict[str, str]:
         return {self.field: self.message}
 
 

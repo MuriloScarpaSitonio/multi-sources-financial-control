@@ -3,8 +3,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import asdict
 
-from typing import Set
-
 from ..domain.models import Asset as AssetDomainModel, TransactionDTO
 from ..models import Transaction
 
@@ -12,7 +10,7 @@ from ..models import Transaction
 class AbstractTransactionRepository(ABC):
     def __init__(self, asset_pk: int) -> None:
         self.asset_pk = asset_pk
-        self.seen: Set[Transaction] = set()
+        self.seen: set[Transaction] = set()
 
     def add(self, dto: TransactionDTO) -> None:
         transaction = self._add(dto=dto)
@@ -60,4 +58,4 @@ class AssetRepository:
     def __init__(self, transaction_repository: TransactionRepository) -> None:
         self.transactions = transaction_repository
 
-        self.seen: Set[AssetDomainModel] = set()
+        self.seen: set[AssetDomainModel] = set()

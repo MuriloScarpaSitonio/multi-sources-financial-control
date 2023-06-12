@@ -1,7 +1,6 @@
-from datetime import date, datetime
+from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from statistics import fmean
-from typing import Optional, Union
 
 from django.db.models import Avg, Q
 from django.utils import timezone
@@ -25,8 +24,8 @@ URL = f"/{BASE_API_URL}" + "expenses"
 
 
 def _convert_and_quantize(
-    value: Union[str, float, int, Decimal, None], precision: int = 1, cast: type = Decimal
-) -> Optional[Decimal]:
+    value: str | float | int | Decimal | None, precision: int = 1, cast: type = Decimal
+) -> Decimal | None:
     if value is None:
         return
     result = Decimal(str(value)).quantize(
@@ -343,7 +342,7 @@ def test_should_get_indicators(client):
         "diff": _convert_and_quantize(
             ((total / avg) - Decimal("1.0")) * Decimal("100.0"), precision=2, cast=float
         ),
-        "future": future,
+        "future": _convert_and_quantize(future, precision=2, cast=float),
     }
 
 

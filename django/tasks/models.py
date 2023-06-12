@@ -1,5 +1,3 @@
-from typing import Optional
-
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
@@ -64,7 +62,7 @@ class TaskHistory(models.Model):
         self.state = TaskStates.started
         self.save(update_fields=("started_at", "state", "updated_at"))
 
-    def finish(self, error: Optional[str] = None) -> None:
+    def finish(self, error: str | None = None) -> None:
         update_fields = ("finished_at", "state", "updated_at")
         self.finished_at = timezone.now()
         if error is None:

@@ -1,13 +1,11 @@
-from datetime import date, datetime
-
-from django.utils.timezone import utc
+from datetime import date, datetime, timezone
 
 from rest_framework.serializers import ChoiceField, Field
 
 
 class TimeStampToDateField(Field):
     def to_internal_value(self, value: int) -> date:
-        return datetime.fromtimestamp(value, tz=utc).date()
+        return datetime.fromtimestamp(value, tz=timezone.utc).date()
 
     def to_representation(self, value: int) -> int:
         return value

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Dict, Callable, Type, Union
+from typing import Any, Callable, Type
 
 from . import handlers
 from .unit_of_work import AbstractUnitOfWork
@@ -8,14 +8,14 @@ from ..domain import commands, events
 
 # region: types
 
-Message = Union[commands.Command, events.Event]
+Message = commands.Command | events.Event
 MessageCallable = Callable[[Any, AbstractUnitOfWork], Any]
 
 # endregion: types
 
 # region: maps
 
-EVENT_HANDLERS: Dict[Type[events.Event], List[MessageCallable]] = {
+EVENT_HANDLERS: dict[Type[events.Event], list[MessageCallable]] = {
     events.TransactionsCreated: [
         handlers.upsert_read_model,
         # handlers.check_monthly_selling_transaction_threshold,
@@ -32,7 +32,7 @@ EVENT_HANDLERS: Dict[Type[events.Event], List[MessageCallable]] = {
     events.AssetUpdated: [handlers.upsert_read_model],
 }
 
-COMMAND_HANDLERS: Dict[Type[commands.Command], MessageCallable] = {
+COMMAND_HANDLERS: dict[Type[commands.Command], MessageCallable] = {
     commands.CreateTransactions: handlers.create_transactions,
     commands.UpdateTransaction: handlers.update_transaction,
     commands.DeleteTransaction: handlers.delete_transaction,
@@ -56,13 +56,13 @@ def handle(message: Message, uow: AbstractUnitOfWork) -> None:
             handle_command(command=message, queue=queue, uow=uow)
 
 
-def handle_event(event: events.Event, queue: List[Message], uow: AbstractUnitOfWork) -> None:
+def handle_event(event: events.Event, queue: list[Message], uow: AbstractUnitOfWork) -> None:
     for handler in EVENT_HANDLERS[event.__class__]:
         _handle_message(handler=handler, message=event, queue=queue, uow=uow)
 
 
 def handle_command(
-    command: commands.Command, queue: List[Message], uow: AbstractUnitOfWork
+    command: commands.Command, queue: list[Message], uow: AbstractUnitOfWork
 ) -> None:
     _handle_message(
         handler=COMMAND_HANDLERS[command.__class__], message=command, queue=queue, uow=uow
@@ -70,7 +70,7 @@ def handle_command(
 
 
 def _handle_message(
-    handler: MessageCallable, message: Message, queue: List[Message], uow: AbstractUnitOfWork
+    handler: MessageCallable, message: Message, queue: list[Message], uow: AbstractUnitOfWork
 ) -> None:
     handler(message, uow)
     queue.extend(uow.collect_new_events())

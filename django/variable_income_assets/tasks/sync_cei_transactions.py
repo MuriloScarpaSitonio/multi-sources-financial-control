@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-from typing import List
 
 from django.conf import settings
 from django.db.transaction import atomic
@@ -24,7 +23,7 @@ def _resolve_code(code: str, market_type: str) -> str:  # pragma: no cover
 
 
 def _save_cei_transactions(
-    transactions_data: List[dict], user: CustomUser, task_history_id: int
+    transactions_data: list[dict], user: CustomUser, task_history_id: int
 ) -> None:  # pragma: no cover
     for data in transactions_data:
         try:

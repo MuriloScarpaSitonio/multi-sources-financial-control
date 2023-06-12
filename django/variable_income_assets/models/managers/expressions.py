@@ -1,19 +1,16 @@
 from decimal import Decimal
-from typing import Optional, Union
 
-
-from django.db.models import Case, Expression, F, Q, Value, When
+from django.db.models import Case, DecimalField, Expression, F, Q, Sum, Value, When
 from django.db.models.expressions import CombinedExpression
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Cast, Coalesce
 
 from config.settings.dynamic import dynamic_settings
-from shared.utils import coalesce_sum_expression
 
 from ...choices import TransactionActions, TransactionCurrencies
 
 
 class _GenericQueryHelperIntializer:
-    def __init__(self, prefix: Optional[str] = None) -> None:
+    def __init__(self, prefix: str | None = None) -> None:
         self.prefix = f"{prefix}__" if prefix is not None else ""
 
 
@@ -30,8 +27,8 @@ class GenericQuerySetFilters(_GenericQueryHelperIntializer):
 class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
     def __init__(
         self,
-        prefix: Optional[str] = None,
-        dollar_conversion_rate: Optional[Decimal] = None,
+        prefix: str | None = None,
+        dollar_conversion_rate: Decimal | None = None,
     ) -> None:
         super().__init__(prefix=prefix)
         self.dollar_conversion_rate = (
@@ -42,33 +39,38 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
         self.filters = GenericQuerySetFilters(prefix=prefix)
 
     @property
-    def total_sold(self) -> Expression:
-        return coalesce_sum_expression(
+    def total_sold(self) -> CombinedExpression:
+        return Sum(
             (F(f"{self.prefix}price") - F(f"{self.prefix}initial_price"))
             * F(f"{self.prefix}quantity"),
             filter=self.filters.sold,
-            extra=Decimal("1.0"),
-        )
+            default=Decimal(),
+            # I don't know why an out `Cast` doesn't work...
+        ) * Cast(1.0, DecimalField())
 
     @property
     def total_sold_raw(self) -> Case:
-        expression = coalesce_sum_expression(
+        expression = Sum(
             F(f"{self.prefix}price") * F(f"{self.prefix}quantity"),
             filter=self.filters.sold,
-            extra=Decimal("1.0"),
+            default=Decimal(),
         )
-        return self.get_dollar_conversion_expression(expression=expression)
+        # I don't know why an out `Cast` doesn't work...
+        return self.get_dollar_conversion_expression(
+            expression=expression * Cast(1.0, DecimalField())
+        )
 
     @property
     def total_bought_normalized(self) -> Case:
-        expression = coalesce_sum_expression(
+        expression = Sum(
             F(f"{self.prefix}price") * F(f"{self.prefix}quantity"),
             filter=self.filters.bought,
-            # models.functions.Cast won't work;
-            # cast result to a decimal value using `extra`
-            extra=Decimal("1.0"),
+            default=Decimal(),
         )
-        return self.get_dollar_conversion_expression(expression=expression)
+        # I don't know why an out `Cast` doesn't work...
+        return self.get_dollar_conversion_expression(
+            expression=expression * Cast(1.0, DecimalField())
+        )
 
     @property
     def current_total(self) -> Case:
@@ -83,23 +85,24 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
             Decimal(),
         )
 
-    def get_total_bought(self, extra_filters: Q = Q()) -> Expression:
-        return coalesce_sum_expression(
+    def get_total_bought(self, extra_filters: Q = Q()) -> CombinedExpression:
+        return Sum(
             F(f"{self.prefix}price") * F(f"{self.prefix}quantity"),
             filter=Q(self.filters.bought, extra_filters),
-            # models.functions.Cast won't work;
-            # cast result to a decimal value using `extra`
-            extra=Decimal("1.0"),
+            default=Decimal()
+            # I don't know why an out `Cast` doesn't work...
+        ) * Cast(1.0, DecimalField())
+
+    def get_quantity_bought(self, extra_filters: Q = Q()) -> Sum:
+        return Sum(
+            f"{self.prefix}quantity",
+            filter=Q(self.filters.bought, extra_filters),
+            default=Decimal(),
         )
 
-    def get_quantity_bought(self, extra_filters: Q = Q()) -> Coalesce:
-        return coalesce_sum_expression(
-            f"{self.prefix}quantity", filter=Q(self.filters.bought, extra_filters)
-        )
-
-    def get_quantity_balance(self, extra_filters: Q = Q()) -> Coalesce:
-        return self.get_quantity_bought(extra_filters=extra_filters) - coalesce_sum_expression(
-            f"{self.prefix}quantity", filter=Q(self.filters.sold, extra_filters)
+    def get_quantity_balance(self, extra_filters: Q = Q()) -> CombinedExpression:
+        return self.get_quantity_bought(extra_filters=extra_filters) - Sum(
+            f"{self.prefix}quantity", filter=Q(self.filters.sold, extra_filters), default=Decimal()
         )
 
     def get_dollar_conversion_expression(self, expression: Expression) -> Case:
@@ -111,23 +114,24 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
             default=expression,
         )
 
-    def get_adjusted_avg_price(self, incomes: Union[Expression, Value]) -> Coalesce:
+    def get_adjusted_avg_price(self, incomes: Expression | Value) -> Coalesce:
         return Coalesce(
             ((self.get_quantity_balance() * self.get_avg_price()) - incomes)
             / self.get_quantity_balance(),
             Decimal(),
         )
 
-    def get_total_adjusted(self, incomes: Union[Expression, Value]) -> CombinedExpression:
+    def get_total_adjusted(self, incomes: Expression | Value) -> CombinedExpression:
         return (self.get_quantity_balance() * self.get_avg_price()) - incomes - self.total_sold
 
     def get_total_raw_expression(self, aggregate: bool = False, **kwargs) -> Case:
         expression = (
-            coalesce_sum_expression(
+            Sum(
                 F(f"{self.prefix}price") * F(f"{self.prefix}quantity"),
-                extra=Decimal("1.0"),
+                edefault=Decimal(),
                 **kwargs,
             )
+            * Cast(1.0, DecimalField())
             if aggregate
             else F(f"{self.prefix}price") * F(f"{self.prefix}quantity")
         )

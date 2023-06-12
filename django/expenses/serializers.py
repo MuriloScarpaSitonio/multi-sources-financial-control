@@ -1,5 +1,5 @@
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any, Dict, Union, OrderedDict
+from typing import Any
 
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
@@ -32,13 +32,13 @@ class ExpenseSerializer(serializers.ModelSerializer):
             "installments",
         )
 
-    def validate(self, attrs: OrderedDict[str, Any]) -> OrderedDict[str, Any]:
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         installments = attrs.get("installments") or 1
         if attrs.get("is_fixed", False) and installments > 1:
             raise ValidationError("Fixed expense with installments is not permitted")
         return attrs
 
-    def create(self, validated_data: Dict[str, Any]) -> Expense:
+    def create(self, validated_data: dict[str, Any]) -> Expense:
         installments = validated_data.pop("installments") or 1
         if installments > 1:
             validated_data["price"] /= installments
@@ -76,7 +76,7 @@ class ExpenseReportTypeSerializer(_ExpenseExtraBaseSerializer):
     avg = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
     is_fixed = serializers.BooleanField()
 
-    def get_type(self, data: Dict[str, Union[bool, Decimal]]) -> str:
+    def get_type(self, data: dict[str, bool | Decimal]) -> str:
         return "Fixo" if data["is_fixed"] is True else "Variável"
 
 

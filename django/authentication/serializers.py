@@ -1,4 +1,3 @@
-from typing import Dict, OrderedDict, Union
 from django.db.transaction import atomic
 from django.contrib.auth import get_user_model
 
@@ -31,7 +30,7 @@ class IntegrationSecretSerializer(serializers.ModelSerializer):
         )
 
     @staticmethod
-    def _validate_cei_secrets(cpf: Union[str, None], cei_password: Union[str, None]) -> None:
+    def _validate_cei_secrets(cpf: str | None, cei_password: str | None) -> None:
         ERROR = serializers.ValidationError(
             {"cei": ["Tanto o CPF quanto a senha do CEI devem ser nulos ou ter um valor válido."]}
         )
@@ -44,9 +43,9 @@ class IntegrationSecretSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def _validate_kucoin_secrets(
-        kucoin_api_key: Union[str, None],
-        kucoin_api_secret: Union[str, None],
-        kucoin_api_passphrase: Union[str, None],
+        kucoin_api_key: str | None,
+        kucoin_api_secret: str | None,
+        kucoin_api_passphrase: str | None,
     ) -> None:
         ERROR = serializers.ValidationError(
             {"kucoin": ["Todos os segredos da KuCoin devem ser nulos ou ter um valor válido."]}
@@ -63,7 +62,7 @@ class IntegrationSecretSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def _validate_binance_secrets(
-        binance_api_key: Union[str, None], binance_api_secret: Union[str, None]
+        binance_api_key: str | None, binance_api_secret: str | None
     ) -> None:
         ERROR = serializers.ValidationError(
             {"binance": ["Todos os segredos da Binance devem ser nulos ou ter um valor válido."]}
@@ -75,7 +74,7 @@ class IntegrationSecretSerializer(serializers.ModelSerializer):
         if binance_api_secret and not binance_api_key:
             raise ERROR
 
-    def validate(self, attrs: OrderedDict[str, str]) -> OrderedDict[str, str]:
+    def validate(self, attrs: dict[str, str]) -> dict[str, str]:
         self._validate_cei_secrets(cpf=attrs.get("cpf"), cei_password=attrs.get("cei_password"))
         self._validate_kucoin_secrets(
             kucoin_api_key=attrs.get("kucoin_api_key"),
@@ -130,7 +129,7 @@ class UserSerializer(serializers.ModelSerializer):
         )
 
     @atomic
-    def create(self, validated_data: Dict[str, str]) -> "UserSerializer.Meta.model":
+    def create(self, validated_data: dict[str, str]) -> "UserSerializer.Meta.model":
         if "secrets" in validated_data:
             secrets_serializer = IntegrationSecretSerializer(data=validated_data.pop("secrets"))
             secrets_serializer.is_valid(raise_exception=True)
@@ -140,9 +139,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     @atomic
     def update(
-        self,
-        instance: "UserSerializer.Meta.model",
-        validated_data: Dict[str, Union[str, OrderedDict[str, str]]],
+        self, instance: "UserSerializer.Meta.model", validated_data: dict[str, str | dict[str, str]]
     ) -> "UserSerializer.Meta.model":
         if "secrets" in validated_data:
             secrets_serializer: IntegrationSecretSerializer = self.fields["secrets"]

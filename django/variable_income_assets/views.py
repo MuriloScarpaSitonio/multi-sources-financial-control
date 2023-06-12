@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Type, TYPE_CHECKING, Union
+from typing import Type, TYPE_CHECKING
 
 from django.db import transaction as djtransaction
 from django.db.models import Sum
@@ -60,7 +60,7 @@ class AssetViewSet(
     def _is_write_action(self) -> bool:
         return self.action in ("create", "update", "fetch_current_prices", "destroy")
 
-    def get_queryset(self) -> Union[AssetReadModelQuerySet[AssetReadModel], AssetQuerySet[Asset]]:
+    def get_queryset(self) -> AssetReadModelQuerySet[AssetReadModel] | AssetQuerySet[Asset]:
         if self.request.user.is_authenticated:
             if self._is_write_action():
                 return Asset.objects.filter(user_id=self.request.user.id)

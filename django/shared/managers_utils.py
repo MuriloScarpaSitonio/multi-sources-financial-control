@@ -1,12 +1,11 @@
 from datetime import date
-from typing import Optional
 
 from django.db.models import Q
 from django.utils import timezone
 
 
 class GenericDateFilters:
-    def __init__(self, date_field_name: str, base_date: Optional[date] = None) -> None:
+    def __init__(self, date_field_name: str, base_date: date | None = None) -> None:
         self.date_field_name = date_field_name
         self.base_date = base_date if base_date is not None else timezone.localdate()
 

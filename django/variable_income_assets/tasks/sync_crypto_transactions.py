@@ -1,5 +1,3 @@
-from typing import List
-
 from django.db.transaction import atomic
 from django.conf import settings
 from django.utils import timezone
@@ -57,7 +55,7 @@ def sync_binance_transactions_task(task_history_id: str, username: str) -> int:
 
 
 def save_crypto_transactions(
-    transactions_data: List[dict], user: CustomUser, task_history_id: str
+    transactions_data: list[dict], user: CustomUser, task_history_id: str
 ) -> None:
     for data in transactions_data:
         try:

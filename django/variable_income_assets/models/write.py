@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Optional
 
 from django.conf import settings
 from django.db import models
@@ -68,7 +67,7 @@ class Asset(models.Model):
         return self.transactions.get_quantity_balance()["quantity"]
 
     @cached_property
-    def currency_from_transactions(self) -> Optional[str]:
+    def currency_from_transactions(self) -> str | None:
         # we are accepting only one currency per asset, but this may change in the future
         return self.transactions.values_list("currency", flat=True).distinct().first()
 

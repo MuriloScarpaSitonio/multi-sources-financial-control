@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Iterator, TYPE_CHECKING
+from typing import Iterator, Self, TYPE_CHECKING
 
 from django.db import transaction as djtransaction
 
@@ -17,7 +17,7 @@ class AbstractUnitOfWork(ABC):
     def __init__(self, asset_pk: int) -> None:
         self.asset_pk = asset_pk
 
-    def __enter__(self) -> AbstractUnitOfWork:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *args) -> None:
@@ -49,7 +49,7 @@ class DjangoUnitOfWork(AbstractUnitOfWork):
         # because that would break atomicity.
         self._inside_atomic_block = djtransaction.get_autocommit() is False
 
-    def __enter__(self) -> DjangoUnitOfWork:
+    def __enter__(self) -> Self:
         self.assets = AssetRepository(
             transaction_repository=TransactionRepository(asset_pk=self.asset_pk)
         )

@@ -1,5 +1,4 @@
 from copy import deepcopy
-from typing import Tuple
 
 from rest_framework import ISO_8601, serializers
 
@@ -77,7 +76,7 @@ class CeiPassiveIncomeSerializer(serializers.Serializer):
     operation_date = serializers.DateField(input_formats=(ISO_8601,))
     event_type = CeiPassiveIncomeChoiceField(choices=PassiveIncomeEventTypes.choices)
 
-    def update_or_create(self, asset: Asset) -> Tuple[PassiveIncome, bool]:  # pragma: no cover
+    def update_or_create(self, asset: Asset) -> tuple[PassiveIncome, bool]:  # pragma: no cover
         return PassiveIncome.objects.update_or_create(
             asset=asset,
             type=self.validated_data["income_type"],

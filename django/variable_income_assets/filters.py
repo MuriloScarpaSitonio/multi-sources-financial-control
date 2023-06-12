@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from django.forms import Form
 from django.core.exceptions import ValidationError
@@ -17,7 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class CQRSDjangoFilterBackend(filters.rest_framework.DjangoFilterBackend):
-    def get_filterset_class(self, view: View, _: Optional[QuerySet] = None):
+    def get_filterset_class(self, view: View, _: QuerySet | None = None):
         return view.get_filterset_class()
 
 

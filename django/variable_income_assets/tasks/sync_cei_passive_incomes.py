@@ -1,5 +1,3 @@
-from typing import List
-
 from django.conf import settings
 from django.db.transaction import atomic
 from django.utils import timezone
@@ -18,7 +16,7 @@ from ..models import Asset
 
 
 def _save_cei_passive_incomes(
-    incomes_data: List[str], user: CustomUser, task_history_id: str
+    incomes_data: list[str], user: CustomUser, task_history_id: str
 ) -> None:  # pragma: no cover
     for data in incomes_data:
         try:

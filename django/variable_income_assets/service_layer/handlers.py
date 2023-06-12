@@ -1,4 +1,3 @@
-from typing import Union
 from uuid import uuid4
 
 from django.utils import timezone
@@ -43,16 +42,14 @@ def delete_transaction(cmd: commands.DeleteTransaction, uow: AbstractUnitOfWork)
 
 
 def upsert_read_model(
-    event: Union[
-        events.TransactionsCreated,
-        events.TransactionDeleted,
-        events.TransactionUpdated,
-        events.PassiveIncomeCreated,
-        events.PassiveIncomeUpdated,
-        events.PassiveIncomeDeleted,
-        events.AssetCreated,
-        events.AssetUpdated,
-    ],
+    event: events.TransactionsCreated
+    | events.TransactionDeleted
+    | events.TransactionUpdated
+    | events.PassiveIncomeCreated
+    | events.PassiveIncomeUpdated
+    | events.PassiveIncomeDeleted
+    | events.AssetCreated
+    | events.AssetUpdated,
     _: AbstractUnitOfWork,
 ) -> None:
     upsert_asset_read_model(

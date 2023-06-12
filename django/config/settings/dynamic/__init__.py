@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any
 
 from django.conf import settings
 from django.utils.functional import LazyObject
@@ -33,7 +33,7 @@ class DynamicSettings:
             raise AttributeError(key)
         self._backend.set(key, value)
 
-    def __dir__(self) -> List[str]:
+    def __dir__(self) -> list[str]:
         return settings.DYNAMIC_CONFIGS.keys()
 
 
