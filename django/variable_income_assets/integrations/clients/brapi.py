@@ -1,5 +1,4 @@
 import asyncio
-from typing import Dict, List, Optional
 
 from aiohttp import ClientResponse, ClientSession, ClientTimeout, TCPConnector
 from aiohttp.client_exceptions import ClientError
@@ -28,7 +27,7 @@ class BrApiClient:
         return f"{self.API_URL}/{await self._create_path(path=path, is_crypto=is_crypto)}"
 
     async def _request(
-        self, path: str, params: Optional[Dict[str, str]] = None, is_crypto: bool = False
+        self, path: str, params: dict[str, str] | None = None, is_crypto: bool = False
     ) -> ClientResponse:
         response = await self._session.get(
             url=await self._create_url(path=path, is_crypto=is_crypto), params=params
@@ -36,11 +35,11 @@ class BrApiClient:
         response.raise_for_status()
         return response
 
-    async def _get_valid_codes(self, code: str) -> Dict[str, List[str]]:
+    async def _get_valid_codes(self, code: str) -> dict[str, list[str]]:
         response = await self._request(path="available", params={"search": code})
         return await response.json()
 
-    async def get_valid_codes(self, codes: List[str]) -> List[str]:
+    async def get_valid_codes(self, codes: list[str]) -> list[str]:
         """
         The code may exist in the DB, but its name may have changed at B3. For example:
         https://www.moneytimes.com.br/codigo-da-acao-da-via-antiga-via-varejo-mudara-de-vvar3-para-viia3/
@@ -52,7 +51,7 @@ class BrApiClient:
             if not isinstance(result, ClientError) and result.get("stocks")
         ]
 
-    async def get_b3_prices(self, codes: List[str]) -> Dict[str, float]:
+    async def get_b3_prices(self, codes: list[str]) -> dict[str, float]:
         if not codes:
             return {}
         valid_codes = await self.get_valid_codes(codes=codes)
@@ -60,7 +59,7 @@ class BrApiClient:
         result = await response.json()
         return {r["symbol"]: r["regularMarketPrice"] for r in result["results"]}
 
-    async def get_crypto_prices(self, codes: List[str], currency: str) -> Dict[str, float]:
+    async def get_crypto_prices(self, codes: list[str], currency: str) -> dict[str, float]:
         response = await self._request(
             path="", is_crypto=True, params={"coin": ",".join(codes), "currency": currency}
         )

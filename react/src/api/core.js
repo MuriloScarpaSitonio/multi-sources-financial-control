@@ -150,7 +150,7 @@ export class AssetsApi extends Api {
     this.syncBinanceTransactions = () =>
       apiProvider.get(`${this.resource}/sync_binance_transactions`);
     this.syncPrices = () =>
-      apiProvider.get(`${this.resource}/fetch_current_prices`);
+      apiProvider.get(`${this.resource}/integrations/update_prices`);
   }
 }
 

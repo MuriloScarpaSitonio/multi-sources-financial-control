@@ -48,6 +48,11 @@ def client(user):
 
 
 @pytest.fixture
+def refresh_token(user):
+    return RefreshToken.for_user(user)
+
+
+@pytest.fixture
 def kucoin_secrets():
     return IntegrationSecretFactory(
         kucoin_api_key="test", kucoin_api_secret="test", kucoin_api_passphrase="test"

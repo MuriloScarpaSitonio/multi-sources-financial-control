@@ -153,31 +153,6 @@ def test_sync_cei_transactions_should_not_create_asset_if_unit_alread_exists(
     ).exists()
 
 
-@pytest.mark.usefixtures("assets", "transactions", "sync_assets_read_model")
-def test_should_success_fetch_current_assets_prices_task(
-    client, requests_mock, fetch_current_assets_prices_response
-):
-    # GIVEN
-    requests_mock.post(
-        build_url(url=settings.ASSETS_INTEGRATIONS_URL, parts=("prices",)),
-        json=fetch_current_assets_prices_response,
-    )
-
-    # WHEN
-    client.get(f"{URL}/fetch_current_prices?code=ALUP11")
-
-    # THEN
-    for code, price in fetch_current_assets_prices_response.items():
-        asset = Asset.objects.get(code=code)
-        assert float(asset.current_price) == price
-        a = AssetReadModel.objects.get(write_model_pk=asset.pk)
-        assert float(a.current_price) == price
-        assert convert_and_quantitize(a.roi) == convert_and_quantitize(asset.get_roi())
-
-        assert convert_and_quantitize(a.roi_percentage) == convert_and_quantitize(
-            asset.get_roi(percentage=True)
-        )
-
 
 def test_sync_kucoin_transactions_should_create_asset_and_transaction(
     user_with_kucoin_integration,

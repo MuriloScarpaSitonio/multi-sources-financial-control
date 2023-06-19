@@ -1,25 +1,14 @@
-import asyncio
 from datetime import date as date_typing, datetime
 from decimal import Decimal
-from typing import Dict, Iterator, List, Optional, Type, Union
+from typing import Iterator, List, Optional
 
-from fastapi import Depends, FastAPI, Query, status
+from fastapi import Depends, FastAPI, status
 
 from sqlmodel import Session, SQLModel
 
-from .clients import (
-    AwesomeApiClient,
-    BinanceClient,
-    BrApiClient,
-    CeiCrawler,
-    KuCoinClient,
-    TwelveDataClient,
-)
-from .constants import AssetTypes, DEFAULT_BINANCE_CURRENCY
+from .clients import AwesomeApiClient, BinanceClient, CeiCrawler, KuCoinClient
 from .database import engine
 from .schemas import (
-    AssetCurrentPrice,
-    AssetFetchCurrentPriceFilterSet,
     BinanceFiatTransaction,
     BinanceTradeTransaction,
     BinanceTransaction,
@@ -86,46 +75,6 @@ async def fetch_kucoin_transactions(username: str, db: Session = Depends(get_db)
 
 
 @app.get(
-    path="/kucoin/prices",
-    response_model=AssetCurrentPrice,
-    responses={status.HTTP_404_NOT_FOUND: {"model": NotFoundResponse}},
-    deprecated=True,
-)
-async def fetch_kucoin_prices(
-    username: str, codes: List[str] = Query(...), db: Session = Depends(get_db)
-):
-    user = await get_user(username=username, db=db)
-    async with KuCoinClient(user=user) as client:
-        return await client.get_prices(codes=codes)
-
-
-@app.get(path="/b3/prices", response_model=AssetCurrentPrice, deprecated=True)
-async def fetch_b3_current_prices(codes: List[str] = Query(...)):
-    async with BrApiClient() as client:
-        return await client.get_b3_prices(codes=codes)
-
-
-@app.get("/crypto/prices", response_model=AssetCurrentPrice, deprecated=True)
-async def get_crypto_prices(codes: List[str] = Query(...), currency: str = Query(...)):
-    async with BrApiClient() as client:
-        return await client.get_crypto_prices(codes=codes, currency=currency)
-
-
-@app.get(
-    path="/binance/prices",
-    response_model=AssetCurrentPrice,
-    responses={status.HTTP_404_NOT_FOUND: {"model": NotFoundResponse}},
-    deprecated=True,
-)
-async def fetch_binance_prices(
-    username: str, codes: List[str] = Query(...), db: Session = Depends(get_db)
-):
-    user = await get_user(username=username, db=db)
-    async with BinanceClient(user=user) as client:
-        return await client.get_prices(codes=codes)
-
-
-@app.get(
     path="/binance/transactions",
     response_model=List[BinanceTransaction],
     responses={status.HTTP_404_NOT_FOUND: {"model": NotFoundResponse}},
@@ -155,49 +104,6 @@ async def fetch_binance_transactions(
         for transaction in sold_fiat_transactions
     ]
     return trade_transactions + bought_fiat_transactions + sold_fiat_transactions
-
-
-@app.post(path="/prices", response_model=AssetCurrentPrice)
-async def fetch_prices(
-    username: str, assets: List[AssetFetchCurrentPriceFilterSet], db: Session = Depends(get_db)
-):
-    user = await get_user(username=username, db=db)
-
-    async def get_b3_prices(codes: List[str]) -> Dict[str, float]:
-        async with BrApiClient() as c:
-            return await c.get_b3_prices(codes=codes)
-
-    async def get_crypto_prices(client: Union[Type[BinanceClient], Type[KuCoinClient]], **kwargs):
-        async with client(user=user) as c:
-            return await c.get_prices(**kwargs)
-
-    async def get_usa_stocks_prices(codes: List[str]):
-        async with TwelveDataClient() as c:
-            return await c.get_prices(codes=codes)
-
-    b3_codes, binance_assets, kucoin_codes, usa_stocks_codes = [], [], [], []
-    for asset in assets:
-        if AssetTypes[asset.type] == AssetTypes.STOCK:
-            b3_codes.append(asset.code)
-        if AssetTypes[asset.type] == AssetTypes.STOCK_USA:
-            usa_stocks_codes.append(asset.code)
-        if AssetTypes[asset.type] == AssetTypes.CRYPTO:
-            if asset.currency == DEFAULT_BINANCE_CURRENCY:
-                binance_assets.append(asset)
-            else:
-                kucoin_codes.append(asset.code)
-    tasks = [
-        get_b3_prices(codes=b3_codes),
-        get_crypto_prices(client=KuCoinClient, codes=kucoin_codes),
-        get_crypto_prices(client=BinanceClient, assets=binance_assets),
-        get_usa_stocks_prices(codes=usa_stocks_codes),
-    ]
-    return {
-        code: price
-        for result in await asyncio.gather(*tasks, return_exceptions=True)
-        if not isinstance(result, Exception)
-        for code, price in result.items()
-    }
 
 
 @app.get(

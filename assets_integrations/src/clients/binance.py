@@ -1,5 +1,4 @@
 import asyncio
-from datetime import datetime, timedelta
 from hashlib import sha256
 from hmac import new as hmac_new
 from time import time

@@ -445,74 +445,6 @@ def test_should_raise_permission_error_sync_cei_passive_incomes_if_user_has_not_
     }
 
 
-@pytest.mark.usefixtures("assets", "transactions", "sync_assets_read_model")
-def test_should_call_fetch_current_assets_prices_task(client, user, stock_usa_asset, mocker):
-    # GIVEN
-    mocked_task = mocker.patch("variable_income_assets.views.fetch_current_assets_prices")
-    Transaction.objects.create(
-        action=TransactionActions.buy, price=50, asset=stock_usa_asset, quantity=100
-    )
-
-    # WHEN
-    response = client.get(f"{URL}/fetch_current_prices?code=ALUP11&code=URA")
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-    assert mocked_task.call_args[1]["username"] == user.username
-    assert mocked_task.call_args[1]["codes"] == ["ALUP11", "URA"]
-
-
-def test_should_raise_permission_error_fetch_current_prices_if_user_has_not_set_credentials(
-    binance_client,
-):
-    # GIVEN
-
-    # WHEN
-    response = binance_client.get(f"{URL}/fetch_current_prices")
-
-    # THEN
-    assert response.status_code == HTTP_403_FORBIDDEN
-    assert response.json() == {
-        "detail": "User has not set the given credentials for Assets Prices integration"
-    }
-
-
-@pytest.mark.usefixtures(
-    "transactions", "another_stock_asset_transactions", "sync_assets_read_model"
-)
-def test_should_raise_error_if_asset_is_finished_fetch_current_assets_prices(
-    client, stock_asset, another_stock_asset
-):
-    # GIVEN
-
-    # WHEN
-    response = client.get(
-        f"{URL}/fetch_current_prices?code={stock_asset.code}&code={another_stock_asset.code}"
-    )
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {
-        "code": [
-            f"Select a valid choice. {another_stock_asset.code} is not one of the available choices."
-        ]
-    }
-
-
-@pytest.mark.usefixtures("assets")
-def test_should_raise_error_if_code_is_not_valid_fetch_current_prices(client):
-    # GIVEN
-
-    # WHEN
-    response = client.get(f"{URL}/fetch_current_prices?code=ALSO3")
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {
-        "code": ["Select a valid choice. ALSO3 is not one of the available choices."]
-    }
-
-
 @pytest.mark.usefixtures("indicators_data", "sync_assets_read_model")
 def test_should_get_indicators(client):
     # GIVEN
@@ -768,15 +700,6 @@ def test__roi_report__should_fail_wo_required_filters(client):
     "user_fixture_name, client_fixture_name, tasks_to_run",
     (
         (
-            "user",
-            "client",
-            (
-                # "sync_cei_transactions_task",
-                # "sync_cei_passive_incomes_task",
-                "fetch_current_assets_prices",
-            ),
-        ),
-        (
             "user_without_assets_price_integration",
             "client",
             (
@@ -807,15 +730,7 @@ def test_should_sync_all(request, user_fixture_name, client_fixture_name, tasks_
     assert response.status_code == HTTP_200_OK
     assert all(task_name in response.json() for task_name in tasks_to_run)
     for task_name, mocked_task in zip(tasks_to_run, mocked_tasks):
-        extra_kwargs = (
-            {"codes": list(Asset.objects.filter(user=user).opened().values_list("code", flat=True))}
-            if task_name == "fetch_current_assets_prices"
-            else {}
-        )
-
         assert mocked_task.call_args[1]["username"] == user.username
-        for k, v in extra_kwargs.items():
-            mocked_task.call_args[1][k] == v
 
 
 @pytest.mark.usefixtures("transactions")

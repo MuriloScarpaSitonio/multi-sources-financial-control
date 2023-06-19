@@ -1,8 +1,8 @@
 from typing import Dict, List, Optional
 
-from aiohttp import ClientResponse, ClientSession, ClientTimeout, TCPConnector
+from django.conf import settings
 
-from ..settings import TWELVE_DATA_API_KEY
+from aiohttp import ClientResponse, ClientSession, ClientTimeout, TCPConnector
 
 
 class TwelveDataClient:
@@ -20,8 +20,10 @@ class TwelveDataClient:
     async def __aexit__(self, *_, **__) -> None:
         await self._session.close()
 
-    async def _create_url(self, path: str, api_key: str = TWELVE_DATA_API_KEY) -> str:
-        return self.API_URL.format(path=path, api_key=api_key)
+    async def _create_url(self, path: str, api_key: str | None = None) -> str:
+        return self.API_URL.format(
+            path=path, api_key=api_key if api_key is not None else settings.TWELVE_DATA_API_KEY
+        )
 
     async def _get(self, path: str, params: Optional[Dict[str, str]] = None) -> ClientResponse:
         response = await self._session.get(

@@ -1,8 +1,10 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from shared.routers import NestedDefaultRouter
 
 from .views import AssetViewSet, AssetTransactionViewSet, PassiveIncomeViewSet, TransactionViewSet
+from .integrations.views import update_prices
 
 assets_router = DefaultRouter(trailing_slash=False)
 assets_router.register(prefix="assets", viewset=AssetViewSet, basename="assets")
@@ -27,4 +29,5 @@ urlpatterns = (
     + incomes_router.urls
     + assets_transactions_router.urls
     + transactions_router.urls
+    + [path("assets/integrations/update_prices", update_prices)]
 )

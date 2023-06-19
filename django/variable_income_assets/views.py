@@ -33,14 +33,10 @@ from .models.managers import (
     PassiveIncomeQuerySet,
     TransactionQuerySet,
 )
-from .permissions import AssetsPricesPermission, BinancePermission, CeiPermission, KuCoinPermission
+from .permissions import BinancePermission, CeiPermission, KuCoinPermission
 from .service_layer import messagebus
 from .service_layer.unit_of_work import DjangoUnitOfWork
-from .tasks import (
-    sync_binance_transactions_task,
-    sync_kucoin_transactions_task,
-    fetch_current_assets_prices,
-)
+from .tasks import sync_binance_transactions_task, sync_kucoin_transactions_task
 
 if TYPE_CHECKING:  # pragma: no cover
     from djchoices import ChoiceItem
@@ -58,7 +54,7 @@ class AssetViewSet(
     ordering_fields = ("code", "type", "total_invested", "roi", "roi_percentage")
 
     def _is_write_action(self) -> bool:
-        return self.action in ("create", "update", "fetch_current_prices", "destroy")
+        return self.action in ("create", "update", "destroy")
 
     def get_queryset(self) -> AssetReadModelQuerySet[AssetReadModel] | AssetQuerySet[Asset]:
         if self.request.user.is_authenticated:
@@ -168,39 +164,20 @@ class AssetViewSet(
         sync_binance_transactions_task(task_history_id=task_id, username=request.user.username)
         return Response({"task_id": task_id}, status=HTTP_200_OK)
 
-    @action(methods=("GET",), detail=False, permission_classes=(AssetsPricesPermission,))
-    def fetch_current_prices(self, request: Request) -> Response:
-        filterset = filters.AssetFetchCurrentPriceFilterSet(
-            data=request.GET, queryset=self.get_queryset().opened()
-        )
-        task_id = start_task(task_name="fetch_current_assets_prices", user=request.user)
-        fetch_current_assets_prices(
-            username=request.user.username,
-            codes=list(filterset.qs.values_list("code", flat=True)),
-            task_history_id=task_id,
-        )
-        return Response({"task_id": task_id}, status=HTTP_200_OK)
-
     @action(methods=("GET",), detail=False)
     def sync_all(self, request: Request) -> Response:
         TASK_USER_PROPERTY_MAP = {
             # "has_cei_integration": (sync_cei_transactions_task, sync_cei_passive_incomes_task),
             "has_kucoin_integration": (sync_kucoin_transactions_task,),
             "has_binance_integration": (sync_binance_transactions_task,),
-            "has_asset_price_integration": (fetch_current_assets_prices,),
         }
 
         response = {}
-        qs = self.get_queryset()
         for property_name, tasks in TASK_USER_PROPERTY_MAP.items():
             if getattr(request.user, property_name):
                 for task in tasks:
                     task_id = start_task(task_name=task.__name__, user=request.user)
-                    if task.__name__ == "fetch_current_assets_prices":
-                        kwargs = {"codes": list(qs.opened().values_list("code", flat=True))}
-                    else:
-                        kwargs = {"task_history_id": task_id}
-                    task(username=request.user.username, **kwargs)
+                    task(username=request.user.username, task_history_id=task_id)
                     response[task.__name__] = task_id
         return Response(response, status=HTTP_200_OK)
 
