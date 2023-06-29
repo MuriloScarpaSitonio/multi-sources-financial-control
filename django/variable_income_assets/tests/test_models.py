@@ -6,17 +6,17 @@ from authentication.tests.conftest import client, secrets, user
 
 from .shared import (
     get_adjusted_avg_price_brute_forte,
-    get_adjusted_quantity_brute_force,
+    get_quantity_balance_brute_force,
     get_avg_price_bute_force,
     get_roi_brute_force,
 )
 from ..choices import TransactionActions
-from ..models import Asset, Transaction
+from ..models import Asset, AssetMetaData, Transaction
 
 pytestmark = pytest.mark.django_db
 
 
-@pytest.mark.usefixtures("transactions")
+@pytest.mark.usefixtures("transactions", "stock_asset_metadata")
 class TestModels:
     # region: Tests DRY
     def _test_roi(self, asset: Asset, percentage: bool = False):
@@ -37,8 +37,9 @@ class TestModels:
         self, asset: Asset, current_price: int | Decimal = 20, percentage: bool = False
     ):
         # GIVEN
-        asset.current_price = current_price
-        asset.save()
+        AssetMetaData.objects.filter(
+            code=asset.code, type=asset.type, currency=asset.currency_from_transactions
+        ).update(current_price=current_price)
 
         self._test_roi(asset=asset, percentage=percentage)
 
@@ -60,7 +61,7 @@ class TestModels:
         # GIVEN
 
         # WHEN
-        quantity = get_adjusted_quantity_brute_force(asset=asset)
+        quantity = get_quantity_balance_brute_force(asset=asset)
         avg_price = get_adjusted_avg_price_brute_forte(asset=asset)
 
         # THEN
@@ -94,7 +95,7 @@ class TestModels:
         # GIVEN
 
         # WHEN
-        expected = get_adjusted_quantity_brute_force(asset=stock_asset)
+        expected = get_quantity_balance_brute_force(asset=stock_asset)
 
         # THEN
         assert stock_asset.quantity_from_transactions == expected

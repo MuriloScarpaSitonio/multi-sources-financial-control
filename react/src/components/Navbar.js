@@ -283,17 +283,6 @@ const AssetsMenu = () => {
           </MenuItem>
           <Collapse in={openIntegrationsMenu} timeout="auto" unmountOnExit>
             <MenuList>
-              {evaluateBooleanFromLocalStorage(
-                localStorage.getItem("user_has_asset_price_integration")
-              ) && (
-                <MenuItem
-                  onClick={() =>
-                    sync("syncPrices", "Sincronização de preços em antamento!")
-                  }
-                >
-                  Atualizar preços
-                </MenuItem>
-              )}
               {/* <MenuItem
                 onClick={() =>
                   sync(

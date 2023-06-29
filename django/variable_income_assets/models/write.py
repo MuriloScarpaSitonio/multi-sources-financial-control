@@ -20,19 +20,37 @@ from ..choices import (
 from ..domain.models import Asset as AssetDomainModel
 
 
-class Asset(models.Model):
+class AssetMetaData(models.Model):
     code = models.CharField(max_length=10)
     type = models.CharField(max_length=10, validators=[AssetTypes.custom_validator])
     sector = models.CharField(
         max_length=50, validators=[AssetSectors.custom_validator], default=AssetSectors.unknown
     )
+    currency = models.CharField(max_length=6, validators=[TransactionCurrencies.custom_validator])
+    current_price = models.DecimalField(decimal_places=6, max_digits=13)
+    current_price_updated_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("code", "type", "currency"), name="code__type__currency__unique_together"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"<AssetMetaData ({self.code} | {self.type} | {self.currency})>"  # pragma: no cover
+
+    __repr__ = __str__
+
+
+class Asset(models.Model):
+    code = models.CharField(max_length=10)
+    type = models.CharField(max_length=10, validators=[AssetTypes.custom_validator])
     objective = models.CharField(
         max_length=50,
         validators=[AssetObjectives.custom_validator],
         default=AssetObjectives.unknown,
     )
-    current_price = models.DecimalField(decimal_places=6, max_digits=13, blank=True, null=True)
-    current_price_updated_at = models.DateTimeField(blank=True, null=True)
     user = models.ForeignKey(
         to=settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -46,7 +64,7 @@ class Asset(models.Model):
         unique_together = ("user", "code")
 
     def __str__(self) -> str:
-        return f"<Asset ({self.code})>"  # pragma: no cover
+        return f"<Asset ({self.code} | {self.type} | {self.user_id})>"  # pragma: no cover
 
     __repr__ = __str__
 

@@ -26,15 +26,18 @@ class AssetFilterSet(filters.FilterSet):
 
     class Meta:
         model = Asset
-        exclude = ("current_price", "user")
+        exclude = ("user",)
 
 
 class AssetReadFilterSet(filters.FilterSet):
     code = filters.CharFilter(lookup_expr="icontains")
+    sector = filters.CharFilter(
+        field_name="metadata__sector"  # TODO: unable to resolve via repository?
+    )
 
     class Meta:
         model = AssetReadModel
-        exclude = ("current_price", "user")
+        exclude = ("user",)
 
 
 class AssetFetchCurrentPriceFilterSet(filters.FilterSet):
@@ -48,7 +51,7 @@ class AssetFetchCurrentPriceFilterSet(filters.FilterSet):
 
     class Meta:
         model = Asset
-        fields = ("type", "sector", "objective")
+        fields = ("type", "objective")
 
     @property
     def qs(self):

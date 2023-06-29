@@ -1,5 +1,5 @@
 #!/bin/sh
-python manage.py migrate --noinput
+# python manage.py migrate --noinput
 
 cat <<EOF | python manage.py shell
 from django.contrib.auth import get_user_model

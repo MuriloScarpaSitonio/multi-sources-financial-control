@@ -1,18 +1,23 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Self
+from typing import Self, TYPE_CHECKING
 
 from django.db import models
 
 from config.settings.dynamic import dynamic_settings
 
+from ...adapters.repositories import DjangoSQLAssetMetaDataRepository
 from ...choices import AssetsTotalInvestedReportAggregations, TransactionCurrencies
+
+if TYPE_CHECKING:
+    from ...adapters.repositories import AbstractAssetMetaDataRepository
 
 
 class _Expressions:
     def __init__(
         self,
+        metadata_repository: AbstractAssetMetaDataRepository,
         dollar_conversion_rate: Decimal | None = None,
     ) -> None:
         self.dollar_conversion_rate = (
@@ -20,20 +25,30 @@ class _Expressions:
             if dollar_conversion_rate is not None
             else models.Value(dynamic_settings.DOLLAR_CONVERSION_RATE)
         )
+        self.metadata_repository = metadata_repository
 
     @property
     def current_total_expression(self) -> models.Case:
         return self.get_dollar_conversion_expression(
-            expression=models.F("current_price") * models.F("quantity_balance")
+            expression=self.metadata_repository.get_current_price_annotation()
+            * models.F("quantity_balance")
         )
-
-    @property
-    def normalized_roi_expression(self) -> models.Case:
-        return self.get_dollar_conversion_expression(expression=models.F("roi"))
 
     @property
     def normalized_total_invested_expression(self) -> models.Case:
         return self.get_dollar_conversion_expression(expression=models.F("total_invested"))
+
+    def get_roi_expression(
+        self, normalized: bool = False
+    ) -> models.CombinedExpression | models.Case:
+        expression = (
+            models.F("quantity_balance") * self.metadata_repository.get_current_price_annotation()
+        ) - models.F("total_invested_adjusted")
+        return (
+            self.get_dollar_conversion_expression(expression=expression)
+            if normalized
+            else expression
+        )
 
     def get_dollar_conversion_expression(self, expression: models.Expression) -> models.Case:
         return models.Case(
@@ -46,7 +61,7 @@ class _Expressions:
 
 
 class AssetReadModelQuerySet(models.QuerySet):
-    expressions = _Expressions()
+    expressions = _Expressions(metadata_repository=DjangoSQLAssetMetaDataRepository)
 
     def annotate_totals(self) -> Self:
         return self.annotate(
@@ -68,7 +83,7 @@ class AssetReadModelQuerySet(models.QuerySet):
     def indicators(self) -> dict[str, Decimal]:
         return self.annotate(
             current_total=self.expressions.current_total_expression,
-            normalized_roi=self.expressions.normalized_roi_expression,
+            normalized_roi=self.expressions.get_roi_expression(normalized=True),
         ).aggregate(
             ROI=models.Sum("normalized_roi", default=Decimal()),
             ROI_opened=models.Sum(
@@ -90,17 +105,22 @@ class AssetReadModelQuerySet(models.QuerySet):
                     expression=models.F("avg_price") * models.F("quantity_balance")
                 )
             )
-
-        return (
-            qs.values(choice.field_name)
+        f = "metadata__sector" if choice.field_name == "sector" else choice.field_name
+        qs = (
+            qs.values(f)
             .annotate(total=models.Sum("current_total"))
             .filter(total__gt=0)
             .order_by("-total")
         )
+        return (
+            qs
+            if f == choice.field_name
+            else qs.annotate(**{choice.field_name: models.F(f)}).values(choice.field_name, "total")
+        )
 
     def roi_report(self, opened: bool = True, finished: bool = True) -> Self:
         qs = (
-            self.alias(normalized_roi=self.expressions.normalized_roi_expression)
+            self.alias(normalized_roi=self.expressions.get_roi_expression(normalized=True))
             .values("type")
             .annotate(total=models.Sum("normalized_roi"))
             .order_by("-total")

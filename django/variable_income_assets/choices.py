@@ -34,21 +34,27 @@ class AssetTypes(DjangoChoicesCustomValidator):
         "STOCK",
         label="Ação B3",
         monthly_sell_threshold=settings.STOCKS_MONTHLY_SELL_EXEMPTION_THRESHOLD,
+        valid_currencies=(
+            TransactionCurrencies.real,  # TODO: validate when creating the first transaction
+        ),
     )
     stock_usa = ChoiceItem(
         "STOCK_USA",
         label="Ação EUA",
         monthly_sell_threshold=settings.STOCKS_USA_MONTHLY_SELL_EXEMPTION_THRESHOLD,
+        valid_currencies=(TransactionCurrencies.dollar,),
     )
     crypto = ChoiceItem(
         "CRYPTO",
         label="Criptoativos",
         monthly_sell_threshold=settings.CRYPTOS_MONTHLY_SELL_EXEMPTION_THRESHOLD,
+        valid_currencies=(TransactionCurrencies.real, TransactionCurrencies.dollar),
     )
     fii = ChoiceItem(
         "FII",
         label="Fundo de Investimento Imobiliário",
         monthly_sell_threshold=settings.FII_MONTHLY_SELL_EXEMPTION_THRESHOLD,
+        valid_currencies=(TransactionCurrencies.real,),
     )
 
 

@@ -1,7 +1,6 @@
 import { useState } from "react";
 
 import { useForm, Controller } from "react-hook-form";
-import NumberFormat from "react-number-format";
 import * as yup from "yup";
 
 import Autocomplete from "@material-ui/lab/Autocomplete";
@@ -15,47 +14,15 @@ import FormControl from "@material-ui/core/FormControl";
 import FormGroup from "@material-ui/core/FormGroup";
 import FormHelperText from "@material-ui/core/FormHelperText";
 import TextField from "@material-ui/core/TextField";
-import Tooltip from "@material-ui/core/Tooltip";
 import { yupResolver } from "@hookform/resolvers/yup";
 
-import {
-  AssetsObjectivesMapping,
-  AssetsSectorsMapping,
-  AssetsTypesMapping,
-} from "../consts.js";
+import { AssetsObjectivesMapping, AssetsTypesMapping } from "../consts.js";
 import { getChoiceByLabel } from "../helpers";
 import { AssetsApi } from "../api";
 import { FormFeedback } from "../components/FormFeedback";
 
-function NumberFormatCustom(props) {
-  const { inputRef, onChange, ...other } = props;
-
-  return (
-    <NumberFormat
-      {...other}
-      getInputRef={inputRef}
-      onValueChange={(values) =>
-        onChange({
-          target: {
-            value: values.floatValue,
-          },
-        })
-      }
-      thousandSeparator="."
-      decimalSeparator=","
-      decimalScale={4}
-      allowNegative={false}
-      isNumericString
-    />
-  );
-}
-
 const schema = yup.object().shape({
   code: yup.string().required("O código é obrigatório"),
-  current_price: yup
-    .number()
-    .required("O preço atual é obrigatório")
-    .positive("Apenas números positivos"),
   type: yup
     .object()
     .shape({
@@ -63,14 +30,6 @@ const schema = yup.object().shape({
       value: yup.string().required("O tipo é obrigatório"),
     })
     .required("O tipo é obrigatório")
-    .nullable(),
-  sector: yup
-    .object()
-    .shape({
-      label: yup.string().required("O setor é obrigatório"),
-      value: yup.string().required("O setor é obrigatório"),
-    })
-    .required("O setor é obrigatório")
     .nullable(),
   objective: yup
     .object()
@@ -169,7 +128,6 @@ export const AssetsForm = ({ initialData, onClose, onSuccess }) => {
         [method]({
           ...data,
           objective: data.objective.value,
-          sector: data.sector.value,
           type: data.type.value,
         })
         .then(() => {
@@ -211,128 +169,15 @@ export const AssetsForm = ({ initialData, onClose, onSuccess }) => {
                 {...field}
                 label="Código"
                 required
-                style={{ width: "32%", marginRight: "2%" }}
+                style={{ width: "35%", marginRight: "2%" }}
                 error={!!errors.code}
                 helperText={errors.code?.message}
               />
             )}
           />
           <FormControl
-            style={{ width: "32%", marginRight: "2%" }}
-            error={!!errors.type}
-          >
-            <Controller
-              name="type"
-              control={control}
-              defaultValue={getChoiceByLabel(
-                initialData.type,
-                AssetsTypesMapping
-              )}
-              render={({ field: { onChange, value } }) => (
-                <>
-                  <Autocomplete
-                    onChange={(_, type) => onChange(type)}
-                    value={value}
-                    clearText="Limpar"
-                    closeText="Fechar"
-                    options={AssetsTypesMapping}
-                    getOptionLabel={(option) => option.label}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        error={!!errors.type}
-                        required
-                        label="Tipo"
-                      />
-                    )}
-                  />
-                  {(errors.type?.message || errors.type?.value?.message) && (
-                    <FormHelperText>
-                      {errors.type?.message || errors.type?.value?.message}
-                    </FormHelperText>
-                  )}
-                </>
-              )}
-            />
-          </FormControl>
-          <Controller
-            name="current_price"
-            control={control}
-            defaultValue={initialData.current_price}
-            render={({ field }) => (
-              <Tooltip
-                title={
-                  initialData.current_price_updated_at
-                    ? `Atualizado pela última vez às ${initialData.current_price_updated_at}`
-                    : ""
-                }
-              >
-                <TextField
-                  {...field}
-                  required
-                  label="Preço atual"
-                  InputProps={{
-                    inputComponent: NumberFormatCustom,
-                    inputProps: {
-                      prefix: initialData?.curency
-                        ? initialData?.curency !== "BRL"
-                          ? "$ "
-                          : "R$ "
-                        : initialData?.currencySymbol,
-                    },
-                  }}
-                  style={{ width: "20%", marginRight: "2%" }}
-                  error={!!errors.price}
-                  helperText={errors.price?.message}
-                />
-              </Tooltip>
-            )}
-          />
-        </FormGroup>
-        <FormGroup row style={{ marginTop: "5px" }}>
-          <FormControl
             required
-            style={{ width: "32%", marginRight: "2%" }}
-            error={!!errors.sector}
-          >
-            <Controller
-              name="sector"
-              control={control}
-              defaultValue={getChoiceByLabel(
-                initialData.sector,
-                AssetsSectorsMapping
-              )}
-              render={({ field: { onChange, value } }) => (
-                <>
-                  <Autocomplete
-                    onChange={(_, sector) => onChange(sector)}
-                    value={value}
-                    clearText="Limpar"
-                    closeText="Fechar"
-                    options={AssetsSectorsMapping}
-                    getOptionLabel={(option) => option.label}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        required
-                        error={!!errors.sector}
-                        label="Setor"
-                      />
-                    )}
-                  />
-                  {(errors.sector?.message ||
-                    errors.sector?.value?.message) && (
-                    <FormHelperText>
-                      {errors.sector?.message || errors.sector?.value?.message}
-                    </FormHelperText>
-                  )}
-                </>
-              )}
-            />
-          </FormControl>
-          <FormControl
-            required
-            style={{ width: "32%" }}
+            style={{ width: "55%" }}
             error={!!errors.objective}
           >
             <Controller
@@ -365,6 +210,47 @@ export const AssetsForm = ({ initialData, onClose, onSuccess }) => {
                     <FormHelperText>
                       {errors.objective?.message ||
                         errors.objective?.value?.message}
+                    </FormHelperText>
+                  )}
+                </>
+              )}
+            />
+          </FormControl>
+        </FormGroup>
+
+        <FormGroup row>
+          <FormControl
+            style={{ width: "92%", marginTop: "5px" }}
+            error={!!errors.type}
+          >
+            <Controller
+              name="type"
+              control={control}
+              defaultValue={getChoiceByLabel(
+                initialData.type,
+                AssetsTypesMapping
+              )}
+              render={({ field: { onChange, value } }) => (
+                <>
+                  <Autocomplete
+                    onChange={(_, type) => onChange(type)}
+                    value={value}
+                    clearText="Limpar"
+                    closeText="Fechar"
+                    options={AssetsTypesMapping}
+                    getOptionLabel={(option) => option.label}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        error={!!errors.type}
+                        required
+                        label="Tipo"
+                      />
+                    )}
+                  />
+                  {(errors.type?.message || errors.type?.value?.message) && (
+                    <FormHelperText>
+                      {errors.type?.message || errors.type?.value?.message}
                     </FormHelperText>
                   )}
                 </>

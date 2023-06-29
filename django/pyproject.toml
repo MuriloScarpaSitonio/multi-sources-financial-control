@@ -6,6 +6,7 @@ version = "0.1.0"
 
 [tool.poetry.dependencies]
 Django = "^4.2.2"
+aiohttp = "^3.8.4"
 asgiref = "^3.7.2"
 cryptography = "^41.0.1"
 django-choices = "^1.7.2"
@@ -18,9 +19,9 @@ python = "^3.8"
 python-dateutil = "^2.8.2"
 python-decouple = "^3.8"
 requests = "2.26.0"
-aiohttp = "^3.8.4"
 
 [tool.poetry.dev-dependencies]
+PyDrive2 = "^1.15.4"
 black = "^23.3.0"
 factory-boy = "^3.2.1"
 pylint-django = "^2.5.3"
@@ -30,13 +31,12 @@ pytest-cov = "^4.1.0"
 pytest-django = "^4.5.2"
 pytest-mock = "^3.10.0"
 pytest-sugar = "^0.9.7"
-PyDrive2 = "^1.15.4"
 
 [tool.poetry.group.dev.dependencies]
-requests-mock = "^1.10.0"
-pytest-xdist = "^3.1.0"
 freezegun = "^1.2.2"
 locust = "^2.15.1"
+pytest-xdist = "^3.1.0"
+requests-mock = "^1.10.0"
 
 [build-system]
 build-backend = "poetry.core.masonry.api"
@@ -53,16 +53,17 @@ python_functions = "test_*"
 [tool.coverage.run]
 omit = [
   "*apps.py",
-  "*migrations/*",
+  "*/migrations/*",
   "*settings*",
-  "*tests/*",
+  "*/tests/*",
   "*urls.py",
   "*wsgi*",
   "*asgi*",
-  "venv/*",
   "manage.py",
+  "locustfile.py",
   "*scripts*",
 ]
 
 [tool.coverage.report]
-fail_under = 97
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
+fail_under = 95

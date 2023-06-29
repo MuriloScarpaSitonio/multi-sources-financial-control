@@ -60,7 +60,9 @@ class AssetViewSet(
         if self.request.user.is_authenticated:
             if self._is_write_action():
                 return Asset.objects.filter(user_id=self.request.user.id)
-            qs = AssetReadModel.objects.filter(user_id=self.request.user.id)
+            qs = AssetReadModel.objects.select_related("metadata").filter(
+                user_id=self.request.user.id
+            )
             return qs.opened().order_by("-total_invested") if self.action == "list" else qs
         return AssetReadModel.objects.none()  # pragma: no cover -- drf-spectacular
 

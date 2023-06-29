@@ -501,3 +501,11 @@ def print_irpf_infos(
         normalize=normalize,
         dollar_conversion_rate=dollar_conversion_rate,
     )
+
+
+def update_assets_metadata_current_price() -> None:
+    from asgiref.sync import async_to_sync
+
+    from .integrations import views as integration_views
+
+    async_to_sync(integration_views.update_prices)(None)

@@ -33,13 +33,6 @@ def user(secrets):
 
 
 @pytest.fixture
-def user_without_assets_price_integration(user):
-    user.has_asset_price_integration = False
-    user.save()
-    return user
-
-
-@pytest.fixture
 def client(user):
     refresh = RefreshToken.for_user(user)
     client = APIClient()
@@ -61,9 +54,7 @@ def kucoin_secrets():
 
 @pytest.fixture
 def user_with_kucoin_integration(kucoin_secrets):
-    return UserFactory(
-        username="kucoin_user", has_asset_price_integration=False, secrets=kucoin_secrets
-    )
+    return UserFactory(username="kucoin_user", secrets=kucoin_secrets)
 
 
 @pytest.fixture
@@ -81,9 +72,7 @@ def binance_secrets():
 
 @pytest.fixture
 def user_with_binance_integration(binance_secrets):
-    return UserFactory(
-        username="binance_user", has_asset_price_integration=False, secrets=binance_secrets
-    )
+    return UserFactory(username="binance_user", secrets=binance_secrets)
 
 
 @pytest.fixture

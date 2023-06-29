@@ -238,7 +238,6 @@ def test_should_retrieve_user(client, user):
     assert response.json() == {
         "id": user.pk,
         "username": user.username,
-        "has_asset_price_integration": True,
         "has_binance_integration": False,
         "has_cei_integration": True,
         "has_kucoin_integration": False,

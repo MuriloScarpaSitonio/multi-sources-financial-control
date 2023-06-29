@@ -6,7 +6,7 @@ from django.db.models import Q
 from config.settings.dynamic import dynamic_settings
 
 from ..choices import TransactionCurrencies
-from ..models import Asset
+from ..models import Asset, AssetMetaData
 
 
 def _get_total_sold_brute_force(asset: Asset):
@@ -16,6 +16,15 @@ def _get_total_sold_brute_force(asset: Asset):
             for transaction in asset.transactions.sold()
         )
     )
+
+
+def get_current_price_metadata(asset: Asset, normalize: bool = False) -> Decimal:
+    metadata = AssetMetaData.objects.only("current_price", "currency").get(
+        code=asset.code, type=asset.type, currency=asset.currency_from_transactions
+    )
+    if metadata.currency != TransactionCurrencies.real and normalize:
+        return metadata.current_price * dynamic_settings.DOLLAR_CONVERSION_RATE
+    return metadata.current_price
 
 
 def get_total_bought_brute_force(asset: Asset):
@@ -41,7 +50,7 @@ def get_avg_price_bute_force(asset: Asset, normalize: bool = False, extra_filter
     return weights / sum(quantities)
 
 
-def get_adjusted_quantity_brute_force(asset: Asset, extra_filters: Q = Q()):
+def get_quantity_balance_brute_force(asset: Asset, extra_filters: Q = Q()):
     bought = (
         transaction.quantity for transaction in asset.transactions.filter(extra_filters).bought()
     )
@@ -61,7 +70,7 @@ def get_adjusted_avg_price_brute_forte(asset: Asset):
         weights.append(transaction.price * transaction.quantity)
         quantities.append(transaction.quantity)
 
-    adjusted_quantity = get_adjusted_quantity_brute_force(asset=asset)
+    adjusted_quantity = get_quantity_balance_brute_force(asset=asset)
 
     weights = sum(weights)
     if asset.currency_from_transactions != TransactionCurrencies.real:
@@ -76,11 +85,12 @@ def get_adjusted_avg_price_brute_forte(asset: Asset):
 def get_roi_brute_force(asset: Asset, normalize: bool = True):
     total_sold = _get_total_sold_brute_force(asset=asset)
     total_incomes = get_total_credited_incomes_brute_force(asset=asset)
-    adjusted_quantity = get_adjusted_quantity_brute_force(asset=asset)
+    quantity_balance = get_quantity_balance_brute_force(asset=asset)
     avg_price = get_avg_price_bute_force(asset=asset, normalize=False)
+    current_price = get_current_price_metadata(asset)
 
-    result = (asset.current_price * adjusted_quantity) - (
-        (avg_price * adjusted_quantity) - total_incomes - total_sold
+    result = (current_price * quantity_balance) - (
+        (avg_price * quantity_balance) - total_incomes - total_sold
     )
     if normalize and asset.currency_from_transactions != TransactionCurrencies.real:
         result *= dynamic_settings.DOLLAR_CONVERSION_RATE
@@ -111,20 +121,13 @@ def _(value: int, decimal_places: int = 2, rounding: str = ROUND_HALF_UP) -> flo
     return float(Decimal(str(value)).quantize(Decimal(".1") ** decimal_places, rounding=rounding))
 
 
-def get_current_price(asset: Asset, normalize: bool = False) -> Decimal:
-    current_price = asset.current_price or Decimal()
-    if asset.currency_from_transactions != TransactionCurrencies.real and normalize:
-        current_price *= dynamic_settings.DOLLAR_CONVERSION_RATE
-    return current_price
-
-
 get_total_invested_brute_force = (
     lambda asset, normalize=True, extra_filters=Q(): get_avg_price_bute_force(
         asset, normalize=normalize, extra_filters=extra_filters
     )
-    * get_adjusted_quantity_brute_force(asset, extra_filters=extra_filters)
+    * get_quantity_balance_brute_force(asset, extra_filters=extra_filters)
 )
 
-get_current_total_invested_brute_force = lambda asset, normalize=True: get_current_price(
+get_current_total_invested_brute_force = lambda asset, normalize=True: get_current_price_metadata(
     asset, normalize=normalize
-) * get_adjusted_quantity_brute_force(asset)
+) * get_quantity_balance_brute_force(asset)

@@ -121,7 +121,6 @@ class UserSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "username",
-            "has_asset_price_integration",
             "has_cei_integration",
             "has_kucoin_integration",
             "has_binance_integration",

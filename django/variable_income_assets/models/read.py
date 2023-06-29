@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, DecimalException
 
 from django.db import models
-
+from django.utils.functional import cached_property
 from config.settings.dynamic import dynamic_settings
 
 from .managers import AssetReadModelQuerySet
+from .write import AssetMetaData
 from ..choices import AssetObjectives, AssetSectors, AssetTypes, TransactionCurrencies
 
 
@@ -14,16 +15,11 @@ class AssetReadModel(models.Model):
     # region: write model fields
     code = models.CharField(max_length=10)
     type = models.CharField(max_length=10, validators=[AssetTypes.custom_validator])
-    sector = models.CharField(
-        max_length=50, validators=[AssetSectors.custom_validator], default=AssetSectors.unknown
-    )
     objective = models.CharField(
         max_length=50,
         validators=[AssetObjectives.custom_validator],
         default=AssetObjectives.unknown,
     )
-    current_price = models.DecimalField(decimal_places=6, max_digits=13)
-    current_price_updated_at = models.DateTimeField(blank=True, null=True)
     user_id = models.PositiveBigIntegerField(editable=False, db_index=True)
     # endregion: write model fields
 
@@ -34,23 +30,30 @@ class AssetReadModel(models.Model):
     quantity_balance = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
     avg_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
     adjusted_avg_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
-    roi = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
-    roi_percentage = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
+    total_bought = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
     total_invested = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
+    total_invested_adjusted = models.DecimalField(
+        decimal_places=8, max_digits=15, default=Decimal()
+    )
     updated_at = models.DateTimeField(auto_now=True)
+    metadata = models.ForeignKey(
+        to=AssetMetaData, on_delete=models.DO_NOTHING, related_name="user_read_assets", null=True
+    )
 
     objects = AssetReadModelQuerySet.as_manager()
 
     def __str__(self) -> str:
-        return f"<AssetReadModel ({self.code})>"  # pragma: no cover
+        return f"<AssetMetaData ({self.code} | {self.type} | {self.currency} | {self.user_id})>"  # pragma: no cover
 
     __repr__ = __str__
 
-    @property
-    def current_total(self):
-        total = self.current_price * self.quantity_balance
-        return (
-            total
-            if self.currency == TransactionCurrencies.real
-            else total * dynamic_settings.DOLLAR_CONVERSION_RATE
-        )
+    @cached_property
+    def roi(self) -> Decimal:
+        return (self.quantity_balance * self.metadata.current_price) - self.total_invested_adjusted
+
+    @cached_property
+    def roi_percentage(self) -> Decimal:
+        try:
+            return (self.roi / self.total_bought) * Decimal("100.0")
+        except DecimalException:
+            return Decimal()
