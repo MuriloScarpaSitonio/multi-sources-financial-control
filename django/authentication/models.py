@@ -52,7 +52,6 @@ class CustomUser(AbstractUser):
     secrets = models.OneToOneField(
         IntegrationSecret, on_delete=models.CASCADE, null=True, blank=True, related_name="user"
     )
-    has_asset_price_integration = models.BooleanField(default=True)
 
     @property
     def has_cei_integration(self) -> bool:

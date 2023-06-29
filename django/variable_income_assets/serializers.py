@@ -1,7 +1,5 @@
 from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_UP, DecimalException
 
-from django.utils import timezone
-
 from rest_framework import serializers
 from rest_framework.exceptions import NotFound
 
@@ -154,30 +152,12 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
 
 class AssetSerializer(serializers.ModelSerializer):
     type = CustomChoiceField(choices=choices.AssetTypes.choices)
-    sector = CustomChoiceField(choices=choices.AssetSectors.choices)
     objective = CustomChoiceField(choices=choices.AssetObjectives.choices)
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
     class Meta:
         model = Asset
-        fields = (
-            "id",
-            "code",
-            "type",
-            "sector",
-            "objective",
-            "user",
-            "current_price",
-            "current_price_updated_at",
-        )
-        extra_kwargs = {"current_price_updated_at": {"read_only": True}}
-
-    @property
-    def validated_data(self) -> dict:
-        _validated_data = super().validated_data
-        if "current_price" in _validated_data:
-            _validated_data.update(current_price_updated_at=timezone.now())
-        return _validated_data
+        fields = ("id", "code", "type", "objective", "user")
 
     # TODO
     # def validate(self, data: dict):
@@ -249,6 +229,12 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
     roi = serializers.SerializerMethodField(read_only=True)
     percentage_invested = serializers.SerializerMethodField(read_only=True)
     current_percentage = serializers.SerializerMethodField(read_only=True)
+    current_price = serializers.DecimalField(
+        max_digits=13, decimal_places=6, read_only=True, source="metadata.current_price"
+    )
+    current_price_updated_at = serializers.DateTimeField(
+        read_only=True, source="metadata.current_price_updated_at"
+    )
 
     class Meta:
         model = AssetReadModel
@@ -294,11 +280,11 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
             result = Decimal()
         return result * Decimal("100.0")
 
-    def get_current_percentage(self, obj: Asset) -> Decimal:
+    def get_current_percentage(self, obj: AssetReadModel) -> Decimal:
         value = (
-            (obj.current_price or Decimal())
+            (obj.metadata.current_price or Decimal())
             if obj.currency == choices.TransactionCurrencies.real
-            else (obj.current_price or Decimal()) * dynamic_settings.DOLLAR_CONVERSION_RATE
+            else (obj.metadata.current_price or Decimal()) * dynamic_settings.DOLLAR_CONVERSION_RATE
         )
 
         try:

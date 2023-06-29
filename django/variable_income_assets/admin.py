@@ -1,52 +1,87 @@
 from django.contrib import admin
+from django.forms import CharField, ModelForm, Select
 from django.db.models import QuerySet
 
-from .choices import TransactionActions
-from .models import Asset, PassiveIncome, Transaction
+from .choices import (
+    AssetObjectives,
+    AssetSectors,
+    AssetTypes,
+    PassiveIncomeEventTypes,
+    PassiveIncomeTypes,
+    TransactionActions,
+    TransactionCurrencies,
+)
+from .models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
 
 
-class TransactionSellInitialPriceAdminFilter(admin.SimpleListFilter):  # pragma: no cover
-    # Human-readable title which will be displayed in the
-    # right admin sidebar just above the filter options.
-    title = "SELL __ initial_price"
+class _TransactionForm(ModelForm):
+    action = CharField(max_length=50, widget=Select(choices=TransactionActions.choices))
+    currency = CharField(max_length=50, widget=Select(choices=TransactionCurrencies.choices))
 
-    # Parameter for the filter that will be used in the URL query.
-    parameter_name = "initial_price__isnull"
-
-    def lookups(self, *_, **__) -> tuple[tuple[str, str], tuple[str, str]]:
-        """
-        Returns a list of tuples. The first element in each
-        tuple is the coded value for the option that will
-        appear in the URL query. The second element is the
-        human-readable name for the option that will appear
-        in the right sidebar.
-        """
-        return (("False", "with"), ("True", "without"))
-
-    def queryset(self, _, queryset: QuerySet) -> QuerySet:
-        """
-        Returns the filtered queryset based on the value
-        provided in the query string and retrievable via
-        `self.value()`.
-        """
-        value = self.value()
-        if value is not None:
-            return queryset.filter(
-                action=TransactionActions.sell, initial_price__isnull=value == "True"
-            )
+    class Meta:
+        model = Transaction
+        fields = "__all__"
 
 
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
     search_fields = ("asset__code",)
-    list_filter = (TransactionSellInitialPriceAdminFilter, "asset__code")
+    list_filter = ("asset__code",)
+    form = _TransactionForm
 
 
-@admin.register(Asset)
-class AssetAdmin(admin.ModelAdmin):
-    list_filter = ("type",)
+class _PassiveIncomeForm(ModelForm):
+    type = CharField(max_length=50, widget=Select(choices=PassiveIncomeTypes.choices))
+    event_type = CharField(max_length=50, widget=Select(choices=PassiveIncomeEventTypes.choices))
+
+    class Meta:
+        model = PassiveIncome
+        fields = "__all__"
 
 
 @admin.register(PassiveIncome)
 class PassiveIncomeAdmin(admin.ModelAdmin):
     list_filter = ("asset__code",)
+    form = _PassiveIncomeForm
+
+
+def _create_form(django_model: Asset | AssetMetaData | AssetReadModel, *fields) -> ModelForm:
+    mapping = {
+        "objective": CharField(max_length=50, widget=Select(choices=AssetObjectives.choices)),
+        "sector": CharField(max_length=50, widget=Select(choices=AssetSectors.choices)),
+        "type": CharField(max_length=50, widget=Select(choices=AssetTypes.choices)),
+        "currency": CharField(max_length=50, widget=Select(choices=TransactionCurrencies.choices)),
+    }
+
+    class _ModelForm(ModelForm):
+        class Meta:
+            model = django_model
+            fields = "__all__"
+
+    for field in fields:
+        _ModelForm.declared_fields[field] = mapping[field]
+    return _ModelForm
+
+
+@admin.register(Asset)
+class AssetAdmin(admin.ModelAdmin):
+    search_fields = ("code",)
+    list_filter = ("type",)
+    form = _create_form(Asset, "type", "objective")
+
+
+@admin.register(AssetMetaData)
+class AssetMetaDataAdmin(admin.ModelAdmin):
+    search_fields = ("code",)
+    list_filter = ("type", "sector")
+    form = _create_form(AssetMetaData, "type", "currency", "sector")
+
+
+@admin.register(AssetReadModel)
+class AssetReadModelAdmin(admin.ModelAdmin):
+    search_fields = ("code",)
+    list_filter = (
+        "type",
+        "metadata__sector",  # TODO: unable to resolve via repository?
+    )
+    form = _create_form(AssetMetaData, "type", "currency", "objective")

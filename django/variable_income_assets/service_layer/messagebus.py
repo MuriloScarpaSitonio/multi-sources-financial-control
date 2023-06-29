@@ -28,7 +28,7 @@ EVENT_HANDLERS: dict[Type[events.Event], list[MessageCallable]] = {
     events.PassiveIncomeCreated: [handlers.upsert_read_model],
     events.PassiveIncomeUpdated: [handlers.upsert_read_model],
     events.PassiveIncomeDeleted: [handlers.upsert_read_model],
-    events.AssetCreated: [handlers.upsert_read_model],
+    events.AssetCreated: [handlers.upsert_asset_related_models],
     events.AssetUpdated: [handlers.upsert_read_model],
 }
 

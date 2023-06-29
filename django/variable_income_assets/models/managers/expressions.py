@@ -74,9 +74,7 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
 
     @property
     def current_total(self) -> Case:
-        # hacky
-        field_name = "asset__current_price" if not self.prefix else "current_price"
-        return Coalesce(F(field_name), Decimal()) * self.get_quantity_balance()
+        return Coalesce(F("current_price_metadata"), Decimal()) * self.get_quantity_balance()
 
     def get_avg_price(self, extra_filters: Q = Q()) -> Coalesce:
         return Coalesce(

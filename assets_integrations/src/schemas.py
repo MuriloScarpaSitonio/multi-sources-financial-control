@@ -51,10 +51,6 @@ class AssetFetchCurrentPriceFilterSet(BaseModel):
     currency: str
 
 
-class AssetCurrentPrice(BaseModel):
-    __root__: Dict[str, Union[Decimal, None]]
-
-
 class UpperStr(str):
     @classmethod
     def __get_validators__(cls) -> "CallableGenerator":

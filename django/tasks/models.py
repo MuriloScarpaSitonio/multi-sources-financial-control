@@ -49,11 +49,6 @@ class TaskHistory(models.Model):
         return self.name in ("sync_cei_passive_incomes_task",)
 
     @property
-    def is_prices_task(self):
-        # in a bigger project we'd store this kind of configuration in the DB
-        return self.name in ("fetch_current_assets_prices",)
-
-    @property
     def is_failed_task(self):
         return self.state == TaskStates.failure
 

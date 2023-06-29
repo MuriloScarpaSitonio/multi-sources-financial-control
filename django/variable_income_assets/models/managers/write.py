@@ -74,30 +74,6 @@ class AssetQuerySet(QuerySet):
     def annotate_currency(self, fallback: Any = "") -> Self:
         return self.annotate(currency=Coalesce(F("transactions__currency"), Value(fallback)))
 
-    def annotate_roi(
-        self, percentage: bool = False, annotate_passive_incomes_subquery: bool = True
-    ) -> Self:
-        if annotate_passive_incomes_subquery:
-            subquery = self._get_passive_incomes_subquery()
-
-        roi_expression = self.expressions.current_total - self.expressions.get_total_adjusted(
-            incomes=Coalesce(F("credited_incomes_total"), Decimal())
-        )
-        field_name = "roi"
-
-        if percentage:
-            roi_expression /= self.expressions.get_total_bought()
-            roi_expression *= Decimal("100.0")
-            field_name = "roi_percentage"
-
-        return (
-            self.annotate(
-                credited_incomes_total=Subquery(subquery.values("credited_incomes"))
-            ).annotate(**{field_name: Coalesce(roi_expression, Decimal())})
-            if annotate_passive_incomes_subquery
-            else self.annotate(**{field_name: Coalesce(roi_expression, Decimal())})
-        )
-
     def annotate_adjusted_avg_price(self, annotate_passive_incomes_subquery: bool = True) -> Self:
         if annotate_passive_incomes_subquery:  # pragma: no cover
             subquery = self._get_passive_incomes_subquery()
@@ -113,6 +89,27 @@ class AssetQuerySet(QuerySet):
             else self.annotate(adjusted_avg_price=Coalesce(expression, Decimal()))
         )
 
+    def annotate_total_invested_adjusted(
+        self, annotate_passive_incomes_subquery: bool = True
+    ) -> Self:
+        if annotate_passive_incomes_subquery:
+            subquery = self._get_passive_incomes_subquery()
+
+        expression = Coalesce(
+            self.expressions.get_total_adjusted(
+                incomes=Coalesce(F("credited_incomes_total"), Decimal())
+            ),
+            Decimal(),
+        )
+
+        return (
+            self.annotate(
+                credited_incomes_total=Subquery(subquery.values("credited_incomes"))
+            ).annotate(total_invested_adjusted=expression)
+            if annotate_passive_incomes_subquery
+            else self.annotate(total_invested_adjusted=expression)
+        )
+
     def annotate_total_adjusted_invested(self) -> Self:  # pragma: no cover
         return self.annotate(
             total_adjusted_invested=F("adjusted_avg_price") * F("quantity_balance")
@@ -126,15 +123,18 @@ class AssetQuerySet(QuerySet):
             total_invested=Coalesce(F("avg_price") * F("quantity_balance"), Decimal())
         )
 
+    def annotate_total_bought(self) -> Self:
+        return self.annotate(total_bought=self.expressions.get_total_bought())
+
     def annotate_read_fields(self) -> Self:
         return (
             self._annotate_quantity_balance()
             .annotate_currency()
-            .annotate_roi()
-            .annotate_roi(percentage=True, annotate_passive_incomes_subquery=False)
-            .annotate_adjusted_avg_price(annotate_passive_incomes_subquery=False)
+            .annotate_adjusted_avg_price()
             .annotate_avg_price()
+            .annotate_total_bought()
             .annotate_total_invested()
+            .annotate_total_invested_adjusted(annotate_passive_incomes_subquery=False)
         )
 
     def annotate_irpf_infos(self, year: int) -> Self:
@@ -223,9 +223,20 @@ class TransactionQuerySet(QuerySet):
     def get_quantity_balance(self) -> dict[str, Decimal]:
         return self.aggregate(quantity=self.expressions.get_quantity_balance())
 
+    def annotate_current_price(self) -> Self:
+        from ...adapters.repositories import DjangoSQLAssetMetaDataRepository
+
+        return self.annotate(
+            current_price_metadata=DjangoSQLAssetMetaDataRepository.get_current_price_annotation(
+                fk_connection=False
+            )
+        )
+
     def roi(self, incomes: Decimal, percentage: bool = False) -> dict[str, Decimal]:
         """ROI: Return On Investment"""
-        return self.aggregate(ROI=self._get_roi_expression(incomes=incomes, percentage=percentage))
+        return self.annotate_current_price().aggregate(
+            ROI=self._get_roi_expression(incomes=incomes, percentage=percentage)
+        )
 
     def annotate_raw_roi(self, normalize: bool = True) -> Self:
         expression = (F("price") - F("initial_price")) * F("quantity")

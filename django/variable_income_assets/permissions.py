@@ -13,11 +13,6 @@ class BinancePermission(_IntegrationPermission):
     property_name = "has_binance_integration"
 
 
-class AssetsPricesPermission(_IntegrationPermission):
-    message = "User has not set the given credentials for Assets Prices integration"
-    property_name = "has_asset_price_integration"
-
-
 class CeiPermission(_IntegrationPermission):
     message = "User has not set the given credentials for CEI integration"
     property_name = "has_cei_integration"

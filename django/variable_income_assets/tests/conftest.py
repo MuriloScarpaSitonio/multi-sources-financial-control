@@ -21,12 +21,17 @@ from ..choices import (
     TransactionCurrencies,
 )
 from ..management.commands.sync_assets_cqrs import Command as SyncAssetReadModelCommand
-from ..models import Asset, AssetReadModel, Transaction, PassiveIncome
+from ..models import Asset, AssetMetaData, AssetReadModel, Transaction, PassiveIncome
 
 
 class AssetFactory(DjangoModelFactory):
     class Meta:
         model = Asset
+
+
+class AssetMetaDataFactory(DjangoModelFactory):
+    class Meta:
+        model = AssetMetaData
 
 
 class AssetReadModelFactory(DjangoModelFactory):
@@ -53,62 +58,85 @@ def sync_assets_read_model():
 
 
 @pytest.fixture
-def stock_asset(user):
-    return AssetFactory(
+def stock_asset_metadata():
+    return AssetMetaDataFactory(
         code="ALUP11",
         type=AssetTypes.stock,
         sector=AssetSectors.utilities,
-        objective=AssetObjectives.dividend,
-        user=user,
+        currency=TransactionCurrencies.real,
         current_price=32,
+        current_price_updated_at=timezone.now(),
+    )
+
+
+@pytest.fixture
+def stock_asset(user):
+    return AssetFactory(
+        code="ALUP11", type=AssetTypes.stock, objective=AssetObjectives.dividend, user=user
     )
 
 
 @pytest.fixture
 def another_stock_asset(user):
     return AssetFactory(
+        code="BBAS3", type=AssetTypes.stock, objective=AssetObjectives.dividend, user=user
+    )
+
+
+@pytest.fixture
+def another_stock_asset_metadata():
+    return AssetMetaDataFactory(
         code="BBAS3",
         type=AssetTypes.stock,
         sector=AssetSectors.finance,
-        objective=AssetObjectives.dividend,
-        user=user,
+        currency=TransactionCurrencies.real,
         current_price=50,
+        current_price_updated_at=timezone.now(),
     )
 
 
 @pytest.fixture
 def yet_another_stock_asset(user):
     return AssetFactory(
-        code="BBSE3",
-        type=AssetTypes.stock,
-        sector=AssetSectors.finance,
-        objective=AssetObjectives.dividend,
-        user=user,
-        current_price=42,
+        code="BBSE3", type=AssetTypes.stock, objective=AssetObjectives.dividend, user=user
     )
 
 
 @pytest.fixture
 def fii_asset(user):
     return AssetFactory(
+        code="FII11", type=AssetTypes.fii, objective=AssetObjectives.dividend, user=user
+    )
+
+
+@pytest.fixture
+def fii_asset_metadata():
+    return AssetMetaDataFactory(
         code="FII11",
         type=AssetTypes.fii,
         sector=AssetSectors.essential_consumption,
-        objective=AssetObjectives.dividend,
-        user=user,
         current_price=111,
+        currency=TransactionCurrencies.real,
+        current_price_updated_at=timezone.now(),
     )
 
 
 @pytest.fixture
 def stock_usa_asset(user):
     return AssetFactory(
+        code="URA", type=AssetTypes.stock_usa, objective=AssetObjectives.growth, user=user
+    )
+
+
+@pytest.fixture
+def stock_usa_asset_metadata():
+    return AssetMetaDataFactory(
         code="URA",
         type=AssetTypes.stock_usa,
         sector=AssetSectors.utilities,
-        objective=AssetObjectives.growth,
-        user=user,
+        currency=TransactionCurrencies.dollar,
         current_price=21,
+        current_price_updated_at=timezone.now(),
     )
 
 
@@ -126,12 +154,7 @@ def stock_usa_transaction(stock_usa_asset):
 @pytest.fixture
 def another_stock_usa_asset(user):
     return AssetFactory(
-        code="BABA",
-        type=AssetTypes.stock_usa,
-        sector=AssetSectors.utilities,
-        objective=AssetObjectives.growth,
-        user=user,
-        current_price=237,
+        code="BABA", type=AssetTypes.stock_usa, objective=AssetObjectives.growth, user=user
     )
 
 
@@ -141,7 +164,6 @@ def assets_w_incomes(user):
         asset = AssetFactory(
             code=str(i),
             type=AssetTypes.stock,
-            sector=AssetSectors.utilities,
             objective=AssetObjectives.dividend,
             user=user,
         )
@@ -158,13 +180,32 @@ def assets_w_incomes(user):
 @pytest.fixture
 def crypto_asset(user):
     return AssetFactory(
+        code="QRDO", type=AssetTypes.crypto, objective=AssetObjectives.growth, user=user
+    )
+
+
+@pytest.fixture
+def crypto_asset_metadata():
+    return AssetMetaDataFactory(
         code="QRDO",
         type=AssetTypes.crypto,
         sector=AssetSectors.tech,
-        objective=AssetObjectives.growth,
-        user=user,
+        currency=TransactionCurrencies.dollar,
         current_price=6,
         current_price_updated_at=timezone.now(),
+    )
+
+
+@pytest.fixture
+def crypto_asset_read(crypto_asset, crypto_asset_metadata):
+    return AssetReadModelFactory(
+        code=crypto_asset.code,
+        type=crypto_asset.type,
+        objective=crypto_asset.objective,
+        user_id=crypto_asset.user_id,
+        write_model_pk=crypto_asset.pk,
+        currency=crypto_asset_metadata.currency,
+        metadata=crypto_asset_metadata,
     )
 
 
@@ -173,10 +214,8 @@ def another_crypto_asset(user):
     return AssetFactory(
         code="BTC",
         type=AssetTypes.crypto,
-        sector=AssetSectors.tech,
         objective=AssetObjectives.growth,
         user=user,
-        current_price=50000,
     )
 
 
@@ -375,16 +414,16 @@ def another_income(stock_usa_asset):
 
 # 6 - ativo aberto, apenas transações de compra, lucro
 @pytest.fixture
-def profit_asset_bought_transactions(stock_asset, buy_transaction):
-    stock_asset.current_price = 15
-    stock_asset.save()
+def profit_asset_bought_transactions(stock_asset_metadata, buy_transaction):
+    stock_asset_metadata.current_price = 15
+    stock_asset_metadata.save()
 
 
 # 7 - ativo aberto, apenas transações de compra, prejuízo
 @pytest.fixture
-def loss_asset_bought_transactions(stock_asset, buy_transaction):
-    stock_asset.current_price = 5
-    stock_asset.save()
+def loss_asset_bought_transactions(stock_asset_metadata, buy_transaction):
+    stock_asset_metadata.current_price = 5
+    stock_asset_metadata.save()
 
 
 # 8 - ativo aberto, apenas transações de compra, lucro + incomes
@@ -471,16 +510,24 @@ def loss_asset_both_transactions_incomes_loss(stock_asset, loss_asset_both_trans
 
 @pytest.fixture
 def indicators_data(
-    stock_asset, stock_usa_asset, crypto_asset, transactions, crypto_transaction, passive_incomes
+    transactions,
+    passive_incomes,
+    stock_asset_metadata,
+    stock_usa_asset,
+    stock_usa_asset_metadata,
+    crypto_asset,
+    crypto_asset_metadata,
+    crypto_transaction,
 ):
-    stock_asset.current_price = 100
-    stock_asset.save()
+    stock_asset_metadata.current_price = 100
+    stock_asset_metadata.save()
 
     # finish an asset
     TransactionFactory(
         action=TransactionActions.buy,
         price=10,
         asset=stock_usa_asset,
+        currency=TransactionCurrencies.dollar,
         quantity=50,
     )
     TransactionFactory(
@@ -488,19 +535,24 @@ def indicators_data(
         initial_price=10,
         price=20,
         asset=stock_usa_asset,
+        currency=TransactionCurrencies.dollar,
         quantity=50,
     )
 
 
 @pytest.fixture
 def report_data(indicators_data, stock_usa_asset, user):
+    asset_type = choice((AssetTypes.fii, AssetTypes.stock, AssetTypes.crypto))
     asset = AssetFactory(
+        code="RANDOM", type=asset_type, objective=choice(AssetObjectives.choices)[0], user=user
+    )
+    AssetMetaDataFactory(
         code="RANDOM",
-        type=choice(AssetTypes.choices)[0],
+        type=asset_type,
+        currency=TransactionCurrencies.real,
         sector=choice(AssetSectors.choices)[0],
-        objective=choice(AssetObjectives.choices)[0],
         current_price=6,
-        user=user,
+        current_price_updated_at=timezone.now(),
     )
 
     TransactionFactory(

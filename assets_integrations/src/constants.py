@@ -1,10 +1,4 @@
-from enum import Enum, IntEnum
-
-
-class AssetTypes(Enum):
-    STOCK = FII = "STOCK"
-    STOCK_USA = "STOCK_USA"
-    CRYPTO = "CRYPTO"
+from enum import IntEnum
 
 
 class BinanceFiatPaymentTransactionType(IntEnum):

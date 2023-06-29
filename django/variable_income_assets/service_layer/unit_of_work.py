@@ -5,7 +5,7 @@ from typing import Iterator, Self, TYPE_CHECKING
 
 from django.db import transaction as djtransaction
 
-from ..adapters.repository import AssetRepository, TransactionRepository
+from ..adapters.repositories import AssetRepository, TransactionRepository
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..domain.events import Event

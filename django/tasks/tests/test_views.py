@@ -54,7 +54,6 @@ def test_should_list_tasks(client, simple_task_history):
 @pytest.mark.parametrize(
     "task_name, expected_notification_display_text",
     [
-        ("fetch_current_assets_prices", "Preços atualizados"),
         # ("sync_cei_transactions_task", "0 transações encontradas"),
         ("sync_binance_transactions_task", "0 transações encontradas"),
         ("sync_kucoin_transactions_task", "0 transações encontradas"),
@@ -78,7 +77,6 @@ def test_should_notification_display_correctly(
     assert result["notification_display_text"] == expected_notification_display_text
 
     tasks_notification_display_map = {
-        "fetch_current_assets_prices": "Atualização de preços",
         "sync_binance_transactions_task": "Transações da Binance",
         "sync_kucoin_transactions_task": "Transações da KuCoin",
     }

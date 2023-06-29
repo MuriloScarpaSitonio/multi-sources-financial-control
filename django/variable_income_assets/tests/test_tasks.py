@@ -24,8 +24,9 @@ from ..choices import (
     AssetTypes,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
+    TransactionCurrencies,
 )
-from ..models import Asset, AssetReadModel, PassiveIncome, Transaction
+from ..models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
 
 
 pytestmark = pytest.mark.django_db
@@ -153,39 +154,13 @@ def test_sync_cei_transactions_should_not_create_asset_if_unit_alread_exists(
     ).exists()
 
 
-@pytest.mark.usefixtures("assets", "transactions", "sync_assets_read_model")
-def test_should_success_fetch_current_assets_prices_task(
-    client, requests_mock, fetch_current_assets_prices_response
-):
-    # GIVEN
-    requests_mock.post(
-        build_url(url=settings.ASSETS_INTEGRATIONS_URL, parts=("prices",)),
-        json=fetch_current_assets_prices_response,
-    )
-
-    # WHEN
-    client.get(f"{URL}/fetch_current_prices?code=ALUP11")
-
-    # THEN
-    for code, price in fetch_current_assets_prices_response.items():
-        asset = Asset.objects.get(code=code)
-        assert float(asset.current_price) == price
-        a = AssetReadModel.objects.get(write_model_pk=asset.pk)
-        assert float(a.current_price) == price
-        assert convert_and_quantitize(a.roi) == convert_and_quantitize(asset.get_roi())
-
-        assert convert_and_quantitize(a.roi_percentage) == convert_and_quantitize(
-            asset.get_roi(percentage=True)
-        )
-
-
+@pytest.mark.usefixtures("crypto_asset_metadata", "crypto_asset_read")
 def test_sync_kucoin_transactions_should_create_asset_and_transaction(
     user_with_kucoin_integration,
     kucoin_client,
     crypto_asset,
     requests_mock,
     kucoin_transactions_response,
-    sync_assets_read_model,  # no idea why @pytest.mark.usefixtures does not work here
 ):
     # GIVEN
     crypto_asset.user = user_with_kucoin_integration
@@ -200,25 +175,40 @@ def test_sync_kucoin_transactions_should_create_asset_and_transaction(
 
     # THEN
     assert (
-        Asset.objects.filter(
-            user=user_with_kucoin_integration,
-            type=AssetTypes.crypto,
-            sector=AssetSectors.tech,
-            objective=AssetObjectives.growth,
-            current_price_updated_at__isnull=False,
-        ).count()
-        == 2
+        Asset.objects.filter(user=user_with_kucoin_integration, type=AssetTypes.crypto).count() == 2
     )
     assert (
         Asset.objects.filter(
             user=user_with_kucoin_integration,
             code=kucoin_transactions_response[0]["code"],
-            current_price=kucoin_transactions_response[0]["price"],
+            type=AssetTypes.crypto,
         ).count()
         == 1
     )
-    assert sorted(list(Asset.objects.values_list("code", flat=True))) == sorted(
-        list({item["code"] for item in kucoin_transactions_response} ^ {"VELO"})
+    assert (
+        AssetMetaData.objects.filter(
+            code=kucoin_transactions_response[0]["code"],
+            type=AssetTypes.crypto,
+            currency=TransactionCurrencies.dollar,
+            sector=AssetSectors.tech,
+            current_price=kucoin_transactions_response[0]["price"],
+            current_price_updated_at__isnull=False,
+        ).count()
+        == 1
+    )
+    assert (
+        AssetReadModel.objects.filter(
+            code=kucoin_transactions_response[0]["code"],
+            type=AssetTypes.crypto,
+            currency=TransactionCurrencies.dollar,
+        ).count()
+        == 1
+    )
+    assert (
+        sorted(list(Asset.objects.values_list("code", flat=True)))
+        == sorted(list(AssetMetaData.objects.values_list("code", flat=True).distinct()))
+        == sorted(list(AssetReadModel.objects.values_list("code", flat=True)))
+        == sorted(list({item["code"] for item in kucoin_transactions_response} ^ {"VELO"}))
     )
 
     assert Transaction.objects.count() == len(kucoin_transactions_response) - 1
@@ -235,7 +225,7 @@ def test_sync_kucoin_transactions_should_create_asset_and_transaction(
         ).exists()
 
 
-@pytest.mark.usefixtures("crypto_asset", "sync_assets_read_model")
+@pytest.mark.usefixtures("crypto_asset_metadata", "crypto_asset_read")
 def test_should_skip_kucoin_transaction_if_already_exists(
     user_with_kucoin_integration,
     kucoin_client,

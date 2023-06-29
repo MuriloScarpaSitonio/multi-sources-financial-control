@@ -11,6 +11,7 @@ from tasks.decorators import task_finisher
 from tasks.models import TaskHistory
 
 from .serializers import CryptoTransactionSerializer
+from ..adapters.repositories import DjangoSQLAssetMetaDataRepository
 from ..choices import AssetObjectives, AssetSectors, AssetTypes
 from ..models import Asset
 
@@ -74,12 +75,19 @@ def save_crypto_transactions(
                     user=user,
                     code=code,
                     type=AssetTypes.crypto,
-                    defaults={"sector": AssetSectors.tech, "objective": AssetObjectives.growth},
+                    defaults={"objective": AssetObjectives.growth},
                 )
                 if created:
-                    asset.current_price = serializer.data["price"]
-                    asset.current_price_updated_at = timezone.now()
-                    asset.save(update_fields=("current_price", "current_price_updated_at"))
+                    # TODO: Emit event instead?!
+                    repository = DjangoSQLAssetMetaDataRepository(
+                        code=code, type=AssetTypes.crypto, currency=data["currency"]
+                    )
+                    if not repository.exists():
+                        repository.create(
+                            sector=AssetSectors.tech,
+                            current_price=serializer.data["price"],
+                            current_price_updated_at=timezone.now(),
+                        )
 
                 serializer.create(asset=asset, task_history_id=task_history_id, new_asset=created)
         except Exception:

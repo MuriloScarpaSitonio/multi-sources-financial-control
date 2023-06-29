@@ -9,7 +9,7 @@ from .unit_of_work import AbstractUnitOfWork
 from ..choices import AssetTypes
 from ..domain import commands, events
 from ..models import Transaction
-from ..tasks import upsert_asset_read_model
+from ..tasks import maybe_create_asset_metadata, upsert_asset_read_model
 
 
 def create_transactions(cmd: commands.CreateTransactions, uow: AbstractUnitOfWork) -> Transaction:
@@ -36,11 +36,12 @@ def update_transaction(cmd: commands.UpdateTransaction, uow: AbstractUnitOfWork)
 def delete_transaction(cmd: commands.DeleteTransaction, uow: AbstractUnitOfWork) -> None:
     with uow:
         uow.assets.transactions.delete(transaction=cmd.transaction)
-        cmd.asset.events.append(events.TransactionUpdated(asset_pk=uow.asset_pk))
+        cmd.asset.events.append(events.TransactionDeleted(asset_pk=uow.asset_pk))
         uow.assets.seen.add(cmd.asset)
         uow.commit()
 
 
+# TODO: convert to async
 def upsert_read_model(
     event: events.TransactionsCreated
     | events.TransactionDeleted
@@ -73,6 +74,7 @@ def upsert_read_model(
     )
 
 
+# TODO: convert to async
 def check_monthly_selling_transaction_threshold(
     _: events.TransactionsCreated, uow: AbstractUnitOfWork
 ):
@@ -98,3 +100,9 @@ def check_monthly_selling_transaction_threshold(
             finished_at=timezone.now(),
             created_by_id=transaction.asset.user_id,
         )
+
+
+# TODO: convert to async
+def upsert_asset_related_models(event: events.AssetCreated, _: AbstractUnitOfWork):
+    maybe_create_asset_metadata(asset_pk=event.asset_pk)
+    upsert_asset_read_model(asset_id=event.asset_pk)

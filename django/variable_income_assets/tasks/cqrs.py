@@ -1,3 +1,5 @@
+from ..adapters.repositories import DjangoSQLAssetMetaDataRepository
+from ..choices import ASSET_TYPE_CURRENCY_MAP
 from ..models import Asset, AssetReadModel
 
 
@@ -16,7 +18,7 @@ def upsert_asset_read_model(asset_id: int, is_aggregate_upsert: bool | None = No
             Defaults to `None`.
     """
     if is_aggregate_upsert is True:
-        asset: Asset = Asset.objects.annotate_read_fields().get(pk=asset_id)
+        asset = Asset.objects.annotate_read_fields().get(pk=asset_id)
 
         AssetReadModel.objects.update_or_create(
             write_model_pk=asset.pk,
@@ -25,51 +27,46 @@ def upsert_asset_read_model(asset_id: int, is_aggregate_upsert: bool | None = No
                 "quantity_balance": asset.quantity_balance,
                 "avg_price": asset.avg_price,
                 "adjusted_avg_price": asset.adjusted_avg_price,
-                "roi": asset.roi,
-                "roi_percentage": asset.roi_percentage,
+                "total_bought": asset.total_bought,
                 "total_invested": asset.total_invested,
+                "total_invested_adjusted": asset.total_invested_adjusted,
             },
         )
     elif is_aggregate_upsert is False:
-        asset: Asset = (
-            Asset.objects.annotate_roi()
-            .annotate_roi(percentage=True, annotate_passive_incomes_subquery=False)
-            .get(pk=asset_id)
-        )
-
+        asset = Asset.objects.only("pk", "user_id", "code", "type", "objective").get(pk=asset_id)
         AssetReadModel.objects.update_or_create(
             write_model_pk=asset.pk,
             defaults={
                 "user_id": asset.user_id,
                 "code": asset.code,
                 "type": asset.type,
-                "sector": asset.sector,
                 "objective": asset.objective,
-                "current_price": asset.current_price or 0,
-                "current_price_updated_at": asset.current_price_updated_at,
-                "roi": asset.roi,
-                "roi_percentage": asset.roi_percentage,
             },
         )
     elif is_aggregate_upsert is None:
-        asset: Asset = Asset.objects.annotate_read_fields().get(pk=asset_id)
+        asset = Asset.objects.annotate_read_fields().get(pk=asset_id)
+        metadata = DjangoSQLAssetMetaDataRepository(
+            code=asset.code,
+            type=asset.type,
+            # The asset may not have transcations yet so we fallback
+            # In such scenario the aggregation fields are all zero so we are good
+            currency=asset.currency or ASSET_TYPE_CURRENCY_MAP[asset.type],
+        ).get("pk")
 
         AssetReadModel.objects.update_or_create(
             write_model_pk=asset.pk,
             defaults={
                 "user_id": asset.user_id,
+                "metadata_id": metadata.pk,
                 "code": asset.code,
                 "type": asset.type,
-                "sector": asset.sector,
                 "objective": asset.objective,
-                "current_price": asset.current_price or 0,
-                "current_price_updated_at": asset.current_price_updated_at,
                 "currency": asset.currency,
                 "quantity_balance": asset.quantity_balance,
                 "avg_price": asset.avg_price,
                 "adjusted_avg_price": asset.adjusted_avg_price,
-                "roi": asset.roi,
-                "roi_percentage": asset.roi_percentage,
+                "total_bought": asset.total_bought,
                 "total_invested": asset.total_invested,
+                "total_invested_adjusted": asset.total_invested_adjusted,
             },
         )

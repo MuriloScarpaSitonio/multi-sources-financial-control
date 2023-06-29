@@ -61,7 +61,7 @@ const AssetCreateDialog = ({ open, onClose, onSuccess }) => {
     >
       <DialogTitle id="asset-form-dialog-title">Criar ativo</DialogTitle>
       <DialogContent>
-        <AssetsForm initialData={{}} onSuccess={onSuccess} />
+        <AssetsForm initialData={{}} onClose={onClose} onSuccess={onSuccess} />
       </DialogContent>
     </Dialog>
   );
@@ -402,17 +402,9 @@ export const AssetsTable = () => {
                   <AssetsForm
                     initialData={{
                       id,
-                      sector,
                       objective,
                       code,
                       type,
-                      current_price: current_price.key,
-                      current_price_updated_at: new Date(
-                        current_price_updated_at
-                      ).toLocaleString("pt-br"),
-                      currencySymbol: avg_price.includes("R")
-                        ? avg_price.slice(0, 3)
-                        : avg_price.slice(0, 2),
                     }}
                     onSuccess={reload}
                   />

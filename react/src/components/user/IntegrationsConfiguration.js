@@ -108,28 +108,6 @@ const DisableDialog = ({
   );
 };
 
-const EnableDialog = ({
-  userId,
-  enableData,
-  integrationLabel,
-  open,
-  onClose,
-  onEnable,
-}) => {
-  return (
-    <SimpleActionDialog
-      userId={userId}
-      actionData={enableData}
-      verb={"Ativar"}
-      buttonColor={"primary"}
-      integrationLabel={integrationLabel}
-      open={open}
-      onClose={onClose}
-      onAction={onEnable}
-    />
-  );
-};
-
 const ConfigDialog = ({
   ConfigForm,
   userId,
@@ -284,58 +262,9 @@ const BinanceIntegrationConfiguration = ({ userId }) => {
   );
 };
 
-const AssetPricesIntegrationConfiguration = ({ userId }) => {
-  const [dialogIsOpened, setDialogIsOpened] = useState(false);
-
-  let value = evaluateBooleanFromLocalStorage(
-    localStorage.getItem("user_has_asset_price_integration")
-  );
-  return (
-    <>
-      <Grid item xs={12}>
-        <Grid container alignItems="center">
-          <Grid item xs={4}>
-            <Typography>Preços</Typography>
-          </Grid>
-          <Grid item xs={8}>
-            {getButton(value, {
-              onClick: () => setDialogIsOpened(true),
-            })}
-          </Grid>
-        </Grid>
-        <Divider />
-      </Grid>
-      {value ? (
-        <DisableDialog
-          userId={userId}
-          disableData={{ has_asset_price_integration: false }}
-          integrationLabel="de atualização automática de preço dos ativos"
-          open={dialogIsOpened}
-          onClose={() => setDialogIsOpened(false)}
-          onDisable={() =>
-            localStorage.setItem("user_has_asset_price_integration", false)
-          }
-        />
-      ) : (
-        <EnableDialog
-          userId={userId}
-          enableData={{ has_asset_price_integration: true }}
-          integrationLabel="de atualização automática de preço dos ativos"
-          open={dialogIsOpened}
-          onClose={() => setDialogIsOpened(false)}
-          onEnable={() =>
-            localStorage.setItem("user_has_asset_price_integration", true)
-          }
-        />
-      )}
-    </>
-  );
-};
-
 export const IntegrationsConfiguration = ({ userId }) => {
   return (
     <Grid container spacing={2}>
-      <AssetPricesIntegrationConfiguration userId={userId} />
       <KucoinIntegrationConfiguration userId={userId} />
       <BinanceIntegrationConfiguration userId={userId} />
     </Grid>

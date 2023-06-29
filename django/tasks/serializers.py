@@ -36,14 +36,16 @@ class TaskHistorySerializer(serializers.ModelSerializer):
     def get_notification_display_title(self, obj: TaskHistory) -> str:
         # in a bigger project we'd store this kind of configuration in the DB
         tasks_notification_display_map = {
-            "fetch_current_assets_prices": "Atualização de preços",
             "sync_binance_transactions_task": "Transações da Binance",
             "sync_kucoin_transactions_task": "Transações da KuCoin",
         }
-        return "Integração '{}' {}".format(
-            tasks_notification_display_map[obj.name],
-            TaskStates.get_choice(obj.state).notification_display,
-        )
+        try:
+            return "Integração '{}' {}".format(
+                tasks_notification_display_map[obj.name],
+                TaskStates.get_choice(obj.state).notification_display,
+            )
+        except KeyError:
+            return "Integração depreceada"
 
     def get_notification_display_text(self, obj: TaskHistory) -> str:
         text = ""
@@ -55,8 +57,6 @@ class TaskHistorySerializer(serializers.ModelSerializer):
             text = f"{obj.transactions.count()} transações encontradas"
         elif obj.is_passive_incomes_task:
             text = f"{obj.incomes.count()} rendimentos passivos encontrados"
-        elif obj.is_prices_task:
-            text = "Preços atualizados"
 
         return text
 

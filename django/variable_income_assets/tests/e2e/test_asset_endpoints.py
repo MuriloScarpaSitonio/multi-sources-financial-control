@@ -1,5 +1,6 @@
 from decimal import ROUND_HALF_UP, Decimal
 import operator
+from random import randrange
 
 import pytest
 
@@ -22,7 +23,6 @@ from authentication.tests.conftest import (
     user,
     user_with_binance_integration,
     user_with_kucoin_integration,
-    user_without_assets_price_integration,
 )
 from config.settings.base import BASE_API_URL
 
@@ -30,9 +30,9 @@ from variable_income_assets.tests.shared import (
     convert_and_quantitize,
     convert_to_percentage_and_quantitize,
     get_adjusted_avg_price_brute_forte,
-    get_adjusted_quantity_brute_force,
+    get_quantity_balance_brute_force,
     get_avg_price_bute_force,
-    get_current_price,
+    get_current_price_metadata,
     get_current_total_invested_brute_force,
     get_roi_brute_force,
     get_total_bought_brute_force,
@@ -42,42 +42,77 @@ from variable_income_assets.choices import (
     AssetObjectives,
     AssetSectors,
     AssetTypes,
-    TransactionActions,
     TransactionCurrencies,
 )
-from variable_income_assets.models import Asset, AssetReadModel, PassiveIncome, Transaction
+from variable_income_assets.models import (
+    Asset,
+    AssetMetaData,
+    AssetReadModel,
+    PassiveIncome,
+    Transaction,
+)
 
 
 pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "assets"
 
 
-def test__create(client):
+@pytest.mark.parametrize(
+    ("asset_type", "asset_sector"),
+    (
+        (AssetTypes.fii, AssetSectors.essential_consumption),
+        (AssetTypes.stock, AssetSectors.unknown),
+        (AssetTypes.stock_usa, AssetSectors.unknown),
+        (AssetTypes.crypto, AssetSectors.tech),
+    ),
+)
+def test__create(client, asset_type, asset_sector, mocker):
     # GIVEN
-    data = {
-        "type": AssetTypes.fii,
-        "sector": AssetSectors.utilities,
-        "objective": AssetObjectives.dividend,
-        "code": "IGR",
-    }
+    code = "IGR"
+    objective = AssetObjectives.dividend
+    current_price = Decimal(randrange(155, 389)) / 100
+    mocker.patch(
+        "variable_income_assets.tasks.asset_metadata.fetch_asset_current_price",
+        return_value=current_price,
+    ),
 
     # WHEN
-    response = client.post(URL, data=data)
+    response = client.post(URL, data={"type": asset_type, "objective": objective, "code": "IGR"})
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
-    assert response.json()["current_price_updated_at"] is None
-    assert AssetReadModel.objects.count() == 1
+    assert (
+        AssetReadModel.objects.filter(
+            code=code,
+            type=asset_type,
+            objective=objective,
+            currency="",
+            quantity_balance=0,
+            avg_price=0,
+            total_bought=0,
+            total_invested=0,
+            total_invested_adjusted=0,
+            metadata__isnull=False,
+        ).count()
+        == 1
+    )
+    for currency in AssetTypes.get_choice(asset_type).valid_currencies:
+        assert (
+            AssetMetaData.objects.filter(
+                code=code,
+                type=asset_type,
+                currency=currency,
+                sector=asset_sector,
+                current_price_updated_at__isnull=False,
+                current_price=current_price,
+            ).count()
+            == 1
+        )
 
 
 def test__create__same_code(client, stock_asset):
     # GIVEN
-    data = {
-        "type": AssetTypes.fii,
-        "sector": AssetSectors.utilities,
-        "objective": AssetObjectives.dividend,
-        "code": stock_asset.code,
-    }
+    data = {"type": AssetTypes.fii, "objective": AssetObjectives.dividend, "code": stock_asset.code}
 
     # WHEN
     response = client.post(URL, data=data)
@@ -85,24 +120,6 @@ def test__create__same_code(client, stock_asset):
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {"code": ["Asset with given code already exists"]}
-
-
-def test__create__w_current_price(client):
-    # GIVEN
-    data = {
-        "type": AssetTypes.fii,
-        "sector": AssetSectors.utilities,
-        "objective": AssetObjectives.dividend,
-        "code": "IGR",
-        "current_price": "10.25",
-    }
-
-    # WHEN
-    response = client.post(URL, data=data)
-
-    # THEN
-    assert response.status_code == HTTP_201_CREATED
-    assert response.json()["current_price_updated_at"] is not None
 
 
 @pytest.mark.skip("Skip while is not implemented")
@@ -128,15 +145,10 @@ def test__create__wrong_sector_type_set(client):
     }
 
 
-@pytest.mark.usefixtures("sync_assets_read_model")
+@pytest.mark.usefixtures("sync_assets_read_model", "stock_asset_metadata")
 def test__update(client, stock_asset):
     # GIVEN
-    data = {
-        "type": stock_asset.type,
-        "sector": stock_asset.sector,
-        "objective": AssetObjectives.growth,
-        "code": stock_asset.code,
-    }
+    data = {"type": stock_asset.type, "objective": AssetObjectives.growth, "code": stock_asset.code}
 
     # WHEN
     response = client.put(f"{URL}/{stock_asset.code}", data=data)
@@ -145,7 +157,6 @@ def test__update(client, stock_asset):
     assert response.status_code == HTTP_200_OK
 
     stock_asset.refresh_from_db()
-    assert stock_asset.current_price_updated_at is None
     assert stock_asset.objective == AssetObjectives.growth
     assert (
         AssetReadModel.objects.get(write_model_pk=stock_asset.pk).objective
@@ -153,38 +164,9 @@ def test__update(client, stock_asset):
     )
 
 
-@pytest.mark.usefixtures("sync_assets_read_model")
-def test__update__w_current_price(client, stock_asset):
-    # GIVEN
-    data = {
-        "type": stock_asset.type,
-        "sector": stock_asset.sector,
-        "objective": AssetObjectives.growth,
-        "code": stock_asset.code,
-        "current_price": 11,
-    }
-
-    # WHEN
-    response = client.put(f"{URL}/{stock_asset.code}", data=data)
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-    assert response.json()["current_price_updated_at"] is not None
-    assert (
-        AssetReadModel.objects.get(write_model_pk=stock_asset.pk).current_price_updated_at
-        is not None
-    )
-
-
 def test__update__asset_does_not_belong_to_user(kucoin_client, stock_asset):
     # GIVEN
-    data = {
-        "type": stock_asset.type,
-        "sector": stock_asset.sector,
-        "objective": AssetObjectives.growth,
-        "code": stock_asset.code,
-        "current_price": 11,
-    }
+    data = {"type": stock_asset.type, "objective": AssetObjectives.growth, "code": stock_asset.code}
 
     # WHEN
     response = kucoin_client.put(f"{URL}/{stock_asset.code}", data=data)
@@ -194,19 +176,20 @@ def test__update__asset_does_not_belong_to_user(kucoin_client, stock_asset):
     assert response.json() == {"detail": "Not found."}
 
 
-@pytest.mark.usefixtures("transactions", "passive_incomes", "sync_assets_read_model")
+@pytest.mark.usefixtures("stock_asset_metadata", "stock_asset", "sync_assets_read_model")
 @pytest.mark.parametrize(
     "filter_by, count",
     (
         ("", 1),
         ("code=ALUP", 1),
-        # ("ROI_type=PROFIT", 1),
-        # ("ROI_type=LOSS", 0),
+        # # ("ROI_type=PROFIT", 1),
+        # # ("ROI_type=LOSS", 0),
         ("type=STOCK", 1),
         ("type=STOCK_USA", 0),
+        ("sector=UTILITIES", 1),
     ),
 )
-def test_should_filter_assets(client, filter_by, count):
+def test___list__filters(client, filter_by, count):
     # GIVEN
 
     # WHEN
@@ -239,7 +222,7 @@ def test_should_filter_assets(client, filter_by, count):
         ("loss_asset_both_transactions_incomes_loss", operator.lt),
     ),
 )
-def test_should_list_assets(client, stock_asset, fixture, operation, request):
+def test___list__aggregations(client, stock_asset, fixture, operation, request):
     # GIVEN
     request.getfixturevalue(fixture)
     request.getfixturevalue("sync_assets_read_model")
@@ -280,13 +263,13 @@ def test_list_assets_aggregate_data(client):
     # THEN
     for result in response.json()["results"]:
         asset = Asset.objects.get(code=result["code"])
-        qty = get_adjusted_quantity_brute_force(asset=asset)
+        qty = get_quantity_balance_brute_force(asset=asset)
         total_invested = get_avg_price_bute_force(asset=asset, normalize=True) * qty
         percentage_invested = (
             (total_invested / total_invested_brute_force) * Decimal("100.0")
         ).quantize(Decimal(".1"), rounding=ROUND_HALF_UP)
 
-        current_invested = get_current_price(asset, normalize=True) * qty
+        current_invested = get_current_price_metadata(asset, normalize=True) * qty
         current_percentage = (
             (current_invested / current_total_brute_force) * Decimal("100.0")
         ).quantize(Decimal(".1"), rounding=ROUND_HALF_UP)
@@ -314,12 +297,22 @@ def test_list_assets_aggregate_data(client):
 
 
 def test__list__should_include_asset_wo_transactions(
-    client, stock_usa_asset, crypto_asset, another_stock_asset, fii_asset, sync_assets_read_model
+    client,
+    stock_usa_asset,
+    stock_usa_asset_metadata,
+    crypto_asset,
+    crypto_transaction,
+    crypto_asset_metadata,
+    another_stock_asset,
+    another_stock_asset_metadata,
+    fii_asset,
+    fii_asset_metadata,
+    sync_assets_read_model,
 ):
     # GIVEN
     expected = {
         stock_usa_asset.code: TransactionCurrencies.dollar,
-        crypto_asset.code: TransactionCurrencies.real,
+        crypto_asset.code: TransactionCurrencies.dollar,
         another_stock_asset.code: TransactionCurrencies.real,
         fii_asset.code: TransactionCurrencies.real,
     }
@@ -445,74 +438,6 @@ def test_should_raise_permission_error_sync_cei_passive_incomes_if_user_has_not_
     }
 
 
-@pytest.mark.usefixtures("assets", "transactions", "sync_assets_read_model")
-def test_should_call_fetch_current_assets_prices_task(client, user, stock_usa_asset, mocker):
-    # GIVEN
-    mocked_task = mocker.patch("variable_income_assets.views.fetch_current_assets_prices")
-    Transaction.objects.create(
-        action=TransactionActions.buy, price=50, asset=stock_usa_asset, quantity=100
-    )
-
-    # WHEN
-    response = client.get(f"{URL}/fetch_current_prices?code=ALUP11&code=URA")
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-    assert mocked_task.call_args[1]["username"] == user.username
-    assert mocked_task.call_args[1]["codes"] == ["ALUP11", "URA"]
-
-
-def test_should_raise_permission_error_fetch_current_prices_if_user_has_not_set_credentials(
-    binance_client,
-):
-    # GIVEN
-
-    # WHEN
-    response = binance_client.get(f"{URL}/fetch_current_prices")
-
-    # THEN
-    assert response.status_code == HTTP_403_FORBIDDEN
-    assert response.json() == {
-        "detail": "User has not set the given credentials for Assets Prices integration"
-    }
-
-
-@pytest.mark.usefixtures(
-    "transactions", "another_stock_asset_transactions", "sync_assets_read_model"
-)
-def test_should_raise_error_if_asset_is_finished_fetch_current_assets_prices(
-    client, stock_asset, another_stock_asset
-):
-    # GIVEN
-
-    # WHEN
-    response = client.get(
-        f"{URL}/fetch_current_prices?code={stock_asset.code}&code={another_stock_asset.code}"
-    )
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {
-        "code": [
-            f"Select a valid choice. {another_stock_asset.code} is not one of the available choices."
-        ]
-    }
-
-
-@pytest.mark.usefixtures("assets")
-def test_should_raise_error_if_code_is_not_valid_fetch_current_prices(client):
-    # GIVEN
-
-    # WHEN
-    response = client.get(f"{URL}/fetch_current_prices?code=ALSO3")
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {
-        "code": ["Select a valid choice. ALSO3 is not one of the available choices."]
-    }
-
-
 @pytest.mark.usefixtures("indicators_data", "sync_assets_read_model")
 def test_should_get_indicators(client):
     # GIVEN
@@ -540,10 +465,14 @@ def test_should_get_indicators(client):
 )
 def test__total_invested_report(client, group_by, choices_class):
     # GIVEN
+    if group_by == "SECTOR":
+        field = "metadata__sector"
+    else:
+        field = group_by.lower()
     totals = {
         v: sum(
-            get_total_invested_brute_force(asset)
-            for asset in Asset.objects.filter(**{group_by.lower(): v})
+            get_total_invested_brute_force(Asset.objects.get(pk=asset.write_model_pk))
+            for asset in AssetReadModel.objects.filter(**{field: v})
         )
         for v in choices_class.values
     }
@@ -570,10 +499,14 @@ def test__total_invested_report(client, group_by, choices_class):
 def test__total_invested_report__percentage(client, group_by, choices_class):
     # GIVEN
     total_invested = sum(get_total_invested_brute_force(asset) for asset in Asset.objects.all())
+    if group_by == "SECTOR":
+        field = "metadata__sector"
+    else:
+        field = group_by.lower()
     totals = {
         v: sum(
-            get_total_invested_brute_force(asset)
-            for asset in Asset.objects.filter(**{group_by.lower(): v})
+            get_total_invested_brute_force(Asset.objects.get(pk=asset.write_model_pk))
+            for asset in AssetReadModel.objects.filter(**{field: v})
         )
         for v in choices_class.values
     }
@@ -606,10 +539,14 @@ def test__total_invested_report__percentage(client, group_by, choices_class):
 )
 def test__current_total_invested_report(client, group_by, choices_class):
     # GIVEN
+    if group_by == "SECTOR":
+        field = "metadata__sector"
+    else:
+        field = group_by.lower()
     totals = {
         v: sum(
-            get_current_total_invested_brute_force(asset)
-            for asset in Asset.objects.filter(**{group_by.lower(): v})
+            get_current_total_invested_brute_force(Asset.objects.get(pk=asset.write_model_pk))
+            for asset in AssetReadModel.objects.filter(**{field: v})
         )
         for v in choices_class.values
     }
@@ -638,10 +575,14 @@ def test__current_total_invested_report__percentage(client, group_by, choices_cl
     current_total = sum(
         get_current_total_invested_brute_force(asset) for asset in Asset.objects.all()
     )
+    if group_by == "SECTOR":
+        field = "metadata__sector"
+    else:
+        field = group_by.lower()
     totals = {
         v: sum(
-            get_current_total_invested_brute_force(asset)
-            for asset in Asset.objects.filter(**{group_by.lower(): v})
+            get_current_total_invested_brute_force(Asset.objects.get(pk=asset.write_model_pk))
+            for asset in AssetReadModel.objects.filter(**{field: v})
         )
         for v in choices_class.values
     }
@@ -767,23 +708,6 @@ def test__roi_report__should_fail_wo_required_filters(client):
 @pytest.mark.parametrize(
     "user_fixture_name, client_fixture_name, tasks_to_run",
     (
-        (
-            "user",
-            "client",
-            (
-                # "sync_cei_transactions_task",
-                # "sync_cei_passive_incomes_task",
-                "fetch_current_assets_prices",
-            ),
-        ),
-        (
-            "user_without_assets_price_integration",
-            "client",
-            (
-                # "sync_cei_transactions_task",
-                # "sync_cei_passive_incomes_task",
-            ),
-        ),
         ("user_with_kucoin_integration", "kucoin_client", ("sync_kucoin_transactions_task",)),
         ("user_with_binance_integration", "binance_client", ("sync_binance_transactions_task",)),
     ),
@@ -807,22 +731,14 @@ def test_should_sync_all(request, user_fixture_name, client_fixture_name, tasks_
     assert response.status_code == HTTP_200_OK
     assert all(task_name in response.json() for task_name in tasks_to_run)
     for task_name, mocked_task in zip(tasks_to_run, mocked_tasks):
-        extra_kwargs = (
-            {"codes": list(Asset.objects.filter(user=user).opened().values_list("code", flat=True))}
-            if task_name == "fetch_current_assets_prices"
-            else {}
-        )
-
         assert mocked_task.call_args[1]["username"] == user.username
-        for k, v in extra_kwargs.items():
-            mocked_task.call_args[1][k] == v
 
 
 @pytest.mark.usefixtures("transactions")
-def test_should_simulate_transaction_w_quantity(client, stock_asset):
+def test_should_simulate_transaction_w_quantity(client, stock_asset, stock_asset_metadata):
     # GIVEN
-    stock_asset.current_price = 100
-    stock_asset.save()
+    stock_asset_metadata.current_price = 100
+    stock_asset_metadata.save()
 
     # WHEN
     response = client.post(
@@ -840,10 +756,10 @@ def test_should_simulate_transaction_w_quantity(client, stock_asset):
 
 
 @pytest.mark.usefixtures("transactions")
-def test_should_simulate_transaction_w_total(client, stock_asset):
+def test_should_simulate_transaction_w_total(client, stock_asset, stock_asset_metadata):
     # GIVEN
-    stock_asset.current_price = 100
-    stock_asset.save()
+    stock_asset_metadata.current_price = 100
+    stock_asset_metadata.save()
 
     # WHEN
     response = client.post(
@@ -924,7 +840,9 @@ def test__codes_and_currencies_endpoint(client):
     )
 
 
-@pytest.mark.usefixtures("transactions", "passive_incomes", "sync_assets_read_model")
+@pytest.mark.usefixtures(
+    "transactions", "passive_incomes", "stock_asset_metadata", "sync_assets_read_model"
+)
 def test__delete(client, stock_asset):
     # GIVEN
 

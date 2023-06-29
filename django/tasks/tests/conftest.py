@@ -22,7 +22,7 @@ class TaskHistoryFactory(DjangoModelFactory):
 def simple_task_history(user):
     return TaskHistoryFactory(
         id=uuid4(),
-        name="fetch_current_assets_prices",
+        name="sync_binance_transactions_task",
         started_at=timezone.now(),
         finished_at=timezone.now(),
         created_by=user,
