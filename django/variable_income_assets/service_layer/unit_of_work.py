@@ -5,7 +5,7 @@ from typing import Iterator, Self, TYPE_CHECKING
 
 from django.db import transaction as djtransaction
 
-from ..adapters.repositories import AssetRepository, TransactionRepository
+from ..adapters.repositories import AssetRepository, PassiveIncomeRepository, TransactionRepository
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..domain.events import Event
@@ -51,7 +51,8 @@ class DjangoUnitOfWork(AbstractUnitOfWork):
 
     def __enter__(self) -> Self:
         self.assets = AssetRepository(
-            transaction_repository=TransactionRepository(asset_pk=self.asset_pk)
+            transactions_repository=TransactionRepository(asset_pk=self.asset_pk),
+            incomes_repository=PassiveIncomeRepository(asset_pk=self.asset_pk),
         )
         if not self._inside_atomic_block:
             djtransaction.set_autocommit(False)

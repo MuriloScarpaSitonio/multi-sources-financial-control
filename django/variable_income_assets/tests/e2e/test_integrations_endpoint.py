@@ -16,7 +16,7 @@ def test__update_prices(client, mocker, stock_asset, stock_asset_metadata, sync_
         "variable_income_assets.integrations.views.get_stock_prices",
         return_value={stock_asset_metadata.code: 78},
     )
-    roi_before = AssetReadModel.objects.get(write_model_pk=stock_asset.pk).roi
+    roi_before = AssetReadModel.objects.get(write_model_pk=stock_asset.pk).normalized_roi
 
     # WHEN
     response = client.post(URL)
@@ -31,7 +31,7 @@ def test__update_prices(client, mocker, stock_asset, stock_asset_metadata, sync_
     assert (
         AssetReadModel.objects.get(
             write_model_pk=stock_asset.pk, metadata_id=stock_asset_metadata.pk
-        ).roi
+        ).normalized_roi
         > roi_before
     )
 

@@ -195,7 +195,7 @@ export const TransactionsTable = () => {
       });
     },
     onFilterChange: (column, filterList, __, changedColumnIndex) => {
-      if (column === "created_at") return;
+      if (column === "operation_date") return;
       let _filters = filterList[changedColumnIndex].map(
         (f) =>
           getChoiceByLabel(f, [
@@ -291,7 +291,7 @@ export const TransactionsTable = () => {
       },
     },
     {
-      name: "created_at",
+      name: "operation_date",
       label: "Quando",
       options: {
         filter: true,
@@ -412,7 +412,7 @@ export const TransactionsTable = () => {
 
   const handleCreateEdit = (transactionData) => {
     if (transactionData && Object.keys(transactionData).length > 0) {
-      let [id, asset_code, _, action, price, quantity, created_at, currency] =
+      let [id, asset_code, _, action, price, quantity, operation_date, currency] =
         transactionData;
       setTransactionEditData({
         id,
@@ -420,7 +420,7 @@ export const TransactionsTable = () => {
         action,
         price,
         quantity,
-        created_at,
+        operation_date,
         currency,
       });
     }

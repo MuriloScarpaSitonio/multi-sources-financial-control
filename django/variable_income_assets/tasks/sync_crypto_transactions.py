@@ -67,6 +67,8 @@ def save_crypto_transactions(
             if data["currency"] == "USDT":
                 data.update(currency="USD")
 
+            currency = data.pop("currency")
+
             serializer = CryptoTransactionSerializer(data=data)
             serializer.is_valid(raise_exception=True)
 
@@ -75,12 +77,13 @@ def save_crypto_transactions(
                     user=user,
                     code=code,
                     type=AssetTypes.crypto,
+                    currency=currency,
                     defaults={"objective": AssetObjectives.growth},
                 )
                 if created:
                     # TODO: Emit event instead?!
                     repository = DjangoSQLAssetMetaDataRepository(
-                        code=code, type=AssetTypes.crypto, currency=data["currency"]
+                        code=code, type=AssetTypes.crypto, currency=currency
                     )
                     if not repository.exists():
                         repository.create(

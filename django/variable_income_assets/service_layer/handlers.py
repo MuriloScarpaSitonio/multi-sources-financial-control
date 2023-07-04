@@ -26,7 +26,7 @@ def create_transactions(cmd: commands.CreateTransactions, uow: AbstractUnitOfWor
 
 def update_transaction(cmd: commands.UpdateTransaction, uow: AbstractUnitOfWork) -> Transaction:
     with uow:
-        uow.assets.transactions.update(dto=cmd.asset._transactions[0], transaction=cmd.transaction)
+        uow.assets.transactions.update(dto=cmd.asset._transactions[0], entity=cmd.transaction)
         cmd.asset.events.append(events.TransactionUpdated(asset_pk=uow.asset_pk))
         uow.assets.seen.add(cmd.asset)
         uow.commit()
@@ -35,7 +35,7 @@ def update_transaction(cmd: commands.UpdateTransaction, uow: AbstractUnitOfWork)
 
 def delete_transaction(cmd: commands.DeleteTransaction, uow: AbstractUnitOfWork) -> None:
     with uow:
-        uow.assets.transactions.delete(transaction=cmd.transaction)
+        uow.assets.transactions.delete(entity=cmd.transaction)
         cmd.asset.events.append(events.TransactionDeleted(asset_pk=uow.asset_pk))
         uow.assets.seen.add(cmd.asset)
         uow.commit()

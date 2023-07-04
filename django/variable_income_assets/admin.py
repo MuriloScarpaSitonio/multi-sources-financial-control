@@ -1,6 +1,5 @@
 from django.contrib import admin
 from django.forms import CharField, ModelForm, Select
-from django.db.models import QuerySet
 
 from .choices import (
     AssetObjectives,
@@ -9,14 +8,13 @@ from .choices import (
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
     TransactionActions,
-    TransactionCurrencies,
+    Currencies,
 )
 from .models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
 
 
 class _TransactionForm(ModelForm):
     action = CharField(max_length=50, widget=Select(choices=TransactionActions.choices))
-    currency = CharField(max_length=50, widget=Select(choices=TransactionCurrencies.choices))
 
     class Meta:
         model = Transaction
@@ -50,7 +48,7 @@ def _create_form(django_model: Asset | AssetMetaData | AssetReadModel, *fields) 
         "objective": CharField(max_length=50, widget=Select(choices=AssetObjectives.choices)),
         "sector": CharField(max_length=50, widget=Select(choices=AssetSectors.choices)),
         "type": CharField(max_length=50, widget=Select(choices=AssetTypes.choices)),
-        "currency": CharField(max_length=50, widget=Select(choices=TransactionCurrencies.choices)),
+        "currency": CharField(max_length=50, widget=Select(choices=Currencies.choices)),
     }
 
     class _ModelForm(ModelForm):
@@ -67,7 +65,7 @@ def _create_form(django_model: Asset | AssetMetaData | AssetReadModel, *fields) 
 class AssetAdmin(admin.ModelAdmin):
     search_fields = ("code",)
     list_filter = ("type",)
-    form = _create_form(Asset, "type", "objective")
+    form = _create_form(Asset, "type", "objective", "currency")
 
 
 @admin.register(AssetMetaData)

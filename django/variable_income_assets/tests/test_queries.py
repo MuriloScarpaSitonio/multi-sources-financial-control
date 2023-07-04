@@ -37,14 +37,14 @@ def test__asset__irp_infos(stock_usa_asset):
         get_avg_price_bute_force(
             asset=stock_usa_asset,
             normalize=False,
-            extra_filters=Q(created_at__year__lte=year),
+            extra_filters=Q(operation_date__year__lte=year),
         )
     ) == convert_and_quantitize(asset["avg_price"])
     assert convert_and_quantitize(
         get_total_invested_brute_force(
             asset=stock_usa_asset,
             normalize=True,
-            extra_filters=Q(created_at__year__lte=year),
+            extra_filters=Q(operation_date__year__lte=year),
         )
     ) == convert_and_quantitize(asset["total_invested"])
 
@@ -60,7 +60,7 @@ def test__asset__credited_incomes_at_given_year(stock_usa_asset, incomes_type):
         Asset.objects.order_by()
         .distinct()
         .annotate_credited_incomes_at_given_year(year=year, incomes_type=incomes_type)
-        .values("credited_incomes_total")
+        .values("normalized_credited_incomes_total")
         .get(pk=stock_usa_asset.pk)
     )
 
@@ -69,7 +69,7 @@ def test__asset__credited_incomes_at_given_year(stock_usa_asset, incomes_type):
         get_total_credited_incomes_brute_force(
             asset=stock_usa_asset, extra_filters=Q(type=incomes_type, operation_date__year=year)
         )
-    ) == convert_and_quantitize(asset["credited_incomes_total"])
+    ) == convert_and_quantitize(asset["normalized_credited_incomes_total"])
 
 
 @pytest.mark.skip(
@@ -122,8 +122,8 @@ def test__transactions__using_dollar_as(stock_usa_asset):
             Transaction.objects.using_dollar_as(Decimal(2))
             .filter(
                 asset_id=stock_usa_asset.pk,
-                created_at__year=today.year,
-                created_at__month=today.month,
+                operation_date__year=today.year,
+                operation_date__month=today.month,
                 action=TransactionActions.sell,
             )
             .annotate_raw_roi(normalize=True)
@@ -136,8 +136,8 @@ def test__transactions__using_dollar_as(stock_usa_asset):
             Transaction.objects.using_dollar_as(Decimal(4))
             .filter(
                 asset_id=stock_usa_asset.pk,
-                created_at__year=today.year,
-                created_at__month=today.month,
+                operation_date__year=today.year,
+                operation_date__month=today.month,
                 action=TransactionActions.sell,
             )
             .annotate_raw_roi(normalize=True)
@@ -151,8 +151,8 @@ def test__transactions__using_dollar_as(stock_usa_asset):
             Transaction.objects.using_dollar_as(Decimal(2))
             .filter(
                 asset_id=stock_usa_asset.pk,
-                created_at__year=today.year,
-                created_at__month=today.month,
+                operation_date__year=today.year,
+                operation_date__month=today.month,
                 action=TransactionActions.sell,
             )
             .annotate_raw_roi(normalize=False)
@@ -165,8 +165,8 @@ def test__transactions__using_dollar_as(stock_usa_asset):
             Transaction.objects.using_dollar_as(Decimal(4))
             .filter(
                 asset_id=stock_usa_asset.pk,
-                created_at__year=today.year,
-                created_at__month=today.month,
+                operation_date__year=today.year,
+                operation_date__month=today.month,
                 action=TransactionActions.sell,
             )
             .annotate_raw_roi(normalize=False)

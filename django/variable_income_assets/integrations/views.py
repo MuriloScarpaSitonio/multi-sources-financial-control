@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from .helpers import get_crypto_prices, get_stock_prices, get_stocks_usa_prices
 from ..adapters.repositories import DjangoSQLAssetMetaDataRepository
-from ..choices import AssetTypes, TransactionCurrencies
+from ..choices import AssetTypes, Currencies
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
@@ -33,14 +33,14 @@ async def _fetch_prices(
         elif asset.type == AssetTypes.stock_usa:
             usa_stocks_codes.append(asset.code)
         elif asset.type == AssetTypes.crypto:
-            if asset.currency == TransactionCurrencies.real:
+            if asset.currency == Currencies.real:
                 crypto_brl_codes.append(asset.code)
             else:
                 crypto_usd_codes.append(asset.code)
     tasks = [
         get_stock_prices(codes=b3_codes),
-        get_crypto_prices(codes=crypto_usd_codes, currency=TransactionCurrencies.dollar),
-        get_crypto_prices(codes=crypto_brl_codes, currency=TransactionCurrencies.real),
+        get_crypto_prices(codes=crypto_usd_codes, currency=Currencies.dollar),
+        get_crypto_prices(codes=crypto_brl_codes, currency=Currencies.real),
         get_stocks_usa_prices(codes=usa_stocks_codes),
     ]
 

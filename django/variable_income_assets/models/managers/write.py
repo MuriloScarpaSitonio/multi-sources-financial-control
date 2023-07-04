@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Any, Self, TYPE_CHECKING
+from typing import Self, TYPE_CHECKING
 
 from django.db.models import (
     Case,
@@ -35,15 +35,15 @@ class AssetQuerySet(QuerySet):
         return self
 
     @staticmethod
-    def _get_passive_incomes_subquery() -> Self:
+    def _get_passive_incomes_qs_w_normalized_amount() -> PassiveIncomeQuerySet:
         from ..write import PassiveIncome  # avoid circular ImportError
 
         return (
             PassiveIncome.objects.filter(asset=OuterRef("pk"))
             .values("asset__pk")  # group by as we can't aggregate directly
             .credited()
-            .annotate(credited_incomes=Sum("amount"))
-            .values("credited_incomes")
+            .alias(normalized_amount=F("amount") * F("current_currency_conversion_rate"))
+            .annotate(_normalized_credited_incomes=Sum("normalized_amount"))
         )
 
     def _transactions_count_alias(self) -> Self:
@@ -71,45 +71,6 @@ class AssetQuerySet(QuerySet):
     def cryptos(self) -> Self:  # pragma: no cover
         return self.filter(type=AssetTypes.crypto)
 
-    def annotate_currency(self, fallback: Any = "") -> Self:
-        return self.annotate(currency=Coalesce(F("transactions__currency"), Value(fallback)))
-
-    def annotate_adjusted_avg_price(self, annotate_passive_incomes_subquery: bool = True) -> Self:
-        if annotate_passive_incomes_subquery:  # pragma: no cover
-            subquery = self._get_passive_incomes_subquery()
-
-        expression = self.expressions.get_adjusted_avg_price(
-            incomes=Coalesce(F("credited_incomes_total"), Decimal())
-        )
-        return (
-            self.annotate(
-                credited_incomes_total=Subquery(subquery.values("credited_incomes"))
-            ).annotate(adjusted_avg_price=Coalesce(expression, Decimal()))
-            if annotate_passive_incomes_subquery
-            else self.annotate(adjusted_avg_price=Coalesce(expression, Decimal()))
-        )
-
-    def annotate_total_invested_adjusted(
-        self, annotate_passive_incomes_subquery: bool = True
-    ) -> Self:
-        if annotate_passive_incomes_subquery:
-            subquery = self._get_passive_incomes_subquery()
-
-        expression = Coalesce(
-            self.expressions.get_total_adjusted(
-                incomes=Coalesce(F("credited_incomes_total"), Decimal())
-            ),
-            Decimal(),
-        )
-
-        return (
-            self.annotate(
-                credited_incomes_total=Subquery(subquery.values("credited_incomes"))
-            ).annotate(total_invested_adjusted=expression)
-            if annotate_passive_incomes_subquery
-            else self.annotate(total_invested_adjusted=expression)
-        )
-
     def annotate_total_adjusted_invested(self) -> Self:  # pragma: no cover
         return self.annotate(
             total_adjusted_invested=F("adjusted_avg_price") * F("quantity_balance")
@@ -118,32 +79,51 @@ class AssetQuerySet(QuerySet):
     def annotate_avg_price(self) -> Self:
         return self.annotate(avg_price=self.expressions.get_avg_price())
 
-    def annotate_total_invested(self) -> Self:
-        return self.annotate(
-            total_invested=Coalesce(F("avg_price") * F("quantity_balance"), Decimal())
-        )
-
     def annotate_total_bought(self) -> Self:
         return self.annotate(total_bought=self.expressions.get_total_bought())
+
+    def annotate_normalized_total_sold(self) -> Self:
+        return self.annotate(normalized_total_sold=self.expressions.normalized_total_sold)
+
+    def annotate_credited_incomes(self) -> Self:
+        from ..write import PassiveIncome  # avoid circular ImportError
+
+        qs = (
+            PassiveIncome.objects.filter(asset=OuterRef("pk"))
+            .values("asset__pk")  # group by as we can't aggregate directly
+            .credited()
+        )
+        return self.annotate(
+            normalized_credited_incomes=Coalesce(
+                Subquery(
+                    self._get_passive_incomes_qs_w_normalized_amount().values(
+                        "_normalized_credited_incomes"
+                    )
+                ),
+                Decimal(),
+            ),
+            credited_incomes=Coalesce(
+                Subquery(qs.annotate(_credited_incomes=Sum("amount")).values("_credited_incomes")),
+                Decimal(),
+            ),
+        )
 
     def annotate_read_fields(self) -> Self:
         return (
             self._annotate_quantity_balance()
-            .annotate_currency()
-            .annotate_adjusted_avg_price()
             .annotate_avg_price()
             .annotate_total_bought()
-            .annotate_total_invested()
-            .annotate_total_invested_adjusted(annotate_passive_incomes_subquery=False)
+            .annotate_normalized_total_sold()
+            .annotate_credited_incomes()
         )
 
     def annotate_irpf_infos(self, year: int) -> Self:
-        return self.annotate_currency().annotate(
+        return self.annotate(
             transactions_balance=self.expressions.get_quantity_balance(
-                extra_filters=Q(transactions__created_at__year__lte=year)
+                extra_filters=Q(transactions__operation_date__year__lte=year)
             ),
             avg_price=self.expressions.get_avg_price(
-                extra_filters=Q(transactions__created_at__year__lte=year)
+                extra_filters=Q(transactions__operation_date__year__lte=year)
             ),
             total_invested=self.expressions.get_dollar_conversion_expression(
                 F("avg_price") * F("transactions_balance")
@@ -153,23 +133,25 @@ class AssetQuerySet(QuerySet):
     def annotate_credited_incomes_at_given_year(
         self, year: int, incomes_type: PassiveIncomeEventTypes
     ) -> Self:
+        self.expressions.get_dollar_conversion_expression(F("normalized_credited_incomes_total"))
         return self.annotate(
-            credited_incomes_total=Subquery(
-                self._get_passive_incomes_subquery()
-                .filter(operation_date__year=year, type=incomes_type)
-                .values("credited_incomes")
+            normalized_credited_incomes_total=Coalesce(
+                Subquery(
+                    self._get_passive_incomes_qs_w_normalized_amount()
+                    .filter(operation_date__year=year, type=incomes_type)
+                    .values("_normalized_credited_incomes")
+                ),
+                Decimal(),
             )
         )
 
     def annotate_for_domain(self) -> Self:
-        return (
-            self._annotate_quantity_balance().annotate_currency(fallback=None).annotate_avg_price()
-        )
+        return self._annotate_quantity_balance().annotate_avg_price()
 
 
 class TransactionQuerySet(QuerySet):
     expressions = GenericQuerySetExpressions()
-    filters = GenericDateFilters(date_field_name="created_at")
+    filters = GenericDateFilters(date_field_name="operation_date")
 
     def using_dollar_as(self, dollar_conversion_rate: Decimal) -> Self:
         self.expressions.dollar_conversion_rate = dollar_conversion_rate
@@ -261,7 +243,7 @@ class TransactionQuerySet(QuerySet):
             - Sum("total_sold", filter=~self.filters.current, default=Decimal())
         ) / (
             Count(
-                Concat("created_at__month", "created_at__year", output_field=CharField()),
+                Concat("operation_date__month", "operation_date__year", output_field=CharField()),
                 filter=~self.filters.current,
                 distinct=True,
             )
@@ -281,7 +263,8 @@ class TransactionQuerySet(QuerySet):
     def historic(self) -> Self:
         return (
             self.annotate(
-                total=self.expressions.get_total_raw_expression(), month=TruncMonth("created_at")
+                total=self.expressions.get_total_raw_expression(),
+                month=TruncMonth("operation_date"),
             )
             .values("month")
             .annotate(
@@ -312,7 +295,6 @@ class TransactionQuerySet(QuerySet):
 
 
 class PassiveIncomeQuerySet(QuerySet):
-    date_field_name = "operation_date"
     filters = GenericDateFilters(date_field_name="operation_date")
 
     @property

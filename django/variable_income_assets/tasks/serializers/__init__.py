@@ -2,15 +2,9 @@ from copy import deepcopy
 
 from rest_framework import ISO_8601, serializers
 
-from shared.serializers_utils import CustomChoiceField
-
 from .fields import CeiPassiveIncomeChoiceField, CeiTransactionChoiceField, TimeStampToDateField
-from ...choices import (
-    PassiveIncomeEventTypes,
-    PassiveIncomeTypes,
-    TransactionActions,
-    TransactionCurrencies,
-)
+from ..utils import fetch_currency_conversion_rate
+from ...choices import PassiveIncomeEventTypes, PassiveIncomeTypes, TransactionActions
 from ...domain.commands import CreateTransactions
 from ...domain.models import TransactionDTO
 from ...models import Asset, PassiveIncome, Transaction
@@ -19,10 +13,9 @@ from ...service_layer.unit_of_work import DjangoUnitOfWork
 
 class CryptoTransactionSerializer(serializers.Serializer):
     id = serializers.CharField()
-    currency = CustomChoiceField(choices=TransactionCurrencies.choices)
     price = serializers.DecimalField(decimal_places=8, max_digits=15)
     quantity = serializers.DecimalField(decimal_places=8, max_digits=15)
-    created_at = TimeStampToDateField()
+    operation_date = TimeStampToDateField()
     action = serializers.ChoiceField(choices=TransactionActions.choices)
 
     def validate_id(self, external_id: str) -> str:
@@ -35,11 +28,21 @@ class CryptoTransactionSerializer(serializers.Serializer):
 
         data = deepcopy(self.validated_data)
         external_id = data.pop("id")
+        current_currency_conversion_rate = (
+            fetch_currency_conversion_rate(
+                operation_date=data["operation_date"], currency=asset.currency
+            )
+            if data["action"] == TransactionActions.sell
+            else None
+        )
 
         asset_domain = asset.to_domain()
         asset_domain.add_transaction(
             transaction_dto=TransactionDTO(
-                **data, external_id=external_id, fetched_by_id=task_history_id
+                **data,
+                external_id=external_id,
+                fetched_by_id=task_history_id,
+                current_currency_conversion_rate=current_currency_conversion_rate
             )
         )
         uow = DjangoUnitOfWork(asset_pk=asset.pk)
@@ -60,7 +63,7 @@ class CeiTransactionSerializer(serializers.Serializer):
             transaction_dto=TransactionDTO(
                 action=getattr(TransactionActions, self.validated_data["action"]),
                 quantity=self.validated_data["unit_amount"],
-                created_at=self.validated_data["operation_date"],
+                operation_date=self.validated_data["operation_date"],
                 price=self.validated_data["unit_price"],
             )
         )

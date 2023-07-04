@@ -24,7 +24,7 @@ from ..choices import (
     AssetTypes,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
-    TransactionCurrencies,
+    Currencies,
 )
 from ..models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
 
@@ -69,14 +69,14 @@ def test_sync_cei_transactions_should_create_asset_and_transaction(
         asset__user=user,
         asset__code=cei_transactions_response[0]["raw_negotiation_code"],
         price=cei_transactions_response[0]["unit_price"],
-        created_at=cei_transactions_response[0]["operation_date"],
+        operation_date=cei_transactions_response[0]["operation_date"],
         action=cei_transactions_response[0]["action"].upper(),
     ).exists()
     assert Transaction.objects.filter(
         asset__user=user,
         asset__code=cei_transactions_response[1]["raw_negotiation_code"],
         price=cei_transactions_response[1]["unit_price"],
-        created_at=cei_transactions_response[1]["operation_date"],
+        operation_date=cei_transactions_response[1]["operation_date"],
         action=cei_transactions_response[1]["action"].upper(),
     ).exists()
 
@@ -102,14 +102,14 @@ def test_sync_cei_transactions_should_not_create_asset_if_already_exists(
         asset__user=user,
         asset__code=cei_transactions_response[0]["raw_negotiation_code"],
         price=cei_transactions_response[0]["unit_price"],
-        created_at=cei_transactions_response[0]["operation_date"],
+        operation_date=cei_transactions_response[0]["operation_date"],
         action=cei_transactions_response[0]["action"].upper(),
     ).exists()
     assert Transaction.objects.filter(
         asset__user=user,
         asset__code=cei_transactions_response[1]["raw_negotiation_code"],
         price=cei_transactions_response[1]["unit_price"],
-        created_at=cei_transactions_response[1]["operation_date"],
+        operation_date=cei_transactions_response[1]["operation_date"],
         action=cei_transactions_response[1]["action"].upper(),
     ).exists()
 
@@ -142,25 +142,26 @@ def test_sync_cei_transactions_should_not_create_asset_if_unit_alread_exists(
         asset__user=user,
         asset__code=cei_transactions_response[0]["raw_negotiation_code"][:-1],
         price=cei_transactions_response[0]["unit_price"],
-        created_at=cei_transactions_response[0]["operation_date"],
+        operation_date=cei_transactions_response[0]["operation_date"],
         action=cei_transactions_response[0]["action"].upper(),
     ).exists()
     assert Transaction.objects.filter(
         asset__user=user,
         asset__code=cei_transactions_response[1]["raw_negotiation_code"][:-1],
         price=cei_transactions_response[1]["unit_price"],
-        created_at=cei_transactions_response[1]["operation_date"],
+        operation_date=cei_transactions_response[1]["operation_date"],
         action=cei_transactions_response[1]["action"].upper(),
     ).exists()
 
 
-@pytest.mark.usefixtures("crypto_asset_metadata", "crypto_asset_read")
+@pytest.mark.usefixtures("crypto_asset_metadata")
 def test_sync_kucoin_transactions_should_create_asset_and_transaction(
     user_with_kucoin_integration,
     kucoin_client,
     crypto_asset,
     requests_mock,
     kucoin_transactions_response,
+    sync_assets_read_model,
 ):
     # GIVEN
     crypto_asset.user = user_with_kucoin_integration
@@ -189,7 +190,7 @@ def test_sync_kucoin_transactions_should_create_asset_and_transaction(
         AssetMetaData.objects.filter(
             code=kucoin_transactions_response[0]["code"],
             type=AssetTypes.crypto,
-            currency=TransactionCurrencies.dollar,
+            currency=Currencies.dollar,
             sector=AssetSectors.tech,
             current_price=kucoin_transactions_response[0]["price"],
             current_price_updated_at__isnull=False,
@@ -200,7 +201,7 @@ def test_sync_kucoin_transactions_should_create_asset_and_transaction(
         AssetReadModel.objects.filter(
             code=kucoin_transactions_response[0]["code"],
             type=AssetTypes.crypto,
-            currency=TransactionCurrencies.dollar,
+            currency=Currencies.dollar,
         ).count()
         == 1
     )
@@ -219,19 +220,20 @@ def test_sync_kucoin_transactions_should_create_asset_and_transaction(
         assert Transaction.objects.filter(
             asset__user=user_with_kucoin_integration,
             asset__code=item["code"],
-            currency="USD" if item["currency"] == "USDT" else item["currency"],
+            asset__currency="USD" if item["currency"] == "USDT" else item["currency"],
             action=item["action"],
             price=Decimal(item["price"]),
         ).exists()
 
 
-@pytest.mark.usefixtures("crypto_asset_metadata", "crypto_asset_read")
+@pytest.mark.usefixtures("crypto_asset_metadata")
 def test_should_skip_kucoin_transaction_if_already_exists(
     user_with_kucoin_integration,
     kucoin_client,
     crypto_asset,
     requests_mock,
     kucoin_transactions_response,
+    sync_assets_read_model,
 ):
     # GIVEN
     crypto_asset.user = user_with_kucoin_integration

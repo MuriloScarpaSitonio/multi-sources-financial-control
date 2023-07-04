@@ -1,3 +1,6 @@
+from ..choices import Currencies, TransactionActions
+
+
 class ValidationError(Exception):
     default_message: str | None = None
 
@@ -24,19 +27,27 @@ class ValidationError(Exception):
         return {self.field: self.message}
 
 
-class MultipleCurrenciesNotAllowedException(ValidationError):
-    default_message = (
-        "Only one currency per asset is supported. Current currency: %(asset_currency)s"
-    )
-
-    def __init__(self, asset_currency: str) -> None:
-        super().__init__(
-            field="currency", message_interpolation_params={"asset_currency": asset_currency}
-        )
-
-
 class NegativeQuantityNotAllowedException(ValidationError):
     default_message = "You can't sell more assets than you own"
 
     def __init__(self) -> None:
         super().__init__(field="action")
+
+
+class CurrencyConversionRateNotNullWhenActionIsBuy(ValidationError):
+    default_message = (
+        f"This value must be ommited when the action of a transaction is {TransactionActions.buy}"
+    )
+
+    def __init__(self) -> None:
+        super().__init__(field="current_currency_conversion_rate")
+
+
+class CurrencyConversionRateNullOrOneForNonBrlAssets(ValidationError):
+    default_message = (
+        "This value can't be ommited or set to 1 if the asset's currency is "
+        f"different than {Currencies.real}"
+    )
+
+    def __init__(self) -> None:
+        super().__init__(field="current_currency_conversion_rate")

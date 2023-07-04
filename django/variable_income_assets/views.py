@@ -49,9 +49,8 @@ if TYPE_CHECKING:  # pragma: no cover
 class AssetViewSet(
     GenericViewSet, ListModelMixin, CreateModelMixin, UpdateModelMixin, DestroyModelMixin
 ):
-    lookup_field = "code"
     filter_backends = (filters.CQRSDjangoFilterBackend, OrderingFilter)
-    ordering_fields = ("code", "type", "total_invested", "roi", "roi_percentage")
+    ordering_fields = ("normalized_total_invested", "roi", "roi_percentage")
 
     def _is_write_action(self) -> bool:
         return self.action in ("create", "update", "destroy")
@@ -63,7 +62,15 @@ class AssetViewSet(
             qs = AssetReadModel.objects.select_related("metadata").filter(
                 user_id=self.request.user.id
             )
-            return qs.opened().order_by("-total_invested") if self.action == "list" else qs
+            return (
+                (
+                    qs.annotate_normalized_total_invested()
+                    .opened()
+                    .order_by("-normalized_total_invested")
+                )
+                if self.action == "list"
+                else qs
+            )
         return AssetReadModel.objects.none()  # pragma: no cover -- drf-spectacular
 
     def get_filterset_class(self) -> FilterSet:
@@ -83,9 +90,9 @@ class AssetViewSet(
                 **context,
                 **(
                     self.get_queryset()
-                    .annotate_totals()
+                    .annotate_normalized_current_total()
                     .aggregate(
-                        current_total_agg=Sum("current_total"),
+                        current_total_agg=Sum("normalized_current_total"),
                         total_invested_agg=Sum("normalized_total_invested"),
                     )
                 ),
@@ -201,12 +208,12 @@ class AssetTransactionViewSet(GenericViewSet):
 
     @extend_schema(
         parameters=[
-            OpenApiParameter(name="code", type=OpenApiTypes.STR, location=OpenApiParameter.PATH)
+            OpenApiParameter(name="pk", type=OpenApiTypes.INT, location=OpenApiParameter.PATH)
         ],
     )
     @action(methods=("POST",), detail=False)
-    def simulate(self, request: Request, code: str) -> Response:
-        asset = get_object_or_404(self.get_related_queryset(), code=code)
+    def simulate(self, request: Request, pk: int) -> Response:
+        asset = get_object_or_404(self.get_related_queryset(), pk=pk)
         serializer = serializers.TransactionSimulateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.data
@@ -219,12 +226,7 @@ class AssetTransactionViewSet(GenericViewSet):
 
         old = serializers.AssetSimulateSerializer(instance=asset).data
         with djtransaction.atomic():
-            Transaction.objects.create(
-                asset=asset,
-                action=choices.TransactionActions.buy,
-                currency=asset.currency_from_transactions,
-                **kwargs,
-            )
+            Transaction.objects.create(asset=asset, action=choices.TransactionActions.buy, **kwargs)
 
             # clear cached properties
             del asset.__dict__["adjusted_avg_price_from_transactions"]
@@ -242,7 +244,11 @@ class PassiveIncomeViewSet(ModelViewSet):
 
     def get_queryset(self) -> PassiveIncomeQuerySet[PassiveIncome]:
         return (
-            PassiveIncome.objects.select_related("asset").filter(asset__user=self.request.user)
+            (
+                PassiveIncome.objects.select_related("asset")
+                .filter(asset__user=self.request.user)
+                .order_by("-operation_date")
+            )
             if self.request.user.is_authenticated
             else PassiveIncome.objects.none()  # pragma: no cover -- drf-spectatular
         )
@@ -272,8 +278,8 @@ class PassiveIncomeViewSet(ModelViewSet):
     def indicators(self, request: Request) -> Response:
         first_transaction_date = (
             Transaction.objects.filter(asset__user=request.user)
-            .order_by("created_at")
-            .values_list("created_at", flat=True)
+            .order_by("operation_date")
+            .values_list("operation_date", flat=True)
             .first()
         )
         qs = self.get_queryset().indicators(
@@ -316,11 +322,13 @@ class PassiveIncomeViewSet(ModelViewSet):
 class TransactionViewSet(ModelViewSet):
     serializer_class = serializers.TransactionListSerializer
     filterset_class = filters.TransactionFilterSet
-    ordering_fields = ("created_at", "asset__code")
+    ordering_fields = ("operation_date", "asset__code")
 
     def get_queryset(self) -> TransactionQuerySet[Transaction]:
         if self.request.user.is_authenticated:
-            qs = Transaction.objects.filter(asset__user=self.request.user)
+            qs = Transaction.objects.filter(asset__user=self.request.user).order_by(
+                "-operation_date"
+            )
             return (
                 qs.select_related("asset")
                 if self.action in ("list", "retrieve", "update", "destroy")

@@ -123,7 +123,7 @@ const TransactionsTable = ({ code }) => {
             },
           },
           {
-            name: "created_at",
+            name: "operation_date",
             label: "Quando",
             options: {
               filter: false,

@@ -30,7 +30,7 @@ import { getChoiceByLabel, getChoiceByValue } from "../helpers";
 import { FormFeedback } from "../components/FormFeedback";
 import {
   TransactionsActionsMapping,
-  TransactionCurrenciesMapping,
+  CurrenciesMapping,
 } from "../consts.js";
 
 function NumberFormatCustom(props) {
@@ -90,7 +90,7 @@ const schema = yup.object().shape({
     .number()
     .required("A quantidade é obrigatória")
     .positive("Apenas números positivos"),
-  created_at: yup
+  operation_date: yup
     .date()
     .required("A data é obrigatória")
     .typeError("Data inválida"),
@@ -141,12 +141,12 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
     if (isDirty) {
       setIsLoaded(false);
       new TransactionsApi(initialData.id)
-        [method]({
-          ...data,
-          asset_code: data.asset_code.value,
-          currency: data.currency.value,
-          created_at: data.created_at.toLocaleDateString("pt-br"),
-        })
+      [method]({
+        ...data,
+        asset_code: data.asset_code.value,
+        currency: data.currency.value,
+        operation_date: data.operation_date.toLocaleDateString("pt-br"),
+      })
         .then(() => {
           setAlertInfos({
             message: `Transação ${actionVerb} com sucesso!`,
@@ -191,9 +191,9 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
               defaultValue={
                 initialData.asset_code
                   ? {
-                      value: initialData.asset_code,
-                      label: initialData.asset_code,
-                    }
+                    value: initialData.asset_code,
+                    label: initialData.asset_code,
+                  }
                   : null
               }
               render={({ field: { onChange, value } }) => (
@@ -216,11 +216,11 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                   />
                   {(errors.asset_code?.message ||
                     errors.asset_code?.value?.message) && (
-                    <FormHelperText>
-                      {errors.asset_code?.message ||
-                        errors.asset_code?.value?.message}
-                    </FormHelperText>
-                  )}
+                      <FormHelperText>
+                        {errors.asset_code?.message ||
+                          errors.asset_code?.value?.message}
+                      </FormHelperText>
+                    )}
                 </>
               )}
             />
@@ -271,8 +271,8 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
               defaultValue={
                 getChoiceByValue(
                   initialData.currency,
-                  TransactionCurrenciesMapping
-                ) || TransactionCurrenciesMapping[0]
+                  CurrenciesMapping
+                ) || CurrenciesMapping[0]
               }
               render={({ field: { onChange, value } }) => (
                 <>
@@ -281,7 +281,7 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                     value={value}
                     clearText="Limpar"
                     closeText="Fechar"
-                    options={TransactionCurrenciesMapping}
+                    options={CurrenciesMapping}
                     getOptionLabel={(option) => option.label}
                     renderInput={(params) => (
                       <TextField
@@ -294,11 +294,11 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                   />
                   {(errors.currency?.message ||
                     errors.currency?.value?.message) && (
-                    <FormHelperText>
-                      {errors.currency?.message ||
-                        errors.currency?.value?.message}
-                    </FormHelperText>
-                  )}
+                      <FormHelperText>
+                        {errors.currency?.message ||
+                          errors.currency?.value?.message}
+                      </FormHelperText>
+                    )}
                 </>
               )}
             />
@@ -347,12 +347,12 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
         <FormGroup row style={{ marginTop: "15px" }}>
           <MuiPickersUtilsProvider utils={DateFnsUtils}>
             <Controller
-              name="created_at"
+              name="operation_date"
               control={control}
               defaultValue={
-                initialData.created_at
+                initialData.operation_date
                   ? // make sure to include hours and minutes to adjust timezone
-                    new Date(initialData.created_at + "T00:00")
+                  new Date(initialData.operation_date + "T00:00")
                   : new Date()
               }
               render={({ field: { onChange, value } }) => (
@@ -369,8 +369,8 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                   required
                   format="dd/MM/yyyy"
                   style={{ width: "32%", marginRight: "2%" }}
-                  error={!!errors.created_at}
-                  helperText={errors.created_at?.message}
+                  error={!!errors.operation_date}
+                  helperText={errors.operation_date?.message}
                 />
               )}
             />

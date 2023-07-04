@@ -1,5 +1,4 @@
 from ..adapters.repositories import DjangoSQLAssetMetaDataRepository
-from ..choices import ASSET_TYPE_CURRENCY_MAP
 from ..models import Asset, AssetReadModel
 
 
@@ -26,10 +25,10 @@ def upsert_asset_read_model(asset_id: int, is_aggregate_upsert: bool | None = No
                 "currency": asset.currency,
                 "quantity_balance": asset.quantity_balance,
                 "avg_price": asset.avg_price,
-                "adjusted_avg_price": asset.adjusted_avg_price,
                 "total_bought": asset.total_bought,
-                "total_invested": asset.total_invested,
-                "total_invested_adjusted": asset.total_invested_adjusted,
+                "normalized_total_sold": asset.normalized_total_sold,
+                "credited_incomes": asset.credited_incomes,
+                "normalized_credited_incomes": asset.normalized_credited_incomes,
             },
         )
     elif is_aggregate_upsert is False:
@@ -44,13 +43,9 @@ def upsert_asset_read_model(asset_id: int, is_aggregate_upsert: bool | None = No
             },
         )
     elif is_aggregate_upsert is None:
-        asset = Asset.objects.annotate_read_fields().get(pk=asset_id)
+        asset: Asset = Asset.objects.annotate_read_fields().get(pk=asset_id)
         metadata = DjangoSQLAssetMetaDataRepository(
-            code=asset.code,
-            type=asset.type,
-            # The asset may not have transcations yet so we fallback
-            # In such scenario the aggregation fields are all zero so we are good
-            currency=asset.currency or ASSET_TYPE_CURRENCY_MAP[asset.type],
+            code=asset.code, type=asset.type, currency=asset.currency
         ).get("pk")
 
         AssetReadModel.objects.update_or_create(
@@ -64,9 +59,9 @@ def upsert_asset_read_model(asset_id: int, is_aggregate_upsert: bool | None = No
                 "currency": asset.currency,
                 "quantity_balance": asset.quantity_balance,
                 "avg_price": asset.avg_price,
-                "adjusted_avg_price": asset.adjusted_avg_price,
                 "total_bought": asset.total_bought,
-                "total_invested": asset.total_invested,
-                "total_invested_adjusted": asset.total_invested_adjusted,
+                "normalized_total_sold": asset.normalized_total_sold,
+                "credited_incomes": asset.credited_incomes,
+                "normalized_credited_incomes": asset.normalized_credited_incomes,
             },
         )
