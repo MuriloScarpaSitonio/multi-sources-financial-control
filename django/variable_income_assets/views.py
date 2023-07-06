@@ -101,16 +101,23 @@ class AssetViewSet(
             else context
         )
 
+    @djtransaction.atomic
     def perform_create(self, serializer: serializers.AssetSerializer) -> None:
         super().perform_create(serializer)
         with DjangoUnitOfWork(asset_pk=serializer.instance.pk) as uow:
-            messagebus.handle(message=events.AssetCreated(asset_pk=serializer.instance.pk), uow=uow)
+            messagebus.handle(
+                message=events.AssetCreated(asset_pk=serializer.instance.pk, sync=True), uow=uow
+            )
 
+    @djtransaction.atomic
     def perform_update(self, serializer: serializers.AssetReadModelSerializer) -> None:
         super().perform_update(serializer)
         with DjangoUnitOfWork(asset_pk=serializer.instance.pk) as uow:
-            messagebus.handle(message=events.AssetUpdated(asset_pk=serializer.instance.pk), uow=uow)
+            messagebus.handle(
+                message=events.AssetUpdated(asset_pk=serializer.instance.pk, sync=True), uow=uow
+            )
 
+    @djtransaction.atomic
     def perform_destroy(self, instance: Asset) -> None:
         AssetReadModel.objects.filter(write_model_pk=instance.pk).delete()
         super().perform_destroy(instance)

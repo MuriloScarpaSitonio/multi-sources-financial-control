@@ -33,13 +33,18 @@ def upsert_asset_read_model(asset_id: int, is_aggregate_upsert: bool | None = No
         )
     elif is_aggregate_upsert is False:
         asset = Asset.objects.only("pk", "user_id", "code", "type", "objective").get(pk=asset_id)
+        metadata = DjangoSQLAssetMetaDataRepository(
+            code=asset.code, type=asset.type, currency=asset.currency
+        ).get("pk")
         AssetReadModel.objects.update_or_create(
             write_model_pk=asset.pk,
             defaults={
                 "user_id": asset.user_id,
                 "code": asset.code,
                 "type": asset.type,
+                "currency": asset.currency,
                 "objective": asset.objective,
+                "metadata_id": metadata.pk,
             },
         )
     elif is_aggregate_upsert is None:

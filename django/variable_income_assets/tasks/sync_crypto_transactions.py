@@ -10,10 +10,12 @@ from tasks.choices import TaskStates
 from tasks.decorators import task_finisher
 from tasks.models import TaskHistory
 
+from .asset_metadata import maybe_create_asset_metadata
 from .serializers import CryptoTransactionSerializer
-from ..adapters.repositories import DjangoSQLAssetMetaDataRepository
 from ..choices import AssetObjectives, AssetSectors, AssetTypes
 from ..models import Asset
+from ..domain.events import TransactionsCreated
+from ..service_layer.unit_of_work import DjangoUnitOfWork
 
 
 @task_finisher
@@ -58,7 +60,9 @@ def sync_binance_transactions_task(task_history_id: str, username: str) -> int:
 def save_crypto_transactions(
     transactions_data: list[dict], user: CustomUser, task_history_id: str
 ) -> None:
+    assets: set[Asset] = set()
     for data in transactions_data:
+        # TODO: order data so we create `BUY` transactions first
         try:
             code = data.pop("code")
             if code in settings.CRYPTOS_TO_SKIP_INTEGRATION:
@@ -81,18 +85,27 @@ def save_crypto_transactions(
                     defaults={"objective": AssetObjectives.growth},
                 )
                 if created:
-                    # TODO: Emit event instead?!
-                    repository = DjangoSQLAssetMetaDataRepository(
-                        code=code, type=AssetTypes.crypto, currency=currency
+                    maybe_create_asset_metadata(
+                        asset,
+                        sector=AssetSectors.tech,
+                        current_price=serializer.data["price"],
+                        current_price_updated_at=timezone.now(),
                     )
-                    if not repository.exists():
-                        repository.create(
-                            sector=AssetSectors.tech,
-                            current_price=serializer.data["price"],
-                            current_price_updated_at=timezone.now(),
-                        )
+                serializer.create(asset=asset, task_history_id=task_history_id)
 
-                serializer.create(asset=asset, task_history_id=task_history_id, new_asset=created)
+                asset.__created__ = created
+                assets.add(asset)  # it's ok to not overwrite the asset object because it'll
+                # be queried again in the emitted event below. In fact, this is necessary so we don't
+                # overwrite `__created__`
         except Exception:
             # TODO: log error
             continue
+
+    from ..service_layer import messagebus  # avoid cirtular import error
+
+    for asset in assets:
+        # TODO: rollback transactions related to this asset if fails?!
+        with DjangoUnitOfWork(asset_pk=asset.pk) as uow:
+            messagebus.handle(
+                message=TransactionsCreated(asset_pk=asset.pk, new_asset=asset.__created__), uow=uow
+            )

@@ -84,6 +84,7 @@ def test__create(client, asset_type, asset_sector, currency, mocker):
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
+
     assert (
         AssetReadModel.objects.filter(
             code=code,
@@ -147,7 +148,9 @@ def test__create__validate_currency(client, type, currency, status_code, mocker)
         }
 
 
-def test__create__code_type_diff_currencies__crypto(client, crypto_asset):
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.usefixtures("crypto_asset_metadata")
+def test__create__code_type_diff_currencies__crypto(client, crypto_asset, sync_assets_read_model):
     # GIVEN
     data = {
         "type": crypto_asset.type,
@@ -161,6 +164,8 @@ def test__create__code_type_diff_currencies__crypto(client, crypto_asset):
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
+    assert AssetReadModel.objects.filter(code=crypto_asset.code).count() == 2
+    assert AssetMetaData.objects.filter(code=crypto_asset.code).count() == 2
 
 
 def test__create__code_type_currency_user_unique(client, crypto_asset):
@@ -184,27 +189,36 @@ def test__create__code_type_currency_user_unique(client, crypto_asset):
     }
 
 
-@pytest.mark.usefixtures("sync_assets_read_model", "stock_asset_metadata")
-def test__update(client, stock_asset):
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.usefixtures("sync_assets_read_model", "crypto_asset_metadata")
+def test__update(client, crypto_asset):
     # GIVEN
+    code = "RANI4"
     data = {
-        "type": stock_asset.type,
-        "objective": AssetObjectives.growth,
-        "code": stock_asset.code,
+        "type": AssetTypes.stock,
+        "objective": AssetObjectives.dividend,
+        "code": code,
         "currency": Currencies.real,
     }
 
     # WHEN
-    response = client.put(f"{URL}/{stock_asset.pk}", data=data)
+    response = client.put(f"{URL}/{crypto_asset.pk}", data=data)
 
     # THEN
     assert response.status_code == HTTP_200_OK
 
-    stock_asset.refresh_from_db()
-    assert stock_asset.objective == AssetObjectives.growth
-    assert (
-        AssetReadModel.objects.get(write_model_pk=stock_asset.pk).objective
-        == AssetObjectives.growth
+    crypto_asset.refresh_from_db()
+    read = AssetReadModel.objects.get(write_model_pk=crypto_asset.pk)
+
+    assert crypto_asset.type == read.type == AssetTypes.stock
+    assert crypto_asset.objective == read.objective == AssetObjectives.dividend
+    assert crypto_asset.code == read.code == code
+    assert crypto_asset.currency == read.currency == Currencies.real
+
+    assert read.metadata_id == (
+        AssetMetaData.objects.only("pk")
+        .get(code=code, type=AssetTypes.stock, currency=Currencies.real)
+        .pk
     )
 
 
