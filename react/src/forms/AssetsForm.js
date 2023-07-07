@@ -16,8 +16,13 @@ import FormHelperText from "@material-ui/core/FormHelperText";
 import TextField from "@material-ui/core/TextField";
 import { yupResolver } from "@hookform/resolvers/yup";
 
-import { AssetsObjectivesMapping, AssetsTypesMapping } from "../consts.js";
-import { getChoiceByLabel } from "../helpers";
+import {
+  AssetsObjectivesMapping,
+  AssetsTypesMapping,
+  CurrenciesAssetTypesMapping,
+  CurrenciesMapping,
+} from "../consts.js";
+import { getChoiceByLabel, getChoiceByValue } from "../helpers";
 import { AssetsApi } from "../api";
 import { FormFeedback } from "../components/FormFeedback";
 
@@ -39,16 +44,27 @@ const schema = yup.object().shape({
     })
     .required("O objetivo é obrigatório")
     .nullable(),
+  currency: yup
+    .object()
+    .shape({
+      label: yup.string().required("A moeda é obrigatória"),
+      value: yup
+        .string()
+        .required("A moeda é obrigatória")
+        .matches(/(BRL|USD)/, "Apenas real e dólar são moedas válidas"),
+    })
+    .required("A moeda é obrigatória")
+    .nullable(),
 });
 
-const AssetDeleteDialog = ({ code, open, onClose, onSuccess }) => {
+const AssetDeleteDialog = ({ initialData, open, onClose, onSuccess }) => {
   const [isLoaded, setIsLoaded] = useState(true);
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
 
   const onDelete = () => {
     setIsLoaded(false);
-    new AssetsApi(code)
+    new AssetsApi(initialData.id)
       .delete()
       .then(() => {
         setAlertInfos({
@@ -76,7 +92,7 @@ const AssetDeleteDialog = ({ code, open, onClose, onSuccess }) => {
         aria-labelledby="expense-delete-form-dialog-title"
       >
         <DialogTitle id="expense-delete-form-dialog-title">
-          {`Tem certeza que deseja deletar o ativo ${code}?`}
+          {`Tem certeza que deseja deletar o ativo ${initialData.code}?`}
         </DialogTitle>
         <DialogContent>
           <b>
@@ -108,6 +124,12 @@ export const AssetsForm = ({ initialData, onClose, onSuccess }) => {
 
   const [deleteDialogIsOpened, setDeleteDialogIsOpened] = useState(false);
 
+  let initialType = getChoiceByLabel(
+    initialData.type,
+    AssetsTypesMapping
+  )?.value;
+  const [isCrypto, setIsCrypto] = useState(initialType === "CRYPTO" || false);
+
   const {
     control,
     handleSubmit,
@@ -123,12 +145,17 @@ export const AssetsForm = ({ initialData, onClose, onSuccess }) => {
     const method = isCreateForm ? "post" : "put";
     const actionVerb = isCreateForm ? "criado" : "editado";
     if (isDirty) {
+      let c = isCrypto
+        ? data.currency.value
+        : CurrenciesAssetTypesMapping[data.type.value];
+
       setIsLoaded(false);
-      new AssetsApi(initialData.code)
+      new AssetsApi(initialData.id)
         [method]({
           ...data,
           objective: data.objective.value,
           type: data.type.value,
+          currency: c,
         })
         .then(() => {
           setAlertInfos({
@@ -217,8 +244,7 @@ export const AssetsForm = ({ initialData, onClose, onSuccess }) => {
             />
           </FormControl>
         </FormGroup>
-
-        <FormGroup row>
+        <FormGroup row style={{ marginTop: "10px" }}>
           <FormControl
             style={{ width: "92%", marginTop: "5px" }}
             error={!!errors.type}
@@ -233,7 +259,10 @@ export const AssetsForm = ({ initialData, onClose, onSuccess }) => {
               render={({ field: { onChange, value } }) => (
                 <>
                   <Autocomplete
-                    onChange={(_, type) => onChange(type)}
+                    onChange={(_, type) => {
+                      setIsCrypto(type.value === "CRYPTO");
+                      onChange(type);
+                    }}
                     value={value}
                     clearText="Limpar"
                     closeText="Fechar"
@@ -251,6 +280,51 @@ export const AssetsForm = ({ initialData, onClose, onSuccess }) => {
                   {(errors.type?.message || errors.type?.value?.message) && (
                     <FormHelperText>
                       {errors.type?.message || errors.type?.value?.message}
+                    </FormHelperText>
+                  )}
+                </>
+              )}
+            />
+          </FormControl>
+        </FormGroup>
+        <FormGroup row style={{ marginTop: "10px" }}>
+          <FormControl
+            style={{ width: "35%", marginRight: "2%" }}
+            error={!!errors.currency}
+          >
+            <Controller
+              name="currency"
+              control={control}
+              defaultValue={
+                getChoiceByValue(initialData.currency, CurrenciesMapping) ||
+                CurrenciesMapping[0]
+              }
+              render={({ field: { onChange, value } }) => (
+                <>
+                  <Autocomplete
+                    onChange={(_, currency) => onChange(currency)}
+                    value={value}
+                    clearText="Limpar"
+                    closeText="Fechar"
+                    options={CurrenciesMapping}
+                    getOptionLabel={(option) => option.label}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        error={!!errors.currency}
+                        required
+                        label="Moeda"
+                        style={{
+                          display: isCrypto ? "" : "none",
+                        }}
+                      />
+                    )}
+                  />
+                  {(errors.currency?.message ||
+                    errors.currency?.value?.message) && (
+                    <FormHelperText>
+                      {errors.currency?.message ||
+                        errors.currency?.value?.message}
                     </FormHelperText>
                   )}
                 </>
@@ -281,7 +355,7 @@ export const AssetsForm = ({ initialData, onClose, onSuccess }) => {
         </DialogActions>
       </form>
       <AssetDeleteDialog
-        code={initialData.code}
+        initialData={initialData}
         open={deleteDialogIsOpened}
         onClose={() => setDeleteDialogIsOpened(false)}
         onSuccess={onSuccess}

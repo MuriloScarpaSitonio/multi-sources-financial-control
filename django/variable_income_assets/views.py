@@ -50,7 +50,7 @@ class AssetViewSet(
     GenericViewSet, ListModelMixin, CreateModelMixin, UpdateModelMixin, DestroyModelMixin
 ):
     filter_backends = (filters.CQRSDjangoFilterBackend, OrderingFilter)
-    ordering_fields = ("normalized_total_invested", "roi", "roi_percentage")
+    ordering_fields = ("normalized_total_invested", "normalized_roi", "roi_percentage")
 
     def _is_write_action(self) -> bool:
         return self.action in ("create", "update", "destroy")
@@ -65,6 +65,7 @@ class AssetViewSet(
             return (
                 (
                     qs.annotate_normalized_total_invested()
+                    .annotate_normalized_roi()
                     .opened()
                     .order_by("-normalized_total_invested")
                 )

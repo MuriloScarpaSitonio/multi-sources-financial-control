@@ -61,6 +61,12 @@ const CurrenciesMapping = [
   { label: "Dólar", value: "USD" },
 ];
 
+const CurrenciesAssetTypesMapping = {
+  STOCK: "BRL",
+  FII: "BRL",
+  STOCK_USA: "USD",
+};
+
 const PassiveIncomeTypesMapping = [
   { label: "Dividendo", value: "DIVIDEND" },
   { label: "Juros sobre capital próprio", value: "JCP" },
@@ -86,6 +92,7 @@ export {
   RefreshTokenStr,
   TransactionsActionsMapping,
   CurrenciesMapping,
+  CurrenciesAssetTypesMapping,
   PassiveIncomeTypesMapping,
   PassiveIncomeEventTypesMapping,
 };

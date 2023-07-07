@@ -112,7 +112,7 @@ export class UserApi extends Api {
 }
 export class AssetsApi extends Api {
   resource = "assets";
-  constructor(code = null) {
+  constructor(id = null) {
     super(
       {
         query: true,
@@ -122,10 +122,10 @@ export class AssetsApi extends Api {
         patch: false,
         delete: true,
       },
-      code
+      id
     );
-    this.simulateTransaction = (code, data) =>
-      apiProvider.post(`${this.resource}/${code}/transactions/simulate`, data);
+    this.simulateTransaction = (id, data) =>
+      apiProvider.post(`${this.resource}/${id}/transactions/simulate`, data);
 
     this.getCodesAndCurrencies = () =>
       apiProvider.get(`${this.resource}/codes_and_currencies`);

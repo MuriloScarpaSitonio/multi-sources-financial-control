@@ -26,12 +26,9 @@ import TextField from "@material-ui/core/TextField";
 import { yupResolver } from "@hookform/resolvers/yup";
 
 import { AssetsApi, TransactionsApi } from "../api";
-import { getChoiceByLabel, getChoiceByValue } from "../helpers";
+import { getChoiceByLabel } from "../helpers";
 import { FormFeedback } from "../components/FormFeedback";
-import {
-  TransactionsActionsMapping,
-  CurrenciesMapping,
-} from "../consts.js";
+import { TransactionsActionsMapping } from "../consts.js";
 
 function NumberFormatCustom(props) {
   const { inputRef, onChange, ...other } = props;
@@ -69,18 +66,6 @@ const schema = yup.object().shape({
     .string()
     .required("A ação é obrigatória")
     .matches(/(BUY|SELL)/, "Apenas compra e venda são ações válidas"),
-  currency: yup
-    .object()
-    .shape({
-      label: yup.string().required("A moeda é obrigatória"),
-      value: yup
-        .string()
-        .required("A moeda é obrigatória")
-        .matches(/(BRL|USD)/, "Apenas real e dólar são moedas válidas"),
-    })
-    .required("A moeda é obrigatória")
-    .nullable(),
-
   price: yup
     .number()
     .required("O preço é obrigatório")
@@ -96,7 +81,12 @@ const schema = yup.object().shape({
     .typeError("Data inválida"),
 });
 
-export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
+export const TransactionForm = ({
+  initialData,
+  handleClose,
+  reloadTable,
+  assetCurrency,
+}) => {
   const [isLoaded, setIsLoaded] = useState(true);
   const [codes, setCodes] = useState([]);
   const [showAlert, setShowAlert] = useState(false);
@@ -129,7 +119,6 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
     control,
     handleSubmit,
     formState: { errors, isDirty },
-    watch,
   } = useForm({
     mode: "all",
     resolver: yupResolver(schema),
@@ -141,12 +130,11 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
     if (isDirty) {
       setIsLoaded(false);
       new TransactionsApi(initialData.id)
-      [method]({
-        ...data,
-        asset_code: data.asset_code.value,
-        currency: data.currency.value,
-        operation_date: data.operation_date.toLocaleDateString("pt-br"),
-      })
+        [method]({
+          ...data,
+          asset_code: data.asset_code.value,
+          operation_date: data.operation_date.toLocaleDateString("pt-br"),
+        })
         .then(() => {
           setAlertInfos({
             message: `Transação ${actionVerb} com sucesso!`,
@@ -176,7 +164,6 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
     setShowAlert(true);
   };
 
-  let currencyObj = watch("currency");
   return (
     <>
       <form>
@@ -191,9 +178,9 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
               defaultValue={
                 initialData.asset_code
                   ? {
-                    value: initialData.asset_code,
-                    label: initialData.asset_code,
-                  }
+                      value: initialData.asset_code,
+                      label: initialData.asset_code,
+                    }
                   : null
               }
               render={({ field: { onChange, value } }) => (
@@ -216,11 +203,11 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                   />
                   {(errors.asset_code?.message ||
                     errors.asset_code?.value?.message) && (
-                      <FormHelperText>
-                        {errors.asset_code?.message ||
-                          errors.asset_code?.value?.message}
-                      </FormHelperText>
-                    )}
+                    <FormHelperText>
+                      {errors.asset_code?.message ||
+                        errors.asset_code?.value?.message}
+                    </FormHelperText>
+                  )}
                 </>
               )}
             />
@@ -261,48 +248,6 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
           </FormControl>
         </FormGroup>
         <FormGroup row style={{ marginTop: "10px" }}>
-          <FormControl
-            style={{ width: "32%", marginRight: "2%" }}
-            error={!!errors.currency}
-          >
-            <Controller
-              name="currency"
-              control={control}
-              defaultValue={
-                getChoiceByValue(
-                  initialData.currency,
-                  CurrenciesMapping
-                ) || CurrenciesMapping[0]
-              }
-              render={({ field: { onChange, value } }) => (
-                <>
-                  <Autocomplete
-                    onChange={(_, currency) => onChange(currency)}
-                    value={value}
-                    clearText="Limpar"
-                    closeText="Fechar"
-                    options={CurrenciesMapping}
-                    getOptionLabel={(option) => option.label}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        error={!!errors.currency}
-                        required
-                        label="Moeda"
-                      />
-                    )}
-                  />
-                  {(errors.currency?.message ||
-                    errors.currency?.value?.message) && (
-                      <FormHelperText>
-                        {errors.currency?.message ||
-                          errors.currency?.value?.message}
-                      </FormHelperText>
-                    )}
-                </>
-              )}
-            />
-          </FormControl>
           <Controller
             name="quantity"
             control={control}
@@ -334,7 +279,7 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                 InputProps={{
                   inputComponent: NumberFormatCustom,
                   inputProps: {
-                    prefix: currencyObj?.value === "BRL" ? "R$ " : "$ ",
+                    prefix: assetCurrency === "BRL" ? "R$ " : "$ ",
                   },
                 }}
                 style={{ width: "32%" }}
@@ -352,7 +297,7 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
               defaultValue={
                 initialData.operation_date
                   ? // make sure to include hours and minutes to adjust timezone
-                  new Date(initialData.operation_date + "T00:00")
+                    new Date(initialData.operation_date + "T00:00")
                   : new Date()
               }
               render={({ field: { onChange, value } }) => (
@@ -387,7 +332,7 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                   InputProps={{
                     inputComponent: NumberFormatCustom,
                     inputProps: {
-                      prefix: currencyObj?.value === "BRL" ? "R$ " : "$ ",
+                      prefix: assetCurrency === "BRL" ? "R$ " : "$ ",
                     },
                   }}
                   style={{

@@ -102,11 +102,11 @@ const TransactionsTable = ({ code }) => {
               filter: false,
               sort: false,
               customBodyRender: (v, tableMeta) => {
-                let currency =
+                let currencySymbol =
                   tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
                     ? "R$"
                     : "$";
-                return `${currency} ${v?.toLocaleString("pt-br", {
+                return `${currencySymbol} ${v?.toLocaleString("pt-br", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 4,
                 })}`;
@@ -368,17 +368,8 @@ export const AssetsTable = () => {
     expandableRowsOnClick: true,
     renderExpandableRow: (rowData) => {
       const colSpan = rowData.length + 1;
-
-      const [
-        id,
-        sector,
-        objective,
-        code,
-        type,
-        avg_price,
-        current_price,
-        current_price_updated_at,
-      ] = rowData;
+      let currency = rowData[colSpan - 2];
+      const [id, _, objective, code, type] = rowData;
 
       return (
         <>
@@ -405,6 +396,7 @@ export const AssetsTable = () => {
                       objective,
                       code,
                       type,
+                      currency,
                     }}
                     onSuccess={reload}
                   />
@@ -449,7 +441,7 @@ export const AssetsTable = () => {
 
   const columns = [
     {
-      name: "id",
+      name: "write_model_pk",
       options: {
         display: false,
         filter: false,
@@ -491,7 +483,7 @@ export const AssetsTable = () => {
       label: "Código",
       options: {
         filter: false,
-        sort: true,
+        sort: false,
       },
     },
     {
@@ -499,7 +491,7 @@ export const AssetsTable = () => {
       label: "Tipo",
       options: {
         filter: true,
-        sort: true,
+        sort: false,
         filterOptions: {
           names: AssetsTypesMapping.map((v) => v.label),
         },
@@ -515,11 +507,11 @@ export const AssetsTable = () => {
         filter: false,
         sort: false,
         customBodyRender: (v, tableMeta) => {
-          let currency =
+          let currencySymbol =
             tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
               ? "R$"
               : "$";
-          return `${currency} ${v?.toLocaleString("pt-br", {
+          return `${currencySymbol} ${v?.toLocaleString("pt-br", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 4,
           })}`;
@@ -533,7 +525,7 @@ export const AssetsTable = () => {
         filter: false,
         sort: false,
         customBodyRender: (v, tableMeta) => {
-          let currency =
+          let currencySymbol =
             tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
               ? "R$"
               : "$";
@@ -544,7 +536,7 @@ export const AssetsTable = () => {
                 tableMeta.rowData[7]
               ).toLocaleString("pt-br")}`}
             >
-              <p>{`${currency} ${v?.toLocaleString("pt-br", {
+              <p>{`${currencySymbol} ${v?.toLocaleString("pt-br", {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 4,
               })}`}</p>
@@ -571,7 +563,7 @@ export const AssetsTable = () => {
       },
     },
     {
-      name: "total_invested",
+      name: "normalized_total_invested",
       label: "Total investido aj.",
       options: {
         filter: false,
@@ -584,7 +576,7 @@ export const AssetsTable = () => {
       },
     },
     {
-      name: "roi",
+      name: "normalized_roi",
       label: "ROI",
       options: {
         filter: false,
@@ -642,6 +634,14 @@ export const AssetsTable = () => {
     },
     {
       name: "passive_incomes",
+      options: {
+        display: false,
+        filter: false,
+        viewColumns: false,
+      },
+    },
+    {
+      name: "currency",
       options: {
         display: false,
         filter: false,

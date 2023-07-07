@@ -305,10 +305,14 @@ def test___list__aggregations(client, stock_asset, fixture, operation, request):
     assert response.status_code == HTTP_200_OK
 
     results = response.json()["results"][0]
-    assert results["roi"] == float(roi)
+    assert convert_and_quantitize(results["normalized_roi"]) == convert_and_quantitize(roi)
     assert operation(roi, 0)
-    assert results["roi_percentage"] == round((float(roi) / float(total_bought)) * 100, 6)
-    assert results["adjusted_avg_price"] == float(avg_price)
+    assert convert_and_quantitize(results["roi_percentage"]) == convert_and_quantitize(
+        (float(roi) / float(total_bought)) * 100
+    )
+    assert convert_and_quantitize(results["adjusted_avg_price"]) == convert_and_quantitize(
+        avg_price
+    )
 
 
 @pytest.mark.parametrize(
@@ -340,10 +344,14 @@ def test___list__aggregations__dollar(client, stock_usa_asset: Asset, fixture, o
     assert response.status_code == HTTP_200_OK
 
     results = response.json()["results"][0]
-    assert results["roi"] == float(roi)
+    assert convert_and_quantitize(results["normalized_roi"]) == convert_and_quantitize(roi)
     assert operation(roi, 0)
-    assert results["roi_percentage"] == round((float(roi) / float(total_bought)) * 100, 6)
-    assert results["adjusted_avg_price"] == float(avg_price)
+    assert convert_and_quantitize(results["roi_percentage"]) == convert_and_quantitize(
+        (float(roi) / float(total_bought)) * 100
+    )
+    assert convert_and_quantitize(results["adjusted_avg_price"]) == convert_and_quantitize(
+        avg_price
+    )
 
 
 @pytest.mark.usefixtures("indicators_data", "sync_assets_read_model")
@@ -373,7 +381,7 @@ def test_list_assets_aggregate_data(client):
             (current_invested / current_total_brute_force) * Decimal("100.0")
         ).quantize(Decimal(".1"), rounding=ROUND_HALF_UP)
 
-        assert Decimal(str(result["total_invested"])).quantize(
+        assert Decimal(str(result["normalized_total_invested"])).quantize(
             Decimal(".1"), rounding=ROUND_HALF_UP
         ) == convert_and_quantitize(total_invested)
         assert (
@@ -388,10 +396,10 @@ def test_list_assets_aggregate_data(client):
             )
             == current_percentage
         )
-        if result["roi"] < 0:
+        if result["normalized_roi"] < 0:
             assert result["percentage_invested"] > result["current_percentage"]
 
-        elif result["roi"] > 0:
+        elif result["normalized_roi"] > 0:
             assert result["percentage_invested"] < result["current_percentage"]
 
 

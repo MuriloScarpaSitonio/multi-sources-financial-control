@@ -285,8 +285,8 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
     type = CustomChoiceField(read_only=True, choices=choices.AssetTypes.choices)
     sector = CustomChoiceField(read_only=True, choices=choices.AssetSectors.choices)
     objective = CustomChoiceField(read_only=True, choices=choices.AssetObjectives.choices)
-    total_invested = serializers.SerializerMethodField(read_only=True)
-    roi = serializers.DecimalField(decimal_places=4, max_digits=20, source="normalized_roi")
+    normalized_total_invested = serializers.DecimalField(decimal_places=4, max_digits=20)
+    normalized_roi = serializers.DecimalField(decimal_places=4, max_digits=20)
     percentage_invested = serializers.SerializerMethodField(read_only=True)
     current_percentage = serializers.SerializerMethodField(read_only=True)
     current_price = serializers.DecimalField(
@@ -308,24 +308,17 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
             "current_price",
             "current_price_updated_at",
             "adjusted_avg_price",
-            "roi",
+            "normalized_roi",
             "roi_percentage",
-            "total_invested",
+            "normalized_total_invested",
             "currency",
             "percentage_invested",
             "current_percentage",
         )
 
-    def get_total_invested(self, obj: AssetReadModel) -> Decimal:
-        return (
-            obj.avg_price * obj.quantity_balance
-            if obj.currency == choices.Currencies.real
-            else obj.avg_price * obj.quantity_balance * dynamic_settings.DOLLAR_CONVERSION_RATE
-        )
-
     def get_percentage_invested(self, obj: AssetReadModel) -> Decimal:
         try:
-            result = self.get_total_invested(obj) / self.context["total_invested_agg"]
+            result = obj.normalized_total_invested / self.context["total_invested_agg"]
         except DecimalException:  # pragma: no cover
             result = Decimal()
         return result * Decimal("100.0")

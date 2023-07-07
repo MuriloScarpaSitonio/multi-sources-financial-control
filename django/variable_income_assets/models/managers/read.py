@@ -68,12 +68,7 @@ class AssetReadModelQuerySet(models.QuerySet):
     expressions = _Expressions(metadata_repository=DjangoSQLAssetMetaDataRepository)
 
     def opened(self) -> Self:
-        return self.filter(
-            models.Q(quantity_balance__gt=0)
-            # if no currency it means that we couldn't get it from the transactions
-            # which ultimately means that the asset has no transactions yet
-            | models.Q(total_bought=0)
-        )
+        return self.filter(models.Q(quantity_balance__gt=0) | models.Q(total_bought=0))
 
     def finished(self) -> Self:
         return self.filter(quantity_balance__lte=0)
@@ -84,10 +79,13 @@ class AssetReadModelQuerySet(models.QuerySet):
     def annotate_normalized_total_invested(self) -> Self:
         return self.annotate(normalized_total_invested=self.expressions.normalized_total_invested)
 
+    def annotate_normalized_roi(self) -> Self:
+        return self.annotate(normalized_roi=self.expressions.normalized_roi)
+
     def indicators(self) -> dict[str, Decimal]:
         return (
             self.annotate_normalized_current_total()
-            .annotate(normalized_roi=self.expressions.normalized_roi)
+            .annotate_normalized_roi()
             .aggregate(
                 ROI=models.Sum("normalized_roi", default=Decimal()),
                 ROI_opened=models.Sum(

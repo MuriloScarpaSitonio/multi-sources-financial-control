@@ -74,6 +74,7 @@ def test__create__stock(client, data, stock_asset, mocker):
     assert PassiveIncome.objects.filter(current_currency_conversion_rate=1).count() == 1
 
 
+@pytest.mark.django_db(transaction=True)
 def test__create__stock_usa(client, stock_usa_asset, mocker):
     # GIVEN
     data = {
@@ -182,6 +183,7 @@ def test__create__provisioned__w_rate(client, stock_usa_asset):
     }
 
 
+@pytest.mark.django_db(transaction=True)
 def test__update(client, simple_income, mocker):
     # GIVEN
     data = {
@@ -392,6 +394,7 @@ def test__update__income_does_not_belong_to_user(kucoin_client, simple_income):
     assert response.json() == {"detail": "Not found."}
 
 
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.usefixtures("stock_asset")
 def test__delete(client, simple_income, mocker):
     # GIVEN
