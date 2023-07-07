@@ -54,7 +54,7 @@ function NumberFormatCustom(props) {
 }
 
 const schema = yup.object().shape({
-  asset_code: yup
+  asset: yup
     .object()
     .shape({
       label: yup.string().required("O ativo é obrigatório"),
@@ -79,14 +79,10 @@ const schema = yup.object().shape({
     .date()
     .required("A data é obrigatória")
     .typeError("Data inválida"),
+  current_currency_conversion_rate: yup.number().nullable(),
 });
 
-export const TransactionForm = ({
-  initialData,
-  handleClose,
-  reloadTable,
-  assetCurrency,
-}) => {
+export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
   const [isLoaded, setIsLoaded] = useState(true);
   const [codes, setCodes] = useState([]);
   const [showAlert, setShowAlert] = useState(false);
@@ -107,7 +103,8 @@ export const TransactionForm = ({
         setCodes(
           response.data.map((asset) => ({
             label: asset.code,
-            value: asset.code,
+            value: asset.pk,
+            currency: asset.currency,
           }))
         );
       }),
@@ -119,6 +116,7 @@ export const TransactionForm = ({
     control,
     handleSubmit,
     formState: { errors, isDirty },
+    watch,
   } = useForm({
     mode: "all",
     resolver: yupResolver(schema),
@@ -129,10 +127,14 @@ export const TransactionForm = ({
     const actionVerb = isCreateForm ? "criada" : "editada";
     if (isDirty) {
       setIsLoaded(false);
+
+      if (!isSellTransaction) {
+        delete data.current_currency_conversion_rate;
+      }
       new TransactionsApi(initialData.id)
         [method]({
           ...data,
-          asset_code: data.asset_code.value,
+          asset_pk: data.asset.value,
           operation_date: data.operation_date.toLocaleDateString("pt-br"),
         })
         .then(() => {
@@ -164,22 +166,24 @@ export const TransactionForm = ({
     setShowAlert(true);
   };
 
+  let assetData = watch("asset");
   return (
     <>
       <form>
         <FormGroup row>
           <FormControl
             style={{ width: "47%", marginRight: "2%" }}
-            error={!!errors.asset_code}
+            error={!!errors.asset}
           >
             <Controller
-              name="asset_code"
+              name="asset"
               control={control}
               defaultValue={
-                initialData.asset_code
+                initialData.asset
                   ? {
-                      value: initialData.asset_code,
-                      label: initialData.asset_code,
+                      value: initialData.asset.pk,
+                      label: initialData.asset.code,
+                      currency: initialData.asset.currency,
                     }
                   : null
               }
@@ -195,17 +199,15 @@ export const TransactionForm = ({
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        error={!!errors.asset_code}
+                        error={!!errors.asset}
                         required
                         label="Ativo"
                       />
                     )}
                   />
-                  {(errors.asset_code?.message ||
-                    errors.asset_code?.value?.message) && (
+                  {(errors.asset?.message || errors.asset?.value?.message) && (
                     <FormHelperText>
-                      {errors.asset_code?.message ||
-                        errors.asset_code?.value?.message}
+                      {errors.asset?.message || errors.asset?.value?.message}
                     </FormHelperText>
                   )}
                 </>
@@ -249,6 +251,27 @@ export const TransactionForm = ({
         </FormGroup>
         <FormGroup row style={{ marginTop: "10px" }}>
           <Controller
+            name="price"
+            control={control}
+            defaultValue={initialData.price}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                required
+                label="Preço"
+                InputProps={{
+                  inputComponent: NumberFormatCustom,
+                  inputProps: {
+                    prefix: assetData?.currency === "BRL" ? "R$ " : "$ ",
+                  },
+                }}
+                style={{ width: "30%", marginRight: "2%" }}
+                error={!!errors.price}
+                helperText={errors.price?.message}
+              />
+            )}
+          />
+          <Controller
             name="quantity"
             control={control}
             defaultValue={initialData.quantity}
@@ -261,35 +284,12 @@ export const TransactionForm = ({
                   inputComponent: NumberFormatCustom,
                   inputProps: { prefix: "" },
                 }}
-                style={{ width: "32%", marginRight: "2%" }}
+                style={{ width: "30%", marginRight: "2%" }}
                 error={!!errors.quantity}
                 helperText={errors.quantity?.message}
               />
             )}
           />
-          <Controller
-            name="price"
-            control={control}
-            defaultValue={initialData.price}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                required
-                label="Preço"
-                InputProps={{
-                  inputComponent: NumberFormatCustom,
-                  inputProps: {
-                    prefix: assetCurrency === "BRL" ? "R$ " : "$ ",
-                  },
-                }}
-                style={{ width: "32%" }}
-                error={!!errors.price}
-                helperText={errors.price?.message}
-              />
-            )}
-          />
-        </FormGroup>
-        <FormGroup row style={{ marginTop: "15px" }}>
           <MuiPickersUtilsProvider utils={DateFnsUtils}>
             <Controller
               name="operation_date"
@@ -313,13 +313,15 @@ export const TransactionForm = ({
                   autoOk
                   required
                   format="dd/MM/yyyy"
-                  style={{ width: "32%", marginRight: "2%" }}
+                  style={{ width: "32%" }}
                   error={!!errors.operation_date}
                   helperText={errors.operation_date?.message}
                 />
               )}
             />
           </MuiPickersUtilsProvider>
+        </FormGroup>
+        <FormGroup row style={{ marginTop: "10px" }}>
           <Controller
             name="initial_price"
             control={control}
@@ -332,11 +334,11 @@ export const TransactionForm = ({
                   InputProps={{
                     inputComponent: NumberFormatCustom,
                     inputProps: {
-                      prefix: assetCurrency === "BRL" ? "R$ " : "$ ",
+                      prefix: assetData?.currency === "BRL" ? "R$ " : "$ ",
                     },
                   }}
                   style={{
-                    width: "32%",
+                    width: "30%",
                     marginRight: "2%",
                     display: isSellTransaction ? "" : "none",
                   }}
@@ -347,6 +349,36 @@ export const TransactionForm = ({
                   }
                 />
               </>
+            )}
+          />
+          <Controller
+            name="current_currency_conversion_rate"
+            control={control}
+            defaultValue={initialData.current_currency_conversion_rate}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                required
+                label="Fator de conversão entre moedas"
+                InputProps={{
+                  inputComponent: NumberFormatCustom,
+                  inputProps: {
+                    prefix: "R$ ",
+                  },
+                }}
+                style={{
+                  width: "60%",
+                  display:
+                    isSellTransaction && assetData?.currency !== "BRL"
+                      ? ""
+                      : "none",
+                }}
+                error={!!errors.current_currency_conversion_rate}
+                helperText={
+                  errors.current_currency_conversion_rate?.message ||
+                  `O valor de 1 ${assetData?.currency}, em reais, no dia que a operação de venda foi realizada`
+                }
+              />
             )}
           />
         </FormGroup>

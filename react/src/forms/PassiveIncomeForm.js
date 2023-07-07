@@ -141,7 +141,7 @@ export const PassiveIncomeForm = ({
     const actionVerb = isCreateForm ? "criado" : "editado";
     if (isDirty) {
       setIsLoaded(false);
-      if (data.event_type.value === "PROVISIONED") {
+      if (!isCreditedIncome) {
         delete data.current_currency_conversion_rate;
       }
       new PassiveIncomesApi(initialData.id)
@@ -182,7 +182,6 @@ export const PassiveIncomeForm = ({
   };
 
   let assetData = watch("asset");
-  console.log(assetData);
   return (
     <>
       <form>
@@ -369,37 +368,35 @@ export const PassiveIncomeForm = ({
           </MuiPickersUtilsProvider>
         </FormGroup>
         <FormGroup row style={{ marginTop: "10px" }}>
-          <FormControl error={!!errors.current_currency_conversion_rate}>
-            <Controller
-              name="current_currency_conversion_rate"
-              control={control}
-              defaultValue={initialData.current_currency_conversion_rate}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  required
-                  label="Fator de conversão entre moedas"
-                  InputProps={{
-                    inputComponent: NumberFormatCustom,
-                    inputProps: {
-                      prefix: "R$ ",
-                    },
-                  }}
-                  style={{
-                    display:
-                      isCreditedIncome && assetData?.currency !== "BRL"
-                        ? ""
-                        : "none",
-                  }}
-                  error={!!errors.current_currency_conversion_rate}
-                  helperText={
-                    errors.current_currency_conversion_rate?.message ||
-                    `O valor de 1 ${assetData?.currency}, em reais, no dia que o rendimento foi creditado`
-                  }
-                />
-              )}
-            />
-          </FormControl>
+          <Controller
+            name="current_currency_conversion_rate"
+            control={control}
+            defaultValue={initialData.current_currency_conversion_rate}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                required
+                label="Fator de conversão entre moedas"
+                InputProps={{
+                  inputComponent: NumberFormatCustom,
+                  inputProps: {
+                    prefix: "R$ ",
+                  },
+                }}
+                style={{
+                  display:
+                    isCreditedIncome && assetData?.currency !== "BRL"
+                      ? ""
+                      : "none",
+                }}
+                error={!!errors.current_currency_conversion_rate}
+                helperText={
+                  errors.current_currency_conversion_rate?.message ||
+                  `O valor de 1 ${assetData?.currency}, em reais, no dia que o rendimento foi creditado`
+                }
+              />
+            )}
+          />
         </FormGroup>
         <DialogActions>
           <Button onClick={handleClose}>Cancelar</Button>

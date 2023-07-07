@@ -268,11 +268,14 @@ export const PassiveIncomesTable = () => {
       options: {
         filter: false,
         sort: true,
-        customBodyRender: (v) =>
-          `R$ ${v?.toLocaleString("pt-br", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 4,
-          })}`,
+        customBodyRender: (v, tableMeta) =>
+          `${tableMeta.rowData[6] === "Real" ? "R$" : "$"} ${v?.toLocaleString(
+            "pt-br",
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 4,
+            }
+          )}`,
       },
     },
     {
