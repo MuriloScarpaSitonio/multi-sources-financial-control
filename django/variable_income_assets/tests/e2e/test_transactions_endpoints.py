@@ -736,6 +736,7 @@ def test__list__sanity_check(client, buy_transaction):
                 "quantity": convert_and_quantitize(buy_transaction.quantity),
                 "operation_date": buy_transaction.operation_date.strftime("%Y-%m-%d"),
                 "asset": {
+                    "pk": buy_transaction.asset.pk,
                     "code": buy_transaction.asset.code,
                     "type": AssetTypes.get_choice(buy_transaction.asset.type).label,
                     "currency": Currencies.get_choice(buy_transaction.asset.currency).label,

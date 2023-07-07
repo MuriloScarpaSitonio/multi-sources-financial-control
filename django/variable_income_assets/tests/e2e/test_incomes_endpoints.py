@@ -365,7 +365,9 @@ def test__list__sanity_check(client, simple_income):
                 "event_type": PassiveIncomeEventTypes.get_choice(simple_income.event_type).label,
                 "operation_date": simple_income.operation_date.strftime("%Y-%m-%d"),
                 "amount": simple_income.amount,
+                "current_currency_conversion_rate": simple_income.current_currency_conversion_rate,
                 "asset": {
+                    "pk": simple_income.asset.pk,
                     "code": simple_income.asset.code,
                     "type": AssetTypes.get_choice(simple_income.asset.type).label,
                     "currency": Currencies.get_choice(simple_income.asset.currency).label,

@@ -21,7 +21,7 @@ class MinimalAssetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Asset
-        fields = ("code", "type", "currency")
+        fields = ("pk", "code", "type", "currency")
 
 
 class TransactionSimulateSerializer(serializers.Serializer):
@@ -151,16 +151,11 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
             "asset_pk",
             "current_currency_conversion_rate",
         )
-        extra_kwargs = {
-            "current_currency_conversion_rate": {
-                "write_only": True,
-                "allow_null": False,
-                "min_value": 1,
-            }
-        }
+        extra_kwargs = {"current_currency_conversion_rate": {"allow_null": False, "min_value": 1}}
 
     def validate(self, attrs: dict) -> dict:
         asset_pk = self.instance.asset_id if self.instance is not None else attrs.get("asset_pk")
+        print(attrs)
         current_currency_conversion_rate = attrs.get("current_currency_conversion_rate")
         if (
             current_currency_conversion_rate

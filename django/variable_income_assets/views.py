@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Type, TYPE_CHECKING
 
 from django.db import transaction as djtransaction
-from django.db.models import Sum
+from django.db.models import F, Sum
 from django.utils import timezone
 
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
@@ -199,11 +199,14 @@ class AssetViewSet(
         return Response(response, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
-    def codes_and_currencies(self, _: Request) -> Response:
+    def minimal_data(self, _: Request) -> Response:
         # TODO: change `list` endpoint to support `fields` kwarg on serializer and set the return values
         # by doing `/assets?fields=code,currency`
         return Response(
-            data=self.get_queryset().values("code", "currency").order_by("code"),
+            data=self.get_queryset()
+            .annotate(pk=F("write_model_pk"))
+            .values("code", "currency", "pk")
+            .order_by("code"),
             status=HTTP_200_OK,
         )
 

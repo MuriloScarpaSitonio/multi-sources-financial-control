@@ -103,7 +103,7 @@ export const TransactionForm = ({
 
   useEffect(
     () =>
-      api.getCodesAndCurrencies().then((response) => {
+      api.getMinimalData().then((response) => {
         setCodes(
           response.data.map((asset) => ({
             label: asset.code,

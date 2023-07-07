@@ -4,6 +4,8 @@ from random import randrange
 
 import pytest
 
+from django.db.models import F
+
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -608,16 +610,18 @@ def test_should_sync_all(request, user_fixture_name, client_fixture_name, tasks_
     "another_crypto_asset",  # no transactions
     "fii_asset",  # no transactions
 )
-def test__codes_and_currencies_endpoint(client):
+def test__minimal_data_endpoint(client):
     # GIVEN
 
     # WHEN
-    response = client.get(f"{URL}/codes_and_currencies")
+    response = client.get(f"{URL}/minimal_data")
 
     # THEN
     assert response.status_code == 200
     assert response.json() == list(
-        AssetReadModel.objects.values("code", "currency").order_by("code")
+        AssetReadModel.objects.annotate(pk=F("write_model_pk"))
+        .values("code", "currency", "pk")
+        .order_by("code")
     )
 
 

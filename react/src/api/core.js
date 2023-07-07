@@ -127,8 +127,8 @@ export class AssetsApi extends Api {
     this.simulateTransaction = (id, data) =>
       apiProvider.post(`${this.resource}/${id}/transactions/simulate`, data);
 
-    this.getCodesAndCurrencies = () =>
-      apiProvider.get(`${this.resource}/codes_and_currencies`);
+    this.getMinimalData = () =>
+      apiProvider.get(`${this.resource}/minimal_data`);
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
     this.totalInvestedReport = (filters = {}) =>
       apiProvider.get(
