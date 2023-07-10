@@ -74,11 +74,13 @@ const TransactionsTable = ({ code, assetId }) => {
   function getAdjustedFilters() {
     return new URLSearchParams({
       page: page,
-      page_size: pageSize
+      page_size: pageSize,
     }).toString();
   }
 
-  const [data, isLoaded] = new AssetTransactionsApi(assetId).query(getAdjustedFilters());
+  const [data, isLoaded] = new AssetTransactionsApi(assetId).query(
+    getAdjustedFilters()
+  );
   return (
     <>
       {!isLoaded && <Loader />}
@@ -102,9 +104,10 @@ const TransactionsTable = ({ code, assetId }) => {
               sort: false,
               customBodyRender: (v, tableMeta) => {
                 let currencySymbol =
-                  tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
+                  tableMeta.tableData[tableMeta.rowIndex].asset.currency ===
+                  "Real"
                     ? "R$"
-                    : "$";
+                    : "US$";
                 return `${currencySymbol} ${v?.toLocaleString("pt-br", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 4,
@@ -176,7 +179,9 @@ const PassiveIncomeTable = ({ code, assetId }) => {
     }).toString();
   }
 
-  const [data, isLoaded] = new AssetIncomessApi(assetId).query(getAdjustedFilters());
+  const [data, isLoaded] = new AssetIncomessApi(assetId).query(
+    getAdjustedFilters()
+  );
   return (
     <>
       {!isLoaded && <Loader />}
@@ -206,8 +211,13 @@ const PassiveIncomeTable = ({ code, assetId }) => {
             options: {
               filter: false,
               sort: false,
-              customBodyRender: (v) => {
-                return `R$ ${v?.toLocaleString("pt-br", {
+              customBodyRender: (v, tableMeta) => {
+                let currencySymbol =
+                  tableMeta.tableData[tableMeta.rowIndex].asset.currency ===
+                  "Real"
+                    ? "R$"
+                    : "US$";
+                return `${currencySymbol} ${v?.toLocaleString("pt-br", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 4,
                 })}`;
@@ -508,7 +518,7 @@ export const AssetsTable = () => {
           let currencySymbol =
             tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
               ? "R$"
-              : "$";
+              : "US$";
           return `${currencySymbol} ${v?.toLocaleString("pt-br", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 4,
@@ -526,7 +536,7 @@ export const AssetsTable = () => {
           let currencySymbol =
             tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
               ? "R$"
-              : "$";
+              : "US$";
           return (
             <Tooltip
               key={v}

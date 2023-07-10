@@ -226,8 +226,6 @@ export class TransactionsApi extends Api {
 
 export class AssetTransactionsApi extends Api {
   constructor(id = null) {
-    this.resource = `assets/${id}/transactions`
-
     super(
       {
         query: true,
@@ -238,7 +236,8 @@ export class AssetTransactionsApi extends Api {
         delete: false,
       },
       id
-    )
+    );
+    this.resource = `assets/${id}/transactions`;
 
     this.simulate = (data) =>
       apiProvider.post(`${this.resource}/simulate`, data);
@@ -247,8 +246,6 @@ export class AssetTransactionsApi extends Api {
 
 export class AssetIncomessApi extends Api {
   constructor(id = null) {
-    this.resource = `assets/${id}/incomes`
-
     super(
       {
         query: true,
@@ -259,9 +256,8 @@ export class AssetIncomessApi extends Api {
         delete: false,
       },
       id
-    )
+    );
 
-    this.simulate = (data) =>
-      apiProvider.post(`${this.resource}/simulate`, data);
+    this.resource = `assets/${id}/incomes`;
   }
 }

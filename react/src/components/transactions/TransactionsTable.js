@@ -271,13 +271,12 @@ export const TransactionsTable = () => {
         filter: false,
         sort: false,
         customBodyRender: (v, tableMeta) =>
-          `${tableMeta.rowData[7] === "Real" ? "R$" : "$"} ${v?.toLocaleString(
-            "pt-br",
-            {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 4,
-            }
-          )}`,
+          `${
+            tableMeta.rowData[7] === "Real" ? "R$" : "US$"
+          } ${v?.toLocaleString("pt-br", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
+          })}`,
       },
     },
     {

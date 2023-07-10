@@ -282,7 +282,7 @@ export const PassiveIncomeForm = ({
                   InputProps={{
                     inputComponent: NumberFormatCustom,
                     inputProps: {
-                      prefix: assetData?.currency === "BRL" ? "R$ " : "$ ",
+                      prefix: assetData?.currency === "BRL" ? "R$ " : "US$ ",
                     },
                   }}
                   error={!!errors.amount}

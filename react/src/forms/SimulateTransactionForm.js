@@ -39,7 +39,7 @@ const SimulateTransactionResponseDialog = ({
       aria-labelledby="simulate-transaction-response-dialog-title"
     >
       <DialogTitle id="simulate-transaction-response-dialog-title">
-        {`Simulação - ${formData.asset}`}
+        {`Simulação - ${formData.asset?.label}`}
       </DialogTitle>
       <DialogContent>
         {formData.quantity ? (
@@ -58,20 +58,21 @@ const SimulateTransactionResponseDialog = ({
             maximumFractionDigits: 4,
           })})`}</DialogContentText>
         ) : (
-          <DialogContentText>{`Total de ${formData.currency
-            } ${formData.total?.toLocaleString("pt-br", {
+          <DialogContentText>{`Total de ${
+            formData.currency
+          } ${formData.total?.toLocaleString("pt-br", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
+          })} por ${formData.currency} ${formData.price?.toLocaleString(
+            "pt-br",
+            {
               minimumFractionDigits: 2,
               maximumFractionDigits: 4,
-            })} por ${formData.currency} ${formData.price?.toLocaleString(
-              "pt-br",
-              {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 4,
-              }
-            )}  (${(formData.total / formData.price)?.toLocaleString("pt-br", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 4,
-            })} ativos)`}</DialogContentText>
+            }
+          )}  (${(formData.total / formData.price)?.toLocaleString("pt-br", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
+          })} ativos)`}</DialogContentText>
         )}
 
         <TableContainer>
@@ -91,14 +92,15 @@ const SimulateTransactionResponseDialog = ({
                   Atual
                 </TableCell>
                 <TableCell align="right">
-                  {`${formData.currency
-                    } ${responseData.old?.adjusted_avg_price?.toLocaleString(
-                      "pt-br",
-                      {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 4,
-                      }
-                    )}`}
+                  {`${
+                    formData.currency
+                  } ${responseData.old?.adjusted_avg_price?.toLocaleString(
+                    "pt-br",
+                    {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 4,
+                    }
+                  )}`}
                 </TableCell>
                 <TableCell align="right">
                   {`R$ ${responseData.old?.roi?.toLocaleString("pt-br", {
@@ -129,14 +131,15 @@ const SimulateTransactionResponseDialog = ({
                   Simulada
                 </TableCell>
                 <TableCell align="right">
-                  {`${formData.currency
-                    } ${responseData.new?.adjusted_avg_price?.toLocaleString(
-                      "pt-br",
-                      {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 4,
-                      }
-                    )}`}
+                  {`${
+                    formData.currency
+                  } ${responseData.new?.adjusted_avg_price?.toLocaleString(
+                    "pt-br",
+                    {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 4,
+                    }
+                  )}`}
                 </TableCell>
                 <TableCell align="right">
                   {`R$ ${responseData.new?.roi?.toLocaleString("pt-br", {
@@ -237,7 +240,6 @@ export const SimulateTransactionForm = ({ handleClose }) => {
   const [codes, setCodes] = useState([]);
   const [responseData, setResponseData] = useState({});
   const [formData, setFormData] = useState({});
-
 
   useEffect(
     () =>

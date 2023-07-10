@@ -151,7 +151,6 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs: dict) -> dict:
         asset_pk = self.instance.asset_id if self.instance is not None else attrs.get("asset_pk")
-        print(attrs)
         current_currency_conversion_rate = attrs.get("current_currency_conversion_rate")
         if (
             current_currency_conversion_rate

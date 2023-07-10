@@ -262,7 +262,7 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                 InputProps={{
                   inputComponent: NumberFormatCustom,
                   inputProps: {
-                    prefix: assetData?.currency === "BRL" ? "R$ " : "$ ",
+                    prefix: assetData?.currency === "BRL" ? "R$ " : "US$ ",
                   },
                 }}
                 style={{ width: "30%", marginRight: "2%" }}
@@ -334,7 +334,7 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                   InputProps={{
                     inputComponent: NumberFormatCustom,
                     inputProps: {
-                      prefix: assetData?.currency === "BRL" ? "R$ " : "$ ",
+                      prefix: assetData?.currency === "BRL" ? "R$ " : "US$ ",
                     },
                   }}
                   style={{
