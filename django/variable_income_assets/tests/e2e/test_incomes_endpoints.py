@@ -30,7 +30,6 @@ from variable_income_assets.choices import (
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
 )
-from variable_income_assets.tasks import upsert_asset_read_model
 from variable_income_assets.tests.shared import convert_and_quantitize
 
 
@@ -352,7 +351,6 @@ def test__list__sanity_check(client, simple_income):
     response = client.get(URL)
 
     # THEN
-
     assert response.status_code == HTTP_200_OK
     assert response.json() == {
         "count": 1,

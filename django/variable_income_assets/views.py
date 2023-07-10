@@ -211,41 +211,56 @@ class AssetViewSet(
         )
 
 
-class AssetTransactionViewSet(GenericViewSet):
-    serializer_class = serializers.AssetTransactionSimulateEndpointSerializer  # drf-spectacular
+class TransactionViewSet(ModelViewSet):
+    serializer_class = serializers.TransactionListSerializer
+    filterset_class = filters.TransactionFilterSet
+    ordering_fields = ("operation_date", "asset__code")
 
-    def get_related_queryset(self) -> AssetQuerySet[Asset]:
-        return self.request.user.assets.all()
+    def get_queryset(self) -> TransactionQuerySet[Transaction]:
+        if self.request.user.is_authenticated:
+            qs = Transaction.objects.filter(asset__user=self.request.user).order_by(
+                "-operation_date"
+            )
+            return (
+                qs.select_related("asset")
+                if self.action in ("list", "retrieve", "update", "destroy")
+                else qs.since_a_year_ago()
+            )
 
-    @extend_schema(
-        parameters=[
-            OpenApiParameter(name="pk", type=OpenApiTypes.INT, location=OpenApiParameter.PATH)
-        ],
-    )
-    @action(methods=("POST",), detail=False)
-    def simulate(self, request: Request, pk: int) -> Response:
-        asset = get_object_or_404(self.get_related_queryset(), pk=pk)
-        serializer = serializers.TransactionSimulateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.data
+        return Transaction.objects.none()  # pragma: no cover -- drf-spectacular
 
-        kwargs = {"price": data["price"]}
-        if data.get("quantity") is not None:
-            kwargs["quantity"] = data["quantity"]
-        else:
-            kwargs["quantity"] = data["total"] / data["price"]
+    def perform_destroy(self, instance: Transaction):
+        serializers.TransactionListSerializer(instance=instance).delete()
 
-        old = serializers.AssetSimulateSerializer(instance=asset).data
-        with djtransaction.atomic():
-            Transaction.objects.create(asset=asset, action=choices.TransactionActions.buy, **kwargs)
+    @action(methods=("GET",), detail=False)
+    def indicators(self, _: Request) -> Response:
+        qs = self.get_queryset().indicators()
 
-            # clear cached properties
-            del asset.__dict__["adjusted_avg_price_from_transactions"]
-            del asset.__dict__["quantity_from_transactions"]
+        # TODO: do this via SQL
+        percentage_invested = (
+            (((qs["current_bought"] - qs["current_sold"]) / qs["avg"]) - Decimal("1.0"))
+            * Decimal("100.0")
+            if qs["avg"]
+            else Decimal()
+        )
+        serializer = serializers.TransactionsIndicatorsSerializer(
+            {**qs, "diff_percentage": percentage_invested}
+        )
+        return Response(serializer.data, status=HTTP_200_OK)
 
-            new = serializers.AssetSimulateSerializer(instance=asset).data
-            djtransaction.set_rollback(True)
-        return Response({"old": old, "new": new}, status=HTTP_200_OK)
+    @action(methods=("GET",), detail=False)
+    def historic(self, _: Request) -> Response:
+        qs = self.get_queryset()
+        serializer = serializers.TransactionHistoricSerializer(
+            {
+                "historic": insert_zeros_if_no_data_in_monthly_historic_data(
+                    historic=list(qs.historic()),
+                    total_fields=("total_bought", "total_sold", "diff"),
+                ),
+                **qs.monthly_avg(),
+            }
+        )
+        return Response(serializer.data, status=HTTP_200_OK)
 
 
 class PassiveIncomeViewSet(ModelViewSet):
@@ -330,53 +345,57 @@ class PassiveIncomeViewSet(ModelViewSet):
         return Response(serializer.data, status=HTTP_200_OK)
 
 
-class TransactionViewSet(ModelViewSet):
+class AssetTransactionViewSet(GenericViewSet, ListModelMixin):
     serializer_class = serializers.TransactionListSerializer
     filterset_class = filters.TransactionFilterSet
     ordering_fields = ("operation_date", "asset__code")
 
     def get_queryset(self) -> TransactionQuerySet[Transaction]:
-        if self.request.user.is_authenticated:
-            qs = Transaction.objects.filter(asset__user=self.request.user).order_by(
-                "-operation_date"
-            )
-            return (
-                qs.select_related("asset")
-                if self.action in ("list", "retrieve", "update", "destroy")
-                else qs.since_a_year_ago()
-            )
+        return Transaction.objects.filter(
+            asset__user_id=self.request.user.pk, asset_id=self.kwargs["pk"]
+        ).order_by("-operation_date")
 
-        return Transaction.objects.none()  # pragma: no cover -- drf-spectacular
+    def get_related_queryset(self) -> AssetQuerySet[Asset]:
+        return self.request.user.assets.all()
 
-    def perform_destroy(self, instance: Transaction):
-        serializers.TransactionListSerializer(instance=instance).delete()
+    @extend_schema(
+        responses={200: serializers.AssetTransactionSimulateEndpointSerializer},
+        parameters=[
+            OpenApiParameter(name="pk", type=OpenApiTypes.INT, location=OpenApiParameter.PATH)
+        ],
+    )
+    @action(methods=("POST",), detail=False)
+    def simulate(self, request: Request, pk: int) -> Response:
+        asset = get_object_or_404(self.get_related_queryset(), pk=pk)
+        serializer = serializers.TransactionSimulateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.data
 
-    @action(methods=("GET",), detail=False)
-    def indicators(self, _: Request) -> Response:
-        qs = self.get_queryset().indicators()
+        kwargs = {"price": data["price"]}
+        if data.get("quantity") is not None:
+            kwargs["quantity"] = data["quantity"]
+        else:
+            kwargs["quantity"] = data["total"] / data["price"]
 
-        # TODO: do this via SQL
-        percentage_invested = (
-            (((qs["current_bought"] - qs["current_sold"]) / qs["avg"]) - Decimal("1.0"))
-            * Decimal("100.0")
-            if qs["avg"]
-            else Decimal()
-        )
-        serializer = serializers.TransactionsIndicatorsSerializer(
-            {**qs, "diff_percentage": percentage_invested}
-        )
-        return Response(serializer.data, status=HTTP_200_OK)
+        old = serializers.AssetSimulateSerializer(instance=asset).data
+        with djtransaction.atomic():
+            Transaction.objects.create(asset=asset, action=choices.TransactionActions.buy, **kwargs)
 
-    @action(methods=("GET",), detail=False)
-    def historic(self, _: Request) -> Response:
-        qs = self.get_queryset()
-        serializer = serializers.TransactionHistoricSerializer(
-            {
-                "historic": insert_zeros_if_no_data_in_monthly_historic_data(
-                    historic=list(qs.historic()),
-                    total_fields=("total_bought", "total_sold", "diff"),
-                ),
-                **qs.monthly_avg(),
-            }
-        )
-        return Response(serializer.data, status=HTTP_200_OK)
+            # clear cached properties
+            del asset.__dict__["adjusted_avg_price_from_transactions"]
+            del asset.__dict__["quantity_from_transactions"]
+
+            new = serializers.AssetSimulateSerializer(instance=asset).data
+            djtransaction.set_rollback(True)
+        return Response({"old": old, "new": new}, status=HTTP_200_OK)
+
+
+class AssetIncomesiewSet(GenericViewSet, ListModelMixin):
+    serializer_class = serializers.PassiveIncomeSerializer
+    filterset_class = filters.PassiveIncomeFilterSet
+    ordering_fields = ("operation_date", "amount", "asset__code")
+
+    def get_queryset(self) -> PassiveIncomeQuerySet[PassiveIncome]:
+        return PassiveIncome.objects.filter(
+            asset__user_id=self.request.user.pk, asset_id=self.kwargs["pk"]
+        ).order_by("-operation_date")

@@ -124,8 +124,6 @@ export class AssetsApi extends Api {
       },
       id
     );
-    this.simulateTransaction = (id, data) =>
-      apiProvider.post(`${this.resource}/${id}/transactions/simulate`, data);
 
     this.getMinimalData = () =>
       apiProvider.get(`${this.resource}/minimal_data`);
@@ -223,5 +221,47 @@ export class TransactionsApi extends Api {
 
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
     this.historic = () => apiProvider.get(`${this.resource}/historic`);
+  }
+}
+
+export class AssetTransactionsApi extends Api {
+  constructor(id = null) {
+    this.resource = `assets/${id}/transactions`
+
+    super(
+      {
+        query: true,
+        get: false,
+        post: false,
+        put: false,
+        patch: false,
+        delete: false,
+      },
+      id
+    )
+
+    this.simulate = (data) =>
+      apiProvider.post(`${this.resource}/simulate`, data);
+  }
+}
+
+export class AssetIncomessApi extends Api {
+  constructor(id = null) {
+    this.resource = `assets/${id}/incomes`
+
+    super(
+      {
+        query: true,
+        get: false,
+        post: false,
+        put: false,
+        patch: false,
+        delete: false,
+      },
+      id
+    )
+
+    this.simulate = (data) =>
+      apiProvider.post(`${this.resource}/simulate`, data);
   }
 }

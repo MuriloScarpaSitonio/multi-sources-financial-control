@@ -17,7 +17,7 @@ import Tabs from "@material-ui/core/Tabs";
 import MergeTypeIcon from "@material-ui/icons/MergeType";
 import PlusOneIcon from "@material-ui/icons/PlusOne";
 
-import { AssetsApi, PassiveIncomesApi, TransactionsApi } from "../../api";
+import { AssetsApi, AssetIncomessApi, AssetTransactionsApi } from "../../api";
 import { SimulateTransactionForm } from "../../forms/SimulateTransactionForm";
 import { AssetsForm } from "../../forms/AssetsForm";
 import { Loader } from "../Loaders";
@@ -67,19 +67,18 @@ const AssetCreateDialog = ({ open, onClose, onSuccess }) => {
   );
 };
 
-const TransactionsTable = ({ code }) => {
+const TransactionsTable = ({ code, assetId }) => {
   const [pageSize, setPageSize] = useState(5);
   const [page, setPage] = useState(1);
 
   function getAdjustedFilters() {
     return new URLSearchParams({
       page: page,
-      asset_code: code,
-      page_size: pageSize,
+      page_size: pageSize
     }).toString();
   }
 
-  const [data, isLoaded] = new TransactionsApi().query(getAdjustedFilters());
+  const [data, isLoaded] = new AssetTransactionsApi(assetId).query(getAdjustedFilters());
   return (
     <>
       {!isLoaded && <Loader />}
@@ -166,19 +165,18 @@ const TransactionsTable = ({ code }) => {
   );
 };
 
-const PassiveIncomeTable = ({ code }) => {
+const PassiveIncomeTable = ({ code, assetId }) => {
   const [pageSize, setPageSize] = useState(5);
   const [page, setPage] = useState(1);
 
   function getAdjustedFilters() {
     return new URLSearchParams({
       page: page,
-      asset_code: code,
       page_size: pageSize,
     }).toString();
   }
 
-  const [data, isLoaded] = new PassiveIncomesApi().query(getAdjustedFilters());
+  const [data, isLoaded] = new AssetIncomessApi(assetId).query(getAdjustedFilters());
   return (
     <>
       {!isLoaded && <Loader />}
@@ -407,14 +405,14 @@ export const AssetsTable = () => {
           {tabValue === 1 && (
             <TableRow>
               <TableCell sx={{ paddingLeft: "20px" }} colSpan={colSpan}>
-                <TransactionsTable code={code} />
+                <TransactionsTable code={code} assetId={id} />
               </TableCell>
             </TableRow>
           )}
           {tabValue === 2 && (
             <TableRow>
               <TableCell sx={{ paddingLeft: "20px" }} colSpan={colSpan}>
-                <PassiveIncomeTable code={code} />
+                <PassiveIncomeTable code={code} assetId={id} />
               </TableCell>
             </TableRow>
           )}

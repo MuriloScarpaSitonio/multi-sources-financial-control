@@ -2,7 +2,7 @@ import pytest
 
 from authentication.tests.conftest import client, secrets, user
 from config.settings.base import BASE_API_URL
-
+from variable_income_assets.choices import AssetTypes, TransactionActions, Currencies
 
 pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "assets/{}/transactions"
@@ -82,3 +82,36 @@ def test_should_not_normalize_avg_price_with_currency_when_simulating_transactio
         == response_json["new"]["adjusted_avg_price"]
         == price
     )
+
+
+@pytest.mark.usefixtures("transactions", "stock_asset", "stock_usa_transaction")
+def test__list__sanity_check(client, stock_usa_asset):
+    # GIVEN
+    transaction = stock_usa_asset.transactions.first()
+
+    # WHEN
+    response = client.get(URL.format(stock_usa_asset.pk))
+
+    # THEN
+    assert response.json() == {
+        "count": 1,
+        "next": None,
+        "previous": None,
+        "results": [
+            {
+                "id": transaction.id,
+                "action": TransactionActions.get_choice(transaction.action).label,
+                "price": float(transaction.price),
+                "quantity": float(transaction.quantity),
+                "operation_date": transaction.operation_date.strftime("%Y-%m-%d"),
+                "initial_price": transaction.initial_price,
+                "current_currency_conversion_rate": transaction.current_currency_conversion_rate,
+                "asset": {
+                    "pk": stock_usa_asset.pk,
+                    "code": stock_usa_asset.code,
+                    "type": AssetTypes.get_choice(stock_usa_asset.type).label,
+                    "currency": Currencies.get_choice(stock_usa_asset.currency).label,
+                },
+            }
+        ],
+    }

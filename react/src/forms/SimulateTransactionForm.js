@@ -24,7 +24,7 @@ import TableRow from "@material-ui/core/TableRow";
 import TextField from "@material-ui/core/TextField";
 import { yupResolver } from "@hookform/resolvers/yup";
 
-import { AssetsApi } from "../api";
+import { AssetsApi, AssetTransactionsApi } from "../api";
 
 const SimulateTransactionResponseDialog = ({
   open,
@@ -58,21 +58,20 @@ const SimulateTransactionResponseDialog = ({
             maximumFractionDigits: 4,
           })})`}</DialogContentText>
         ) : (
-          <DialogContentText>{`Total de ${
-            formData.currency
-          } ${formData.total?.toLocaleString("pt-br", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 4,
-          })} por ${formData.currency} ${formData.price?.toLocaleString(
-            "pt-br",
-            {
+          <DialogContentText>{`Total de ${formData.currency
+            } ${formData.total?.toLocaleString("pt-br", {
               minimumFractionDigits: 2,
               maximumFractionDigits: 4,
-            }
-          )}  (${(formData.total / formData.price)?.toLocaleString("pt-br", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 4,
-          })} ativos)`}</DialogContentText>
+            })} por ${formData.currency} ${formData.price?.toLocaleString(
+              "pt-br",
+              {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 4,
+              }
+            )}  (${(formData.total / formData.price)?.toLocaleString("pt-br", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 4,
+            })} ativos)`}</DialogContentText>
         )}
 
         <TableContainer>
@@ -92,15 +91,14 @@ const SimulateTransactionResponseDialog = ({
                   Atual
                 </TableCell>
                 <TableCell align="right">
-                  {`${
-                    formData.currency
-                  } ${responseData.old?.adjusted_avg_price?.toLocaleString(
-                    "pt-br",
-                    {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 4,
-                    }
-                  )}`}
+                  {`${formData.currency
+                    } ${responseData.old?.adjusted_avg_price?.toLocaleString(
+                      "pt-br",
+                      {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 4,
+                      }
+                    )}`}
                 </TableCell>
                 <TableCell align="right">
                   {`R$ ${responseData.old?.roi?.toLocaleString("pt-br", {
@@ -131,15 +129,14 @@ const SimulateTransactionResponseDialog = ({
                   Simulada
                 </TableCell>
                 <TableCell align="right">
-                  {`${
-                    formData.currency
-                  } ${responseData.new?.adjusted_avg_price?.toLocaleString(
-                    "pt-br",
-                    {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 4,
-                    }
-                  )}`}
+                  {`${formData.currency
+                    } ${responseData.new?.adjusted_avg_price?.toLocaleString(
+                      "pt-br",
+                      {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 4,
+                      }
+                    )}`}
                 </TableCell>
                 <TableCell align="right">
                   {`R$ ${responseData.new?.roi?.toLocaleString("pt-br", {
@@ -241,15 +238,14 @@ export const SimulateTransactionForm = ({ handleClose }) => {
   const [responseData, setResponseData] = useState({});
   const [formData, setFormData] = useState({});
 
-  let api = new AssetsApi();
 
   useEffect(
     () =>
-      api.getMinimalData().then((response) => {
+      new AssetsApi().getMinimalData().then((response) => {
         setCodes(
           response.data.map((asset) => ({
             label: asset.code,
-            value: asset.code,
+            value: asset.pk,
             currency: asset.currency
               ? asset.currency === "BRL"
                 ? "R$"
@@ -272,12 +268,11 @@ export const SimulateTransactionForm = ({ handleClose }) => {
     resolver: yupResolver(schema),
   });
 
-  const onSubmit = (d) => {
-    let data = { ...d, asset: d.asset.value };
+  const onSubmit = (data) => {
     setFormData(data);
     const { asset, ...result } = data;
-    api
-      .simulateTransaction(asset, result)
+    new AssetTransactionsApi(asset.value)
+      .simulate(result)
       .then((response) => {
         setResponseData(response.data);
         setResponseDialogIsOpened(true);

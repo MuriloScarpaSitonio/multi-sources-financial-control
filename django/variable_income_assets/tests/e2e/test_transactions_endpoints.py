@@ -337,7 +337,6 @@ def test__update(client, buy_transaction, mocker):
     response = client.put(f"{URL}/{buy_transaction.pk}", data=data)
 
     # THEN
-    print(response.json())
     assert mocked_task.call_count == 1
     assert mocked_task.call_args[1] == {
         "asset_id": buy_transaction.asset_id,

@@ -1,4 +1,6 @@
 export { AssetsApi } from "./core";
+export { AssetIncomessApi } from "./core";
+export { AssetTransactionsApi } from "./core";
 export { AuthenticationApi } from "./core";
 export { ExpensesApi } from "./core";
 export { PassiveIncomesApi } from "./core";
