@@ -141,8 +141,8 @@ class AssetRoiReportFilterSet(filters.FilterSet):
 class TransactionFilterSet(filters.FilterSet):
     asset_code = filters.CharFilter(field_name="asset__code", lookup_expr="icontains")
     asset_type = filters.ChoiceFilter(field_name="asset__type", choices=AssetTypes.choices)
-    start_date = filters.DateFilter(field_name="created_at", lookup_expr="gte")
-    end_date = filters.DateFilter(field_name="created_at", lookup_expr="lte")
+    start_date = filters.DateFilter(field_name="operation_date", lookup_expr="gte")
+    end_date = filters.DateFilter(field_name="operation_date", lookup_expr="lte")
 
     class Meta:
         model = Transaction
@@ -151,6 +151,7 @@ class TransactionFilterSet(filters.FilterSet):
 
 class PassiveIncomeFilterSet(filters.FilterSet):
     asset_code = filters.CharFilter(field_name="asset__code", lookup_expr="icontains")
+    asset_type = filters.ChoiceFilter(field_name="asset__type", choices=AssetTypes.choices)
     start_date = filters.DateFilter(field_name="operation_date", lookup_expr="gte")
     end_date = filters.DateFilter(field_name="operation_date", lookup_expr="lte")
 

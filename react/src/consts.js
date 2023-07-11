@@ -56,10 +56,16 @@ const TransactionsActionsMapping = [
   { label: "Compra", value: "BUY" },
 ];
 
-const TransactionCurrenciesMapping = [
+const CurrenciesMapping = [
   { label: "Real", value: "BRL" },
   { label: "Dólar", value: "USD" },
 ];
+
+const CurrenciesAssetTypesMapping = {
+  STOCK: "BRL",
+  FII: "BRL",
+  STOCK_USA: "USD",
+};
 
 const PassiveIncomeTypesMapping = [
   { label: "Dividendo", value: "DIVIDEND" },
@@ -85,7 +91,8 @@ export {
   AccessTokenStr,
   RefreshTokenStr,
   TransactionsActionsMapping,
-  TransactionCurrenciesMapping,
+  CurrenciesMapping,
+  CurrenciesAssetTypesMapping,
   PassiveIncomeTypesMapping,
   PassiveIncomeEventTypesMapping,
 };

@@ -4,6 +4,8 @@ from random import randrange
 
 import pytest
 
+from django.db.models import F
+
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -42,7 +44,7 @@ from variable_income_assets.choices import (
     AssetObjectives,
     AssetSectors,
     AssetTypes,
-    TransactionCurrencies,
+    Currencies,
 )
 from variable_income_assets.models import (
     Asset,
@@ -58,15 +60,16 @@ URL = f"/{BASE_API_URL}" + "assets"
 
 
 @pytest.mark.parametrize(
-    ("asset_type", "asset_sector"),
+    ("asset_type", "asset_sector", "currency"),
     (
-        (AssetTypes.fii, AssetSectors.essential_consumption),
-        (AssetTypes.stock, AssetSectors.unknown),
-        (AssetTypes.stock_usa, AssetSectors.unknown),
-        (AssetTypes.crypto, AssetSectors.tech),
+        (AssetTypes.fii, AssetSectors.essential_consumption, Currencies.real),
+        (AssetTypes.stock, AssetSectors.unknown, Currencies.real),
+        (AssetTypes.stock_usa, AssetSectors.unknown, Currencies.dollar),
+        (AssetTypes.crypto, AssetSectors.tech, Currencies.dollar),
+        (AssetTypes.crypto, AssetSectors.tech, Currencies.real),
     ),
 )
-def test__create(client, asset_type, asset_sector, mocker):
+def test__create(client, asset_type, asset_sector, currency, mocker):
     # GIVEN
     code = "IGR"
     objective = AssetObjectives.dividend
@@ -77,59 +80,103 @@ def test__create(client, asset_type, asset_sector, mocker):
     ),
 
     # WHEN
-    response = client.post(URL, data={"type": asset_type, "objective": objective, "code": "IGR"})
+    response = client.post(
+        URL, data={"type": asset_type, "objective": objective, "currency": currency, "code": code}
+    )
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
+
     assert (
         AssetReadModel.objects.filter(
             code=code,
             type=asset_type,
             objective=objective,
-            currency="",
+            currency=currency,
             quantity_balance=0,
             avg_price=0,
             total_bought=0,
-            total_invested=0,
-            total_invested_adjusted=0,
+            credited_incomes=0,
+            normalized_total_sold=0,
+            normalized_credited_incomes=0,
             metadata__isnull=False,
         ).count()
         == 1
     )
-    for currency in AssetTypes.get_choice(asset_type).valid_currencies:
-        assert (
-            AssetMetaData.objects.filter(
-                code=code,
-                type=asset_type,
-                currency=currency,
-                sector=asset_sector,
-                current_price_updated_at__isnull=False,
-                current_price=current_price,
-            ).count()
-            == 1
-        )
+    assert (
+        AssetMetaData.objects.filter(
+            code=code,
+            type=asset_type,
+            currency=currency,
+            sector=asset_sector,
+            current_price_updated_at__isnull=False,
+            current_price=current_price,
+        ).count()
+        == 1
+    )
 
 
-def test__create__same_code(client, stock_asset):
+@pytest.mark.parametrize(
+    ("type", "currency", "status_code"),
+    (
+        (AssetTypes.crypto, Currencies.real, HTTP_201_CREATED),
+        (AssetTypes.crypto, Currencies.dollar, HTTP_201_CREATED),
+        (AssetTypes.stock, Currencies.real, HTTP_201_CREATED),
+        (AssetTypes.stock, Currencies.dollar, HTTP_400_BAD_REQUEST),
+        (AssetTypes.fii, Currencies.real, HTTP_201_CREATED),
+        (AssetTypes.fii, Currencies.dollar, HTTP_400_BAD_REQUEST),
+        (AssetTypes.stock_usa, Currencies.real, HTTP_400_BAD_REQUEST),
+        (AssetTypes.stock_usa, Currencies.dollar, HTTP_201_CREATED),
+    ),
+)
+def test__create__validate_currency(client, type, currency, status_code, mocker):
     # GIVEN
-    data = {"type": AssetTypes.fii, "objective": AssetObjectives.dividend, "code": stock_asset.code}
+    mocker.patch("variable_income_assets.views.messagebus.handle")
+    data = {
+        "type": type,
+        "objective": AssetObjectives.growth,
+        "code": "TTT",
+        "currency": currency,
+    }
 
     # WHEN
     response = client.post(URL, data=data)
 
     # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"code": ["Asset with given code already exists"]}
+    assert response.status_code == status_code
+    if status_code == HTTP_400_BAD_REQUEST:
+        assert response.json() == {
+            "currency__type": [f"{currency} is not valid for an asset of type {type}"]
+        }
 
 
-@pytest.mark.skip("Skip while is not implemented")
-def test__create__wrong_sector_type_set(client):
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.usefixtures("crypto_asset_metadata")
+def test__create__code_type_diff_currencies__crypto(client, crypto_asset, sync_assets_read_model):
     # GIVEN
     data = {
-        "type": AssetTypes.fii,
-        "sector": AssetSectors.industrials,
-        "objective": AssetObjectives.dividend,
-        "code": "IGR",
+        "type": crypto_asset.type,
+        "objective": crypto_asset.objective,
+        "code": crypto_asset.code,
+        "currency": Currencies.real,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+    assert AssetReadModel.objects.filter(code=crypto_asset.code).count() == 2
+    assert AssetMetaData.objects.filter(code=crypto_asset.code).count() == 2
+
+
+def test__create__code_type_currency_user_unique(client, crypto_asset):
+    # GIVEN
+    data = {
+        "type": crypto_asset.type,
+        "objective": crypto_asset.objective,
+        "code": crypto_asset.code,
+        "currency": Currencies.dollar,
     }
 
     # WHEN
@@ -138,29 +185,42 @@ def test__create__wrong_sector_type_set(client):
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {
-        "type_sector": [
-            f"{AssetTypes.fii} is not a valid type of asset for the "
-            f"{AssetSectors.industrials} sector. Valid choices: {AssetTypes.stock}, {AssetTypes.stock_usa}"
+        "code__currency__type__user__unique": [
+            "You can't have two assets with the same code, currency and type"
         ]
     }
 
 
-@pytest.mark.usefixtures("sync_assets_read_model", "stock_asset_metadata")
-def test__update(client, stock_asset):
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.usefixtures("sync_assets_read_model", "crypto_asset_metadata")
+def test__update(client, crypto_asset):
     # GIVEN
-    data = {"type": stock_asset.type, "objective": AssetObjectives.growth, "code": stock_asset.code}
+    code = "RANI4"
+    data = {
+        "type": AssetTypes.stock,
+        "objective": AssetObjectives.dividend,
+        "code": code,
+        "currency": Currencies.real,
+    }
 
     # WHEN
-    response = client.put(f"{URL}/{stock_asset.code}", data=data)
+    response = client.put(f"{URL}/{crypto_asset.pk}", data=data)
 
     # THEN
     assert response.status_code == HTTP_200_OK
 
-    stock_asset.refresh_from_db()
-    assert stock_asset.objective == AssetObjectives.growth
-    assert (
-        AssetReadModel.objects.get(write_model_pk=stock_asset.pk).objective
-        == AssetObjectives.growth
+    crypto_asset.refresh_from_db()
+    read = AssetReadModel.objects.get(write_model_pk=crypto_asset.pk)
+
+    assert crypto_asset.type == read.type == AssetTypes.stock
+    assert crypto_asset.objective == read.objective == AssetObjectives.dividend
+    assert crypto_asset.code == read.code == code
+    assert crypto_asset.currency == read.currency == Currencies.real
+
+    assert read.metadata_id == (
+        AssetMetaData.objects.only("pk")
+        .get(code=code, type=AssetTypes.stock, currency=Currencies.real)
+        .pk
     )
 
 
@@ -169,11 +229,27 @@ def test__update__asset_does_not_belong_to_user(kucoin_client, stock_asset):
     data = {"type": stock_asset.type, "objective": AssetObjectives.growth, "code": stock_asset.code}
 
     # WHEN
-    response = kucoin_client.put(f"{URL}/{stock_asset.code}", data=data)
+    response = kucoin_client.put(f"{URL}/{stock_asset.pk}", data=data)
 
     # THEN
     assert response.status_code == HTTP_404_NOT_FOUND
     assert response.json() == {"detail": "Not found."}
+
+
+def test__update__validate_currency(client, stock_asset):
+    # GIVEN
+    data = {
+        "type": stock_asset.type,
+        "objective": stock_asset.objective,
+        "code": stock_asset.code,
+        "currency": Currencies.dollar,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{stock_asset.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
 
 
 @pytest.mark.usefixtures("stock_asset_metadata", "stock_asset", "sync_assets_read_model")
@@ -189,7 +265,7 @@ def test__update__asset_does_not_belong_to_user(kucoin_client, stock_asset):
         ("sector=UTILITIES", 1),
     ),
 )
-def test___list__filters(client, filter_by, count):
+def test__list__filters(client, filter_by, count):
     # GIVEN
 
     # WHEN
@@ -198,13 +274,6 @@ def test___list__filters(client, filter_by, count):
     # THEN
     assert response.status_code == HTTP_200_OK
     assert response.json()["count"] == count
-
-
-# 1 - ativo fechado, lucro
-# 2 - ativo fechado, prejuízo
-# 3 - ativo fechado, lucro + incomes
-# 4 - ativo fechado, prejuízo + incomes = prejuízo
-# 5 - ativo fechado, prejuízo + incomes = lucro
 
 
 @pytest.mark.parametrize(
@@ -238,13 +307,53 @@ def test___list__aggregations(client, stock_asset, fixture, operation, request):
     assert response.status_code == HTTP_200_OK
 
     results = response.json()["results"][0]
-    assert results["roi"] == float(roi)
+    assert convert_and_quantitize(results["normalized_roi"]) == convert_and_quantitize(roi)
     assert operation(roi, 0)
-    assert results["roi_percentage"] == round((float(roi) / float(total_bought)) * 100, 6)
-    assert results["adjusted_avg_price"] == float(avg_price)
+    assert convert_and_quantitize(results["roi_percentage"]) == convert_and_quantitize(
+        (float(roi) / float(total_bought)) * 100
+    )
+    assert convert_and_quantitize(results["adjusted_avg_price"]) == convert_and_quantitize(
+        avg_price
+    )
 
 
-# TODO: REPETIR para transações em dólar
+@pytest.mark.parametrize(
+    "fixture, operation",
+    (
+        ("profit_asset_usa_bought_transactions", operator.gt),
+        ("loss_asset_usa_bought_transactions", operator.lt),
+        ("loss_asset_usa_bought_transactions_incomes_profit", operator.gt),
+        ("loss_asset_usa_bought_transactions_incomes_loss", operator.lt),
+        ("profit_asset_usa_both_transactions", operator.gt),
+        ("loss_asset_usa_both_transactions", operator.lt),
+        ("loss_asset_usa_both_transactions_incomes_profit", operator.gt),
+        ("loss_asset_usa_both_transactions_incomes_loss", operator.lt),
+    ),
+)
+def test___list__aggregations__dollar(client, stock_usa_asset: Asset, fixture, operation, request):
+    # GIVEN
+    request.getfixturevalue(fixture)
+    request.getfixturevalue("sync_assets_read_model")
+
+    roi = get_roi_brute_force(asset=stock_usa_asset)
+    avg_price = get_adjusted_avg_price_brute_forte(asset=stock_usa_asset, normalize=False)
+    total_bought = get_total_bought_brute_force(asset=stock_usa_asset)
+
+    # WHEN
+    response = client.get(URL)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    results = response.json()["results"][0]
+    assert convert_and_quantitize(results["normalized_roi"]) == convert_and_quantitize(roi)
+    assert operation(roi, 0)
+    assert convert_and_quantitize(results["roi_percentage"]) == convert_and_quantitize(
+        (float(roi) / float(total_bought)) * 100
+    )
+    assert convert_and_quantitize(results["adjusted_avg_price"]) == convert_and_quantitize(
+        avg_price
+    )
 
 
 @pytest.mark.usefixtures("indicators_data", "sync_assets_read_model")
@@ -274,7 +383,7 @@ def test_list_assets_aggregate_data(client):
             (current_invested / current_total_brute_force) * Decimal("100.0")
         ).quantize(Decimal(".1"), rounding=ROUND_HALF_UP)
 
-        assert Decimal(str(result["total_invested"])).quantize(
+        assert Decimal(str(result["normalized_total_invested"])).quantize(
             Decimal(".1"), rounding=ROUND_HALF_UP
         ) == convert_and_quantitize(total_invested)
         assert (
@@ -289,10 +398,10 @@ def test_list_assets_aggregate_data(client):
             )
             == current_percentage
         )
-        if result["roi"] < 0:
+        if result["normalized_roi"] < 0:
             assert result["percentage_invested"] > result["current_percentage"]
 
-        elif result["roi"] > 0:
+        elif result["normalized_roi"] > 0:
             assert result["percentage_invested"] < result["current_percentage"]
 
 
@@ -311,10 +420,10 @@ def test__list__should_include_asset_wo_transactions(
 ):
     # GIVEN
     expected = {
-        stock_usa_asset.code: TransactionCurrencies.dollar,
-        crypto_asset.code: TransactionCurrencies.dollar,
-        another_stock_asset.code: TransactionCurrencies.real,
-        fii_asset.code: TransactionCurrencies.real,
+        stock_usa_asset.code: Currencies.dollar,
+        crypto_asset.code: Currencies.dollar,
+        another_stock_asset.code: Currencies.real,
+        fii_asset.code: Currencies.real,
     }
 
     # WHEN
@@ -458,253 +567,6 @@ def test_should_get_indicators(client):
     assert response.json()["ROI"] == convert_and_quantitize(roi_opened + roi_finished)
 
 
-@pytest.mark.usefixtures("report_data", "sync_assets_read_model")
-@pytest.mark.parametrize(
-    "group_by, choices_class",
-    (("TYPE", AssetTypes), ("SECTOR", AssetSectors), ("OBJECTIVE", AssetObjectives)),
-)
-def test__total_invested_report(client, group_by, choices_class):
-    # GIVEN
-    if group_by == "SECTOR":
-        field = "metadata__sector"
-    else:
-        field = group_by.lower()
-    totals = {
-        v: sum(
-            get_total_invested_brute_force(Asset.objects.get(pk=asset.write_model_pk))
-            for asset in AssetReadModel.objects.filter(**{field: v})
-        )
-        for v in choices_class.values
-    }
-
-    # WHEN
-    response = client.get(
-        f"{URL}/total_invested_report?percentage=false&current=false&group_by={group_by}"
-    )
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-
-    for result in response.json():
-        for choice, label in choices_class.choices:
-            if label == result[group_by.lower()]:
-                assert convert_and_quantitize(totals[choice]) == result["total"]
-
-
-@pytest.mark.usefixtures("report_data", "sync_assets_read_model")
-@pytest.mark.parametrize(
-    "group_by, choices_class",
-    (("TYPE", AssetTypes), ("SECTOR", AssetSectors), ("OBJECTIVE", AssetObjectives)),
-)
-def test__total_invested_report__percentage(client, group_by, choices_class):
-    # GIVEN
-    total_invested = sum(get_total_invested_brute_force(asset) for asset in Asset.objects.all())
-    if group_by == "SECTOR":
-        field = "metadata__sector"
-    else:
-        field = group_by.lower()
-    totals = {
-        v: sum(
-            get_total_invested_brute_force(Asset.objects.get(pk=asset.write_model_pk))
-            for asset in AssetReadModel.objects.filter(**{field: v})
-        )
-        for v in choices_class.values
-    }
-
-    # WHEN
-    response = client.get(
-        f"{URL}/total_invested_report?percentage=true&current=false&group_by={group_by}"
-    )
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-
-    for result in response.json():
-        for choice, label in choices_class.choices:
-            if label == result[group_by.lower()]:
-                assert (
-                    float(
-                        convert_to_percentage_and_quantitize(
-                            value=totals[choice], total=total_invested
-                        )
-                    )
-                    == result["total"]
-                )
-
-
-@pytest.mark.usefixtures("report_data", "sync_assets_read_model")
-@pytest.mark.parametrize(
-    "group_by, choices_class",
-    (("TYPE", AssetTypes), ("SECTOR", AssetSectors), ("OBJECTIVE", AssetObjectives)),
-)
-def test__current_total_invested_report(client, group_by, choices_class):
-    # GIVEN
-    if group_by == "SECTOR":
-        field = "metadata__sector"
-    else:
-        field = group_by.lower()
-    totals = {
-        v: sum(
-            get_current_total_invested_brute_force(Asset.objects.get(pk=asset.write_model_pk))
-            for asset in AssetReadModel.objects.filter(**{field: v})
-        )
-        for v in choices_class.values
-    }
-
-    # WHEN
-    response = client.get(
-        f"{URL}/total_invested_report?percentage=false&current=true&group_by={group_by}"
-    )
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-
-    for result in response.json():
-        for choice, label in choices_class.choices:
-            if label == result[group_by.lower()]:
-                assert convert_and_quantitize(totals[choice]) == result["total"]
-
-
-@pytest.mark.usefixtures("report_data", "sync_assets_read_model")
-@pytest.mark.parametrize(
-    "group_by, choices_class",
-    (("TYPE", AssetTypes), ("SECTOR", AssetSectors), ("OBJECTIVE", AssetObjectives)),
-)
-def test__current_total_invested_report__percentage(client, group_by, choices_class):
-    # GIVEN
-    current_total = sum(
-        get_current_total_invested_brute_force(asset) for asset in Asset.objects.all()
-    )
-    if group_by == "SECTOR":
-        field = "metadata__sector"
-    else:
-        field = group_by.lower()
-    totals = {
-        v: sum(
-            get_current_total_invested_brute_force(Asset.objects.get(pk=asset.write_model_pk))
-            for asset in AssetReadModel.objects.filter(**{field: v})
-        )
-        for v in choices_class.values
-    }
-
-    # WHEN
-    response = client.get(
-        f"{URL}/total_invested_report?percentage=true&current=true&group_by={group_by}"
-    )
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-    for result in response.json():
-        for choice, label in choices_class.choices:
-            if label == result[group_by.lower()]:
-                assert (
-                    float(
-                        convert_to_percentage_and_quantitize(
-                            value=totals[choice], total=current_total
-                        )
-                    )
-                    == result["total"]
-                )
-
-
-def test__total_invested_report__should_fail_wo_required_filters(client):
-    # GIVEN
-
-    # WHEN
-    response = client.get(f"{URL}/total_invested_report")
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {
-        "percentage": ["Required to define the type of report"],
-        "current": ["Required to define the type of report"],
-        "group_by": ["This field is required."],
-    }
-
-
-@pytest.mark.usefixtures("report_data", "sync_assets_read_model")
-def test__roi_report__opened(client):
-    # GIVEN
-    totals = {
-        v: sum(get_roi_brute_force(asset) for asset in Asset.objects.opened().filter(type=v))
-        for v in AssetTypes.values
-    }
-
-    # WHEN
-    response = client.get(f"{URL}/roi_report?opened=true&finished=false")
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-    for result in response.json():
-        for choice, label in AssetTypes.choices:
-            if label == result["type"]:
-                assert convert_and_quantitize(totals[choice]) == result["total"]
-
-
-@pytest.mark.usefixtures("report_data", "sync_assets_read_model")
-def test__roi_report__finished(client):
-    # GIVEN
-    totals = {
-        v: sum(get_roi_brute_force(asset) for asset in Asset.objects.finished().filter(type=v))
-        for v in AssetTypes.values
-    }
-
-    # WHEN
-    response = client.get(f"{URL}/roi_report?opened=false&finished=true")
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-    for result in response.json():
-        for choice, label in AssetTypes.choices:
-            if label == result["type"]:
-                assert totals[choice] == result["total"]
-
-
-@pytest.mark.usefixtures("report_data", "sync_assets_read_model")
-def test__roi_report__all(client):
-    # GIVEN
-    totals = {
-        v: sum(get_roi_brute_force(asset) for asset in Asset.objects.filter(type=v))
-        for v in AssetTypes.values
-    }
-
-    # WHEN
-    response = client.get(f"{URL}/roi_report?opened=true&finished=true")
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-    for result in response.json():
-        for choice, label in AssetTypes.choices:
-            if label == result["type"]:
-                assert convert_and_quantitize(totals[choice]) == result["total"]
-
-
-@pytest.mark.usefixtures("report_data", "sync_assets_read_model")
-def test__roi_report__none(client):
-    # GIVEN
-
-    # WHEN
-    response = client.get(f"{URL}/roi_report?opened=false&finished=false")
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-    assert response.json() == []
-
-
-def test__roi_report__should_fail_wo_required_filters(client):
-    # GIVEN
-
-    # WHEN
-    response = client.get(f"{URL}/roi_report")
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {
-        "opened": ["Required to define the type of assets of the report"],
-        "finished": ["Required to define the type of assets of the report"],
-    }
-
-
 @pytest.mark.parametrize(
     "user_fixture_name, client_fixture_name, tasks_to_run",
     (
@@ -734,85 +596,6 @@ def test_should_sync_all(request, user_fixture_name, client_fixture_name, tasks_
         assert mocked_task.call_args[1]["username"] == user.username
 
 
-@pytest.mark.usefixtures("transactions")
-def test_should_simulate_transaction_w_quantity(client, stock_asset, stock_asset_metadata):
-    # GIVEN
-    stock_asset_metadata.current_price = 100
-    stock_asset_metadata.save()
-
-    # WHEN
-    response = client.post(
-        f"{URL}/{stock_asset.code}/transactions/simulate", data={"price": 50, "quantity": 100}
-    )
-    response_json = response.json()
-
-    # THEN
-    assert response.status_code == 200
-
-    assert response_json["old"]["adjusted_avg_price"] < response_json["new"]["adjusted_avg_price"]
-    assert response_json["old"]["roi"] < response_json["new"]["roi"]
-    assert response_json["old"]["roi_percentage"] > response_json["new"]["roi_percentage"]
-    assert response_json["old"]["adjusted_avg_price"] < response_json["new"]["adjusted_avg_price"]
-
-
-@pytest.mark.usefixtures("transactions")
-def test_should_simulate_transaction_w_total(client, stock_asset, stock_asset_metadata):
-    # GIVEN
-    stock_asset_metadata.current_price = 100
-    stock_asset_metadata.save()
-
-    # WHEN
-    response = client.post(
-        f"{URL}/{stock_asset.code}/transactions/simulate", data={"price": 50, "total": 5000}
-    )
-    response_json = response.json()
-
-    # THEN
-    assert response.status_code == 200
-
-    assert response_json["old"]["adjusted_avg_price"] < response_json["new"]["adjusted_avg_price"]
-    assert response_json["old"]["roi"] < response_json["new"]["roi"]
-    assert response_json["old"]["roi_percentage"] > response_json["new"]["roi_percentage"]
-    assert response_json["old"]["adjusted_avg_price"] < response_json["new"]["adjusted_avg_price"]
-
-
-def test_should_not_simulate_transaction_wo_total_and_quantity(client, stock_asset):
-    # GIVEN
-
-    # WHEN
-    response = client.post(f"{URL}/{stock_asset.code}/transactions/simulate", data={"price": 50})
-
-    # THEN
-    assert response.status_code == 400
-    assert response.json() == {"non_field_errors": ["`quantity` or `total` is required"]}
-
-
-@pytest.mark.usefixtures("crypto_transaction")
-def test_should_not_normalize_avg_price_with_currency_when_simulating_transaction(
-    client, crypto_asset
-):
-    # GIVEN
-    price, quantity = 10, 100
-    crypto_asset.current_price = 20
-    crypto_asset.save()
-
-    # WHEN
-    response = client.post(
-        f"{URL}/{crypto_asset.code}/transactions/simulate",
-        data={"price": price, "quantity": quantity},
-    )
-    response_json = response.json()
-
-    # THEN
-    assert response.status_code == 200
-
-    assert (
-        response_json["old"]["adjusted_avg_price"]
-        == response_json["new"]["adjusted_avg_price"]
-        == price
-    )
-
-
 @pytest.mark.usefixtures(
     "transactions",
     "crypto_transaction",
@@ -827,16 +610,18 @@ def test_should_not_normalize_avg_price_with_currency_when_simulating_transactio
     "another_crypto_asset",  # no transactions
     "fii_asset",  # no transactions
 )
-def test__codes_and_currencies_endpoint(client):
+def test__minimal_data_endpoint(client):
     # GIVEN
 
     # WHEN
-    response = client.get(f"{URL}/codes_and_currencies")
+    response = client.get(f"{URL}/minimal_data")
 
     # THEN
     assert response.status_code == 200
     assert response.json() == list(
-        AssetReadModel.objects.values("code", "currency").order_by("code")
+        AssetReadModel.objects.annotate(pk=F("write_model_pk"))
+        .values("code", "currency", "pk")
+        .order_by("code")
     )
 
 
@@ -847,7 +632,7 @@ def test__delete(client, stock_asset):
     # GIVEN
 
     # WHEN
-    response = client.delete(f"{URL}/{stock_asset.code}")
+    response = client.delete(f"{URL}/{stock_asset.pk}")
 
     # THEN
     assert response.status_code == HTTP_204_NO_CONTENT

@@ -167,6 +167,7 @@ export const TransactionsTable = () => {
     print: true,
     pagination: true,
     sort: true,
+    enableNestedDataAccess: ".",
     textLabels: {
       body: { noMatch: "Nenhuma transação encontrada", toolTip: "Ordenar" },
       toolbar: {
@@ -195,7 +196,7 @@ export const TransactionsTable = () => {
       });
     },
     onFilterChange: (column, filterList, __, changedColumnIndex) => {
-      if (column === "created_at") return;
+      if (column === "operation_date") return;
       let _filters = filterList[changedColumnIndex].map(
         (f) =>
           getChoiceByLabel(f, [
@@ -228,7 +229,7 @@ export const TransactionsTable = () => {
       },
     },
     {
-      name: "asset_code",
+      name: "asset.code",
       label: "Código",
       options: {
         filter: false,
@@ -236,7 +237,7 @@ export const TransactionsTable = () => {
       },
     },
     {
-      name: "asset_type",
+      name: "asset.type",
       label: "Tipo",
       options: {
         filter: true,
@@ -269,16 +270,13 @@ export const TransactionsTable = () => {
       options: {
         filter: false,
         sort: false,
-        customBodyRender: (v, tableMeta) => {
-          let [currency] = tableMeta.rowData.slice(-2, -1);
-          return `${currency === "BRL" ? "R$" : "$"} ${v?.toLocaleString(
-            "pt-br",
-            {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 4,
-            }
-          )}`;
-        },
+        customBodyRender: (v, tableMeta) =>
+          `${
+            tableMeta.rowData[7] === "Real" ? "R$" : "US$"
+          } ${v?.toLocaleString("pt-br", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
+          })}`,
       },
     },
     {
@@ -291,7 +289,7 @@ export const TransactionsTable = () => {
       },
     },
     {
-      name: "created_at",
+      name: "operation_date",
       label: "Quando",
       options: {
         filter: true,
@@ -371,8 +369,31 @@ export const TransactionsTable = () => {
       },
     },
     {
-      name: "currency",
-      label: "",
+      name: "asset.currency",
+      options: {
+        display: false,
+        filter: false,
+        viewColumns: false,
+      },
+    },
+    {
+      name: "asset.pk",
+      options: {
+        display: false,
+        filter: false,
+        viewColumns: false,
+      },
+    },
+    {
+      name: "current_currency_conversion_rate",
+      options: {
+        display: false,
+        filter: false,
+        viewColumns: false,
+      },
+    },
+    {
+      name: "initial_price",
       options: {
         display: false,
         filter: false,
@@ -412,16 +433,33 @@ export const TransactionsTable = () => {
 
   const handleCreateEdit = (transactionData) => {
     if (transactionData && Object.keys(transactionData).length > 0) {
-      let [id, asset_code, _, action, price, quantity, created_at, currency] =
-        transactionData;
-      setTransactionEditData({
+      let [
         id,
         asset_code,
+        _,
         action,
         price,
         quantity,
-        created_at,
+        operation_date,
         currency,
+        asset_pk,
+        current_currency_conversion_rate,
+        initial_price,
+      ] = transactionData;
+      setTransactionEditData({
+        id,
+        action,
+        price,
+        quantity,
+        operation_date,
+        currency,
+        initial_price,
+        current_currency_conversion_rate,
+        asset: {
+          pk: asset_pk,
+          code: asset_code,
+          currency: currency === "Real" ? "BRL" : "USD",
+        },
       });
     }
     setEditCreateTransactionDialogIsOpened(true);

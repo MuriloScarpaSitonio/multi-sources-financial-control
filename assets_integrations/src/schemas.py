@@ -70,7 +70,7 @@ class KuCoinOrder(BaseModel):
     dealFunds: Decimal
     dealSize: Decimal = Field(alias="quantity")
     price: condecimal(max_digits=13, decimal_places=6)
-    createdAt: float = Field(alias="created_at")
+    createdAt: float = Field(alias="operation_date")
 
     class Config:
         allow_population_by_field_name = True
@@ -100,7 +100,7 @@ class KuCoinOrder(BaseModel):
         return values["symbol"].split("-")[1]
 
     @validator("createdAt")
-    def convert_created_at(cls, v: int) -> float:
+    def convert_coperation_date(cls, v: int) -> float:
         # divide by 1000 to convert from milliseconds to seconds
         return v / 1000
 
@@ -114,7 +114,7 @@ class BinanceTradeTransaction(BaseModel):
     cummulativeQuoteQty: Decimal
     price: Decimal
     side: str = Field(alias="action")
-    time: float = Field(alias="created_at")
+    time: float = Field(alias="operation_date")
 
     class Config:
         allow_population_by_field_name = True
@@ -162,7 +162,7 @@ class BinanceFiatTransaction(BaseModel):
     obtainAmount: Decimal = Field(alias="quantity")
     price: Decimal
     action: str
-    createTime: float = Field(alias="created_at")
+    createTime: float = Field(alias="operation_date")
 
     class Config:
         allow_population_by_field_name = True
@@ -180,4 +180,4 @@ class BinanceTransaction(BaseModel):
     quantity: Decimal
     price: Decimal
     action: Literal["BUY", "SELL"]
-    created_at: float
+    operation_date: float

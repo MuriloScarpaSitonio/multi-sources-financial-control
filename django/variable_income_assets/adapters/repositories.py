@@ -3,74 +3,117 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import asdict
 from decimal import Decimal
-from typing import Any, Iterable, TYPE_CHECKING
+from typing import Any, Iterable, overload, TYPE_CHECKING
 
 from django.db.models import F, OuterRef, Subquery
 from django.db.models.functions import Coalesce
 
-from ..domain.models import Asset as AssetDomainModel, TransactionDTO
+from ..domain.models import Asset as AssetDomainModel, PassiveIncomeDTO, TransactionDTO
 
 if TYPE_CHECKING:
     from datetime import datetime
 
     from django.db.models import QuerySet
 
-    from ..choices import AssetSectors, AssetTypes, TransactionCurrencies
-    from ..models import AssetMetaData, Transaction
+    from ..choices import AssetSectors, AssetTypes, Currencies
+    from ..models import AssetMetaData, PassiveIncome, Transaction
+
+    Entity = Transaction | PassiveIncome
+    EntityDTO = TransactionDTO | PassiveIncomeDTO
 
 
-class AbstractTransactionRepository(ABC):
+class AbstractEntityRepository(ABC):
     def __init__(self, asset_pk: int) -> None:
         self.asset_pk = asset_pk
-        self.seen: set[Transaction] = set()
+        self.seen: set[Entity] = set()
 
-    def add(self, dto: TransactionDTO) -> None:
-        transaction = self._add(dto=dto)
-        self.seen.add(transaction)
+    @overload
+    @abstractmethod
+    def _add(self, dto: TransactionDTO) -> Transaction:
+        ...
+
+    @overload
+    @abstractmethod
+    def _add(self, dto: PassiveIncomeDTO) -> PassiveIncome:
+        ...
 
     @abstractmethod
-    def _add(self, dto: TransactionDTO) -> Transaction:  # pragma: no cover
+    def _add(self, dto: EntityDTO) -> Entity:
         raise NotImplementedError
 
+    def add(self, dto: EntityDTO) -> None:
+        e = self._add(dto=dto)
+        self.seen.add(e)
+
+    @overload
     def update(self, dto: TransactionDTO, transaction: Transaction) -> None:
-        t = self._update(dto=dto, transaction=transaction)
-        self.seen.add(t)
+        ...
+
+    @overload
+    def update(self, dto: PassiveIncomeDTO, transaction: PassiveIncome) -> None:
+        ...
+
+    def update(self, dto: EntityDTO, entity: Entity) -> None:
+        e = self._update(dto=dto, entity=entity)
+        self.seen.add(e)
+
+    @overload
+    @abstractmethod
+    def _update(self, dto: TransactionDTO, entity: Transaction) -> Transaction:
+        ...
+
+    @overload
+    @abstractmethod
+    def _update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> Transaction:
+        ...
 
     @abstractmethod
-    def _update(
-        self, dto: TransactionDTO, transaction: Transaction
-    ) -> Transaction:  # pragma: no cover
+    def _update(self, dto: EntityDTO, entity: Entity) -> Entity:
         raise NotImplementedError
 
     @abstractmethod
-    def delete(self, transaction: Transaction) -> None:  # pragma: no cover
+    def delete(self, entity: Entity) -> None:
         raise NotImplementedError
 
 
-class TransactionRepository(AbstractTransactionRepository):
+class DjangoEntityRepository(AbstractEntityRepository):
+    def _update(self, dto: EntityDTO, entity: Entity) -> Entity:
+        for key, value in asdict(dto).items():
+            setattr(entity, key, value)
+
+        entity.save()
+        return entity
+
+    def delete(self, entity: Entity) -> None:
+        entity.delete()
+
+
+class TransactionRepository(DjangoEntityRepository):
+    seen: set[Transaction]
+
     def _add(self, dto: TransactionDTO) -> Transaction:
         from ..models import Transaction
 
-        data = asdict(dto)
-        if data["created_at"] is None:
-            data.pop("created_at")
+        return Transaction.objects.create(**asdict(dto), asset_id=self.asset_pk)
 
-        return Transaction.objects.create(**data, asset_id=self.asset_pk)
 
-    def _update(self, dto: TransactionDTO, transaction: Transaction) -> Transaction:
-        for key, value in asdict(dto).items():
-            setattr(transaction, key, value)
+class PassiveIncomeRepository(DjangoEntityRepository):  # pragma: no cover
+    seen: set[PassiveIncome]
 
-        transaction.save()
-        return transaction
+    def _add(self, dto: PassiveIncomeDTO) -> PassiveIncome:
+        from ..models import PassiveIncome
 
-    def delete(self, transaction: Transaction) -> None:
-        transaction.delete()
+        return PassiveIncome.objects.create(**asdict(dto), asset_id=self.asset_pk)
 
 
 class AssetRepository:
-    def __init__(self, transaction_repository: TransactionRepository) -> None:
-        self.transactions = transaction_repository
+    def __init__(
+        self,
+        transactions_repository: TransactionRepository,
+        incomes_repository: PassiveIncomeRepository,
+    ) -> None:
+        self.transactions = transactions_repository
+        self.incomes = incomes_repository
 
         self.seen: set[AssetDomainModel] = set()
 
@@ -80,41 +123,41 @@ class AbstractAssetMetaDataRepository(ABC):
         self,
         code: str | None = None,
         type: AssetTypes | None = None,
-        currency: TransactionCurrencies | None = None,
+        currency: Currencies | None = None,
     ) -> None:
         self.code = code
         self.type = type
         self.currency = currency
 
     @abstractmethod
-    def filter_one(self) -> Any:  # pragma: no cover
+    def filter_one(self) -> Any:
         raise NotImplementedError
 
     @abstractmethod
-    def exists(self) -> bool:  # pragma: no cover
+    def exists(self) -> bool:
         raise NotImplementedError
 
     @abstractmethod
-    def get(self) -> Any:  # pragma: no cover
+    def get(self) -> Any:
         raise NotImplementedError
 
     @abstractmethod
-    def create(self) -> Any:  # pragma: no cover
-        raise NotImplementedError
-
-    @staticmethod
-    @abstractmethod
-    def filter_assets_eligible_for_update() -> Any:  # pragma: no cover
+    def create(self) -> Any:
         raise NotImplementedError
 
     @staticmethod
     @abstractmethod
-    async def abulk_update(objs: Iterable[Any], fields: tuple[str, ...]) -> Any:  # pragma: no cover
+    def filter_assets_eligible_for_update() -> Any:
         raise NotImplementedError
 
     @staticmethod
     @abstractmethod
-    def get_current_price_annotation() -> Any:  # pragma: no cover
+    async def abulk_update(objs: Iterable[Any], fields: tuple[str, ...]) -> Any:
+        raise NotImplementedError
+
+    @staticmethod
+    @abstractmethod
+    def get_current_price_annotation() -> Any:
         raise NotImplementedError
 
 
@@ -123,7 +166,7 @@ class DjangoSQLAssetMetaDataRepository(AbstractAssetMetaDataRepository):
         self,
         code: str | None = None,
         type: AssetTypes | None = None,
-        currency: TransactionCurrencies | None = None,
+        currency: Currencies | None = None,
     ) -> None:
         super().__init__(code=code, type=type, currency=currency)
 
@@ -184,7 +227,7 @@ class DjangoSQLAssetMetaDataRepository(AbstractAssetMetaDataRepository):
                     AssetMetaData.objects.filter(
                         code=OuterRef("asset__code"),
                         type=OuterRef("asset__type"),
-                        currency=OuterRef("currency"),
+                        currency=OuterRef("asset__currency"),
                     ).values("current_price")[:1]
                 ),
                 Decimal(),

@@ -8,6 +8,10 @@ class Event:
 @dataclass
 class _AssetReadModelEvent(Event):
     asset_pk: int
+    # do not dispatch the event handler to be executed elsewhere
+    # (i.e. to a queue, other system or whatever) but rather execute
+    # the logic in the same process/thread
+    sync: bool = False
 
 
 @dataclass

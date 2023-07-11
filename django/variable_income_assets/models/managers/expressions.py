@@ -6,7 +6,7 @@ from django.db.models.functions import Cast, Coalesce
 
 from config.settings.dynamic import dynamic_settings
 
-from ...choices import TransactionActions, TransactionCurrencies
+from ...choices import TransactionActions, Currencies
 
 
 class _GenericQueryHelperIntializer:
@@ -43,6 +43,25 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
         return Sum(
             (F(f"{self.prefix}price") - F(f"{self.prefix}initial_price"))
             * F(f"{self.prefix}quantity"),
+            filter=self.filters.sold,
+            default=Decimal(),
+            # I don't know why an out `Cast` doesn't work...
+        ) * Cast(1.0, DecimalField())
+
+    @property
+    def normalized_total_sold(self) -> CombinedExpression:
+        expression = (F(f"{self.prefix}price") - F(f"{self.prefix}initial_price")) * F(
+            f"{self.prefix}quantity"
+        )
+        return Sum(
+            Case(
+                When(
+                    # hacky because the currency goes the other way around
+                    Q(**{f"{'asset__' if not self.prefix else ''}currency": Currencies.dollar}),
+                    then=expression * F(f"{self.prefix}current_currency_conversion_rate"),
+                ),
+                default=expression,
+            ),
             filter=self.filters.sold,
             default=Decimal(),
             # I don't know why an out `Cast` doesn't work...
@@ -104,9 +123,11 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
         )
 
     def get_dollar_conversion_expression(self, expression: Expression) -> Case:
+        # hacky because the currency goes the other way around
+        prefix = "asset__" if not self.prefix else ""
         return Case(
             When(
-                Q(**{f"{self.prefix}currency": TransactionCurrencies.dollar}),
+                Q(**{f"{prefix}currency": Currencies.dollar}),
                 then=expression * self.dollar_conversion_rate,
             ),
             default=expression,

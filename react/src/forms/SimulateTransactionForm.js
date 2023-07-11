@@ -24,7 +24,7 @@ import TableRow from "@material-ui/core/TableRow";
 import TextField from "@material-ui/core/TextField";
 import { yupResolver } from "@hookform/resolvers/yup";
 
-import { AssetsApi } from "../api";
+import { AssetsApi, AssetTransactionsApi } from "../api";
 
 const SimulateTransactionResponseDialog = ({
   open,
@@ -39,7 +39,7 @@ const SimulateTransactionResponseDialog = ({
       aria-labelledby="simulate-transaction-response-dialog-title"
     >
       <DialogTitle id="simulate-transaction-response-dialog-title">
-        {`Simulação - ${formData.asset}`}
+        {`Simulação - ${formData.asset?.label}`}
       </DialogTitle>
       <DialogContent>
         {formData.quantity ? (
@@ -241,15 +241,13 @@ export const SimulateTransactionForm = ({ handleClose }) => {
   const [responseData, setResponseData] = useState({});
   const [formData, setFormData] = useState({});
 
-  let api = new AssetsApi();
-
   useEffect(
     () =>
-      api.getCodesAndCurrencies().then((response) => {
+      new AssetsApi().getMinimalData().then((response) => {
         setCodes(
           response.data.map((asset) => ({
             label: asset.code,
-            value: asset.code,
+            value: asset.pk,
             currency: asset.currency
               ? asset.currency === "BRL"
                 ? "R$"
@@ -272,12 +270,11 @@ export const SimulateTransactionForm = ({ handleClose }) => {
     resolver: yupResolver(schema),
   });
 
-  const onSubmit = (d) => {
-    let data = { ...d, asset: d.asset.value };
+  const onSubmit = (data) => {
     setFormData(data);
     const { asset, ...result } = data;
-    api
-      .simulateTransaction(asset, result)
+    new AssetTransactionsApi(asset.value)
+      .simulate(result)
       .then((response) => {
         setResponseData(response.data);
         setResponseDialogIsOpened(true);

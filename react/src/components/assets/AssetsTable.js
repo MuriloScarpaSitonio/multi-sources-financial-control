@@ -17,7 +17,7 @@ import Tabs from "@material-ui/core/Tabs";
 import MergeTypeIcon from "@material-ui/icons/MergeType";
 import PlusOneIcon from "@material-ui/icons/PlusOne";
 
-import { AssetsApi, PassiveIncomesApi, TransactionsApi } from "../../api";
+import { AssetsApi, AssetIncomessApi, AssetTransactionsApi } from "../../api";
 import { SimulateTransactionForm } from "../../forms/SimulateTransactionForm";
 import { AssetsForm } from "../../forms/AssetsForm";
 import { Loader } from "../Loaders";
@@ -67,19 +67,20 @@ const AssetCreateDialog = ({ open, onClose, onSuccess }) => {
   );
 };
 
-const TransactionsTable = ({ code }) => {
+const TransactionsTable = ({ code, assetId }) => {
   const [pageSize, setPageSize] = useState(5);
   const [page, setPage] = useState(1);
 
   function getAdjustedFilters() {
     return new URLSearchParams({
       page: page,
-      asset_code: code,
       page_size: pageSize,
     }).toString();
   }
 
-  const [data, isLoaded] = new TransactionsApi().query(getAdjustedFilters());
+  const [data, isLoaded] = new AssetTransactionsApi(assetId).query(
+    getAdjustedFilters()
+  );
   return (
     <>
       {!isLoaded && <Loader />}
@@ -102,11 +103,12 @@ const TransactionsTable = ({ code }) => {
               filter: false,
               sort: false,
               customBodyRender: (v, tableMeta) => {
-                let currency =
-                  tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
+                let currencySymbol =
+                  tableMeta.tableData[tableMeta.rowIndex].asset.currency ===
+                  "Real"
                     ? "R$"
-                    : "$";
-                return `${currency} ${v?.toLocaleString("pt-br", {
+                    : "US$";
+                return `${currencySymbol} ${v?.toLocaleString("pt-br", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 4,
                 })}`;
@@ -123,7 +125,7 @@ const TransactionsTable = ({ code }) => {
             },
           },
           {
-            name: "created_at",
+            name: "operation_date",
             label: "Quando",
             options: {
               filter: false,
@@ -166,19 +168,20 @@ const TransactionsTable = ({ code }) => {
   );
 };
 
-const PassiveIncomeTable = ({ code }) => {
+const PassiveIncomeTable = ({ code, assetId }) => {
   const [pageSize, setPageSize] = useState(5);
   const [page, setPage] = useState(1);
 
   function getAdjustedFilters() {
     return new URLSearchParams({
       page: page,
-      asset_code: code,
       page_size: pageSize,
     }).toString();
   }
 
-  const [data, isLoaded] = new PassiveIncomesApi().query(getAdjustedFilters());
+  const [data, isLoaded] = new AssetIncomessApi(assetId).query(
+    getAdjustedFilters()
+  );
   return (
     <>
       {!isLoaded && <Loader />}
@@ -208,8 +211,13 @@ const PassiveIncomeTable = ({ code }) => {
             options: {
               filter: false,
               sort: false,
-              customBodyRender: (v) => {
-                return `R$ ${v?.toLocaleString("pt-br", {
+              customBodyRender: (v, tableMeta) => {
+                let currencySymbol =
+                  tableMeta.tableData[tableMeta.rowIndex].asset.currency ===
+                  "Real"
+                    ? "R$"
+                    : "US$";
+                return `${currencySymbol} ${v?.toLocaleString("pt-br", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 4,
                 })}`;
@@ -368,17 +376,8 @@ export const AssetsTable = () => {
     expandableRowsOnClick: true,
     renderExpandableRow: (rowData) => {
       const colSpan = rowData.length + 1;
-
-      const [
-        id,
-        sector,
-        objective,
-        code,
-        type,
-        avg_price,
-        current_price,
-        current_price_updated_at,
-      ] = rowData;
+      let currency = rowData[colSpan - 2];
+      const [id, _, objective, code, type] = rowData;
 
       return (
         <>
@@ -405,6 +404,7 @@ export const AssetsTable = () => {
                       objective,
                       code,
                       type,
+                      currency,
                     }}
                     onSuccess={reload}
                   />
@@ -415,14 +415,14 @@ export const AssetsTable = () => {
           {tabValue === 1 && (
             <TableRow>
               <TableCell sx={{ paddingLeft: "20px" }} colSpan={colSpan}>
-                <TransactionsTable code={code} />
+                <TransactionsTable code={code} assetId={id} />
               </TableCell>
             </TableRow>
           )}
           {tabValue === 2 && (
             <TableRow>
               <TableCell sx={{ paddingLeft: "20px" }} colSpan={colSpan}>
-                <PassiveIncomeTable code={code} />
+                <PassiveIncomeTable code={code} assetId={id} />
               </TableCell>
             </TableRow>
           )}
@@ -449,7 +449,7 @@ export const AssetsTable = () => {
 
   const columns = [
     {
-      name: "id",
+      name: "write_model_pk",
       options: {
         display: false,
         filter: false,
@@ -491,7 +491,7 @@ export const AssetsTable = () => {
       label: "Código",
       options: {
         filter: false,
-        sort: true,
+        sort: false,
       },
     },
     {
@@ -499,7 +499,7 @@ export const AssetsTable = () => {
       label: "Tipo",
       options: {
         filter: true,
-        sort: true,
+        sort: false,
         filterOptions: {
           names: AssetsTypesMapping.map((v) => v.label),
         },
@@ -515,11 +515,11 @@ export const AssetsTable = () => {
         filter: false,
         sort: false,
         customBodyRender: (v, tableMeta) => {
-          let currency =
+          let currencySymbol =
             tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
               ? "R$"
-              : "$";
-          return `${currency} ${v?.toLocaleString("pt-br", {
+              : "US$";
+          return `${currencySymbol} ${v?.toLocaleString("pt-br", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 4,
           })}`;
@@ -533,10 +533,10 @@ export const AssetsTable = () => {
         filter: false,
         sort: false,
         customBodyRender: (v, tableMeta) => {
-          let currency =
+          let currencySymbol =
             tableMeta.tableData[tableMeta.rowIndex].currency === "BRL"
               ? "R$"
-              : "$";
+              : "US$";
           return (
             <Tooltip
               key={v}
@@ -544,7 +544,7 @@ export const AssetsTable = () => {
                 tableMeta.rowData[7]
               ).toLocaleString("pt-br")}`}
             >
-              <p>{`${currency} ${v?.toLocaleString("pt-br", {
+              <p>{`${currencySymbol} ${v?.toLocaleString("pt-br", {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 4,
               })}`}</p>
@@ -571,7 +571,7 @@ export const AssetsTable = () => {
       },
     },
     {
-      name: "total_invested",
+      name: "normalized_total_invested",
       label: "Total investido aj.",
       options: {
         filter: false,
@@ -584,7 +584,7 @@ export const AssetsTable = () => {
       },
     },
     {
-      name: "roi",
+      name: "normalized_roi",
       label: "ROI",
       options: {
         filter: false,
@@ -642,6 +642,14 @@ export const AssetsTable = () => {
     },
     {
       name: "passive_incomes",
+      options: {
+        display: false,
+        filter: false,
+        viewColumns: false,
+      },
+    },
+    {
+      name: "currency",
       options: {
         display: false,
         filter: false,

@@ -44,9 +44,7 @@ class Migration(migrations.Migration):
                     "currency",
                     models.CharField(
                         max_length=6,
-                        validators=[
-                            variable_income_assets.choices.TransactionCurrencies.custom_validator
-                        ],
+                        validators=[variable_income_assets.choices.Currencies.custom_validator],
                     ),
                 ),
                 ("current_price", models.DecimalField(decimal_places=6, max_digits=13)),

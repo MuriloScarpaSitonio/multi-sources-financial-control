@@ -176,6 +176,7 @@ export const PassiveIncomesTable = () => {
     print: true,
     pagination: true,
     sort: true,
+    enableNestedDataAccess: ".",
     textLabels: {
       body: {
         noMatch: "Nenhum rendimento passivo encontrado",
@@ -240,7 +241,7 @@ export const PassiveIncomesTable = () => {
       },
     },
     {
-      name: "asset_code",
+      name: "asset.code",
       label: "Código",
       options: {
         filter: false,
@@ -267,8 +268,10 @@ export const PassiveIncomesTable = () => {
       options: {
         filter: false,
         sort: true,
-        customBodyRender: (v) =>
-          `R$ ${v?.toLocaleString("pt-br", {
+        customBodyRender: (v, tableMeta) =>
+          `${
+            tableMeta.rowData[6] === "Real" ? "R$" : "US$"
+          } ${v?.toLocaleString("pt-br", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 4,
           })}`,
@@ -369,6 +372,30 @@ export const PassiveIncomesTable = () => {
       },
     },
     {
+      name: "asset.currency",
+      options: {
+        display: false,
+        filter: false,
+        viewColumns: false,
+      },
+    },
+    {
+      name: "asset.pk",
+      options: {
+        display: false,
+        filter: false,
+        viewColumns: false,
+      },
+    },
+    {
+      name: "current_currency_conversion_rate",
+      options: {
+        display: false,
+        filter: false,
+        viewColumns: false,
+      },
+    },
+    {
       name: "",
       options: {
         filter: false,
@@ -401,15 +428,29 @@ export const PassiveIncomesTable = () => {
 
   const handleCreateEdit = (passiveIncomeData) => {
     if (passiveIncomeData && Object.keys(passiveIncomeData).length > 0) {
-      let [id, asset_code, type, amount, event_type, operation_date] =
-        passiveIncomeData;
-      setPassiveIncomeEditData({
+      let [
         id,
         asset_code,
         type,
         amount,
         event_type,
         operation_date,
+        currency,
+        asset_pk,
+        current_currency_conversion_rate,
+      ] = passiveIncomeData;
+      setPassiveIncomeEditData({
+        id,
+        type,
+        amount,
+        event_type,
+        operation_date,
+        current_currency_conversion_rate,
+        asset: {
+          pk: asset_pk,
+          code: asset_code,
+          currency: currency === "Real" ? "BRL" : "USD",
+        },
       });
     }
     setEditCreatePassiveIncomeDialogIsOpened(true);

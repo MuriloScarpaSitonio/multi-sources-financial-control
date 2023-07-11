@@ -26,12 +26,9 @@ import TextField from "@material-ui/core/TextField";
 import { yupResolver } from "@hookform/resolvers/yup";
 
 import { AssetsApi, TransactionsApi } from "../api";
-import { getChoiceByLabel, getChoiceByValue } from "../helpers";
+import { getChoiceByLabel } from "../helpers";
 import { FormFeedback } from "../components/FormFeedback";
-import {
-  TransactionsActionsMapping,
-  TransactionCurrenciesMapping,
-} from "../consts.js";
+import { TransactionsActionsMapping } from "../consts.js";
 
 function NumberFormatCustom(props) {
   const { inputRef, onChange, ...other } = props;
@@ -57,7 +54,7 @@ function NumberFormatCustom(props) {
 }
 
 const schema = yup.object().shape({
-  asset_code: yup
+  asset: yup
     .object()
     .shape({
       label: yup.string().required("O ativo é obrigatório"),
@@ -69,18 +66,6 @@ const schema = yup.object().shape({
     .string()
     .required("A ação é obrigatória")
     .matches(/(BUY|SELL)/, "Apenas compra e venda são ações válidas"),
-  currency: yup
-    .object()
-    .shape({
-      label: yup.string().required("A moeda é obrigatória"),
-      value: yup
-        .string()
-        .required("A moeda é obrigatória")
-        .matches(/(BRL|USD)/, "Apenas real e dólar são moedas válidas"),
-    })
-    .required("A moeda é obrigatória")
-    .nullable(),
-
   price: yup
     .number()
     .required("O preço é obrigatório")
@@ -90,10 +75,11 @@ const schema = yup.object().shape({
     .number()
     .required("A quantidade é obrigatória")
     .positive("Apenas números positivos"),
-  created_at: yup
+  operation_date: yup
     .date()
     .required("A data é obrigatória")
     .typeError("Data inválida"),
+  current_currency_conversion_rate: yup.number().nullable(),
 });
 
 export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
@@ -113,11 +99,12 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
 
   useEffect(
     () =>
-      api.getCodesAndCurrencies().then((response) => {
+      api.getMinimalData().then((response) => {
         setCodes(
           response.data.map((asset) => ({
             label: asset.code,
-            value: asset.code,
+            value: asset.pk,
+            currency: asset.currency,
           }))
         );
       }),
@@ -140,12 +127,15 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
     const actionVerb = isCreateForm ? "criada" : "editada";
     if (isDirty) {
       setIsLoaded(false);
+
+      if (!isSellTransaction) {
+        delete data.current_currency_conversion_rate;
+      }
       new TransactionsApi(initialData.id)
         [method]({
           ...data,
-          asset_code: data.asset_code.value,
-          currency: data.currency.value,
-          created_at: data.created_at.toLocaleDateString("pt-br"),
+          asset_pk: data.asset.value,
+          operation_date: data.operation_date.toLocaleDateString("pt-br"),
         })
         .then(() => {
           setAlertInfos({
@@ -176,23 +166,24 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
     setShowAlert(true);
   };
 
-  let currencyObj = watch("currency");
+  let assetData = watch("asset");
   return (
     <>
       <form>
         <FormGroup row>
           <FormControl
             style={{ width: "47%", marginRight: "2%" }}
-            error={!!errors.asset_code}
+            error={!!errors.asset}
           >
             <Controller
-              name="asset_code"
+              name="asset"
               control={control}
               defaultValue={
-                initialData.asset_code
+                initialData.asset
                   ? {
-                      value: initialData.asset_code,
-                      label: initialData.asset_code,
+                      value: initialData.asset.pk,
+                      label: initialData.asset.code,
+                      currency: initialData.asset.currency,
                     }
                   : null
               }
@@ -208,17 +199,15 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        error={!!errors.asset_code}
+                        error={!!errors.asset}
                         required
                         label="Ativo"
                       />
                     )}
                   />
-                  {(errors.asset_code?.message ||
-                    errors.asset_code?.value?.message) && (
+                  {(errors.asset?.message || errors.asset?.value?.message) && (
                     <FormHelperText>
-                      {errors.asset_code?.message ||
-                        errors.asset_code?.value?.message}
+                      {errors.asset?.message || errors.asset?.value?.message}
                     </FormHelperText>
                   )}
                 </>
@@ -261,48 +250,27 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
           </FormControl>
         </FormGroup>
         <FormGroup row style={{ marginTop: "10px" }}>
-          <FormControl
-            style={{ width: "32%", marginRight: "2%" }}
-            error={!!errors.currency}
-          >
-            <Controller
-              name="currency"
-              control={control}
-              defaultValue={
-                getChoiceByValue(
-                  initialData.currency,
-                  TransactionCurrenciesMapping
-                ) || TransactionCurrenciesMapping[0]
-              }
-              render={({ field: { onChange, value } }) => (
-                <>
-                  <Autocomplete
-                    onChange={(_, currency) => onChange(currency)}
-                    value={value}
-                    clearText="Limpar"
-                    closeText="Fechar"
-                    options={TransactionCurrenciesMapping}
-                    getOptionLabel={(option) => option.label}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        error={!!errors.currency}
-                        required
-                        label="Moeda"
-                      />
-                    )}
-                  />
-                  {(errors.currency?.message ||
-                    errors.currency?.value?.message) && (
-                    <FormHelperText>
-                      {errors.currency?.message ||
-                        errors.currency?.value?.message}
-                    </FormHelperText>
-                  )}
-                </>
-              )}
-            />
-          </FormControl>
+          <Controller
+            name="price"
+            control={control}
+            defaultValue={initialData.price}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                required
+                label="Preço"
+                InputProps={{
+                  inputComponent: NumberFormatCustom,
+                  inputProps: {
+                    prefix: assetData?.currency === "BRL" ? "R$ " : "US$ ",
+                  },
+                }}
+                style={{ width: "30%", marginRight: "2%" }}
+                error={!!errors.price}
+                helperText={errors.price?.message}
+              />
+            )}
+          />
           <Controller
             name="quantity"
             control={control}
@@ -316,43 +284,20 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                   inputComponent: NumberFormatCustom,
                   inputProps: { prefix: "" },
                 }}
-                style={{ width: "32%", marginRight: "2%" }}
+                style={{ width: "30%", marginRight: "2%" }}
                 error={!!errors.quantity}
                 helperText={errors.quantity?.message}
               />
             )}
           />
-          <Controller
-            name="price"
-            control={control}
-            defaultValue={initialData.price}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                required
-                label="Preço"
-                InputProps={{
-                  inputComponent: NumberFormatCustom,
-                  inputProps: {
-                    prefix: currencyObj?.value === "BRL" ? "R$ " : "$ ",
-                  },
-                }}
-                style={{ width: "32%" }}
-                error={!!errors.price}
-                helperText={errors.price?.message}
-              />
-            )}
-          />
-        </FormGroup>
-        <FormGroup row style={{ marginTop: "15px" }}>
           <MuiPickersUtilsProvider utils={DateFnsUtils}>
             <Controller
-              name="created_at"
+              name="operation_date"
               control={control}
               defaultValue={
-                initialData.created_at
+                initialData.operation_date
                   ? // make sure to include hours and minutes to adjust timezone
-                    new Date(initialData.created_at + "T00:00")
+                    new Date(initialData.operation_date + "T00:00")
                   : new Date()
               }
               render={({ field: { onChange, value } }) => (
@@ -368,13 +313,15 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                   autoOk
                   required
                   format="dd/MM/yyyy"
-                  style={{ width: "32%", marginRight: "2%" }}
-                  error={!!errors.created_at}
-                  helperText={errors.created_at?.message}
+                  style={{ width: "32%" }}
+                  error={!!errors.operation_date}
+                  helperText={errors.operation_date?.message}
                 />
               )}
             />
           </MuiPickersUtilsProvider>
+        </FormGroup>
+        <FormGroup row style={{ marginTop: "10px" }}>
           <Controller
             name="initial_price"
             control={control}
@@ -387,11 +334,11 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                   InputProps={{
                     inputComponent: NumberFormatCustom,
                     inputProps: {
-                      prefix: currencyObj?.value === "BRL" ? "R$ " : "$ ",
+                      prefix: assetData?.currency === "BRL" ? "R$ " : "US$ ",
                     },
                   }}
                   style={{
-                    width: "32%",
+                    width: "30%",
                     marginRight: "2%",
                     display: isSellTransaction ? "" : "none",
                   }}
@@ -402,6 +349,36 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                   }
                 />
               </>
+            )}
+          />
+          <Controller
+            name="current_currency_conversion_rate"
+            control={control}
+            defaultValue={initialData.current_currency_conversion_rate}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                required
+                label="Fator de conversão entre moedas"
+                InputProps={{
+                  inputComponent: NumberFormatCustom,
+                  inputProps: {
+                    prefix: "R$ ",
+                  },
+                }}
+                style={{
+                  width: "60%",
+                  display:
+                    isSellTransaction && assetData?.currency !== "BRL"
+                      ? ""
+                      : "none",
+                }}
+                error={!!errors.current_currency_conversion_rate}
+                helperText={
+                  errors.current_currency_conversion_rate?.message ||
+                  `O valor de 1 ${assetData?.currency}, em reais, no dia que a operação de venda foi realizada`
+                }
+              />
             )}
           />
         </FormGroup>

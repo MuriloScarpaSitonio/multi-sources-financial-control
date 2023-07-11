@@ -112,7 +112,7 @@ export class UserApi extends Api {
 }
 export class AssetsApi extends Api {
   resource = "assets";
-  constructor(code = null) {
+  constructor(id = null) {
     super(
       {
         query: true,
@@ -122,13 +122,11 @@ export class AssetsApi extends Api {
         patch: false,
         delete: true,
       },
-      code
+      id
     );
-    this.simulateTransaction = (code, data) =>
-      apiProvider.post(`${this.resource}/${code}/transactions/simulate`, data);
 
-    this.getCodesAndCurrencies = () =>
-      apiProvider.get(`${this.resource}/codes_and_currencies`);
+    this.getMinimalData = () =>
+      apiProvider.get(`${this.resource}/minimal_data`);
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
     this.totalInvestedReport = (filters = {}) =>
       apiProvider.get(
@@ -223,5 +221,43 @@ export class TransactionsApi extends Api {
 
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
     this.historic = () => apiProvider.get(`${this.resource}/historic`);
+  }
+}
+
+export class AssetTransactionsApi extends Api {
+  constructor(id = null) {
+    super(
+      {
+        query: true,
+        get: false,
+        post: false,
+        put: false,
+        patch: false,
+        delete: false,
+      },
+      id
+    );
+    this.resource = `assets/${id}/transactions`;
+
+    this.simulate = (data) =>
+      apiProvider.post(`${this.resource}/simulate`, data);
+  }
+}
+
+export class AssetIncomessApi extends Api {
+  constructor(id = null) {
+    super(
+      {
+        query: true,
+        get: false,
+        post: false,
+        put: false,
+        patch: false,
+        delete: false,
+      },
+      id
+    );
+
+    this.resource = `assets/${id}/incomes`;
   }
 }

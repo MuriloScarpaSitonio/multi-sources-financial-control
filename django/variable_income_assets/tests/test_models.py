@@ -22,13 +22,16 @@ class TestModels:
     def _test_roi(self, asset: Asset, percentage: bool = False):
         # WHEN
         roi = get_roi_brute_force(asset=asset)
-        initial_investment = sum(
-            (
-                transaction.price * transaction.quantity
-                for transaction in asset.transactions.bought()
+        if percentage:
+            initial_investment = sum(
+                (
+                    transaction.price * transaction.quantity
+                    for transaction in asset.transactions.bought()
+                )
             )
-        )
-        expected = (roi / initial_investment) * 100 if percentage else roi
+            expected = (roi / initial_investment) * 100
+        else:
+            expected = roi
 
         # THEN
         assert round(asset.get_roi(percentage=percentage), 6) == round(expected, 6)
@@ -38,7 +41,7 @@ class TestModels:
     ):
         # GIVEN
         AssetMetaData.objects.filter(
-            code=asset.code, type=asset.type, currency=asset.currency_from_transactions
+            code=asset.code, type=asset.type, currency=asset.currency
         ).update(current_price=current_price)
 
         self._test_roi(asset=asset, percentage=percentage)
@@ -52,6 +55,7 @@ class TestModels:
             initial_price=asset.avg_price_from_transactions,
             price=price,
             asset=asset,
+            current_currency_conversion_rate=1,
             quantity=asset.quantity_from_transactions,
         )
 

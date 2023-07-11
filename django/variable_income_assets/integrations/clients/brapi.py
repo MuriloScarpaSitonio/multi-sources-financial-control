@@ -60,6 +60,8 @@ class BrApiClient:
         return {r["symbol"]: r["regularMarketPrice"] for r in result["results"]}
 
     async def get_crypto_prices(self, codes: list[str], currency: str) -> dict[str, float]:
+        if not codes:
+            return {}
         response = await self._request(
             path="", is_crypto=True, params={"coin": ",".join(codes), "currency": currency}
         )

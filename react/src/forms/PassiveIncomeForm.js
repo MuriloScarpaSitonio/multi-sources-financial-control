@@ -46,7 +46,7 @@ function NumberFormatCustom(props) {
       }
       thousandSeparator="."
       decimalSeparator=","
-      decimalScale={4}
+      decimalScale={2}
       allowNegative={false}
       isNumericString
     />
@@ -54,7 +54,7 @@ function NumberFormatCustom(props) {
 }
 
 const schema = yup.object().shape({
-  asset_code: yup
+  asset: yup
     .object()
     .shape({
       label: yup.string().required("O ativo é obrigatório"),
@@ -92,6 +92,7 @@ const schema = yup.object().shape({
     .date()
     .required("A data é obrigatória")
     .typeError("Data inválida"),
+  current_currency_conversion_rate: yup.number().nullable(),
 });
 
 export const PassiveIncomeForm = ({
@@ -103,14 +104,21 @@ export const PassiveIncomeForm = ({
   const [codes, setCodes] = useState([]);
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
+  let initialEventType =
+    getChoiceByLabel(initialData.event_type, PassiveIncomeEventTypesMapping)
+      ?.value || "PROVISIONED";
+  const [isCreditedIncome, setIsCreditedIncome] = useState(
+    initialEventType === "CREDITED"
+  );
 
   useEffect(
     () =>
-      new AssetsApi().getCodesAndCurrencies().then((response) => {
+      new AssetsApi().getMinimalData().then((response) => {
         setCodes(
           response.data.map((asset) => ({
             label: asset.code,
-            value: asset.code,
+            value: asset.pk,
+            currency: asset.currency,
           }))
         );
       }),
@@ -122,6 +130,7 @@ export const PassiveIncomeForm = ({
     control,
     handleSubmit,
     formState: { errors, isDirty },
+    watch,
   } = useForm({
     mode: "all",
     resolver: yupResolver(schema),
@@ -132,10 +141,13 @@ export const PassiveIncomeForm = ({
     const actionVerb = isCreateForm ? "criado" : "editado";
     if (isDirty) {
       setIsLoaded(false);
+      if (!isCreditedIncome) {
+        delete data.current_currency_conversion_rate;
+      }
       new PassiveIncomesApi(initialData.id)
         [method]({
           ...data,
-          asset_code: data.asset_code.value,
+          asset_pk: data.asset.value,
           type: data.type.value,
           event_type: data.event_type.value,
           operation_date: data.operation_date.toLocaleDateString("pt-br"),
@@ -169,22 +181,24 @@ export const PassiveIncomeForm = ({
     setShowAlert(true);
   };
 
+  let assetData = watch("asset");
   return (
     <>
       <form>
         <FormGroup row>
           <FormControl
             style={{ width: "49%", marginRight: "2%" }}
-            error={!!errors.asset_code}
+            error={!!errors.asset}
           >
             <Controller
-              name="asset_code"
+              name="asset"
               control={control}
               defaultValue={
-                initialData.asset_code
+                initialData.asset
                   ? {
-                      value: initialData.asset_code,
-                      label: initialData.asset_code,
+                      value: initialData.asset.pk,
+                      label: initialData.asset.code,
+                      currency: initialData.asset.currency,
                     }
                   : null
               }
@@ -200,17 +214,15 @@ export const PassiveIncomeForm = ({
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        error={!!errors.asset_code}
+                        error={!!errors.asset}
                         required
                         label="Ativo"
                       />
                     )}
                   />
-                  {(errors.asset_code?.message ||
-                    errors.asset_code?.value?.message) && (
+                  {(errors.asset?.message || errors.asset?.value?.message) && (
                     <FormHelperText>
-                      {errors.asset_code?.message ||
-                        errors.asset_code?.value?.message}
+                      {errors.asset?.message || errors.asset?.value?.message}
                     </FormHelperText>
                   )}
                 </>
@@ -256,7 +268,7 @@ export const PassiveIncomeForm = ({
         <FormGroup row style={{ marginTop: "10px" }}>
           <FormControl
             style={{ width: "32%", marginRight: "2%" }}
-            error={!!errors.type}
+            error={!!errors.amount}
           >
             <Controller
               name="amount"
@@ -269,7 +281,9 @@ export const PassiveIncomeForm = ({
                   label="Montante"
                   InputProps={{
                     inputComponent: NumberFormatCustom,
-                    inputProps: { prefix: "" },
+                    inputProps: {
+                      prefix: assetData?.currency === "BRL" ? "R$ " : "US$ ",
+                    },
                   }}
                   error={!!errors.amount}
                   helperText={errors.amount?.message}
@@ -293,7 +307,10 @@ export const PassiveIncomeForm = ({
               render={({ field: { onChange, value } }) => (
                 <>
                   <Autocomplete
-                    onChange={(_, eventType) => onChange(eventType)}
+                    onChange={(_, eventType) => {
+                      setIsCreditedIncome(eventType.value === "CREDITED");
+                      onChange(eventType);
+                    }}
                     value={value}
                     clearText="Limpar"
                     closeText="Fechar"
@@ -349,6 +366,37 @@ export const PassiveIncomeForm = ({
               )}
             />
           </MuiPickersUtilsProvider>
+        </FormGroup>
+        <FormGroup row style={{ marginTop: "10px" }}>
+          <Controller
+            name="current_currency_conversion_rate"
+            control={control}
+            defaultValue={initialData.current_currency_conversion_rate}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                required
+                label="Fator de conversão entre moedas"
+                InputProps={{
+                  inputComponent: NumberFormatCustom,
+                  inputProps: {
+                    prefix: "R$ ",
+                  },
+                }}
+                style={{
+                  display:
+                    isCreditedIncome && assetData?.currency !== "BRL"
+                      ? ""
+                      : "none",
+                }}
+                error={!!errors.current_currency_conversion_rate}
+                helperText={
+                  errors.current_currency_conversion_rate?.message ||
+                  `O valor de 1 ${assetData?.currency}, em reais, no dia que o rendimento foi creditado`
+                }
+              />
+            )}
+          />
         </FormGroup>
         <DialogActions>
           <Button onClick={handleClose}>Cancelar</Button>

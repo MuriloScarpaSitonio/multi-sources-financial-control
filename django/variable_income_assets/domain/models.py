@@ -1,27 +1,31 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from .events import Event
-from .exceptions import MultipleCurrenciesNotAllowedException, NegativeQuantityNotAllowedException
-from ..choices import TransactionActions, TransactionCurrencies
+from .exceptions import (
+    CurrencyConversionRateNotNullWhenActionIsBuy,
+    CurrencyConversionRateNullOrOneForNonBrlAssets,
+    NegativeQuantityNotAllowedException,
+)
+from ..choices import Currencies, PassiveIncomeEventTypes, PassiveIncomeTypes, TransactionActions
 
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     from ..models import Transaction
 
 
 @dataclass
 class TransactionDTO:
     action: TransactionActions
-    currency: TransactionCurrencies
     quantity: Decimal
     price: Decimal
-    created_at: datetime | None = None
+    operation_date: date
     initial_price: Decimal | None = None
+    current_currency_conversion_rate: Decimal | None = None
     external_id: str | None = None
     fetched_by_id: int | None = None
 
@@ -30,60 +34,73 @@ class TransactionDTO:
         return self.action == TransactionActions.sell
 
 
+@dataclass
+class PassiveIncomeDTO:  # TODO?
+    type: PassiveIncomeTypes
+    event_type: PassiveIncomeEventTypes
+    quantity: Decimal
+    amount: Decimal
+    operation_date: date
+    current_currency_conversion_rate: Decimal | None = None
+
+
 class Asset:
     def __init__(
         self,
-        quantity: Decimal,
-        avg_price: Decimal,
-        currency: TransactionCurrencies | None = None,
+        quantity_balance: Decimal,
+        currency: Currencies | None = None,
+        avg_price: Decimal | None = None,
     ) -> None:
-        self.quantity = quantity
-        self.avg_price = avg_price
+        self.quantity_balance = quantity_balance
         self.currency = currency
+        self.avg_price = avg_price
 
         self._transactions: list[TransactionDTO] = []
         self.events: list[Event] = []
 
-    def _validate_transaction_currency(self, transaction_dto: TransactionDTO) -> None:
-        if self.currency is not None and self.currency != transaction_dto.currency:
-            raise MultipleCurrenciesNotAllowedException(asset_currency=self.currency)
+    def add_transaction(self, transaction_dto: TransactionDTO) -> None:
+        if transaction_dto.is_sale:
+            if transaction_dto.quantity > self.quantity_balance:
+                raise NegativeQuantityNotAllowedException
 
-    def _validate_transaction_quantity_on_creation(self, transaction_dto: TransactionDTO) -> None:
-        if transaction_dto.is_sale and transaction_dto.quantity > self.quantity:
-            raise NegativeQuantityNotAllowedException()
+            if transaction_dto.initial_price is None:
+                transaction_dto.initial_price = self.avg_price
 
-    def _validate_transaction_quantity_on_update(
-        self, transaction: Transaction, dto: TransactionDTO
-    ) -> None:
-        if dto.is_sale and transaction.quantity != dto.quantity and dto.quantity > self.quantity:
-            raise NegativeQuantityNotAllowedException()
-
-        if (
-            dto.is_sale
-            and transaction.action != dto.action
-            and (self.quantity - (dto.quantity + transaction.quantity) < 0)
-        ):
-            raise NegativeQuantityNotAllowedException()
-
-    def add_transaction(self, transaction_dto: TransactionDTO) -> TransactionDTO:
-        self._validate_transaction_currency(transaction_dto=transaction_dto)
-        self._validate_transaction_quantity_on_creation(transaction_dto=transaction_dto)
-
-        if transaction_dto.is_sale and transaction_dto.initial_price is None:
-            transaction_dto.initial_price = self.avg_price
+            if self.currency == Currencies.real:
+                transaction_dto.current_currency_conversion_rate = 1
+            else:
+                if transaction_dto.current_currency_conversion_rate in (None, 1):
+                    raise CurrencyConversionRateNullOrOneForNonBrlAssets
+        else:
+            if transaction_dto.current_currency_conversion_rate is not None:
+                raise CurrencyConversionRateNotNullWhenActionIsBuy
 
         self._transactions.append(transaction_dto)
 
-    def update_transaction(self, dto: TransactionDTO, transaction: Transaction) -> Transaction:
-        self._validate_transaction_currency(transaction_dto=dto)
-        self._validate_transaction_quantity_on_update(transaction=transaction, dto=dto)
+    def update_transaction(self, dto: TransactionDTO, transaction: Transaction) -> TransactionDTO:
+        if dto.is_sale:
+            if transaction.quantity != dto.quantity and dto.quantity > self.quantity_balance:
+                raise NegativeQuantityNotAllowedException()
 
-        if dto.is_sale and dto.initial_price is None:
-            dto.initial_price = self.avg_price
+            if transaction.action != dto.action and (
+                self.quantity_balance - (dto.quantity + transaction.quantity) < 0
+            ):
+                raise NegativeQuantityNotAllowedException()
 
+            if dto.initial_price is None:
+                dto.initial_price = self.avg_price
+
+            if self.currency == Currencies.real:
+                dto.current_currency_conversion_rate = 1
+            else:
+                if dto.current_currency_conversion_rate in (None, 1):
+                    raise CurrencyConversionRateNullOrOneForNonBrlAssets
+        else:
+            if dto.current_currency_conversion_rate is not None:
+                raise CurrencyConversionRateNotNullWhenActionIsBuy
         self._transactions.append(dto)
         return dto
 
     def validate_delete_transaction_command(self, dto: TransactionDTO) -> None:
-        if not dto.is_sale and (self.quantity - dto.quantity) < 0:
+        if not dto.is_sale and (self.quantity_balance - dto.quantity) < 0:
             raise NegativeQuantityNotAllowedException()

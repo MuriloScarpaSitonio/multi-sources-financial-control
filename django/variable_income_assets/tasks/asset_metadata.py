@@ -1,26 +1,38 @@
+from functools import singledispatch
+
 from django.utils import timezone
 
-from .utils import guess_currency, fetch_asset_current_price, fetch_asset_sector
+from .utils import fetch_asset_current_price, fetch_asset_sector
 from ..models import Asset
 from ..adapters.repositories import DjangoSQLAssetMetaDataRepository
 
 
 # TODO: UoW?!
-def maybe_create_asset_metadata(asset_pk: int) -> None:
-    asset: Asset = Asset.objects.annotate_currency().only("code", "type").get(pk=asset_pk)
+@singledispatch
+def maybe_create_asset_metadata(asset: int, **defaults) -> None:
+    asset: Asset = Asset.objects.only("code", "type", "currency").get(pk=asset)
+    _maybe_create_asset_metadata(asset=asset, **defaults)
 
-    currencies = (asset.currency,) if asset.currency else guess_currency(asset_type=asset.type)
-    for currency in currencies:
-        repository = DjangoSQLAssetMetaDataRepository(
-            code=asset.code, type=asset.type, currency=currency
-        )
-        if repository.exists():
-            continue
 
+@maybe_create_asset_metadata.register
+def _(asset: Asset, **defaults) -> None:
+    _maybe_create_asset_metadata(asset=asset, **defaults)
+
+
+def _maybe_create_asset_metadata(asset: Asset, **defaults) -> None:
+    repository = DjangoSQLAssetMetaDataRepository(
+        code=asset.code, type=asset.type, currency=asset.currency
+    )
+    if not repository.exists():
         repository.create(
-            sector=fetch_asset_sector(code=asset.code, asset_type=asset.type),
-            current_price=fetch_asset_current_price(
-                code=asset.code, asset_type=asset.type, currency=currency
+            sector=defaults.get(
+                "sector", fetch_asset_sector(code=asset.code, asset_type=asset.type)
             ),
-            current_price_updated_at=timezone.now(),
+            current_price=defaults.get(
+                "current_price",
+                fetch_asset_current_price(
+                    code=asset.code, asset_type=asset.type, currency=asset.currency
+                ),
+            ),
+            current_price_updated_at=defaults.get("current_price_updated_at", timezone.now()),
         )

@@ -168,6 +168,7 @@ REVENUES_API_URL = secret("REVENUES_API_URL", default="http://localhost:5050/")
 REVENUES_API_SECRET_KEY = secret(
     "REVENUES_API_SECRET_KEY", default="^ko+7^$@c4=!mzn58hdgs8xydak4@by7g&@@%&4a_kgb42g&__"
 )
+TWELVE_DATA_API_KEY = secret("TWELVE_DATA_API_KEY", default="")
 
 DYNAMIC_BACKEND = "config.settings.dynamic.backends.memory.MemoryBackend"
 DYNAMIC_CONFIGS = {

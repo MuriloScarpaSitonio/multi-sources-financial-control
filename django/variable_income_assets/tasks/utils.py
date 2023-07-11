@@ -1,15 +1,15 @@
+from datetime import date
 from decimal import Decimal
 
 from asgiref.sync import async_to_sync
 
-from ..choices import AssetSectors, AssetTypes, TransactionCurrencies
-from ..integrations.helpers import get_crypto_prices, get_stock_prices, get_stocks_usa_prices
+from config.settings.dynamic import dynamic_settings
+
+from ..choices import AssetSectors, AssetTypes, Currencies
+from ..integrations.helpers import get_crypto_prices, get_b3_prices, get_stocks_usa_prices
 
 
-def guess_currency(asset_type: AssetTypes) -> tuple[TransactionCurrencies, ...]:
-    return AssetTypes.get_choice(asset_type).valid_currencies
-
-
+# TODO: fetch API
 def fetch_asset_sector(code: str, asset_type: AssetTypes) -> AssetSectors:
     sector = AssetSectors.unknown
     if asset_type == AssetTypes.crypto:
@@ -19,12 +19,10 @@ def fetch_asset_sector(code: str, asset_type: AssetTypes) -> AssetSectors:
     return sector
 
 
-def fetch_asset_current_price(
-    code: str, asset_type: AssetTypes, currency: TransactionCurrencies
-) -> Decimal:
+def fetch_asset_current_price(code: str, asset_type: AssetTypes, currency: Currencies) -> Decimal:
     kwargs = {"codes": (code,)}
     if asset_type == AssetTypes.stock:
-        coro = get_stock_prices
+        coro = get_b3_prices
     elif asset_type == AssetTypes.stock_usa:
         coro = get_stocks_usa_prices
     elif asset_type == AssetTypes.crypto:
@@ -37,3 +35,10 @@ def fetch_asset_current_price(
     except Exception:
         # TODO: log error
         return Decimal()
+
+
+# TODO: fetch API
+def fetch_currency_conversion_rate(operation_date: date, currency: Currencies) -> Decimal | None:
+    if currency == Currencies.real:
+        return Decimal("1")
+    return dynamic_settings.DOLLAR_CONVERSION_RATE

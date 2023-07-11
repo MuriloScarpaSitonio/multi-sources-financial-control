@@ -17,16 +17,16 @@ def create_transactions(cmd: commands.CreateTransactions, uow: AbstractUnitOfWor
         for dto in cmd.asset._transactions:
             uow.assets.transactions.add(dto=dto)
 
-        cmd.asset.events.append(
-            events.TransactionsCreated(asset_pk=uow.asset_pk, new_asset=cmd.new_asset)
-        )
+        if cmd.dispatch_event:
+            cmd.asset.events.append(events.TransactionsCreated(asset_pk=uow.asset_pk))
+
         uow.assets.seen.add(cmd.asset)
         uow.commit()
 
 
 def update_transaction(cmd: commands.UpdateTransaction, uow: AbstractUnitOfWork) -> Transaction:
     with uow:
-        uow.assets.transactions.update(dto=cmd.asset._transactions[0], transaction=cmd.transaction)
+        uow.assets.transactions.update(dto=cmd.asset._transactions[0], entity=cmd.transaction)
         cmd.asset.events.append(events.TransactionUpdated(asset_pk=uow.asset_pk))
         uow.assets.seen.add(cmd.asset)
         uow.commit()
@@ -35,7 +35,7 @@ def update_transaction(cmd: commands.UpdateTransaction, uow: AbstractUnitOfWork)
 
 def delete_transaction(cmd: commands.DeleteTransaction, uow: AbstractUnitOfWork) -> None:
     with uow:
-        uow.assets.transactions.delete(transaction=cmd.transaction)
+        uow.assets.transactions.delete(entity=cmd.transaction)
         cmd.asset.events.append(events.TransactionDeleted(asset_pk=uow.asset_pk))
         uow.assets.seen.add(cmd.asset)
         uow.commit()
@@ -103,6 +103,5 @@ def check_monthly_selling_transaction_threshold(
 
 
 # TODO: convert to async
-def upsert_asset_related_models(event: events.AssetCreated, _: AbstractUnitOfWork):
-    maybe_create_asset_metadata(asset_pk=event.asset_pk)
-    upsert_asset_read_model(asset_id=event.asset_pk)
+def maybe_create_metadata(event: events.AssetCreated, _: AbstractUnitOfWork):
+    maybe_create_asset_metadata(event.asset_pk)

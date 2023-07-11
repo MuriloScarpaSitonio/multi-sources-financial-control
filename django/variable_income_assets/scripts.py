@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from config.settings.dynamic import dynamic_settings
 
-from .choices import AssetTypes, PassiveIncomeTypes, TransactionActions, TransactionCurrencies
+from .choices import AssetTypes, PassiveIncomeTypes, TransactionActions, Currencies
 from .models import Asset, Transaction
 
 if TYPE_CHECKING:
@@ -25,7 +25,7 @@ def _print_assets_portfolio(qs: AssetQuerySet[Asset], year: int) -> None:
         start=1,
     ):
         # Preço médio sempre na moeda original e total em reais
-        currency_symbol = TransactionCurrencies.get_choice(asset["currency"]).symbol
+        currency_symbol = Currencies.get_choice(asset["currency"]).symbol
         results.append(f"{i}. {asset['code']}")
         results.append(f"\tQuantidade: {asset['transactions_balance']}".replace(".", ","))
         results.append(f"\tPreço médio: {currency_symbol} {asset['avg_price']}".replace(".", ","))
@@ -49,11 +49,11 @@ def _print_credited_incomes(qs: AssetQuerySet[Asset], year: int) -> None:
         results = []
         for i, a in enumerate(
             qs.annotate_credited_incomes_at_given_year(year=year, incomes_type=value)
-            .filter(credited_incomes_total__gt=0)
-            .values("code", "credited_incomes_total"),
+            .filter(normalized_credited_incomes_total__gt=0)
+            .values("code", "normalized_credited_incomes_total"),
             start=1,
         ):
-            results.append(f"{i}. {a['code']} -> {a['credited_incomes_total']}")
+            results.append(f"{i}. {a['code']} -> {a['normalized_credited_incomes_total']}")
         if results:
             print(f"\n\n------------ {label.upper()} (seção {mapping[value]}) ------------\n\n")
             print(*results, sep="\n")
@@ -63,11 +63,11 @@ def _print_credited_jcps(qs: AssetQuerySet[Asset], year: int) -> None:
     results = []
     for i, a in enumerate(
         qs.annotate_credited_incomes_at_given_year(year=year, incomes_type=PassiveIncomeTypes.jcp)
-        .filter(credited_incomes_total__gt=0)
-        .values("code", "credited_incomes_total"),
+        .filter(normalized_credited_incomes_total__gt=0)
+        .values("code", "normalized_credited_incomes_total"),
         start=1,
     ):
-        results.append(f"\t\t{i}. {a['code']} -> {a['credited_incomes_total']}")
+        results.append(f"\t\t{i}. {a['code']} -> {a['normalized_credited_incomes_total']}")
 
     if results:
         print(
@@ -80,7 +80,7 @@ def _print_credited_jcps(qs: AssetQuerySet[Asset], year: int) -> None:
 
 def _print_stocks_elegible_for_taxation(user_pk: int, year: int, debug: bool):
     qs = Transaction.objects.filter(
-        asset__user_id=user_pk, asset__type=AssetTypes.stock, created_at__year=year
+        asset__user_id=user_pk, asset__type=AssetTypes.stock, operation_date__year=year
     )
     results = []
     for infos in (
@@ -93,7 +93,7 @@ def _print_stocks_elegible_for_taxation(user_pk: int, year: int, debug: bool):
         roi = Decimal()
         for t in (
             qs.annotate(asset_code=F("asset__code"))
-            .filter(created_at__month=month, action=TransactionActions.sell)
+            .filter(operation_date__month=month, action=TransactionActions.sell)
             .annotate_raw_roi()
             .only("quantity", "price", "initial_price")
             .order_by("asset_code")
@@ -124,7 +124,7 @@ def _print_stocks_usa_elegible_for_taxation(
     user_pk: int, year: int, debug: bool, normalize: bool, dollar_conversion_rate: Decimal
 ):
     qs = Transaction.objects.using_dollar_as(dollar_conversion_rate).filter(
-        asset__user_id=user_pk, asset__type=AssetTypes.stock_usa, created_at__year=year
+        asset__user_id=user_pk, asset__type=AssetTypes.stock_usa, operation_date__year=year
     )
     results = []
     for infos in (
@@ -137,7 +137,7 @@ def _print_stocks_usa_elegible_for_taxation(
         roi = Decimal()
         for t in (
             qs.annotate(asset_code=F("asset__code"))
-            .filter(created_at__month=month, action=TransactionActions.sell)
+            .filter(operation_date__month=month, action=TransactionActions.sell)
             .annotate_raw_roi(normalize=normalize)
             .only("quantity", "price", "initial_price")
             .order_by("asset_code")
@@ -171,7 +171,7 @@ def _print_cryptos_elegible_for_taxation(
 ):
     results = []
     qs = Transaction.objects.using_dollar_as(dollar_conversion_rate).filter(
-        asset__user_id=user_pk, asset__type=AssetTypes.crypto, created_at__year=year
+        asset__user_id=user_pk, asset__type=AssetTypes.crypto, operation_date__year=year
     )
     for infos in (
         qs.historic()
@@ -183,7 +183,7 @@ def _print_cryptos_elegible_for_taxation(
         roi = Decimal()
         for t in (
             qs.annotate(asset_code=F("asset__code"))
-            .filter(created_at__month=month, action=TransactionActions.sell)
+            .filter(operation_date__month=month, action=TransactionActions.sell)
             .annotate_raw_roi(normalize=normalize)
             .only("quantity", "price", "initial_price", "roi", "roi")
             .order_by("asset_code")
@@ -214,7 +214,7 @@ def _print_cryptos_elegible_for_taxation(
 
 def _print_fiis_elegible_for_taxation(user_pk: int, year: int, debug: bool):
     qs = Transaction.objects.filter(
-        asset__user_id=user_pk, asset__type=AssetTypes.fii, created_at__year=year
+        asset__user_id=user_pk, asset__type=AssetTypes.fii, operation_date__year=year
     )
     results = []
     for infos in (
@@ -227,7 +227,7 @@ def _print_fiis_elegible_for_taxation(user_pk: int, year: int, debug: bool):
         roi = Decimal()
         for t in (
             qs.annotate(asset_code=F("asset__code"))
-            .filter(created_at__month=month, action=TransactionActions.sell)
+            .filter(operation_date__month=month, action=TransactionActions.sell)
             .annotate_raw_roi()
             .only("quantity", "price", "initial_price")
             .order_by("asset_code")
@@ -257,7 +257,7 @@ def _print_fiis_elegible_for_taxation(user_pk: int, year: int, debug: bool):
 
 def _print_stocks_not_elegible_for_taxation(user_pk: int, year: int, debug: bool):
     qs = Transaction.objects.filter(
-        asset__user_id=user_pk, asset__type=AssetTypes.stock, created_at__year=year
+        asset__user_id=user_pk, asset__type=AssetTypes.stock, operation_date__year=year
     )
     loss_section = "seção 'Renda Variável', opção 'Operações Comuns / Day Trade'"
     profit_section = (
@@ -279,7 +279,7 @@ def _print_stocks_not_elegible_for_taxation(user_pk: int, year: int, debug: bool
         asset_losses = Decimal()
         for t in (
             qs.annotate(asset_code=F("asset__code"))
-            .filter(created_at__month=month, action=TransactionActions.sell)
+            .filter(operation_date__month=month, action=TransactionActions.sell)
             .annotate_raw_roi()
             .only("quantity", "price", "initial_price")
             .order_by("asset_code")
@@ -316,7 +316,7 @@ def _print_stocks_usa_not_elegible_for_taxation(
     user_pk: int, year: int, debug: bool, normalize: bool, dollar_conversion_rate: Decimal
 ):
     qs = Transaction.objects.using_dollar_as(dollar_conversion_rate).filter(
-        asset__user_id=user_pk, asset__type=AssetTypes.stock_usa, created_at__year=year
+        asset__user_id=user_pk, asset__type=AssetTypes.stock_usa, operation_date__year=year
     )
     loss_section = "seção 'Renda Variável', opção 'Operações Comuns / Day Trade'"
     profit_section = (
@@ -339,7 +339,7 @@ def _print_stocks_usa_not_elegible_for_taxation(
         asset_losses = Decimal()
         for t in (
             qs.annotate(asset_code=F("asset__code"))
-            .filter(created_at__month=month, action=TransactionActions.sell)
+            .filter(operation_date__month=month, action=TransactionActions.sell)
             .annotate_raw_roi(normalize=normalize)
             .only("quantity", "price", "initial_price")
             .order_by("asset_code")
@@ -378,7 +378,7 @@ def _print_cryptos_not_elegible_for_taxation(
     user_pk: int, year: int, debug: bool, normalize: bool, dollar_conversion_rate: Decimal
 ):
     qs = Transaction.objects.using_dollar_as(dollar_conversion_rate).filter(
-        asset__user_id=user_pk, asset__type=AssetTypes.crypto, created_at__year=year
+        asset__user_id=user_pk, asset__type=AssetTypes.crypto, operation_date__year=year
     )
     loss_section = (
         "seção 'Ganhos de Capital', importando na opção "
@@ -404,7 +404,7 @@ def _print_cryptos_not_elegible_for_taxation(
         asset_losses = Decimal()
         for t in (
             qs.annotate(asset_code=F("asset__code"))
-            .filter(created_at__month=month, action=TransactionActions.sell)
+            .filter(operation_date__month=month, action=TransactionActions.sell)
             .annotate_raw_roi(normalize=normalize)
             .only("quantity", "price", "initial_price")
             .order_by("asset_code")

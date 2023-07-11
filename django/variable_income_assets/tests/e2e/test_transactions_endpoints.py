@@ -25,7 +25,7 @@ from authentication.tests.conftest import (
 from config.settings.base import BASE_API_URL
 from config.settings.dynamic import dynamic_settings
 from tasks.models import TaskHistory
-from variable_income_assets.choices import AssetTypes, TransactionActions, TransactionCurrencies
+from variable_income_assets.choices import AssetTypes, TransactionActions, Currencies
 from variable_income_assets.models import Transaction
 from variable_income_assets.tests.shared import convert_and_quantitize
 
@@ -33,13 +33,14 @@ pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "transactions"
 
 
-def test__create(client, stock_asset, mocker):
+def test__create__buy(client, stock_asset, mocker):
     # GIVEN
     data = {
         "action": TransactionActions.buy,
         "price": 10,
         "quantity": 100,
-        "asset_code": stock_asset.code,
+        "asset_pk": stock_asset.pk,
+        "operation_date": "12/12/2022",
     }
     mocked_task = mocker.patch(
         "variable_income_assets.service_layer.handlers.upsert_asset_read_model"
@@ -53,19 +54,33 @@ def test__create(client, stock_asset, mocker):
     assert mocked_task.call_args[1] == {"asset_id": stock_asset.pk, "is_aggregate_upsert": True}
 
     assert response.status_code == HTTP_201_CREATED
-    assert Transaction.objects.filter(asset=stock_asset).count() == 1
+    assert Transaction.objects.filter(current_currency_conversion_rate__isnull=True).count() == 1
 
 
 @pytest.mark.usefixtures("buy_transaction")
-def test__create__sell_w_initial_price(client, stock_asset, mocker):
+@pytest.mark.parametrize(
+    "data",
+    (
+        {
+            "action": TransactionActions.sell,
+            "price": 10,
+            "quantity": 50,
+            "operation_date": "12/12/2022",
+            "initial_price": 8,
+        },
+        {
+            "action": TransactionActions.sell,
+            "price": 10,
+            "quantity": 50,
+            "operation_date": "12/12/2022",
+            "initial_price": 9,
+            "current_currency_conversion_rate": 5,
+        },
+    ),
+)
+def test__create__sell__stock__w_initial_price(client, data, stock_asset, mocker):
     # GIVEN
-    data = {
-        "action": TransactionActions.sell,
-        "price": 10,
-        "quantity": 50,
-        "asset_code": stock_asset.code,
-        "initial_price": 8,
-    }
+    data["asset_pk"] = stock_asset.pk
     mocker.patch("variable_income_assets.service_layer.handlers.upsert_asset_read_model")
 
     # WHEN
@@ -74,17 +89,25 @@ def test__create__sell_w_initial_price(client, stock_asset, mocker):
     # THEN
     assert response.status_code == HTTP_201_CREATED
     assert Transaction.objects.count() == 2
-    assert Transaction.objects.filter(action=TransactionActions.sell, initial_price=8).count() == 1
+    assert (
+        Transaction.objects.filter(
+            action=TransactionActions.sell,
+            initial_price=data["initial_price"],
+            current_currency_conversion_rate=1,
+        ).count()
+        == 1
+    )
 
 
 @pytest.mark.usefixtures("buy_transaction")
-def test__create__sell_wo_initial_price_should_use_avg_price(client, stock_asset, mocker):
+def test__create__sell__stock__wo_initial_price_should_use_avg_price(client, stock_asset, mocker):
     # GIVEN
     data = {
         "action": TransactionActions.sell,
         "price": 10,
         "quantity": 50,
-        "asset_code": stock_asset.code,
+        "operation_date": "12/12/2022",
+        "asset_pk": stock_asset.pk,
     }
     mocker.patch("variable_income_assets.service_layer.handlers.upsert_asset_read_model")
 
@@ -96,15 +119,85 @@ def test__create__sell_wo_initial_price_should_use_avg_price(client, stock_asset
     assert Transaction.objects.count() == 2
     assert (
         Transaction.objects.filter(
-            action=TransactionActions.sell, initial_price=stock_asset.avg_price_from_transactions
+            action=TransactionActions.sell,
+            initial_price=stock_asset.avg_price_from_transactions,
+            current_currency_conversion_rate=1,
         ).count()
         == 1
     )
 
 
+@pytest.mark.usefixtures("stock_usa_transaction")
+def test__create__sell__stock_usa(client, stock_usa_asset, mocker):
+    # GIVEN
+    data = {
+        "action": TransactionActions.sell,
+        "price": 10,
+        "quantity": 50,
+        "operation_date": "12/12/2022",
+        "asset_pk": stock_usa_asset.pk,
+        "current_currency_conversion_rate": 5,
+    }
+    mocker.patch("variable_income_assets.service_layer.handlers.upsert_asset_read_model")
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+    assert Transaction.objects.count() == 2
+    assert (
+        Transaction.objects.filter(
+            action=TransactionActions.sell, current_currency_conversion_rate=5
+        ).count()
+        == 1
+    )
+
+
+@pytest.mark.usefixtures("stock_usa_transaction")
+@pytest.mark.parametrize(
+    "data",
+    (
+        {
+            "action": TransactionActions.sell,
+            "price": 10,
+            "quantity": 50,
+            "operation_date": "12/12/2022",
+        },
+        {
+            "action": TransactionActions.sell,
+            "price": 10,
+            "quantity": 50,
+            "operation_date": "12/12/2022",
+            "current_currency_conversion_rate": 1,
+        },
+    ),
+)
+def test__create__sell__stock_usa__current_currency_conversion_rate(client, data, stock_usa_asset):
+    # GIVEN
+    data["asset_pk"] = stock_usa_asset.pk
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "current_currency_conversion_rate": (
+            "This value can't be ommited or set to 1 if the asset's currency is different than BRL"
+        )
+    }
+
+
 def test__create__should_raise_error_if_asset_does_not_exist(client):
     # GIVEN
-    data = {"action": TransactionActions.buy, "price": 10, "quantity": 100, "asset_code": "ALUP11"}
+    data = {
+        "action": TransactionActions.buy,
+        "price": 10,
+        "quantity": 100,
+        "operation_date": "12/12/2022",
+        "asset_pk": 2147632814763784,
+    }
 
     # WHEN
     response = client.post(URL, data=data)
@@ -121,7 +214,8 @@ def test__create__should_raise_error_if_initial_price_is_null(client, stock_asse
         "action": TransactionActions.sell,
         "price": 10,
         "quantity": 100,
-        "asset_code": stock_asset.code,
+        "operation_date": "12/12/2022",
+        "asset_pk": stock_asset.pk,
         "initial_price": None,
     }
 
@@ -140,7 +234,8 @@ def test__create__should_raise_error_if_sell_transaction_and_no_transactions(cli
         "action": TransactionActions.sell,
         "price": 10,
         "quantity": 100,
-        "asset_code": stock_asset.code,
+        "operation_date": "12/12/2022",
+        "asset_pk": stock_asset.pk,
     }
 
     # WHEN
@@ -152,14 +247,14 @@ def test__create__should_raise_error_if_sell_transaction_and_no_transactions(cli
     assert Transaction.objects.count() == 0
 
 
-@pytest.mark.usefixtures("stock_asset")
-def test__create__should_raise_error_if_sell_transaction_and_no_asset(client):
+def test__create__should_raise_error_if_sell_transaction_and_no_asset(client, stock_asset):
     # GIVEN
     data = {
         "action": TransactionActions.sell,
         "price": 10,
         "quantity": 100,
-        "asset_code": "ALUP11",
+        "operation_date": "12/12/2022",
+        "asset_pk": stock_asset.pk,
     }
 
     # WHEN
@@ -169,32 +264,6 @@ def test__create__should_raise_error_if_sell_transaction_and_no_asset(client):
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {"action": "You can't sell more assets than you own"}
     assert Transaction.objects.count() == 0
-
-
-@pytest.mark.usefixtures("buy_transaction")
-def test__create__should_raise_error_if_different_currency(client, stock_asset):
-    # GIVEN
-    data = {
-        "action": TransactionActions.buy,
-        "price": 10,
-        "quantity": 100,
-        "asset_code": stock_asset.code,
-        "currency": TransactionCurrencies.dollar,
-    }
-
-    # WHEN
-    response = client.post(URL, data=data)
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {
-        "currency": (
-            "Only one currency per asset is supported. "
-            f"Current currency: {TransactionCurrencies.real}"
-        )
-    }
-
-    assert Transaction.objects.count() == 1
 
 
 @pytest.mark.skip("Skip while not implemented yet")
@@ -207,6 +276,7 @@ def test__create__sell_stock_eq_threshold(client, stock_asset, mocker):
         "action": TransactionActions.sell,
         "price": 200,
         "quantity": 100,
+        "operation_date": "12/12/2022",
         "asset_code": stock_asset.code,
     }
     mocked_task = mocker.patch(
@@ -233,6 +303,7 @@ def test__create__sell_stock_gt_threshold(client, stock_asset, mocker):
         "action": TransactionActions.sell,
         "price": 201,
         "quantity": 100,
+        "operation_date": "12/12/2022",
         "asset_code": stock_asset.code,
     }
     mocked_task = mocker.patch(
@@ -256,7 +327,7 @@ def test__update(client, buy_transaction, mocker):
         "action": buy_transaction.action,
         "price": buy_transaction.price + 1,
         "quantity": buy_transaction.quantity,
-        "asset_code": buy_transaction.asset.code,
+        "operation_date": buy_transaction.operation_date.strftime("%d/%m/%Y"),
     }
     mocked_task = mocker.patch(
         "variable_income_assets.service_layer.handlers.upsert_asset_read_model"
@@ -273,10 +344,6 @@ def test__update(client, buy_transaction, mocker):
     }
 
     assert response.status_code == HTTP_200_OK
-    for k, v in data.items():
-        if k == "action":
-            continue
-        assert response.json()[k] == v
 
     buy_transaction.refresh_from_db()
     assert buy_transaction.price == data["price"]
@@ -289,7 +356,7 @@ def test__update__transaction_does_not_belong_to_user(kucoin_client, buy_transac
         "action": buy_transaction.action,
         "price": buy_transaction.price + 1,
         "quantity": buy_transaction.quantity,
-        "asset_code": buy_transaction.asset.code,
+        "operation_date": buy_transaction.operation_date.strftime("%d/%m/%Y"),
     }
 
     # WHEN
@@ -309,7 +376,7 @@ def test__update__sell_wo_initial_price_should_use_avg_price(
         "action": sell_transaction.action,
         "price": sell_transaction.price * 2,
         "quantity": sell_transaction.quantity,
-        "asset_code": stock_asset.code,
+        "operation_date": sell_transaction.operation_date.strftime("%d/%m/%Y"),
     }
     mocker.patch("variable_income_assets.service_layer.handlers.upsert_asset_read_model")
 
@@ -326,15 +393,92 @@ def test__update__sell_wo_initial_price_should_use_avg_price(
     )
 
 
-def test__update__should_raise_error_if_initial_price_is_null(
-    client, stock_asset, sell_transaction
+@pytest.mark.usefixtures("buy_transaction")
+@pytest.mark.parametrize("extra_data", ({}, {"current_currency_conversion_rate": 5}))
+def test__update__sell__stock__current_currency_conversion_rate(
+    client, extra_data, sell_transaction, mocker
 ):
     # GIVEN
     data = {
         "action": sell_transaction.action,
         "price": sell_transaction.price * 2,
         "quantity": sell_transaction.quantity,
-        "asset_code": stock_asset.code,
+        "operation_date": sell_transaction.operation_date.strftime("%d/%m/%Y"),
+        **extra_data,
+    }
+    mocker.patch("variable_income_assets.service_layer.handlers.upsert_asset_read_model")
+
+    # WHEN
+    response = client.put(f"{URL}/{sell_transaction.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert Transaction.objects.count() == 2
+    assert (
+        Transaction.objects.filter(
+            action=TransactionActions.sell,
+            current_currency_conversion_rate=1,
+        ).count()
+        == 1
+    )
+
+
+@pytest.mark.usefixtures("stock_usa_transaction")
+@pytest.mark.parametrize("extra_data", ({}, {"current_currency_conversion_rate": 1}))
+def test__update__sell__stock_usa__current_currency_conversion_rate(
+    client, extra_data, stock_usa_transaction_sell
+):
+    # GIVEN
+    data = {
+        "action": stock_usa_transaction_sell.action,
+        "price": stock_usa_transaction_sell.price * 2,
+        "quantity": stock_usa_transaction_sell.quantity,
+        "operation_date": stock_usa_transaction_sell.operation_date.strftime("%d/%m/%Y"),
+        **extra_data,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{stock_usa_transaction_sell.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "current_currency_conversion_rate": (
+            "This value can't be ommited or set to 1 if the asset's currency is different than BRL"
+        )
+    }
+
+
+@pytest.mark.usefixtures("stock_asset")
+def test__update__buy__current_currency_conversion_rate(client, buy_transaction):
+    # GIVEN
+    data = {
+        "action": buy_transaction.action,
+        "price": buy_transaction.price + 1,
+        "quantity": buy_transaction.quantity,
+        "operation_date": buy_transaction.operation_date.strftime("%d/%m/%Y"),
+        "current_currency_conversion_rate": 12,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{buy_transaction.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "current_currency_conversion_rate": (
+            "This value must be ommited when the action of a transaction is BUY"
+        )
+    }
+
+
+def test__update__should_raise_error_if_initial_price_is_null(client, sell_transaction):
+    # GIVEN
+    data = {
+        "action": sell_transaction.action,
+        "price": sell_transaction.price * 2,
+        "quantity": sell_transaction.quantity,
+        "operation_date": sell_transaction.operation_date.strftime("%d/%m/%Y"),
         "initial_price": None,
     }
 
@@ -347,14 +491,14 @@ def test__update__should_raise_error_if_initial_price_is_null(
 
 
 def test__update__should_raise_error_if_sell_transaction_and_no_transactions(
-    client, stock_asset, buy_transaction
+    client, buy_transaction
 ):
     # GIVEN
     data = {
         "action": TransactionActions.sell,
         "price": buy_transaction.price,
         "quantity": 0.1,
-        "asset_code": stock_asset.code,
+        "operation_date": buy_transaction.operation_date.strftime("%d/%m/%Y"),
     }
 
     # WHEN
@@ -369,15 +513,13 @@ def test__update__should_raise_error_if_sell_transaction_and_no_transactions(
 
 
 @pytest.mark.usefixtures("buy_transaction")
-def test__update__sell__should_raise_error_if_negative_quantity(
-    client, stock_asset, sell_transaction
-):
+def test__update__sell__should_raise_error_if_negative_quantity(client, sell_transaction):
     # GIVEN
     data = {
         "action": sell_transaction.action,
         "price": sell_transaction.price,
         "quantity": sell_transaction.quantity * 2,
-        "asset_code": stock_asset.code,
+        "operation_date": sell_transaction.operation_date.strftime("%d/%m/%Y"),
     }
 
     # WHEN
@@ -388,14 +530,14 @@ def test__update__sell__should_raise_error_if_negative_quantity(
     assert response.json() == {"action": "You can't sell more assets than you own"}
 
 
-@pytest.mark.usefixtures("stock_asset")
-def test__create__should_raise_error_if_sell_transaction_and_no_asset(client):
+def test__create__should_raise_error_if_sell_transaction_and_no_asset(client, stock_asset):
     # GIVEN
     data = {
         "action": TransactionActions.sell,
         "price": 10,
         "quantity": 100,
-        "asset_code": "ALUP11",
+        "asset_pk": stock_asset.pk,
+        "operation_date": "12/12/2022",
     }
 
     # WHEN
@@ -405,32 +547,6 @@ def test__create__should_raise_error_if_sell_transaction_and_no_asset(client):
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {"action": "You can't sell more assets than you own"}
     assert Transaction.objects.count() == 0
-
-
-@pytest.mark.usefixtures("buy_transaction")
-def test__create__should_raise_error_if_different_currency(client, stock_asset):
-    # GIVEN
-    data = {
-        "action": TransactionActions.buy,
-        "price": 10,
-        "quantity": 100,
-        "asset_code": stock_asset.code,
-        "currency": TransactionCurrencies.dollar,
-    }
-
-    # WHEN
-    response = client.post(URL, data=data)
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {
-        "currency": (
-            "Only one currency per asset is supported. "
-            f"Current currency: {TransactionCurrencies.real}"
-        )
-    }
-
-    assert Transaction.objects.count() == 1
 
 
 @pytest.mark.usefixtures("transactions_indicators_data")
@@ -446,21 +562,22 @@ def test_indicators(client):
         bought = sum(
             (
                 t.price * t.quantity
-                if t.currency == TransactionCurrencies.real
+                if t.asset.currency == Currencies.real
                 else t.price * t.quantity * dynamic_settings.DOLLAR_CONVERSION_RATE
                 for t in Transaction.objects.bought().filter(
-                    created_at__month=relative_date.month,
-                    created_at__year=relative_date.year,
+                    operation_date__month=relative_date.month,
+                    operation_date__year=relative_date.year,
                 )
             )
         )
         sold = sum(
             (
                 t.price * t.quantity
-                if t.currency == TransactionCurrencies.real
-                else t.price * t.quantity * dynamic_settings.DOLLAR_CONVERSION_RATE
+                if t.asset.currency == Currencies.real
+                else t.price * t.quantity * t.dollar_conversion_rate
                 for t in Transaction.objects.sold().filter(
-                    created_at__month=relative_date.month, created_at__year=relative_date.year
+                    operation_date__month=relative_date.month,
+                    operation_date__year=relative_date.year,
                 )
             )
         )
@@ -503,20 +620,22 @@ def test_historic(client):
         bought = sum(
             (
                 t.price * t.quantity
-                if t.currency == TransactionCurrencies.real
+                if t.asset.currency == Currencies.real
                 else t.price * t.quantity * dynamic_settings.DOLLAR_CONVERSION_RATE
                 for t in Transaction.objects.bought().filter(
-                    created_at__month=relative_date.month, created_at__year=relative_date.year
+                    operation_date__month=relative_date.month,
+                    operation_date__year=relative_date.year,
                 )
             )
         )
         sold = sum(
             (
                 t.price * t.quantity
-                if t.currency == TransactionCurrencies.real
-                else t.price * t.quantity * dynamic_settings.DOLLAR_CONVERSION_RATE
+                if t.asset.currency == Currencies.real
+                else t.price * t.quantity * t.dollar_conversion_rate
                 for t in Transaction.objects.sold().filter(
-                    created_at__month=relative_date.month, created_at__year=relative_date.year
+                    operation_date__month=relative_date.month,
+                    operation_date__year=relative_date.year,
                 )
             )
         )
@@ -580,14 +699,12 @@ def test__delete__error__negative_qty(client, buy_transaction, mocker):
 
 
 @pytest.mark.usefixtures("stock_asset")
-def test__delete__more_than_one_year_ago(
-    client, buy_transaction, mocker, django_assert_num_queries
-):
+def test__delete__more_than_one_year_ago(client, buy_transaction, mocker):
     # GIVEN
     mocked_task = mocker.patch(
         "variable_income_assets.service_layer.handlers.upsert_asset_read_model"
     )
-    buy_transaction.created_at = datetime(year=2018, month=1, day=1)
+    buy_transaction.operation_date = datetime(year=2018, month=1, day=1)
     buy_transaction.save()
 
     # WHEN
@@ -615,11 +732,16 @@ def test__list__sanity_check(client, buy_transaction):
                 "id": buy_transaction.id,
                 "action": TransactionActions.get_choice(buy_transaction.action).label,
                 "price": convert_and_quantitize(buy_transaction.price),
-                "currency": buy_transaction.currency,
                 "quantity": convert_and_quantitize(buy_transaction.quantity),
-                "created_at": buy_transaction.created_at.strftime("%Y-%m-%d"),
-                "asset_code": buy_transaction.asset.code,
-                "asset_type": AssetTypes.get_choice(buy_transaction.asset.type).label,
+                "operation_date": buy_transaction.operation_date.strftime("%Y-%m-%d"),
+                "initial_price": buy_transaction.initial_price,
+                "current_currency_conversion_rate": buy_transaction.current_currency_conversion_rate,
+                "asset": {
+                    "pk": buy_transaction.asset.pk,
+                    "code": buy_transaction.asset.code,
+                    "type": AssetTypes.get_choice(buy_transaction.asset.type).label,
+                    "currency": Currencies.get_choice(buy_transaction.asset.currency).label,
+                },
             }
         ],
     }
