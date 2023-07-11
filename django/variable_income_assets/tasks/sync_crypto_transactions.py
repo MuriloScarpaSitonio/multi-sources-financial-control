@@ -4,7 +4,7 @@ from django.utils import timezone
 
 import requests
 
-from authentication.models import CustomUser
+from authentication.models import CustomUser, IntegrationSecret
 from shared.utils import build_url
 from tasks.choices import TaskStates
 from tasks.decorators import task_finisher
@@ -13,22 +13,18 @@ from tasks.models import TaskHistory
 from .asset_metadata import maybe_create_asset_metadata
 from .serializers import CryptoTransactionSerializer
 from ..choices import AssetObjectives, AssetSectors, AssetTypes
+from ..integrations.clients import KuCoinClient
 from ..models import Asset
 from ..domain.events import TransactionsCreated
 from ..service_layer.unit_of_work import DjangoUnitOfWork
 
 
 @task_finisher
-def sync_kucoin_transactions_task(task_history_id: str, username: str) -> int:
-    url = build_url(
-        url=settings.ASSETS_INTEGRATIONS_URL,
-        parts=("kucoin/", "transactions"),
-        query_params={"username": username},
-    )
+async def sync_kucoin_transactions_task(task_history_id: str, user_id: int) -> None:
+    async with KuCoinClient(secret=IntegrationSecret.objects.get(user_id=user_id)) as client:
+        data = await client.get_orders()
     save_crypto_transactions(
-        transactions_data=requests.get(url).json(),
-        user=CustomUser.objects.get(username=username),
-        task_history_id=task_history_id,
+        transactions_data=data, user_id=user_id, task_history_id=task_history_id
     )
 
 
@@ -58,7 +54,7 @@ def sync_binance_transactions_task(task_history_id: str, username: str) -> int:
 
 
 def save_crypto_transactions(
-    transactions_data: list[dict], user: CustomUser, task_history_id: str
+    transactions_data: list[dict], user_id: int, task_history_id: str
 ) -> None:
     assets: set[Asset] = set()
     for data in transactions_data:
