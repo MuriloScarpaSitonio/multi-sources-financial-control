@@ -74,7 +74,6 @@ async def update_prices(_: ASGIRequest | WSGIRequest) -> HttpResponse:
         assets_metadata_map, result = await _fetch_prices(
             qs=DjangoSQLAssetMetaDataRepository.filter_assets_eligible_for_update()
         )
-        print(assets_metadata_map)
 
         for data in result:
             for code, price in data["prices"].items():
