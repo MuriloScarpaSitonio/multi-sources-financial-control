@@ -144,7 +144,7 @@ def test_should_delete_expense(client, expense):
 
     # THEN
     assert response.status_code == HTTP_204_NO_CONTENT
-    assert Expense.objects.count() == 0
+    assert not Expense.objects.exists()
 
 
 def test_should_not_get_report_without_of_parameter(client):

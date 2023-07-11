@@ -383,8 +383,8 @@ def test_list_assets_aggregate_data(client):
             (current_invested / current_total_brute_force) * Decimal("100.0")
         ).quantize(Decimal(".1"), rounding=ROUND_HALF_UP)
 
-        assert Decimal(str(result["normalized_total_invested"])).quantize(
-            Decimal(".1"), rounding=ROUND_HALF_UP
+        assert convert_and_quantitize(
+            result["normalized_total_invested"]
         ) == convert_and_quantitize(total_invested)
         assert (
             Decimal(str(result["percentage_invested"])).quantize(

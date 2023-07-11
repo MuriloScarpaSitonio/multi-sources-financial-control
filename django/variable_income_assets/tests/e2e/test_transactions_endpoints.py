@@ -225,7 +225,7 @@ def test__create__should_raise_error_if_initial_price_is_null(client, stock_asse
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {"initial_price": ["This field may not be null."]}
-    assert Transaction.objects.filter(action=TransactionActions.sell).count() == 0
+    assert not Transaction.objects.filter(action=TransactionActions.sell).exists()
 
 
 def test__create__should_raise_error_if_sell_transaction_and_no_transactions(client, stock_asset):
@@ -244,7 +244,7 @@ def test__create__should_raise_error_if_sell_transaction_and_no_transactions(cli
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {"action": "You can't sell more assets than you own"}
-    assert Transaction.objects.count() == 0
+    assert not Transaction.objects.exists()
 
 
 def test__create__should_raise_error_if_sell_transaction_and_no_asset(client, stock_asset):
@@ -263,7 +263,7 @@ def test__create__should_raise_error_if_sell_transaction_and_no_asset(client, st
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {"action": "You can't sell more assets than you own"}
-    assert Transaction.objects.count() == 0
+    assert not Transaction.objects.exists()
 
 
 @pytest.mark.skip("Skip while not implemented yet")
@@ -288,7 +288,7 @@ def test__create__sell_stock_eq_threshold(client, stock_asset, mocker):
 
     # THEN
     assert mocked_task.call_count == 1
-    assert TaskHistory.objects.count() == 0
+    assert not TaskHistory.objects.exists()
 
     assert response.status_code == HTTP_201_CREATED
 
@@ -509,7 +509,7 @@ def test__update__should_raise_error_if_sell_transaction_and_no_transactions(
     assert response.json() == {"action": "You can't sell more assets than you own"}
 
     assert Transaction.objects.filter(action=TransactionActions.buy).count() == 1
-    assert Transaction.objects.filter(action=TransactionActions.sell).count() == 0
+    assert not Transaction.objects.filter(action=TransactionActions.sell).exists()
 
 
 @pytest.mark.usefixtures("buy_transaction")
@@ -528,25 +528,6 @@ def test__update__sell__should_raise_error_if_negative_quantity(client, sell_tra
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {"action": "You can't sell more assets than you own"}
-
-
-def test__create__should_raise_error_if_sell_transaction_and_no_asset(client, stock_asset):
-    # GIVEN
-    data = {
-        "action": TransactionActions.sell,
-        "price": 10,
-        "quantity": 100,
-        "asset_pk": stock_asset.pk,
-        "operation_date": "12/12/2022",
-    }
-
-    # WHEN
-    response = client.post(URL, data=data)
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"action": "You can't sell more assets than you own"}
-    assert Transaction.objects.count() == 0
 
 
 @pytest.mark.usefixtures("transactions_indicators_data")
@@ -677,7 +658,7 @@ def test__delete(client, buy_transaction, mocker):
     }
 
     assert response.status_code == HTTP_204_NO_CONTENT
-    assert Transaction.objects.count() == 0
+    assert not Transaction.objects.exists()
 
 
 @pytest.mark.usefixtures("stock_asset", "sell_transaction")
@@ -713,7 +694,7 @@ def test__delete__more_than_one_year_ago(client, buy_transaction, mocker):
     # THEN
     assert mocked_task.called is True
     assert response.status_code == HTTP_204_NO_CONTENT
-    assert Transaction.objects.count() == 0
+    assert not Transaction.objects.exists()
 
 
 def test__list__sanity_check(client, buy_transaction):

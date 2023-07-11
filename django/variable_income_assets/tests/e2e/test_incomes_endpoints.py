@@ -327,7 +327,7 @@ def test__update__provisioned__w_rate(client, another_income):
     }
 
 
-def test__update__provisioned__w_rate(client, another_income, mocker):
+def test__update__provisioned__wo_rate(client, another_income, mocker):
     # GIVEN
     data = {
         "type": another_income.type,
@@ -413,7 +413,7 @@ def test__delete(client, simple_income, mocker):
     }
 
     assert response.status_code == HTTP_204_NO_CONTENT
-    assert PassiveIncome.objects.count() == 0
+    assert not PassiveIncome.objects.exists()
 
 
 @pytest.mark.usefixtures("passive_incomes", "stock_usa_asset", "crypto_asset")
