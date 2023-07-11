@@ -138,6 +138,17 @@ def fii_asset_metadata():
 
 
 @pytest.fixture
+def fii_transaction(fii_asset):
+    return TransactionFactory(
+        action=TransactionActions.buy,
+        price=101,
+        asset=fii_asset,
+        quantity=50,
+        operation_date=timezone.now().date(),
+    )
+
+
+@pytest.fixture
 def stock_usa_asset(user):
     return AssetFactory(
         code="URA",
@@ -239,6 +250,29 @@ def crypto_asset_metadata():
 
 
 @pytest.fixture
+def crypto_asset_brl(user):
+    return AssetFactory(
+        code="QRDO",
+        type=AssetTypes.crypto,
+        currency=Currencies.real,
+        objective=AssetObjectives.growth,
+        user=user,
+    )
+
+
+@pytest.fixture
+def crypto_asset_brl_metadata():
+    return AssetMetaDataFactory(
+        code="QRDO",
+        type=AssetTypes.crypto,
+        sector=AssetSectors.tech,
+        currency=Currencies.real,
+        current_price=30,
+        current_price_updated_at=timezone.now(),
+    )
+
+
+@pytest.fixture
 def another_crypto_asset(user):
     return AssetFactory(
         code="BTC",
@@ -294,6 +328,17 @@ def crypto_transaction(crypto_asset):
         price=10,
         asset=crypto_asset,
         quantity=50,
+        operation_date=timezone.now().date(),
+    )
+
+
+@pytest.fixture
+def crypto_brl_transaction(crypto_asset_brl):
+    TransactionFactory(
+        action=TransactionActions.buy,
+        price=5,
+        asset=crypto_asset_brl,
+        quantity=500,
         operation_date=timezone.now().date(),
     )
 

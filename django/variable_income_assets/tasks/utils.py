@@ -6,7 +6,7 @@ from asgiref.sync import async_to_sync
 from config.settings.dynamic import dynamic_settings
 
 from ..choices import AssetSectors, AssetTypes, Currencies
-from ..integrations.helpers import get_crypto_prices, get_stock_prices, get_stocks_usa_prices
+from ..integrations.helpers import get_crypto_prices, get_b3_prices, get_stocks_usa_prices
 
 
 # TODO: fetch API
@@ -22,7 +22,7 @@ def fetch_asset_sector(code: str, asset_type: AssetTypes) -> AssetSectors:
 def fetch_asset_current_price(code: str, asset_type: AssetTypes, currency: Currencies) -> Decimal:
     kwargs = {"codes": (code,)}
     if asset_type == AssetTypes.stock:
-        coro = get_stock_prices
+        coro = get_b3_prices
     elif asset_type == AssetTypes.stock_usa:
         coro = get_stocks_usa_prices
     elif asset_type == AssetTypes.crypto:

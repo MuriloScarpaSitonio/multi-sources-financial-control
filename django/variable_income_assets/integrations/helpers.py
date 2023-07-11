@@ -2,7 +2,7 @@ from .clients import BrApiClient, TwelveDataClient
 from ..choices import Currencies
 
 
-async def get_stock_prices(codes: list[str]) -> dict[str, float]:
+async def get_b3_prices(codes: list[str]) -> dict[str, float]:
     async with BrApiClient() as c:
         return await c.get_b3_prices(codes=codes)
 

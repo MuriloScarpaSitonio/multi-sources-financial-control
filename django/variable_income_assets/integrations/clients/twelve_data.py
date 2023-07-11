@@ -33,6 +33,8 @@ class TwelveDataClient:
         return response
 
     async def get_prices(self, codes: List[str]) -> Dict[str, str]:
+        if not codes:
+            return {}
         response = await self._get(path="price", params={"symbol": ",".join(codes)})
         result = await response.json()
         return (
