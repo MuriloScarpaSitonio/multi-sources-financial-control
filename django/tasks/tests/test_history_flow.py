@@ -1,34 +1,31 @@
 import pytest
-
-from django.conf import settings
-
-from shared.utils import build_url
+from aioresponses import aioresponses
 from authentication.tests.conftest import (
     kucoin_client,
     kucoin_secrets,
     user_with_kucoin_integration,
 )
-
 from config.settings.base import BASE_API_URL
+from variable_income_assets.tests.conftest import kucoin_fetch_transactions_url
 
 from ..choices import TaskStates
+from ..constants import ERROR_DISPLAY_TEXT
 from ..models import TaskHistory
 
 pytestmark = pytest.mark.django_db
 
-URL = f"/{BASE_API_URL}" + "assets/sync_kucoin_transactions"
+URL = f"/{BASE_API_URL}" + "transactions/integrations/kucoin"
 
 
 def test_should_create_history_on_success(
-    kucoin_client, user_with_kucoin_integration, requests_mock
+    kucoin_client, user_with_kucoin_integration, kucoin_fetch_transactions_url
 ):
     # GIVEN
-    requests_mock.get(
-        build_url(url=settings.ASSETS_INTEGRATIONS_URL, parts=("kucoin/", "transactions")), json=[]
-    )
+    with aioresponses() as aiohttp_mock:
+        aiohttp_mock.get(kucoin_fetch_transactions_url, payload={"data": {"items": []}})
 
-    # WHEN
-    response = kucoin_client.get(URL)
+        # WHEN
+        response = kucoin_client.get(URL)
 
     # THEN
     history = TaskHistory.objects.get(pk=response.json()["task_id"])
@@ -36,6 +33,7 @@ def test_should_create_history_on_success(
     assert history.created_by == user_with_kucoin_integration
     assert history.finished_at is not None
     assert history.state == TaskStates.success
+    assert history.notification_display_text == "0 transações encontradas"
     assert not history.error
 
 
@@ -51,4 +49,5 @@ def test_should_create_history_on_failure(kucoin_client, user_with_kucoin_integr
     assert history.created_by == user_with_kucoin_integration
     assert history.finished_at is not None
     assert history.state == TaskStates.failure
+    assert history.notification_display_text == ERROR_DISPLAY_TEXT
     assert history.error

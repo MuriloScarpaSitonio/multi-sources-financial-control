@@ -19,7 +19,11 @@ SECRET_KEY = secret(
 DEBUG = secret("DJANGO_DEBUG", cast=bool, default=True)
 
 ALLOWED_HOSTS = secret("ALLOWED_HOSTS", default="*", cast=Csv())
+DOMAIN = secret("DOMAIN", default="http://localhost:8000")
 
+ENV_PRODUCTION = "PRODUCTION"
+ENV_LOCAL = "LOCAL"
+ENVIRONMENT = secret("DJANGO_DEBUG", default=ENV_LOCAL)
 
 # Application definition
 
@@ -178,6 +182,7 @@ DYNAMIC_CONFIGS = {
     }
 }
 CRYPTOS_TO_SKIP_INTEGRATION = ("USDT",)
+USD_CRYPTO_SYMBOLS = ("USDT",)
 
 GDRIVE_BACKUP_DB_FOLDER_ID = secret("GDRIVE_BACKUP_DB_FOLDER_ID", default="")
 
@@ -197,3 +202,7 @@ CRYPTOS_MONTHLY_SELL_EXEMPTION_THRESHOLD = 35_000
 # Portanto, não existe a isenção para operações normais.
 # Todas as operações realizadas com ganho de capital são tributadas nos FIIs.
 FII_MONTHLY_SELL_EXEMPTION_THRESHOLD = 0
+
+QSTASH_TOKEN = secret("QSTASH_TOKEN", default="")
+QSTASH_CURRENT_SIGNING_KEY = secret("QSTASH_CURRENT_SIGNING_KEY", default="")
+QSTASH_NEXT_SIGNING_KEY = secret("QSTASH_NEXT_SIGNING_KEY", default="")

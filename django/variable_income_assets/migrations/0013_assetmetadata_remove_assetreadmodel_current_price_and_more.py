@@ -29,7 +29,7 @@ class Migration(migrations.Migration):
                     "type",
                     models.CharField(
                         max_length=10,
-                        validators=[variable_income_assets.choices.AssetTypes.custom_validator],
+                        validators=[],
                     ),
                 ),
                 (
@@ -37,14 +37,14 @@ class Migration(migrations.Migration):
                     models.CharField(
                         default="UNKNOWN",
                         max_length=50,
-                        validators=[variable_income_assets.choices.AssetSectors.custom_validator],
+                        validators=[],
                     ),
                 ),
                 (
                     "currency",
                     models.CharField(
                         max_length=6,
-                        validators=[variable_income_assets.choices.Currencies.custom_validator],
+                        validators=[],
                     ),
                 ),
                 ("current_price", models.DecimalField(decimal_places=6, max_digits=13)),

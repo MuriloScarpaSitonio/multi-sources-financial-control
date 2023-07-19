@@ -55,43 +55,33 @@ class Migration(migrations.Migration):
             field=models.CharField(
                 blank=True,
                 max_length=6,
-                validators=[variable_income_assets.choices.Currencies.custom_validator],
+                validators=[],
             ),
         ),
         migrations.AddField(
             model_name="assetreadmodel",
             name="credited_incomes",
-            field=models.DecimalField(
-                decimal_places=4, default=Decimal("0"), max_digits=20
-            ),
+            field=models.DecimalField(decimal_places=4, default=Decimal("0"), max_digits=20),
         ),
         migrations.AddField(
             model_name="assetreadmodel",
             name="normalized_credited_incomes",
-            field=models.DecimalField(
-                decimal_places=4, default=Decimal("0"), max_digits=20
-            ),
+            field=models.DecimalField(decimal_places=4, default=Decimal("0"), max_digits=20),
         ),
         migrations.AddField(
             model_name="assetreadmodel",
             name="normalized_total_sold",
-            field=models.DecimalField(
-                decimal_places=4, default=Decimal("0"), max_digits=20
-            ),
+            field=models.DecimalField(decimal_places=4, default=Decimal("0"), max_digits=20),
         ),
         migrations.AddField(
             model_name="passiveincome",
             name="current_currency_conversion_rate",
-            field=models.DecimalField(
-                blank=True, decimal_places=2, max_digits=8, null=True
-            ),
+            field=models.DecimalField(blank=True, decimal_places=2, max_digits=8, null=True),
         ),
         migrations.AddField(
             model_name="transaction",
             name="current_currency_conversion_rate",
-            field=models.DecimalField(
-                blank=True, decimal_places=2, max_digits=8, null=True
-            ),
+            field=models.DecimalField(blank=True, decimal_places=2, max_digits=8, null=True),
         ),
         migrations.AlterField(
             model_name="assetreadmodel",
@@ -107,9 +97,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="assetreadmodel",
             name="total_bought",
-            field=models.DecimalField(
-                decimal_places=4, default=Decimal("0"), max_digits=20
-            ),
+            field=models.DecimalField(decimal_places=4, default=Decimal("0"), max_digits=20),
         ),
         migrations.AlterField(
             model_name="passiveincome",

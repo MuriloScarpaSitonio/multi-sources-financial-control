@@ -506,6 +506,6 @@ def print_irpf_infos(
 def update_assets_metadata_current_price() -> None:
     from asgiref.sync import async_to_sync
 
-    from .integrations import views as integration_views
+    from .integrations.handlers import update_prices
 
-    async_to_sync(integration_views.update_prices)(None)
+    async_to_sync(update_prices)()

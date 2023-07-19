@@ -25,7 +25,7 @@ class Migration(migrations.Migration):
                     "type",
                     models.CharField(
                         max_length=10,
-                        validators=[variable_income_assets.choices.AssetTypes.custom_validator],
+                        validators=[],
                     ),
                 ),
                 (
@@ -33,7 +33,7 @@ class Migration(migrations.Migration):
                     models.CharField(
                         default="UNKNOWN",
                         max_length=50,
-                        validators=[variable_income_assets.choices.AssetSectors.custom_validator],
+                        validators=[],
                     ),
                 ),
                 (
@@ -41,9 +41,7 @@ class Migration(migrations.Migration):
                     models.CharField(
                         default="UNKNOWN",
                         max_length=50,
-                        validators=[
-                            variable_income_assets.choices.AssetObjectives.custom_validator
-                        ],
+                        validators=[],
                     ),
                 ),
                 ("current_price", models.DecimalField(decimal_places=6, max_digits=13)),
@@ -58,7 +56,7 @@ class Migration(migrations.Migration):
                     models.CharField(
                         blank=True,
                         max_length=6,
-                        validators=[variable_income_assets.choices.Currencies.custom_validator],
+                        validators=[],
                     ),
                 ),
                 (
@@ -91,7 +89,7 @@ class Migration(migrations.Migration):
             field=models.CharField(
                 default="UNKNOWN",
                 max_length=50,
-                validators=[variable_income_assets.choices.AssetObjectives.custom_validator],
+                validators=[],
             ),
         ),
         migrations.AlterField(
@@ -100,7 +98,7 @@ class Migration(migrations.Migration):
             field=models.CharField(
                 default="UNKNOWN",
                 max_length=50,
-                validators=[variable_income_assets.choices.AssetSectors.custom_validator],
+                validators=[],
             ),
         ),
         migrations.AlterField(
@@ -108,7 +106,7 @@ class Migration(migrations.Migration):
             name="type",
             field=models.CharField(
                 max_length=10,
-                validators=[variable_income_assets.choices.AssetTypes.custom_validator],
+                validators=[],
             ),
         ),
         migrations.AlterField(
@@ -116,9 +114,7 @@ class Migration(migrations.Migration):
             name="event_type",
             field=models.CharField(
                 max_length=11,
-                validators=[
-                    variable_income_assets.choices.PassiveIncomeEventTypes.custom_validator
-                ],
+                validators=[],
             ),
         ),
         migrations.AlterField(
@@ -126,7 +122,7 @@ class Migration(migrations.Migration):
             name="type",
             field=models.CharField(
                 max_length=8,
-                validators=[variable_income_assets.choices.PassiveIncomeTypes.custom_validator],
+                validators=[],
             ),
         ),
         migrations.AlterField(
@@ -134,7 +130,7 @@ class Migration(migrations.Migration):
             name="action",
             field=models.CharField(
                 max_length=4,
-                validators=[variable_income_assets.choices.TransactionActions.custom_validator],
+                validators=[],
             ),
         ),
         migrations.AlterField(
@@ -143,7 +139,7 @@ class Migration(migrations.Migration):
             field=models.CharField(
                 default="BRL",
                 max_length=6,
-                validators=[variable_income_assets.choices.Currencies.custom_validator],
+                validators=[],
             ),
         ),
     ]

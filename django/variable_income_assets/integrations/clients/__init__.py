@@ -1,3 +1,3 @@
 from .brapi import BrApiClient
-from .kucoin import KuCoinClient
+from .qstash import QStashClient
 from .twelve_data import TwelveDataClient
