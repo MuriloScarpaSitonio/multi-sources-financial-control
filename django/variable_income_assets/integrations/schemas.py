@@ -30,7 +30,7 @@ class TransactionPydanticModel(BaseModel):
 
     async def is_skippable(self) -> bool:
         return (
-            self.code in settings.CRYPTOS_TO_SKIP_INTEGRATION
+            self.code in settings.USD_CRYPTO_SYMBOLS
             or await Transaction.objects.filter(external_id=self.id).aexists()
         )
 

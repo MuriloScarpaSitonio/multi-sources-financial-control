@@ -167,7 +167,6 @@ FERNET_KEY = secret(
     default="TFGiLL_iX38XrRzwH9Ya4qEUY2gbAuanHbC3R7ZYwoo=",
 )
 
-ASSETS_INTEGRATIONS_URL = secret("ASSETS_INTEGRATIONS_URL", default="http://localhost:5000/")
 REVENUES_API_URL = secret("REVENUES_API_URL", default="http://localhost:5050/")
 REVENUES_API_SECRET_KEY = secret(
     "REVENUES_API_SECRET_KEY", default="^ko+7^$@c4=!mzn58hdgs8xydak4@by7g&@@%&4a_kgb42g&__"
@@ -178,11 +177,10 @@ DYNAMIC_BACKEND = "config.settings.dynamic.backends.memory.MemoryBackend"
 DYNAMIC_CONFIGS = {
     "DOLLAR_CONVERSION_RATE": {
         "default": Decimal("5.0"),
-        "fetch_func": "config.settings.dynamic.utils.fetch_dollar_conversion_ratio",
+        "fetch_func": "config.settings.dynamic.utils.fetch_dollar_to_real_conversion_value",
     }
 }
-CRYPTOS_TO_SKIP_INTEGRATION = ("USDT",)
-USD_CRYPTO_SYMBOLS = ("USDT",)
+USD_CRYPTO_SYMBOLS = ("USDT", "USDC", "BUSD", "TUSD")
 
 GDRIVE_BACKUP_DB_FOLDER_ID = secret("GDRIVE_BACKUP_DB_FOLDER_ID", default="")
 

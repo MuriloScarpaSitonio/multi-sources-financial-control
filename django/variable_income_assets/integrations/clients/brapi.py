@@ -19,18 +19,18 @@ class BrApiClient:
     async def __aexit__(self, *_, **__) -> None:
         await self._session.close()
 
-    async def _create_path(self, path: str, is_crypto: bool) -> str:
-        api = "api/v2/crypto" if is_crypto else "api"
+    async def _create_path(self, path: str, v2: bool) -> str:
+        api = "api/v2" if v2 else "api"
         return f"{api}/{path}"
 
-    async def _create_url(self, path: str, is_crypto: bool) -> str:
-        return f"{self.API_URL}/{await self._create_path(path=path, is_crypto=is_crypto)}"
+    async def _create_url(self, path: str, v2: bool) -> str:
+        return f"{self.API_URL}/{await self._create_path(path=path, v2=v2)}"
 
     async def _request(
-        self, path: str, params: dict[str, str] | None = None, is_crypto: bool = False
+        self, path: str, params: dict[str, str] | None = None, v2: bool = False
     ) -> ClientResponse:
         response = await self._session.get(
-            url=await self._create_url(path=path, is_crypto=is_crypto), params=params
+            url=await self._create_url(path=path, v2=v2), params=params
         )
         response.raise_for_status()
         return response
@@ -63,7 +63,15 @@ class BrApiClient:
         if not codes:
             return {}
         response = await self._request(
-            path="", is_crypto=True, params={"coin": ",".join(codes), "currency": currency}
+            path="crypto", v2=True, params={"coin": ",".join(codes), "currency": currency}
         )
         result = await response.json()
         return {r["coin"]: r["regularMarketPrice"] for r in result["coins"]}
+
+    async def convert_currencies(self, from_: str, to: str) -> str:
+        response = await self._request(
+            path="currency", v2=True, params={"currency": f"{from_}-{to}"}
+        )
+        result = await response.json()
+        # bid means the "buy" price
+        return result["currency"][0]["bidPrice"]

@@ -1,19 +1,6 @@
 version: "3.7"
 
 services:
-
-  assets_integrations:
-    container_name: assets_integrations
-    build:
-      context: ./assets_integrations
-      dockerfile: Dockerfile.local
-    volumes:
-      - ./assets_integrations:/app/assets_integrations
-      - ./django/db.sqlite3:/app/assets_integrations/db.sqlite3
-    ports:
-      - 5000:5000
-    command: uvicorn src.main:app --reload --host=0.0.0.0 --port=5000
-
   django:
     container_name: django
     build:
@@ -27,10 +14,7 @@ services:
       # used only for superuser creation on the first time
       - ADMIN_USERNAME=murilo
       - ADMIN_PASSWORD=test
-      - ASSETS_INTEGRATIONS_URL=http://assets_integrations:5000/
       - REVENUES_API_URL=http://revenues:5050/
-    depends_on:
-      - assets_integrations
     command: python manage.py runserver 0.0.0.0:8000
 
   revenues:
