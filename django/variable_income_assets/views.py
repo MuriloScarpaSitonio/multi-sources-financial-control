@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Type
 
-from django.db import transaction as djtransaction
-from django.db.models import F, Sum
-from django.utils import timezone
-
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
+from asgiref.sync import async_to_sync
+from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
 from rest_framework.decorators import action
-from rest_framework.generics import get_object_or_404
 from rest_framework.filters import OrderingFilter
+from rest_framework.generics import get_object_or_404
 from rest_framework.mixins import (
     CreateModelMixin,
     DestroyModelMixin,
@@ -18,14 +15,19 @@ from rest_framework.mixins import (
     UpdateModelMixin,
 )
 from rest_framework.response import Response
-from rest_framework.status import HTTP_200_OK
+from rest_framework.status import HTTP_200_OK, HTTP_403_FORBIDDEN
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
-
 from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
-from tasks.decorators import start_task
+
+from django.db import transaction as djtransaction
+from django.db.models import F, Sum
+from django.utils import timezone
 
 from . import choices, filters, serializers
 from .domain import events
+from .integrations.binance.handlers import sync_binance_transactions
+from .integrations.kucoin.handlers import sync_kucoin_transactions
+from .integrations.helpers import dispatch
 from .models import Asset, AssetReadModel, PassiveIncome, Transaction
 from .models.managers import (
     AssetQuerySet,
@@ -33,14 +35,19 @@ from .models.managers import (
     PassiveIncomeQuerySet,
     TransactionQuerySet,
 )
-from .permissions import BinancePermission, CeiPermission, KuCoinPermission
+from .permissions import (
+    BinancePermission,
+    BinanceTaskRunCheckerPermission,
+    CeiPermission,
+    KuCoinPermission,
+    KucoinTaskRunCheckerPermission,
+)
 from .service_layer import messagebus
 from .service_layer.unit_of_work import DjangoUnitOfWork
-from .tasks import sync_binance_transactions_task, sync_kucoin_transactions_task
 
 if TYPE_CHECKING:  # pragma: no cover
-    from djchoices import ChoiceItem
     from django_filters import FilterSet
+    from djchoices import ChoiceItem
     from rest_framework.request import Request
     from rest_framework.serializers import Serializer
     from rest_framework.utils.serializer_helpers import ReturnList
@@ -159,44 +166,20 @@ class AssetViewSet(
         serializer = serializers.AssetTypeReportSerializer(filterset.qs, many=True)
         return Response(serializer.data, status=HTTP_200_OK)
 
-    @extend_schema(deprecated=True)
-    @action(methods=("GET",), detail=False, permission_classes=(CeiPermission,))
-    def sync_cei_transactions(self, _: Request) -> Response:
-        return Response({"task_id": None, "warning": "Integration is deprecated"}, status=299)
-
-    @extend_schema(deprecated=True)
-    @action(methods=("GET",), detail=False, permission_classes=(CeiPermission,))
-    def sync_cei_passive_incomes(self, _: Request) -> Response:
-        return Response({"task_id": None, "warning": "Integration is deprecated"}, status=299)
-
-    @action(methods=("GET",), detail=False, permission_classes=(KuCoinPermission,))
-    def sync_kucoin_transactions(self, request: Request) -> Response:
-        task_id = start_task(task_name="sync_kucoin_transactions_task", user=request.user)
-        sync_kucoin_transactions_task(task_history_id=task_id, username=request.user.username)
-        return Response({"task_id": task_id}, status=HTTP_200_OK)
-
-    @action(methods=("GET",), detail=False, permission_classes=(BinancePermission,))
-    def sync_binance_transactions(self, request: Request) -> Response:
-        task_id = start_task(task_name="sync_binance_transactions_task", user=request.user)
-        sync_binance_transactions_task(task_history_id=task_id, username=request.user.username)
-        return Response({"task_id": task_id}, status=HTTP_200_OK)
-
-    @action(methods=("GET",), detail=False)
+    @action(methods=("GET",), detail=False, url_path="integrations/sync_all")
     def sync_all(self, request: Request) -> Response:
-        TASK_USER_PROPERTY_MAP = {
-            # "has_cei_integration": (sync_cei_transactions_task, sync_cei_passive_incomes_task),
-            "has_kucoin_integration": (sync_kucoin_transactions_task,),
-            "has_binance_integration": (sync_binance_transactions_task,),
+        TASK_PERMISSIONS_MAP = {
+            # maybe set this at integrations.decorators.qstash_user_task?
+            sync_kucoin_transactions: (KuCoinPermission, KucoinTaskRunCheckerPermission),
+            sync_binance_transactions: (BinancePermission, BinanceTaskRunCheckerPermission),
         }
 
-        response = {}
-        for property_name, tasks in TASK_USER_PROPERTY_MAP.items():
-            if getattr(request.user, property_name):
-                for task in tasks:
-                    task_id = start_task(task_name=task.__name__, user=request.user)
-                    task(username=request.user.username, task_history_id=task_id)
-                    response[task.__name__] = task_id
-        return Response(response, status=HTTP_200_OK)
+        response: dict[str, str] = {}
+        for task, permissions in TASK_PERMISSIONS_MAP.items():
+            if all((permission().has_permission(request, self) for permission in permissions)):
+                task_id = async_to_sync(dispatch)(task, user_id=request.user.pk)
+                response[task.name] = task_id
+        return Response(response, status=HTTP_200_OK if response else HTTP_403_FORBIDDEN)
 
     @action(methods=("GET",), detail=False)
     def minimal_data(self, _: Request) -> Response:
@@ -261,6 +244,36 @@ class TransactionViewSet(ModelViewSet):
             }
         )
         return Response(serializer.data, status=HTTP_200_OK)
+
+    @extend_schema(deprecated=True)
+    @action(
+        methods=("GET",),
+        detail=False,
+        permission_classes=(CeiPermission,),
+        url_path="integrations/cei",
+    )
+    def sync_cei_transactions(self, _: Request) -> Response:
+        return Response({"task_id": None, "warning": "Integration is deprecated"}, status=299)
+
+    @action(
+        methods=("GET",),
+        detail=False,
+        permission_classes=(KuCoinPermission, KucoinTaskRunCheckerPermission),
+        url_path="integrations/kucoin",
+    )
+    def sync_kucoin(self, request: Request) -> Response:
+        task_id = async_to_sync(dispatch)(sync_kucoin_transactions, user_id=request.user.pk)
+        return Response({"task_id": task_id}, status=HTTP_200_OK)
+
+    @action(
+        methods=("GET",),
+        detail=False,
+        permission_classes=(BinancePermission, BinanceTaskRunCheckerPermission),
+        url_path="integrations/binance",
+    )
+    def sync_binance(self, request: Request) -> Response:
+        task_id = async_to_sync(dispatch)(sync_binance_transactions, user_id=request.user.pk)
+        return Response({"task_id": task_id}, status=HTTP_200_OK)
 
 
 class PassiveIncomeViewSet(ModelViewSet):
@@ -343,6 +356,16 @@ class PassiveIncomeViewSet(ModelViewSet):
         )
         serializer = serializers.PassiveIncomeAssetsAggregationSerializer(filterset.qs, many=True)
         return Response(serializer.data, status=HTTP_200_OK)
+
+    @extend_schema(deprecated=True)
+    @action(
+        methods=("GET",),
+        detail=False,
+        permission_classes=(CeiPermission,),
+        url_path="integrations/cei",
+    )
+    def sync_cei_passive_incomes(self, _: Request) -> Response:
+        return Response({"task_id": None, "warning": "Integration is deprecated"}, status=299)
 
 
 class AssetTransactionViewSet(GenericViewSet, ListModelMixin):

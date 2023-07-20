@@ -77,7 +77,7 @@ def upsert_read_model(
 # TODO: convert to async
 def check_monthly_selling_transaction_threshold(
     _: events.TransactionsCreated, uow: AbstractUnitOfWork
-):
+):  # pragma: no cover
     transaction = next(iter(uow.assets.transactions.seen))
     total_sold = next(
         iter(

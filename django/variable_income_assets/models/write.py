@@ -23,11 +23,11 @@ from ..domain.models import Asset as AssetDomainModel
 
 class AssetMetaData(models.Model):
     code = models.CharField(max_length=10)
-    type = models.CharField(max_length=10, validators=[AssetTypes.custom_validator])
+    type = models.CharField(max_length=10, validators=[AssetTypes.validator])
     sector = models.CharField(
-        max_length=50, validators=[AssetSectors.custom_validator], default=AssetSectors.unknown
+        max_length=50, validators=[AssetSectors.validator], default=AssetSectors.unknown
     )
-    currency = models.CharField(max_length=6, validators=[Currencies.custom_validator])
+    currency = models.CharField(max_length=6, validators=[Currencies.validator])
     current_price = models.DecimalField(decimal_places=6, max_digits=13)
     current_price_updated_at = models.DateTimeField(blank=True, null=True)
 
@@ -46,13 +46,13 @@ class AssetMetaData(models.Model):
 
 class Asset(models.Model):
     code = models.CharField(max_length=10)
-    type = models.CharField(max_length=10, validators=[AssetTypes.custom_validator])
+    type = models.CharField(max_length=10, validators=[AssetTypes.validator])
     objective = models.CharField(
         max_length=50,
-        validators=[AssetObjectives.custom_validator],
+        validators=[AssetObjectives.validator],
         default=AssetObjectives.unknown,
     )
-    currency = models.CharField(max_length=6, blank=True, validators=[Currencies.custom_validator])
+    currency = models.CharField(max_length=6, blank=True, validators=[Currencies.validator])
     user = models.ForeignKey(
         to=settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -116,7 +116,7 @@ class Asset(models.Model):
 
 class Transaction(models.Model):
     external_id = models.CharField(max_length=100, blank=True, null=True)
-    action = models.CharField(max_length=4, validators=[TransactionActions.custom_validator])
+    action = models.CharField(max_length=4, validators=[TransactionActions.validator])
     price = models.DecimalField(decimal_places=8, max_digits=15)
     quantity = models.DecimalField(
         decimal_places=8, max_digits=15  # crypto needs a lot of decimal places
@@ -129,13 +129,6 @@ class Transaction(models.Model):
     current_currency_conversion_rate = models.DecimalField(
         decimal_places=2, max_digits=8, blank=True, null=True
     )
-    fetched_by = models.ForeignKey(
-        to=TaskHistory,
-        null=True,
-        blank=True,
-        related_name="transactions",
-        on_delete=models.SET_NULL,
-    )
 
     objects = TransactionQuerySet.as_manager()
 
@@ -146,10 +139,8 @@ class Transaction(models.Model):
 
 
 class PassiveIncome(models.Model):
-    type = models.CharField(max_length=8, validators=[PassiveIncomeTypes.custom_validator])
-    event_type = models.CharField(
-        max_length=11, validators=[PassiveIncomeEventTypes.custom_validator]
-    )
+    type = models.CharField(max_length=8, validators=[PassiveIncomeTypes.validator])
+    event_type = models.CharField(max_length=11, validators=[PassiveIncomeEventTypes.validator])
     amount = models.DecimalField(decimal_places=2, max_digits=12)
     operation_date = models.DateField()
     # the conversion rate between `asset.currency` and `Currencies.real` at `operation_date`
@@ -157,9 +148,6 @@ class PassiveIncome(models.Model):
         decimal_places=2, max_digits=8, blank=True, null=True
     )
     asset = models.ForeignKey(to=Asset, on_delete=models.CASCADE, related_name="incomes")
-    fetched_by = models.ForeignKey(
-        to=TaskHistory, null=True, blank=True, related_name="incomes", on_delete=models.SET_NULL
-    )
 
     objects = PassiveIncomeQuerySet.as_manager()
 

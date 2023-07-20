@@ -3,14 +3,11 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
-from django.core.handlers.wsgi import WSGIRequest
-from django.core.handlers.asgi import ASGIRequest
-from django.http import HttpResponse
 from django.utils import timezone
 
-from .helpers import get_crypto_prices, get_b3_prices, get_stocks_usa_prices
 from ..adapters.repositories import DjangoSQLAssetMetaDataRepository
 from ..choices import AssetTypes, Currencies
+from .helpers import get_b3_prices, get_crypto_prices, get_stocks_usa_prices
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
@@ -57,7 +54,7 @@ async def _fetch_prices(
     prices = []
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
-    for i, result in enumerate(results):
+    for i, result in enumerate(results):  # order is guaranteed
         if isinstance(result, Exception):
             # TODO: log error
             print(result)
@@ -67,8 +64,7 @@ async def _fetch_prices(
     return assets_map, prices
 
 
-async def update_prices(_: ASGIRequest | WSGIRequest) -> HttpResponse:
-    # TODO: apply authentication
+async def update_prices() -> Exception | None:
     error = None
     try:
         assets_metadata_map, result = await _fetch_prices(
@@ -89,7 +85,7 @@ async def update_prices(_: ASGIRequest | WSGIRequest) -> HttpResponse:
 
     except Exception as e:
         # TODO: log error
-        error = repr(e)
+        error = e
         print(error)
 
-    return HttpResponse("", status=200 if error is None else 400)
+    return error

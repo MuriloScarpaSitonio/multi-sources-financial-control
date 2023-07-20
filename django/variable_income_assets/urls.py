@@ -1,16 +1,16 @@
-from django.urls import path
 from rest_framework.routers import DefaultRouter
-
 from shared.routers import NestedDefaultRouter
 
+from django.urls import path
+
+from .integrations import qstash_views
 from .views import (
-    AssetViewSet,
     AssetIncomesiewSet,
     AssetTransactionViewSet,
+    AssetViewSet,
     PassiveIncomeViewSet,
     TransactionViewSet,
 )
-from .integrations.views import update_prices
 
 assets_router = DefaultRouter(trailing_slash=False)
 assets_router.register(prefix="assets", viewset=AssetViewSet, basename="assets")
@@ -42,5 +42,21 @@ urlpatterns = (
     + assets_incomes_router.urls
     + assets_transactions_router.urls
     + transactions_router.urls
-    + [path("assets/integrations/update_prices", update_prices)]
+    + [
+        path(
+            "assets/qstash/update_prices",
+            qstash_views.update_prices_endpoint,
+            name="qstash_update_prices_endpoint",
+        ),
+        path(
+            "transactions/qstash/binance",
+            qstash_views.sync_binance_transactions_endpoint,
+            name="qstash_sync_binance_transactions_endpoint",
+        ),
+        path(
+            "transactions/qstash/kucoin",
+            qstash_views.sync_kucoin_transactions_endpoint,
+            name="qstash_sync_kucoin_transactions_endpoint",
+        ),
+    ]
 )

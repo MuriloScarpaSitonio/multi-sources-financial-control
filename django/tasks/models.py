@@ -1,15 +1,20 @@
-from django.db import models
+from uuid import uuid4
+
 from django.conf import settings
+from django.db import models
 from django.utils import timezone
 
 from .choices import TaskStates
+from .constants import ERROR_DISPLAY_TEXT
 from .managers import TaskHistoryQuerySet
 
 
 class TaskHistory(models.Model):
-    id = models.UUIDField(editable=False, primary_key=True)
+    id = models.UUIDField(editable=False, primary_key=True, default=uuid4)
     name = models.CharField(max_length=50)
-    state = models.CharField(max_length=20, choices=TaskStates.choices, default=TaskStates.pending)
+    state = models.CharField(
+        max_length=20, validators=[TaskStates.validator], default=TaskStates.pending
+    )
     updated_at = models.DateTimeField(auto_now=True)
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
@@ -19,10 +24,13 @@ class TaskHistory(models.Model):
         on_delete=models.deletion.CASCADE,
         related_name="tasks",
     )
+
+    # TODO: move to notifications table
     # when an user clicks on the notification icon in the frontend
     notified_at = models.DateTimeField(null=True, blank=True)
-    # when an user visits the task page
-    opened_at = models.DateTimeField(null=True, blank=True)
+
+    # TODO: move to notifications table
+    notification_display_text = models.TextField(blank=True, default="")
 
     objects = TaskHistoryQuerySet.as_manager()
 
@@ -34,36 +42,24 @@ class TaskHistory(models.Model):
 
     __repr__ = __str__
 
-    @property
-    def is_transaction_task(self):
-        # in a bigger project we'd store this kind of configuration in the DB
-        return self.name in (
-            "sync_cei_transactions_task",
-            "sync_binance_transactions_task",
-            "sync_kucoin_transactions_task",
-        )
-
-    @property
-    def is_passive_incomes_task(self):
-        # in a bigger project we'd store this kind of configuration in the DB
-        return self.name in ("sync_cei_passive_incomes_task",)
-
-    @property
-    def is_failed_task(self):
-        return self.state == TaskStates.failure
-
-    def start(self) -> None:
+    async def start(self) -> str:
         self.started_at = timezone.now()
         self.state = TaskStates.started
-        self.save(update_fields=("started_at", "state", "updated_at"))
+        await self.asave(update_fields=("started_at", "state", "updated_at"))
 
-    def finish(self, error: str | None = None) -> None:
-        update_fields = ("finished_at", "state", "updated_at")
+    async def finish(
+        self, notification_display_text: str = "", error: Exception | None = None
+    ) -> None:
+        update_fields = ["finished_at", "state", "updated_at", "notification_display_text"]
         self.finished_at = timezone.now()
+
         if error is None:
             self.state = TaskStates.success
+            self.notification_display_text = notification_display_text
         else:
             self.state = TaskStates.failure
-            self.error = error
-            update_fields += ("error",)
-        self.save(update_fields=update_fields)
+            self.error = repr(error)
+            self.notification_display_text = ERROR_DISPLAY_TEXT
+            update_fields.append("error")
+
+        await self.asave(update_fields=update_fields)

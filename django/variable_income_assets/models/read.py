@@ -15,17 +15,17 @@ from ..choices import AssetObjectives, AssetTypes, Currencies
 class AssetReadModel(models.Model):
     # region: write model fields
     code = models.CharField(max_length=10)
-    type = models.CharField(max_length=10, validators=[AssetTypes.custom_validator])
+    type = models.CharField(max_length=10, validators=[AssetTypes.validator])
     objective = models.CharField(
         max_length=50,
-        validators=[AssetObjectives.custom_validator],
+        validators=[AssetObjectives.validator],
         default=AssetObjectives.unknown,
     )
     user_id = models.PositiveBigIntegerField(editable=False, db_index=True)
     # endregion: write model fields
 
     write_model_pk = models.PositiveBigIntegerField(editable=False, unique=True, db_index=True)
-    currency = models.CharField(max_length=6, blank=True, validators=[Currencies.custom_validator])
+    currency = models.CharField(max_length=6, blank=True, validators=[Currencies.validator])
     quantity_balance = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
     avg_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
     total_bought = models.DecimalField(decimal_places=4, max_digits=20, default=Decimal())

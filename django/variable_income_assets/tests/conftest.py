@@ -1,27 +1,27 @@
-from random import randint, choice
+from random import choice, randint
+from time import time
 
 import pytest
+from authentication.models import CustomUser
+from authentication.tests.conftest import user
+from dateutil.relativedelta import relativedelta
 from factory.django import DjangoModelFactory
 
 from django.utils import timezone
-
-from dateutil.relativedelta import relativedelta
-
-from authentication.models import CustomUser
-from authentication.tests.conftest import user
-from tasks.tests.conftest import simple_task_history
 
 from ..choices import (
     AssetObjectives,
     AssetSectors,
     AssetTypes,
+    Currencies,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
     TransactionActions,
-    Currencies,
 )
+from ..integrations.binance.client import BinanceClient
+from ..integrations.kucoin.client import KuCoinClient
 from ..management.commands.sync_assets_cqrs import Command as SyncAssetReadModelCommand
-from ..models import Asset, AssetMetaData, AssetReadModel, Transaction, PassiveIncome
+from ..models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
 
 
 class AssetFactory(DjangoModelFactory):
@@ -289,14 +289,13 @@ def assets(stock_asset, stock_usa_asset, crypto_asset):
 
 
 @pytest.fixture
-def transactions(stock_asset, simple_task_history):
+def transactions(stock_asset):
     for i in range(1, 4):
         TransactionFactory(
             action=TransactionActions.buy,
             price=randint(5, 10),
             asset=stock_asset,
             quantity=100 * i,
-            fetched_by=simple_task_history,
             operation_date=timezone.now().date(),
         )
     TransactionFactory(
@@ -306,7 +305,6 @@ def transactions(stock_asset, simple_task_history):
         quantity=100,
         initial_price=5,
         current_currency_conversion_rate=1,
-        fetched_by=simple_task_history,
         operation_date=timezone.now().date(),
     )
     TransactionFactory(
@@ -316,7 +314,6 @@ def transactions(stock_asset, simple_task_history):
         quantity=50,
         initial_price=5,
         current_currency_conversion_rate=1,
-        fetched_by=simple_task_history,
         operation_date=timezone.now().date(),
     )
 
@@ -418,44 +415,181 @@ def fetch_current_assets_prices_response(stock_asset):
 
 @pytest.fixture
 def kucoin_transactions_response():
+    return {
+        "data": {
+            "items": [
+                {
+                    "id": "61ae1cf62f3c630001419674",
+                    "symbol": "WILD-USDT",
+                    "side": "BUY",
+                    "dealFunds": 985.008462945232,
+                    "dealSize": 346.54111418,
+                    "createdAt": 1638800630.738,
+                },
+                {
+                    "id": "61ae1dfa941915000108f0ce",
+                    "symbol": "WILD-USDT",
+                    "side": "sell",
+                    "dealFunds": 268.985799961232,
+                    "dealSize": 66.54111418,
+                    "createdAt": 1638800890.379,
+                },
+                {
+                    "id": "61ae1cea70405300010f4d07",
+                    "symbol": "QRDO-USDT",
+                    "side": "buy",
+                    "dealFunds": 179.443399997568,
+                    "dealSize": 32.98106896,
+                    "createdAt": 1638800630.73,
+                },
+                {
+                    "id": "61ae1cea70405300010f4d08",
+                    "symbol": "VELO-USDT",
+                    "side": "sell",
+                    "dealFunds": 179.443399997568,
+                    "dealSize": 32.98106896,
+                    "createdAt": 1638800630.73,
+                },
+            ]
+        }
+    }
+
+
+@pytest.fixture
+def kucoin_fetch_transactions_url():
+    return (
+        f"{KuCoinClient.API_URL}/api/{KuCoinClient.API_VERSION}/orders?tradeType=TRADE&pageSize=500"
+    )
+
+
+@pytest.fixture
+def binance_signature():
+    return "2a0945c8b2978025fe15db65f440dce0f78fdb089d48bd134bc37e3b788feb87"
+
+
+@pytest.fixture
+def binance_account_snapshot_url(binance_signature, freezer):
+    return (
+        BinanceClient._create_url(path="accountSnapshot", is_margin_api=True)
+        + f"?signature={binance_signature}&timestamp={int(time() * 1000)}&type=SPOT"
+    )
+
+
+@pytest.fixture
+def binance_account_snapshot_response():
+    return {
+        "code": 200,
+        "msg": "",
+        "snapshotVos": [
+            {
+                "data": {
+                    "balances": [
+                        {"asset": "BTC", "free": "0.09905021", "locked": "0.00000000"},
+                        {"asset": "USDT", "free": "1.89109409", "locked": "0.00000000"},
+                    ],
+                    "totalAssetOfBtc": "0.09942700",
+                },
+                "type": "spot",
+                "updateTime": 1576281599000,
+            }
+        ],
+    }
+
+
+@pytest.fixture
+def binance_symbol_orders_url(binance_signature, freezer):
+    return (
+        BinanceClient._create_url(path="allOrders", is_margin_api=False)
+        + f"?symbol=BTCBRL&startTime=0&limit=1000"
+        + f"&signature={binance_signature}&timestamp={int(time() * 1000)}"
+    )
+
+
+@pytest.fixture
+def binance_symbol_orders_response():
     return [
         {
-            "id": "61ae1cf62f3c630001419674",
-            "code": "WILD",
-            "currency": "USDT",
-            "action": "BUY",
-            "price": 2.8424,
-            "quantity": 346.54111418,
-            "operation_date": 1638800630.738,
-        },
-        {
-            "id": "61ae1dfa941915000108f0ce",
-            "code": "WILD",
-            "currency": "USDT",
-            "action": "SELL",
-            "price": 4.0424,
-            "quantity": 66.54111418,
-            "operation_date": 1638800890.379,
-        },
-        {
-            "id": "61ae1cea70405300010f4d07",
-            "code": "QRDO",
-            "currency": "USDT",
-            "action": "BUY",
-            "price": 5.4408,
-            "quantity": 32.98106896,
-            "operation_date": 1638800630.73,
-        },
-        {
-            "id": "61ae1cea70405300010f4d08",
-            "code": "VELO",
-            "currency": "USDT",
-            "action": "SELL",
-            "price": 5.4408,
-            "quantity": 32.98106896,
-            "operation_date": 1638800630.73,
-        },
+            "symbol": "BTCBRL",
+            "orderId": 1,
+            "orderListId": -1,
+            "clientOrderId": "web_myOrder1",
+            "price": "25000",
+            "origQty": "1.0",
+            "executedQty": "0.1",
+            "cummulativeQuoteQty": "0.0",
+            "status": "FILLED",
+            "timeInForce": "GTC",
+            "type": "LIMIT",
+            "side": "BUY",
+            "stopPrice": "0.0",
+            "icebergQty": "0.0",
+            "time": 1499827319559,
+            "updateTime": 1499827319559,
+            "isWorking": True,
+            "origQuoteOrderQty": "0.000000",
+            "workingTime": 1499827319559,
+            "selfTradePreventionMode": "NONE",
+        }
     ]
+
+
+@pytest.fixture
+def binance_fiat_payments_url(binance_signature, freezer):
+    return (
+        BinanceClient._create_url(path="fiat/payments", is_margin_api=True)
+        + f"?beginTime=0&rows=500"
+        + f"&signature={binance_signature}&timestamp={int(time() * 1000)}"
+    )
+
+
+@pytest.fixture
+def binance_fiat_payments_buy_response():
+    return {
+        "code": "000000",
+        "message": "success",
+        "data": [
+            {
+                "orderNo": "353fca443f06466db0c4dc89f94f027a",
+                "sourceAmount": "20.0",
+                "fiatCurrency": "BRL",
+                "obtainAmount": "4.462",
+                "cryptoCurrency": "LUNA",
+                "totalFee": "0.2",
+                "price": "4.437472",
+                "status": "Completed",
+                "paymentMethod": "Credit Card",
+                "createTime": 1624529919000,
+                "updateTime": 1624529919000,
+            }
+        ],
+        "total": 1,
+        "success": True,
+    }
+
+
+@pytest.fixture
+def binance_fiat_payments_sell_response():
+    return {
+        "code": "000000",
+        "message": "success",
+        "data": [
+            {
+                "orderNo": "353fca443f06466db0c4dc89f94f022b",
+                "sourceAmount": "20.0",
+                "fiatCurrency": "BRL",
+                "obtainAmount": "4",
+                "cryptoCurrency": "LUNA",
+                "totalFee": "0.2",
+                "price": "60",
+                "status": "Completed",
+                "paymentMethod": "Credit Card",
+                "createTime": 1624529919000,
+                "updateTime": 1624529919000,
+            }
+        ],
+        "total": 1,
+        "success": True,
+    }
 
 
 @pytest.fixture

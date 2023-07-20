@@ -57,6 +57,30 @@ def test__create__buy(client, stock_asset, mocker):
     assert Transaction.objects.filter(current_currency_conversion_rate__isnull=True).count() == 1
 
 
+def test__create__buy__w_current_currency_conversion_rate(client, stock_asset, mocker):
+    # GIVEN
+    data = {
+        "action": TransactionActions.buy,
+        "price": 10,
+        "quantity": 100,
+        "asset_pk": stock_asset.pk,
+        "operation_date": "12/12/2022",
+        "current_currency_conversion_rate": 5,
+    }
+    mocker.patch("variable_income_assets.service_layer.handlers.upsert_asset_read_model")
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.json() == {
+        "current_currency_conversion_rate": (
+            "This value must be ommited when the action of "
+            f"a transaction is {TransactionActions.buy}"
+        )
+    }
+
+
 @pytest.mark.usefixtures("buy_transaction")
 @pytest.mark.parametrize(
     "data",

@@ -27,7 +27,6 @@ class TransactionDTO:
     initial_price: Decimal | None = None
     current_currency_conversion_rate: Decimal | None = None
     external_id: str | None = None
-    fetched_by_id: int | None = None
 
     @property
     def is_sale(self) -> bool:

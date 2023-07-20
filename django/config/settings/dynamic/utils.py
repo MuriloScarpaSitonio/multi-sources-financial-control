@@ -1,10 +1,10 @@
 from decimal import Decimal
 from importlib import import_module
 from typing import Any
+from asgiref.sync import async_to_sync
 
-from django.conf import settings
-
-import requests
+from variable_income_assets.choices import Currencies
+from variable_income_assets.integrations.clients import BrApiClient
 
 
 def import_module_attr(path: str) -> Any:
@@ -12,8 +12,10 @@ def import_module_attr(path: str) -> Any:
     return getattr(import_module(package), module)
 
 
-def fetch_dollar_conversion_ratio() -> Decimal:
-    result = requests.get(
-        settings.ASSETS_INTEGRATIONS_URL + "convert_currency?from_=USD&to=BRL"
-    ).json()
-    return Decimal(str(result))
+async def _fetch_dollar_to_real_conversion_value() -> str:
+    async with BrApiClient() as client:
+        return await client.convert_currencies(from_=Currencies.dollar, to=Currencies.real)
+
+
+def fetch_dollar_to_real_conversion_value() -> Decimal:
+    return Decimal(async_to_sync(_fetch_dollar_to_real_conversion_value)())

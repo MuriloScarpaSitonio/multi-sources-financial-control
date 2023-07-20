@@ -139,16 +139,7 @@ export class AssetsApi extends Api {
         `${this.resource}/roi_report?${new URLSearchParams(filters).toString()}`
       );
     this.syncAll = () => apiProvider.get(`${this.resource}/sync_all`);
-    this.syncCeiTransactions = () =>
-      apiProvider.get(`${this.resource}/sync_cei_transactions`);
-    this.syncCeiPassiveIncomes = () =>
-      apiProvider.get(`${this.resource}/sync_cei_passive_incomes`);
-    this.syncKuCoinTransactions = () =>
-      apiProvider.get(`${this.resource}/sync_kucoin_transactions`);
-    this.syncBinanceTransactions = () =>
-      apiProvider.get(`${this.resource}/sync_binance_transactions`);
-    this.syncPrices = () =>
-      apiProvider.get(`${this.resource}/integrations/update_prices`);
+
   }
 }
 
@@ -221,6 +212,10 @@ export class TransactionsApi extends Api {
 
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
     this.historic = () => apiProvider.get(`${this.resource}/historic`);
+    this.syncKuCoin = () =>
+      apiProvider.get(`${this.resource}/integrations/kucoin`);
+    this.syncBinance = () =>
+      apiProvider.get(`${this.resource}/integrations/binance`);
   }
 }
 

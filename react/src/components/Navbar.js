@@ -33,7 +33,7 @@ import VisibilityIcon from "@material-ui/icons/Visibility";
 import VisibilityOffIcon from "@material-ui/icons/VisibilityOff";
 import HomeIcon from "@material-ui/icons/Home";
 
-import { AssetsApi, TasksApi } from "../api";
+import { AssetsApi, TasksApi, TransactionsApi } from "../api";
 import { logout } from "../api/instances";
 import { FormFeedback } from "./FormFeedback";
 import {
@@ -142,7 +142,7 @@ const Notifications = () => {
               onClick={() => setAnchorEl(null)}
               ref={data.length === index + 1 ? lastTaskRef : undefined}
               divider
-              classes={task.opened_at === null ? { root: classes.root } : {}}
+              classes={{ root: classes.root }}
             >
               <ListItemText
                 primary={task.notification_display_title}
@@ -206,7 +206,7 @@ const AssetsMenu = () => {
 
   const open = Boolean(anchorEl);
 
-  let api = new AssetsApi();
+  let api = new TransactionsApi()
   const sync = (method, message) => {
     api[method]().then(() => {
       setShowAlert(true);
@@ -215,6 +215,12 @@ const AssetsMenu = () => {
     setAnchorEl(null);
   };
 
+  let hasKucoinIntegration = evaluateBooleanFromLocalStorage(
+    localStorage.getItem("user_has_kucoin_integration")
+  )
+  let hasBinanceIntegration = evaluateBooleanFromLocalStorage(
+    localStorage.getItem("user_has_binance_integration")
+  )
   return (
     <>
       <Button
@@ -274,13 +280,18 @@ const AssetsMenu = () => {
               <ListItemText primary="Rendimentos" />
             </MenuItem>
           </Link>
-          <Divider />
-          <MenuItem
-            onClick={() => setOpenIntegrationsMenu(!openIntegrationsMenu)}
-          >
-            <ListItemText primary="Integrações" />
-            {openIntegrationsMenu ? <ExpandLess /> : <ExpandMore />}
-          </MenuItem>
+          {(hasBinanceIntegration || hasKucoinIntegration) && (
+            <>
+              <Divider />
+              <MenuItem
+                onClick={() => setOpenIntegrationsMenu(!openIntegrationsMenu)}
+              >
+                <ListItemText primary="Integrações" />
+                {openIntegrationsMenu ? <ExpandLess /> : <ExpandMore />}
+              </MenuItem>
+            </>
+          )
+          }
           <Collapse in={openIntegrationsMenu} timeout="auto" unmountOnExit>
             <MenuList>
               {/* <MenuItem
@@ -303,13 +314,11 @@ const AssetsMenu = () => {
               >
                 Sincronizar renda passiva do CEI
               </MenuItem> */}
-              {evaluateBooleanFromLocalStorage(
-                localStorage.getItem("user_has_kucoin_integration")
-              ) && (
+              {hasKucoinIntegration && (
                 <MenuItem
                   onClick={() =>
                     sync(
-                      "syncKuCoinTransactions",
+                      "syncKuCoin",
                       "Sincronização das transações da KuCoin em andamento!"
                     )
                   }
@@ -317,14 +326,12 @@ const AssetsMenu = () => {
                   Sincronizar transações da KuCoin
                 </MenuItem>
               )}
-              {evaluateBooleanFromLocalStorage(
-                localStorage.getItem("user_has_binance_integration")
-              ) && (
+              {hasBinanceIntegration && (
                 <MenuItem
                   sx={{ paddingLeft: 20 }}
                   onClick={() =>
                     sync(
-                      "syncBinanceTransactions",
+                      "syncBinance",
                       "Sincronização das transações da Binance em andamento!"
                     )
                   }
@@ -480,13 +487,19 @@ export const Navbar = ({ hideValuesToggler, ...props }) => {
     Boolean(window.localStorage.getItem("hideValues"))
   );
 
+  let hasKucoinIntegration = evaluateBooleanFromLocalStorage(
+    localStorage.getItem("user_has_kucoin_integration")
+  )
+  let hasBinanceIntegration = evaluateBooleanFromLocalStorage(
+    localStorage.getItem("user_has_binance_integration")
+  )
   return (
     <AppBar position="static" style={{ backgroundColor: "transparent" }}>
       <Toolbar variant="dense">
         <FinancesMenu />
         <AssetsMenu />
         <Box sx={{ flexGrow: 1, textAlign: "center", marginLeft: "85px" }}>
-          <Sync />
+          {(hasBinanceIntegration || hasKucoinIntegration) && <Sync />}
           <IconButton
             size="large"
             color="black"

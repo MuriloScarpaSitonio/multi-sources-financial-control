@@ -11,7 +11,6 @@ from rest_framework.status import (
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
-    HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
 )
 
@@ -60,24 +59,46 @@ URL = f"/{BASE_API_URL}" + "assets"
 
 
 @pytest.mark.parametrize(
-    ("asset_type", "asset_sector", "currency"),
+    ("asset_type", "asset_sector", "currency", "mock_path"),
     (
-        (AssetTypes.fii, AssetSectors.essential_consumption, Currencies.real),
-        (AssetTypes.stock, AssetSectors.unknown, Currencies.real),
-        (AssetTypes.stock_usa, AssetSectors.unknown, Currencies.dollar),
-        (AssetTypes.crypto, AssetSectors.tech, Currencies.dollar),
-        (AssetTypes.crypto, AssetSectors.tech, Currencies.real),
+        (
+            AssetTypes.fii,
+            AssetSectors.essential_consumption,
+            Currencies.real,
+            "variable_income_assets.integrations.helpers.get_b3_prices",
+        ),
+        (
+            AssetTypes.stock,
+            AssetSectors.unknown,
+            Currencies.real,
+            "variable_income_assets.integrations.helpers.get_b3_prices",
+        ),
+        (
+            AssetTypes.stock_usa,
+            AssetSectors.unknown,
+            Currencies.dollar,
+            "variable_income_assets.integrations.helpers.get_stocks_usa_prices",
+        ),
+        (
+            AssetTypes.crypto,
+            AssetSectors.tech,
+            Currencies.dollar,
+            "variable_income_assets.integrations.helpers.get_crypto_prices",
+        ),
+        (
+            AssetTypes.crypto,
+            AssetSectors.tech,
+            Currencies.real,
+            "variable_income_assets.integrations.helpers.get_crypto_prices",
+        ),
     ),
 )
-def test__create(client, asset_type, asset_sector, currency, mocker):
+def test__create(client, asset_type, asset_sector, currency, mock_path, mocker):
     # GIVEN
     code = "IGR"
     objective = AssetObjectives.dividend
     current_price = Decimal(randrange(155, 389)) / 100
-    mocker.patch(
-        "variable_income_assets.tasks.asset_metadata.fetch_asset_current_price",
-        return_value=current_price,
-    ),
+    mocker.patch(mock_path, return_value={code: current_price})
 
     # WHEN
     response = client.post(
@@ -435,118 +456,6 @@ def test__list__should_include_asset_wo_transactions(
     assert {r["code"]: r["currency"] for r in response.json()["results"]} == expected
 
 
-@pytest.mark.skip("Integration is deprecated")
-def test_should_call_sync_cei_transactions_task_task(client, user, mocker):
-    # GIVEN
-    mocked_task = mocker.patch("variable_income_assets.views.sync_cei_transactions_task")
-
-    # WHEN
-    response = client.get(f"{URL}/sync_cei_transactions")
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-    assert mocked_task.call_args[1]["username"] == user.username
-
-
-def test_should_raise_permission_error_sync_cei_transactions_if_user_has_not_set_credentials(
-    binance_client,
-):
-    # GIVEN
-
-    # WHEN
-    response = binance_client.get(f"{URL}/sync_cei_transactions")
-
-    # THEN
-    assert response.status_code == HTTP_403_FORBIDDEN
-    assert response.json() == {
-        "detail": "User has not set the given credentials for CEI integration"
-    }
-
-
-def test_should_call_sync_kucoin_transactions_task(
-    kucoin_client, user_with_kucoin_integration, mocker
-):
-    # GIVEN
-    mocked_task = mocker.patch("variable_income_assets.views.sync_kucoin_transactions_task")
-
-    # WHEN
-    response = kucoin_client.get(f"{URL}/sync_kucoin_transactions")
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-    assert mocked_task.call_args[1]["username"] == user_with_kucoin_integration.username
-
-
-def test_should_raise_permission_error_sync_kucoin_transactions_if_user_has_not_set_credentials(
-    client,
-):
-    # GIVEN
-
-    # WHEN
-    response = client.get(f"{URL}/sync_kucoin_transactions")
-
-    # THEN
-    assert response.status_code == HTTP_403_FORBIDDEN
-    assert response.json() == {
-        "detail": "User has not set the given credentials for KuCoin integration"
-    }
-
-
-def test_should_call_sync_binance_transactions_task_task(
-    binance_client, user_with_binance_integration, mocker
-):
-    # GIVEN
-    mocked_task = mocker.patch("variable_income_assets.views.sync_binance_transactions_task")
-
-    # WHEN
-    response = binance_client.get(f"{URL}/sync_binance_transactions")
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-    assert mocked_task.call_args[1]["username"] == user_with_binance_integration.username
-
-
-def test_should_raise_permission_error_sync_binance_if_user_has_not_set_credentials(client):
-    # GIVEN
-
-    # WHEN
-    response = client.get(f"{URL}/sync_binance_transactions")
-
-    # THEN
-    assert response.status_code == HTTP_403_FORBIDDEN
-    assert response.json() == {
-        "detail": "User has not set the given credentials for Binance integration"
-    }
-
-
-@pytest.mark.skip("Integration is deprecated")
-def test_should_call_sync_cei_passive_incomes_task_task(client, user, mocker):
-    # GIVEN
-    mocked_task = mocker.patch("variable_income_assets.views.sync_cei_passive_incomes_task")
-
-    # WHEN
-    response = client.get(f"{URL}/sync_cei_passive_incomes")
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-    assert mocked_task.call_args[1]["username"] == user.username
-
-
-def test_should_raise_permission_error_sync_cei_passive_incomes_if_user_has_not_set_credentials(
-    binance_client,
-):
-    # GIVEN
-
-    # WHEN
-    response = binance_client.get(f"{URL}/sync_cei_passive_incomes")
-
-    # THEN
-    assert response.status_code == HTTP_403_FORBIDDEN
-    assert response.json() == {
-        "detail": "User has not set the given credentials for CEI integration"
-    }
-
-
 @pytest.mark.usefixtures("indicators_data", "sync_assets_read_model")
 def test_should_get_indicators(client):
     # GIVEN
@@ -565,35 +474,6 @@ def test_should_get_indicators(client):
     assert response.json()["ROI_opened"] == convert_and_quantitize(roi_opened)
     assert response.json()["ROI_finished"] == convert_and_quantitize(roi_finished)
     assert response.json()["ROI"] == convert_and_quantitize(roi_opened + roi_finished)
-
-
-@pytest.mark.parametrize(
-    "user_fixture_name, client_fixture_name, tasks_to_run",
-    (
-        ("user_with_kucoin_integration", "kucoin_client", ("sync_kucoin_transactions_task",)),
-        ("user_with_binance_integration", "binance_client", ("sync_binance_transactions_task",)),
-    ),
-)
-def test_should_sync_all(request, user_fixture_name, client_fixture_name, tasks_to_run, mocker):
-    # GIVEN
-    path = "variable_income_assets.views.{}"
-    client = request.getfixturevalue(client_fixture_name)
-    user = request.getfixturevalue(user_fixture_name)
-
-    mocked_tasks = []
-    for task_name in tasks_to_run:
-        m = mocker.patch(path.format(task_name))
-        m.__name__ = task_name
-        mocked_tasks.append(m)
-
-    # WHEN
-    response = client.get(f"{URL}/sync_all")
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-    assert all(task_name in response.json() for task_name in tasks_to_run)
-    for task_name, mocked_task in zip(tasks_to_run, mocked_tasks):
-        assert mocked_task.call_args[1]["username"] == user.username
 
 
 @pytest.mark.usefixtures(

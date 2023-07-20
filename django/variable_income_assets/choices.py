@@ -1,35 +1,19 @@
+from djchoices import ChoiceItem, DjangoChoices
+
 from django.conf import settings
-from django.core.exceptions import ValidationError
-
-from djchoices import DjangoChoices, ChoiceItem
 
 
-class DjangoChoicesCustomValidator(DjangoChoices):
-    @classmethod
-    def custom_validator(cls, value: str) -> None:
-        # This way we don't create a new migration if any of the choices changes
-        if value not in cls.values:
-            raise ValidationError(
-                "'%(value)s' is not a valid choice for {class_name}. Valid values: {valid_values}",
-                params={
-                    "value": value,
-                    "class_name": cls.__name__,
-                    "valid_values": ", ".join(cls.values),
-                },
-            )
-
-
-class TransactionActions(DjangoChoicesCustomValidator):
+class TransactionActions(DjangoChoices):
     buy = ChoiceItem("BUY", label="Compra")
     sell = ChoiceItem("SELL", label="Venda")
 
 
-class Currencies(DjangoChoicesCustomValidator):
+class Currencies(DjangoChoices):
     real = ChoiceItem("BRL", label="Real", symbol="R$")
     dollar = ChoiceItem("USD", label="Dólar", symbol="US$")
 
 
-class AssetTypes(DjangoChoicesCustomValidator):
+class AssetTypes(DjangoChoices):
     stock = ChoiceItem(
         "STOCK",
         label="Ação B3",
@@ -56,7 +40,7 @@ class AssetTypes(DjangoChoicesCustomValidator):
     )
 
 
-class AssetSectors(DjangoChoicesCustomValidator):
+class AssetSectors(DjangoChoices):
     industrials = ChoiceItem("INDUSTRIALS", label="Bens industriais")
     communication = ChoiceItem("COMMUNICATION", label="Comunicações")
     non_essential_consumption = ChoiceItem("CONSUMER DISCRETIONARY", label="Consumo não cíclico")
@@ -70,19 +54,19 @@ class AssetSectors(DjangoChoicesCustomValidator):
     unknown = ChoiceItem("UNKNOWN", label="Desconhecido")
 
 
-class AssetObjectives(DjangoChoicesCustomValidator):
+class AssetObjectives(DjangoChoices):
     growth = ChoiceItem("GROWTH", label="Crescimento")
     dividend = ChoiceItem("DIVIDEND", label="Dividendo")
     unknown = ChoiceItem("UNKNOWN", label="Desconhecido")
 
 
-class PassiveIncomeTypes(DjangoChoicesCustomValidator):
+class PassiveIncomeTypes(DjangoChoices):
     dividend = ChoiceItem("DIVIDEND", label="Dividendo")
     jcp = ChoiceItem("JCP", label="Juros sobre capital próprio")
     income = ChoiceItem("INCOME", label="Rendimento")
 
 
-class PassiveIncomeEventTypes(DjangoChoicesCustomValidator):
+class PassiveIncomeEventTypes(DjangoChoices):
     provisioned = ChoiceItem("PROVISIONED", label="Provisionado")
     credited = ChoiceItem("CREDITED", label="Creditado")
 
