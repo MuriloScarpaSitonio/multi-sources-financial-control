@@ -15,9 +15,21 @@ from .service_layer import messagebus
 from .service_layer.unit_of_work import DjangoUnitOfWork
 
 
+# region: custom fields
+
+
+class UpperCharField(serializers.CharField):
+    def to_internal_value(self, data) -> str:
+        return super().to_internal_value(data).upper()
+
+
+# endregion: custom fields
+
+
 class MinimalAssetSerializer(serializers.ModelSerializer):
     type = CustomChoiceField(choices=choices.AssetTypes.choices)
     currency = CustomChoiceField(choices=choices.Currencies.choices)
+    code = UpperCharField(max_length=10)
 
     class Meta:
         model = Asset

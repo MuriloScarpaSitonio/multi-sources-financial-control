@@ -199,6 +199,7 @@ export const AssetsForm = ({ initialData, onClose, onSuccess }) => {
                 style={{ width: "35%", marginRight: "2%" }}
                 error={!!errors.code}
                 helperText={errors.code?.message}
+                inputProps={{ style: { textTransform: "uppercase" } }}
               />
             )}
           />

@@ -88,14 +88,9 @@ def test__total_invested_report__percentage(client, group_by, choices_class):
     for result in response.json():
         for choice, label in choices_class.choices:
             if label == result[group_by.lower()]:
-                assert (
-                    float(
-                        convert_to_percentage_and_quantitize(
-                            value=totals[choice], total=total_invested
-                        )
-                    )
-                    == result["total"]
-                )
+                assert float(
+                    convert_to_percentage_and_quantitize(value=totals[choice], total=total_invested)
+                ) == convert_and_quantitize(result["total"])
 
 
 @pytest.mark.usefixtures("report_data", "sync_assets_read_model")

@@ -212,6 +212,24 @@ def test__create__code_type_currency_user_unique(client, crypto_asset):
     }
 
 
+def test__create__uppercase_code(client, mocker):
+    # GIVEN
+    mocker.patch("variable_income_assets.views.messagebus.handle")
+    data = {
+        "type": AssetTypes.stock,
+        "objective": AssetObjectives.dividend,
+        "currency": Currencies.real,
+        "code": "bbas3",
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+    assert Asset.objects.filter(code="BBAS3").exists()
+
+
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.usefixtures("sync_assets_read_model", "crypto_asset_metadata")
 def test__update(client, crypto_asset):
@@ -271,6 +289,25 @@ def test__update__validate_currency(client, stock_asset):
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
+
+
+def test__update__uppercase_code(client, stock_asset, mocker):
+    # GIVEN
+    mocker.patch("variable_income_assets.views.messagebus.handle")
+    data = {
+        "type": stock_asset.type,
+        "objective": stock_asset.objective,
+        "code": stock_asset.code.lower(),
+        "currency": stock_asset.currency,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{stock_asset.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert Asset.objects.filter(code=stock_asset.code.upper()).exists()
+    print(Asset.objects.filter(code=stock_asset.code.lower()).exists())
 
 
 @pytest.mark.usefixtures("stock_asset_metadata", "stock_asset", "sync_assets_read_model")
