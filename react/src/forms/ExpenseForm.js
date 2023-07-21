@@ -84,25 +84,16 @@ const schema = yup.object().shape({
     })
     .required("A fonte é obrigatória")
     .nullable(),
-  installments: yup.number().when("is_fixed", {
-    is: true,
-    then: yup
-      .number()
-      .positive("Apenas números positivos")
-      .min(1, "Despesas fixas não podem ser parceladas")
-      .max(1, "Despesas fixas não podem ser parceladas")
-      .typeError("Por favor, inclua um valor"),
-    otherwise: yup
-      .number()
-      .positive("Apenas números positivos")
-      .typeError("Por favor, inclua um valor"),
-  }),
+  installments: yup.number().positive("Apenas números positivos").typeError("Por favor, inclua um valor"),
 });
 
 export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
   const [isLoaded, setIsLoaded] = useState(true);
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
+  const [isFixedExpense, setIsFixedExpense] = useState(
+    initialData.isFixed || false
+  );
 
   const {
     control,
@@ -119,6 +110,11 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
     const actionVerb = isCreateForm ? "criada" : "editada";
     if (isDirty) {
       setIsLoaded(false);
+      
+      if (isFixedExpense) {
+        data.installments = 1
+      }
+
       api[method]({
         ...data,
         created_at: data.created_at.toLocaleDateString("pt-br"),
@@ -237,7 +233,10 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
                       <Switch
                         color="primary"
                         checked={value}
-                        onChange={(_, data) => onChange(data)}
+                        onChange={(_, v) => {
+                          setIsFixedExpense(v);
+                          onChange(v);
+                        }}
                       />
                     )}
                   />
@@ -328,7 +327,13 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
               )}
             />
           </FormControl>
-          <Tooltip title="Se for uma despesa parcelada, coloque o valor completo da compra (e não da parcela)">
+          <Tooltip 
+            title={
+              !isFixedExpense ?
+              "Se for uma despesa parcelada, coloque o valor completo da compra (e não da parcela)"
+              : ""
+          }
+          >
             <FormControl style={{ width: "18%" }}>
               <Controller
                 name="installments"
@@ -342,6 +347,9 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
                     InputProps={{ inputProps: { min: 1 } }}
                     error={!!errors.installments}
                     helperText={errors.installments?.message}
+                    style={{
+                      display: !isFixedExpense ? "" : "none",
+                    }}
                   />
                 )}
               />
