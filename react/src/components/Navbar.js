@@ -184,7 +184,7 @@ const Sync = () => {
       <Tooltip title="Sincronizar preços, transferências e renda passiva">
         <IconButton size="large" color="black">
           <SyncIcon
-            onClick={() => sync("syncAll", "Sincronizações em antamento!")}
+            onClick={() => sync("syncAll", "Sincronizações em andamento!")}
           />
         </IconButton>
       </Tooltip>
@@ -192,7 +192,7 @@ const Sync = () => {
         open={showAlert}
         onClose={() => setShowAlert(false)}
         message={feedbackMessage}
-        severity="success"
+        severity="info"
       />
     </>
   );
@@ -347,7 +347,7 @@ const AssetsMenu = () => {
         open={showAlert}
         onClose={() => setShowAlert(false)}
         message={feedbackMessage}
-        severity="success"
+        severity="info"
       />
     </>
   );
