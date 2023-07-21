@@ -176,56 +176,9 @@ const ExpenseBarChartComponent = ({ data, dataKey, fetchReportData }) => {
   );
 };
 
-const ExpenseHistoricChartComponent = ({ data, fetchHistoricData }) => {
-  const REPORT_TEXT = "Últimos 12 meses";
-  const FUTURE_HISTORIC_REPORT_TEXT = "Futuro";
-
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [buttonText, setButtonText] = useState(REPORT_TEXT);
-  const [menuText, setMenuText] = useState(FUTURE_HISTORIC_REPORT_TEXT);
-
-  const handleClick = (event) => setAnchorEl(event.currentTarget);
-  const handleClose = () => {
-    // we haven't changed it yet
-    menuText === REPORT_TEXT
-      ? fetchHistoricData()
-      : fetchHistoricData({ future: true });
-
-    setButtonText(menuText);
-    setMenuText(buttonText);
-    setAnchorEl(null);
-  };
+const ExpenseHistoricChartComponent = ({ data }) => {
   return (
     <Card elevation={6}>
-      <CardHeader
-        action={
-          <>
-            <Button
-              endIcon={<ArrowDropDownIcon />}
-              size="small"
-              variant="text"
-              aria-controls="basic-menu"
-              aria-haspopup="true"
-              onClick={handleClick}
-            >
-              {buttonText}
-            </Button>
-            <Menu
-              id="basic-menu"
-              keepMounted
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={handleClose}
-              anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-              transformOrigin={{ vertical: "top", horizontal: "center" }}
-              getContentAnchorEl={null}
-            >
-              <MenuItem onClick={handleClose}>{menuText}</MenuItem>
-            </Menu>
-          </>
-        }
-      />
-      <Divider />
       <CardContent>
         <BarChart width={chartWidth} height={chartHeight} data={data.historic}>
           <CartesianGrid stroke="#eee" />
@@ -285,12 +238,15 @@ export const ExpensesReports = () => {
         fetchHistoricData();
         break;
       case 1:
-        fetchReportData("CATEGORY");
+        fetchHistoricData({future: true})
         break;
       case 2:
-        fetchReportData("SOURCE");
+        fetchReportData("CATEGORY");
         break;
       case 3:
+        fetchReportData("SOURCE");
+        break;
+      case 4:
         fetchReportData("TYPE");
         break;
       default:
@@ -309,19 +265,21 @@ export const ExpensesReports = () => {
         className={classes.tabs}
       >
         <Tab label="Histórico" {...getTabProps(0)} />
-        <Tab label="Por categoria" {...getTabProps(1)} />
-        <Tab label="Por fonte" {...getTabProps(2)} />
-        <Tab label="Por tipo" {...getTabProps(3)} />
+        <Tab label="Futuro" {...getTabProps(1)} />
+        <Tab label="Por categoria" {...getTabProps(2)} />
+        <Tab label="Por fonte" {...getTabProps(3)} />
+        <Tab label="Por tipo" {...getTabProps(4)} />
       </Tabs>
 
       <TabPanel value={tabValue} index={0}>
         {!isLoaded && <Loader />}
-        <ExpenseHistoricChartComponent
-          data={data}
-          fetchHistoricData={fetchHistoricData}
-        />
+        <ExpenseHistoricChartComponent data={data} />
       </TabPanel>
       <TabPanel value={tabValue} index={1}>
+        {!isLoaded && <Loader />}
+        <ExpenseHistoricChartComponent data={data} />
+      </TabPanel>
+      <TabPanel value={tabValue} index={2}>
         {!isLoaded && <Loader />}
         <ExpenseBarChartComponent
           data={data}
@@ -330,7 +288,7 @@ export const ExpensesReports = () => {
           fetchReportData={fetchReportData}
         />
       </TabPanel>
-      <TabPanel value={tabValue} index={2}>
+      <TabPanel value={tabValue} index={3}>
         {!isLoaded && <Loader />}
         <ExpenseBarChartComponent
           data={data}
@@ -339,7 +297,7 @@ export const ExpensesReports = () => {
           fetchReportData={fetchReportData}
         />
       </TabPanel>
-      <TabPanel value={tabValue} index={3}>
+      <TabPanel value={tabValue} index={4}>
         <ExpenseBarChartComponent
           data={data}
           dataKey="type"
