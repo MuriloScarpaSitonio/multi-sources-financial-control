@@ -1649,6 +1649,20 @@ files = [
 ]
 
 [[package]]
+name = "mirakuru"
+version = "2.5.1"
+description = "Process executor (not only) for tests."
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "mirakuru-2.5.1-py3-none-any.whl", hash = "sha256:0a16f897841741f8cd784f790e54d74e61456ba36be9cb9de731b49e2e7a45dc"},
+    {file = "mirakuru-2.5.1.tar.gz", hash = "sha256:5a60d641fa92c8bfcd383f6e52f7a0bf3f081da0467fc6e3e6a3f6b3e3e47a7b"},
+]
+
+[package.dependencies]
+psutil = {version = ">=4.0.0", markers = "sys_platform != \"cygwin\""}
+
+[[package]]
 name = "msgpack"
 version = "1.0.5"
 description = "MessagePack serializer"
@@ -1894,6 +1908,17 @@ files = [
 [package.extras]
 dev = ["pre-commit", "tox"]
 testing = ["pytest", "pytest-benchmark"]
+
+[[package]]
+name = "port-for"
+version = "0.7.1"
+description = "Utility that helps with local TCP ports management. It can find an unused TCP localhost port and remember the association."
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "port-for-0.7.1.tar.gz", hash = "sha256:e0f3b8d7ec8bdc388c14d88bdbab8d6441c8081ed2bdec7847b38ca6d1563f23"},
+    {file = "port_for-0.7.1-py3-none-any.whl", hash = "sha256:8abdaa1a7810281b0cecf718a6319da5f8538fdae3a5101d1e9afd54da0baf8c"},
+]
 
 [[package]]
 name = "protobuf"
@@ -2353,6 +2378,23 @@ docs = ["sphinx", "sphinx-rtd-theme"]
 testing = ["Django", "django-configurations (>=2.0)"]
 
 [[package]]
+name = "pytest-env"
+version = "0.8.2"
+description = "py.test plugin that allows you to add environment variables."
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "pytest_env-0.8.2-py3-none-any.whl", hash = "sha256:5e533273f4d9e6a41c3a3120e0c7944aae5674fa773b329f00a5eb1f23c53a38"},
+    {file = "pytest_env-0.8.2.tar.gz", hash = "sha256:baed9b3b6bae77bd75b9238e0ed1ee6903a42806ae9d6aeffb8754cd5584d4ff"},
+]
+
+[package.dependencies]
+pytest = ">=7.3.1"
+
+[package.extras]
+test = ["coverage (>=7.2.7)", "pytest-mock (>=3.10)"]
+
+[[package]]
 name = "pytest-freezegun"
 version = "0.4.2"
 description = "Wrap tests with fixtures in freeze_time"
@@ -2383,6 +2425,23 @@ pytest = ">=5.0"
 
 [package.extras]
 dev = ["pre-commit", "pytest-asyncio", "tox"]
+
+[[package]]
+name = "pytest-redis"
+version = "3.0.2"
+description = "Redis fixtures and fixture factories for Pytest."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "pytest-redis-3.0.2.tar.gz", hash = "sha256:e54660e95fb1ec0feb7426523e37710ac7850380c60f9ee693c4045a6fc28ac5"},
+    {file = "pytest_redis-3.0.2-py3-none-any.whl", hash = "sha256:e2fd39658f396b6ae22976b80f94c61ebda5bc2bb8fe7eabcc7a7f994f7659f8"},
+]
+
+[package.dependencies]
+mirakuru = "*"
+port-for = ">=0.6.0"
+pytest = ">=6.2"
+redis = ">=3"
 
 [[package]]
 name = "pytest-sugar"
@@ -2619,6 +2678,24 @@ files = [
 
 [package.dependencies]
 cffi = {version = "*", markers = "implementation_name == \"pypy\""}
+
+[[package]]
+name = "redis"
+version = "4.6.0"
+description = "Python client for Redis database and key-value store"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "redis-4.6.0-py3-none-any.whl", hash = "sha256:e2b03db868160ee4591de3cb90d40ebb50a90dd302138775937f6a42b7ed183c"},
+    {file = "redis-4.6.0.tar.gz", hash = "sha256:585dc516b9eb042a619ef0a39c3d7d55fe81bdb4df09a52c9cdde0d07bf1aa7d"},
+]
+
+[package.dependencies]
+async-timeout = {version = ">=4.0.2", markers = "python_full_version <= \"3.11.2\""}
+
+[package.extras]
+hiredis = ["hiredis (>=1.0.0)"]
+ocsp = ["cryptography (>=36.0.1)", "pyopenssl (==20.0.1)", "requests (>=2.26.0)"]
 
 [[package]]
 name = "requests"
@@ -3083,4 +3160,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "771a8ae1bdbafb51aa5ac53c83220f56e1871553aa3408c6ca0a91ad7e2a5b28"
+content-hash = "5532e66db19a958db2d66523feba7b88ec4e1bbf95f92115cf074179f6e7f3d7"

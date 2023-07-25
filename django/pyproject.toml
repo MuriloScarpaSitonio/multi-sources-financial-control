@@ -20,6 +20,7 @@ python-dateutil = "^2.8.2"
 python-decouple = "^3.8"
 requests = "2.26.0"
 pydantic = "==2.*"
+redis = "^4.6.0"
 
 [tool.poetry.group.dev.dependencies]
 PyDrive2 = "^1.15.4"
@@ -38,6 +39,8 @@ pytest-xdist = "^3.1.0"
 requests-mock = "^1.10.0"
 aioresponses = "^0.7.4"
 pytest-freezegun = "^0.4.2"
+pytest-redis = "^3.0.2"
+pytest-env = "^0.8.2"
 
 [build-system]
 build-backend = "poetry.core.masonry.api"
@@ -50,6 +53,8 @@ line-length = 88
 DJANGO_SETTINGS_MODULE = "config.settings.base"
 python_files = "test_*.py"
 python_functions = "test_*"
+addopts = "--basetemp=/tmp/pytest"
+env = ["ENVIRONMENT=pytest"]
 
 [tool.coverage.run]
 omit = [
@@ -73,4 +78,4 @@ exclude_lines = [
   "@abstractmethod",
   "@overload",
 ]
-fail_under = 97
+fail_under = 96

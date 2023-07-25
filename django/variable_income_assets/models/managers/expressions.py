@@ -4,9 +4,7 @@ from django.db.models import Case, DecimalField, Expression, F, Q, Sum, Value, W
 from django.db.models.expressions import CombinedExpression
 from django.db.models.functions import Cast, Coalesce
 
-from config.settings.dynamic import dynamic_settings
-
-from ...choices import TransactionActions, Currencies
+from ...choices import Currencies, TransactionActions
 
 
 class _GenericQueryHelperIntializer:
@@ -30,11 +28,13 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
         prefix: str | None = None,
         dollar_conversion_rate: Decimal | None = None,
     ) -> None:
+        from ...integrations.helpers import get_dollar_conversion_rate
+
         super().__init__(prefix=prefix)
         self.dollar_conversion_rate = (
             Value(dollar_conversion_rate)
             if dollar_conversion_rate is not None
-            else Value(dynamic_settings.DOLLAR_CONVERSION_RATE)
+            else Value(get_dollar_conversion_rate())
         )
         self.filters = GenericQuerySetFilters(prefix=prefix)
 

@@ -1,19 +1,18 @@
-from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_UP, DecimalException
+from decimal import ROUND_HALF_UP, Decimal, DecimalException
 
 from rest_framework import serializers
 from rest_framework.exceptions import NotFound
-
-from config.settings.dynamic import dynamic_settings
 from shared.serializers_utils import CustomChoiceField
 
 from . import choices
 from .domain import commands
 from .domain.exceptions import ValidationError as DomainValidationError
-from .domain.models import Asset as AssetDomainModel, TransactionDTO
+from .domain.models import Asset as AssetDomainModel
+from .domain.models import TransactionDTO
+from .integrations.helpers import get_dollar_conversion_rate
 from .models import Asset, AssetReadModel, PassiveIncome, Transaction
 from .service_layer import messagebus
 from .service_layer.unit_of_work import DjangoUnitOfWork
-
 
 # region: custom fields
 
@@ -329,7 +328,7 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
         value = (
             (obj.metadata.current_price or Decimal())
             if obj.currency == choices.Currencies.real
-            else (obj.metadata.current_price or Decimal()) * dynamic_settings.DOLLAR_CONVERSION_RATE
+            else (obj.metadata.current_price or Decimal()) * get_dollar_conversion_rate()
         )
 
         try:

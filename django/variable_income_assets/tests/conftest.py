@@ -1,3 +1,4 @@
+from decimal import Decimal
 from random import choice, randint
 from time import time
 
@@ -19,6 +20,7 @@ from ..choices import (
     TransactionActions,
 )
 from ..integrations.binance.client import BinanceClient
+from ..integrations.handlers import update_dollar_conversion_rate
 from ..integrations.kucoin.client import KuCoinClient
 from ..management.commands.sync_assets_cqrs import Command as SyncAssetReadModelCommand
 from ..models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
@@ -47,6 +49,11 @@ class TransactionFactory(DjangoModelFactory):
 class PassiveIncomeFactory(DjangoModelFactory):
     class Meta:
         model = PassiveIncome
+
+
+@pytest.fixture(autouse=True)
+def _update_dollar_conversion_rate():
+    update_dollar_conversion_rate(Decimal("5.0"))
 
 
 @pytest.fixture

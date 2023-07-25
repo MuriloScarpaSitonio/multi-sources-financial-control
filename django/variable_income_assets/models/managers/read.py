@@ -1,17 +1,15 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Self, TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
 from django.db import models
 
-from config.settings.dynamic import dynamic_settings
-
-from ...adapters.repositories import DjangoSQLAssetMetaDataRepository
+from ...adapters import DjangoSQLAssetMetaDataRepository
 from ...choices import AssetsTotalInvestedReportAggregations, Currencies
 
 if TYPE_CHECKING:
-    from ...adapters.repositories import AbstractAssetMetaDataRepository
+    from ...adapters.sql import AbstractAssetMetaDataRepository
 
 
 class _Expressions:
@@ -20,10 +18,12 @@ class _Expressions:
         metadata_repository: AbstractAssetMetaDataRepository,
         dollar_conversion_rate: Decimal | None = None,
     ) -> None:
+        from ...integrations.helpers import get_dollar_conversion_rate
+
         self.dollar_conversion_rate = (
             models.Value(dollar_conversion_rate)
             if dollar_conversion_rate is not None
-            else models.Value(dynamic_settings.DOLLAR_CONVERSION_RATE)
+            else models.Value(get_dollar_conversion_rate())
         )
         self.metadata_repository = metadata_repository
 
@@ -65,7 +65,9 @@ class _Expressions:
 
 
 class AssetReadModelQuerySet(models.QuerySet):
-    expressions = _Expressions(metadata_repository=DjangoSQLAssetMetaDataRepository)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.expressions = _Expressions(metadata_repository=DjangoSQLAssetMetaDataRepository)
 
     def opened(self) -> Self:
         return self.filter(models.Q(quantity_balance__gt=0) | models.Q(total_bought=0))

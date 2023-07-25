@@ -15,7 +15,14 @@ services:
       - ADMIN_USERNAME=murilo
       - ADMIN_PASSWORD=test
       - REVENUES_API_URL=http://revenues:5050/
+      - REDIS_CONNECTION_URL=redis://redis:6379
+    depends_on:
+      - redis
     command: python manage.py runserver 0.0.0.0:8000
+
+  redis:
+    container_name: redis
+    image: redis:7
 
   revenues:
     container_name: revenues

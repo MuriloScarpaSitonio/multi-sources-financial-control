@@ -7,9 +7,8 @@ from django.conf import settings
 from django.db.models import F
 from django.utils import timezone
 
-from config.settings.dynamic import dynamic_settings
-
-from .choices import AssetTypes, PassiveIncomeTypes, TransactionActions, Currencies
+from .choices import AssetTypes, Currencies, PassiveIncomeTypes, TransactionActions
+from .integrations.helpers import get_dollar_conversion_rate
 from .models import Asset, Transaction
 
 if TYPE_CHECKING:
@@ -447,9 +446,9 @@ def print_irpf_infos(
     debug: int = 1,
 ):  # pragma: no cover
     dollar_conversion_rate = (
-        dynamic_settings.DOLLAR_CONVERSION_RATE  # na verdade, buscar a cotação em 31/12 de `year`
-        if dollar_conversion_rate is None
-        else dollar_conversion_rate
+        dollar_conversion_rate
+        if dollar_conversion_rate is not None
+        else get_dollar_conversion_rate()  # na verdade, buscar a cotação em 31/12 de `year`
     )
     qs = (
         Asset.objects.using_dollar_as(dollar_conversion_rate)

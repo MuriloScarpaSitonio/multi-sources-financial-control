@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from django.utils import timezone
 
-from ..adapters.repositories import DjangoSQLAssetMetaDataRepository
+from ..adapters import DjangoSQLAssetMetaDataRepository, key_value_backend
 from ..choices import AssetTypes, Currencies
-from .helpers import get_b3_prices, get_crypto_prices, get_stocks_usa_prices
+from .helpers import (
+    fetch_dollar_to_real_conversion_value,
+    get_b3_prices,
+    get_crypto_prices,
+    get_stocks_usa_prices,
+)
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
@@ -89,3 +95,14 @@ async def update_prices() -> Exception | None:
         print(error)
 
     return error
+
+
+def update_dollar_conversion_rate(value: Decimal | None = None) -> None:
+    if value is None:
+        try:
+            value = fetch_dollar_to_real_conversion_value()
+        except Exception:
+            # TODO: log error
+            value = Decimal("5.0")
+
+    key_value_backend.set(key="DOLLAR_CONVERSION_RATE", value=value)

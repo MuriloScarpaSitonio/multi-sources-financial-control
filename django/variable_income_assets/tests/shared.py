@@ -1,11 +1,10 @@
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from functools import singledispatch
 
 from django.db.models import Q
 
-from config.settings.dynamic import dynamic_settings
-
 from ..choices import Currencies
+from ..integrations.helpers import get_dollar_conversion_rate
 from ..models import Asset, AssetMetaData
 
 
@@ -24,7 +23,7 @@ def get_current_price_metadata(asset: Asset, normalize: bool = False) -> Decimal
         code=asset.code, type=asset.type, currency=asset.currency
     )
     if metadata.currency != Currencies.real and normalize:
-        return metadata.current_price * dynamic_settings.DOLLAR_CONVERSION_RATE
+        return metadata.current_price * get_dollar_conversion_rate()
     return metadata.current_price
 
 
@@ -33,7 +32,7 @@ def get_total_bought_brute_force(asset: Asset, normalize: bool = True):
         (transaction.price * transaction.quantity for transaction in asset.transactions.bought())
     )
     if normalize and asset.currency != Currencies.real:
-        result *= dynamic_settings.DOLLAR_CONVERSION_RATE
+        result *= get_dollar_conversion_rate()
     return result
 
 
@@ -46,7 +45,7 @@ def get_avg_price_bute_force(asset: Asset, normalize: bool = False, extra_filter
 
     weights = sum(weights)
     if normalize and asset.currency != Currencies.real:
-        weights *= dynamic_settings.DOLLAR_CONVERSION_RATE
+        weights *= get_dollar_conversion_rate()
 
     return weights / sum(quantities)
 
@@ -83,7 +82,7 @@ def get_adjusted_avg_price_brute_forte(asset: Asset, normalize: bool = True):
 
     weights = sum(weights)
     if normalize and asset.currency != Currencies.real:
-        weights *= dynamic_settings.DOLLAR_CONVERSION_RATE
+        weights *= get_dollar_conversion_rate()
 
     avg_price = weights / sum(quantities)
     return (
@@ -100,8 +99,8 @@ def get_roi_brute_force(asset: Asset, normalize: bool = True):
     current_price = get_current_price_metadata(asset)
 
     if normalize and asset.currency != Currencies.real:
-        current_price *= dynamic_settings.DOLLAR_CONVERSION_RATE
-        # avg_price *= dynamic_settings.DOLLAR_CONVERSION_RATE
+        current_price *= get_dollar_conversion_rate()
+        # avg_price *= get_dollar_conversion_rate()
 
     current_total = current_price * quantity_balance
     total_invested = avg_price * quantity_balance

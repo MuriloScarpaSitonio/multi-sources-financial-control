@@ -1,7 +1,7 @@
-from decimal import Decimal
 from pathlib import Path
 
-from decouple import Csv, config as secret
+from decouple import Csv
+from decouple import config as secret
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -23,7 +23,7 @@ DOMAIN = secret("DOMAIN", default="http://localhost:8000")
 
 ENV_PRODUCTION = "PRODUCTION"
 ENV_LOCAL = "LOCAL"
-ENVIRONMENT = secret("DJANGO_DEBUG", default=ENV_LOCAL)
+ENVIRONMENT = secret("ENVIRONMENT", default=ENV_LOCAL)
 
 # Application definition
 
@@ -173,13 +173,6 @@ REVENUES_API_SECRET_KEY = secret(
 )
 TWELVE_DATA_API_KEY = secret("TWELVE_DATA_API_KEY", default="")
 
-DYNAMIC_BACKEND = "config.settings.dynamic.backends.memory.MemoryBackend"
-DYNAMIC_CONFIGS = {
-    "DOLLAR_CONVERSION_RATE": {
-        "default": Decimal("5.0"),
-        "fetch_func": "config.settings.dynamic.utils.fetch_dollar_to_real_conversion_value",
-    }
-}
 USD_CRYPTO_SYMBOLS = ("USDT", "USDC", "BUSD", "TUSD")
 
 GDRIVE_BACKUP_DB_FOLDER_ID = secret("GDRIVE_BACKUP_DB_FOLDER_ID", default="")
@@ -204,3 +197,6 @@ FII_MONTHLY_SELL_EXEMPTION_THRESHOLD = 0
 QSTASH_TOKEN = secret("QSTASH_TOKEN", default="")
 QSTASH_CURRENT_SIGNING_KEY = secret("QSTASH_CURRENT_SIGNING_KEY", default="")
 QSTASH_NEXT_SIGNING_KEY = secret("QSTASH_NEXT_SIGNING_KEY", default="")
+
+REDIS_CONNECTION_URL = secret("REDIS_CONNECTION_URL", default="redis://localhost:6379")
+REDIS_TIMEOUT_IN_SECONDS = secret("REDIS_TIMEOUT_IN_SECONDS", default=1 * 60 * 60, cast=int)

@@ -1,4 +1,4 @@
-from ..adapters.repositories import DjangoSQLAssetMetaDataRepository
+from ..adapters import DjangoSQLAssetMetaDataRepository
 from ..models import Asset, AssetReadModel
 
 

@@ -216,12 +216,12 @@ class DjangoSQLAssetMetaDataRepository(AbstractAssetMetaDataRepository):
         return await AssetMetaData.objects.abulk_update(objs=objs, fields=fields)
 
     @staticmethod
-    def get_current_price_annotation(fk_connection: bool = True) -> F | Coalesce:
+    def get_current_price_annotation(foreing_key_connection: bool = True) -> F | Coalesce:
         from ..models import AssetMetaData
 
         return (
             F("metadata__current_price")
-            if fk_connection
+            if foreing_key_connection
             else Coalesce(
                 Subquery(
                     AssetMetaData.objects.filter(

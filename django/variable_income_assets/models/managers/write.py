@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Self, TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
+
+from shared.managers_utils import GenericDateFilters
 
 from django.db.models import (
     Case,
@@ -16,9 +18,7 @@ from django.db.models import (
     Sum,
     Value,
 )
-from django.db.models.functions import Cast, Concat, Coalesce, TruncMonth
-
-from shared.managers_utils import GenericDateFilters
+from django.db.models.functions import Cast, Coalesce, Concat, TruncMonth
 
 from ...choices import AssetTypes, PassiveIncomeEventTypes
 from .expressions import GenericQuerySetExpressions
@@ -28,7 +28,9 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class AssetQuerySet(QuerySet):
-    expressions = GenericQuerySetExpressions(prefix="transactions")
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.expressions = GenericQuerySetExpressions(prefix="transactions")
 
     def using_dollar_as(self, dollar_conversion_rate: Decimal) -> Self:
         self.expressions.dollar_conversion_rate = dollar_conversion_rate
@@ -150,8 +152,11 @@ class AssetQuerySet(QuerySet):
 
 
 class TransactionQuerySet(QuerySet):
-    expressions = GenericQuerySetExpressions()
     filters = GenericDateFilters(date_field_name="operation_date")
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.expressions = GenericQuerySetExpressions()
 
     def using_dollar_as(self, dollar_conversion_rate: Decimal) -> Self:
         self.expressions.dollar_conversion_rate = dollar_conversion_rate
@@ -206,11 +211,11 @@ class TransactionQuerySet(QuerySet):
         return self.aggregate(quantity=self.expressions.get_quantity_balance())
 
     def annotate_current_price(self) -> Self:
-        from ...adapters.repositories import DjangoSQLAssetMetaDataRepository
+        from ...adapters import DjangoSQLAssetMetaDataRepository
 
         return self.annotate(
             current_price_metadata=DjangoSQLAssetMetaDataRepository.get_current_price_annotation(
-                fk_connection=False
+                foreing_key_connection=False
             )
         )
 

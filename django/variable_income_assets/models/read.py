@@ -5,11 +5,9 @@ from decimal import Decimal, DecimalException
 from django.db import models
 from django.utils.functional import cached_property
 
-from config.settings.dynamic import dynamic_settings
-
+from ..choices import AssetObjectives, AssetTypes, Currencies
 from .managers import AssetReadModelQuerySet
 from .write import AssetMetaData
-from ..choices import AssetObjectives, AssetTypes, Currencies
 
 
 class AssetReadModel(models.Model):
@@ -52,12 +50,15 @@ class AssetReadModel(models.Model):
 
     @cached_property
     def normalized_roi(self) -> Decimal:
+        from ..integrations.helpers import get_dollar_conversion_rate
+
         if self.currency == Currencies.real:
             current_price = self.metadata.current_price
             avg_price = self.avg_price
         else:
-            current_price = self.metadata.current_price * dynamic_settings.DOLLAR_CONVERSION_RATE
-            avg_price = self.avg_price * dynamic_settings.DOLLAR_CONVERSION_RATE
+            dollar_conversion_rate = get_dollar_conversion_rate()
+            current_price = self.metadata.current_price * dollar_conversion_rate
+            avg_price = self.avg_price * dollar_conversion_rate
 
         return (current_price * self.quantity_balance) - (
             (avg_price * self.quantity_balance)
@@ -67,10 +68,12 @@ class AssetReadModel(models.Model):
 
     @cached_property
     def roi_percentage(self) -> Decimal:
+        from ..integrations.helpers import get_dollar_conversion_rate
+
         total_bought = (
             self.total_bought
             if self.currency == Currencies.real
-            else self.total_bought * dynamic_settings.DOLLAR_CONVERSION_RATE
+            else self.total_bought * get_dollar_conversion_rate()
         )
         try:
             return (self.normalized_roi / total_bought) * Decimal("100.0")

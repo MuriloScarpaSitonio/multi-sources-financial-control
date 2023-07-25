@@ -2,7 +2,7 @@ from functools import singledispatch
 
 from django.utils import timezone
 
-from ..adapters.repositories import DjangoSQLAssetMetaDataRepository
+from ..adapters import DjangoSQLAssetMetaDataRepository
 from ..models import Asset
 
 

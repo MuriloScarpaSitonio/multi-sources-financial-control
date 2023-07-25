@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from datetime import date
 from decimal import Decimal
-from typing import Any, Awaitable, Callable, Iterator
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterator
 
 from aiohttp.client_exceptions import ClientError
 from aiohttp.http_exceptions import HttpProcessingError
@@ -8,21 +10,23 @@ from aiohttp.web_exceptions import HTTPException
 from asgiref.sync import async_to_sync, sync_to_async
 from authentication.models import IntegrationSecret
 from config.settings.base import ENV_PRODUCTION
-from config.settings.dynamic import dynamic_settings
 from tasks.models import TaskHistory
 
 from django.conf import settings
 from django.db.transaction import atomic
 from django.utils import timezone
 
+from ..adapters import key_value_backend
 from ..choices import AssetObjectives, AssetSectors, AssetTypes, Currencies
 from ..domain.events import TransactionsCreated
 from ..integrations.clients.abc import AbstractTransactionsClient
-from .schemas import TransactionFromIntegration, TransactionPydanticModel
 from ..models import Asset
 from ..service_layer.unit_of_work import DjangoUnitOfWork
 from ..tasks import maybe_create_asset_metadata
 from .clients import BrApiClient, QStashClient, TwelveDataClient
+
+if TYPE_CHECKING:
+    from .schemas import TransactionFromIntegration, TransactionPydanticModel
 
 
 async def get_b3_prices(codes: list[str]) -> dict[str, float]:
@@ -38,6 +42,10 @@ async def get_crypto_prices(codes: list[str], currency: Currencies):
 async def get_stocks_usa_prices(codes: list[str]):
     async with TwelveDataClient() as c:
         return await c.get_prices(codes=codes)
+
+
+def get_dollar_conversion_rate() -> Decimal:
+    return key_value_backend.get(key="DOLLAR_CONVERSION_RATE")
 
 
 # TODO: fetch API
@@ -70,7 +78,15 @@ def fetch_asset_current_price(code: str, asset_type: AssetTypes, currency: Curre
 
 # TODO: fetch API
 def fetch_currency_conversion_rate(operation_date: date, currency: Currencies) -> Decimal:
-    return Decimal("1") if currency == Currencies.real else dynamic_settings.DOLLAR_CONVERSION_RATE
+    return Decimal("1") if currency == Currencies.real else get_dollar_conversion_rate()
+
+
+def fetch_dollar_to_real_conversion_value() -> Decimal:
+    async def _fetch_dollar_to_real_conversion_value() -> str:
+        async with BrApiClient() as client:
+            return await client.convert_currencies(from_=Currencies.dollar, to=Currencies.real)
+
+    return Decimal(async_to_sync(_fetch_dollar_to_real_conversion_value)())
 
 
 class TransactionsIntegrationOrchestrator:
