@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import asdict
 from decimal import Decimal
-from typing import Any, Iterable, overload, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, overload
 
 from django.db.models import F, OuterRef, Subquery
 from django.db.models.functions import Coalesce
 
-from ..domain.models import Asset as AssetDomainModel, PassiveIncomeDTO, TransactionDTO
+from ..domain.models import Asset as AssetDomainModel
+from ..domain.models import PassiveIncomeDTO, TransactionDTO
 
 if TYPE_CHECKING:
     from datetime import datetime

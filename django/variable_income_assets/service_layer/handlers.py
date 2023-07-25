@@ -5,11 +5,11 @@ from django.utils import timezone
 from tasks.choices import TaskStates
 from tasks.models import TaskHistory
 
-from .unit_of_work import AbstractUnitOfWork
 from ..choices import AssetTypes
 from ..domain import commands, events
 from ..models import Transaction
 from ..tasks import maybe_create_asset_metadata, upsert_asset_read_model
+from .unit_of_work import AbstractUnitOfWork
 
 
 def create_transactions(cmd: commands.CreateTransactions, uow: AbstractUnitOfWork) -> Transaction:
@@ -56,7 +56,7 @@ def upsert_read_model(
     upsert_asset_read_model(
         asset_id=event.asset_pk,
         is_aggregate_upsert=(
-            not isinstance(event, (events.AssetCreated, events.AssetUpdated))
+            not isinstance(event, (events.AssetCreated | events.AssetUpdated))
             # It's possible that the `Asset` is created together with the first
             # `Transaction` or `PassiveIncome` via an integration.
             # If that's the case then we need to use `None` so all fields are updated.

@@ -1,10 +1,9 @@
 import pytest
-
 from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST
 
 from config.settings.base import BASE_API_URL
-from ..models import IntegrationSecret
 
+from ..models import IntegrationSecret
 
 pytestmark = pytest.mark.django_db
 

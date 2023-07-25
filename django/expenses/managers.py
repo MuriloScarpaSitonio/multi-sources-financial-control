@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from django.db.models import Count, Q, QuerySet, Sum, CharField, DecimalField
+from django.db.models import CharField, Count, DecimalField, Q, QuerySet, Sum
 from django.db.models.expressions import CombinedExpression
 from django.db.models.functions import Cast, Coalesce, Concat, TruncMonth
 
@@ -59,8 +59,8 @@ class ExpenseQueryset(QuerySet):
                     Sum("price", filter=~self.filters.current, default=Decimal())
                     / (
                         # we are dividing by the amount of months a given aggregation appears.
-                        # in order to divide for the whole period we should compute some subquery like
-                        # self.values("created_at__month").distinct().order_by().count()
+                        # in order to divide for the whole period we should compute some subquery
+                        # like self.values("created_at__month").distinct().order_by().count()
                         Count(
                             Concat(
                                 "created_at__month", "created_at__year", output_field=CharField()

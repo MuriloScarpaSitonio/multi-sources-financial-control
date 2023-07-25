@@ -1,19 +1,16 @@
 from decimal import Decimal
-from typing import Type
-
-from django.db.models import Q
-from django.utils import timezone
-
 
 from dateutil.relativedelta import relativedelta
+from django.db.models import Q
+from django.utils import timezone
 from djchoices.choices import ChoiceItem
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.serializers import Serializer
 from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED
-from rest_framework.viewsets import ModelViewSet
 from rest_framework.utils.serializer_helpers import ReturnList
+from rest_framework.viewsets import ModelViewSet
 
 from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
 
@@ -22,9 +19,9 @@ from .filters import ExpenseFilterSet, ExpenseHistoricFilterSet, ExpenseReportFi
 from .managers import ExpenseQueryset
 from .models import Expense
 from .serializers import (
-    ExpenseSerializer,
     ExpenseHistoricResponseSerializer,
     ExpenseIndicatorsSerializer,
+    ExpenseSerializer,
 )
 
 
@@ -43,7 +40,7 @@ class ExpenseViewSet(ModelViewSet):
         return Expense.objects.none()  # pragma: no cover -- drf-spectatular
 
     @staticmethod
-    def _get_report_serializer_class(choice: ChoiceItem) -> Type[Serializer]:
+    def _get_report_serializer_class(choice: ChoiceItem) -> type[Serializer]:
         module = __import__("expenses.serializers", fromlist=[choice.serializer_name])
         return getattr(module, choice.serializer_name)
 

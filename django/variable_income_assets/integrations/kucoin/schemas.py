@@ -2,9 +2,8 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, DecimalException
 from typing import Annotated
 
-from pydantic import AfterValidator, ConfigDict, Field, computed_field
-
 from django.conf import settings
+from pydantic import AfterValidator, ConfigDict, Field, computed_field
 
 from ...choices import Currencies
 from ..schemas import TransactionFromIntegration

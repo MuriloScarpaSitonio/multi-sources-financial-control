@@ -1,8 +1,8 @@
 import pytest
-from authentication.tests.conftest import secrets, user
+from django.utils import timezone
 from factory.django import DjangoModelFactory
 
-from django.utils import timezone
+from authentication.tests.conftest import secrets, user
 
 from ..choices import TaskStates
 from ..models import TaskHistory

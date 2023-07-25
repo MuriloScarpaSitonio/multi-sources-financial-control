@@ -1,11 +1,9 @@
-from random import randint, choice
-
-from django.utils import timezone
+from random import choice, randint
 
 import pytest
-from factory.django import DjangoModelFactory
-
 from dateutil.relativedelta import relativedelta
+from django.utils import timezone
+from factory.django import DjangoModelFactory
 
 from authentication.tests.conftest import client, secrets, user
 from expenses.choices import ExpenseCategory, ExpenseSource

@@ -2,7 +2,7 @@ import pytest
 
 from authentication.tests.conftest import client, secrets, user
 from config.settings.base import BASE_API_URL
-from variable_income_assets.choices import AssetTypes, TransactionActions, Currencies
+from variable_income_assets.choices import AssetTypes, Currencies, TransactionActions
 
 pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "assets/{}/transactions"

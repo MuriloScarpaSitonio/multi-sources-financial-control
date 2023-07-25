@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from .models import Asset as AssetDomainModel
 from ..models import Transaction
+from .models import Asset as AssetDomainModel
 
 
 class Command:

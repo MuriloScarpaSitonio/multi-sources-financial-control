@@ -1,8 +1,5 @@
-from typing import Dict, List, Optional
-
-from django.conf import settings
-
 from aiohttp import ClientResponse, ClientSession, ClientTimeout, TCPConnector
+from django.conf import settings
 
 
 class TwelveDataClient:
@@ -25,14 +22,14 @@ class TwelveDataClient:
             path=path, api_key=api_key if api_key is not None else settings.TWELVE_DATA_API_KEY
         )
 
-    async def _get(self, path: str, params: Optional[Dict[str, str]] = None) -> ClientResponse:
+    async def _get(self, path: str, params: dict[str, str] | None = None) -> ClientResponse:
         response = await self._session.get(
             url=await self._create_url(path=path), params=params if params is not None else {}
         )
         response.raise_for_status()
         return response
 
-    async def get_prices(self, codes: List[str]) -> Dict[str, str]:
+    async def get_prices(self, codes: list[str]) -> dict[str, str]:
         if not codes:
             return {}
         response = await self._get(path="price", params={"symbol": ",".join(codes)})

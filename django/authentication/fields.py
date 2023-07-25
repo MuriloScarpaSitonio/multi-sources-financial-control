@@ -1,7 +1,6 @@
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from cryptography.fernet import Fernet
-
 from django.conf import settings
 from django.db.models import CharField
 from django.utils.encoding import force_bytes, force_str

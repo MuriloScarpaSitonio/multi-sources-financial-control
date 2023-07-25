@@ -1,5 +1,6 @@
 import pytest
 from aioresponses import aioresponses
+
 from authentication.tests.conftest import (
     kucoin_client,
     kucoin_secrets,

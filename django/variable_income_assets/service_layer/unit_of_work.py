@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Iterator, Self, TYPE_CHECKING
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Self
 
 from django.db import transaction as djtransaction
 

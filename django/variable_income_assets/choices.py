@@ -1,6 +1,5 @@
-from djchoices import ChoiceItem, DjangoChoices
-
 from django.conf import settings
+from djchoices import ChoiceItem, DjangoChoices
 
 
 class TransactionActions(DjangoChoices):

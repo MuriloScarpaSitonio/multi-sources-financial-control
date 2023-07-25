@@ -1,4 +1,7 @@
 import pytest
+from django.utils import timezone
+from rest_framework.status import HTTP_200_OK, HTTP_403_FORBIDDEN
+
 from authentication.tests.conftest import (
     binance_client,
     binance_secrets,
@@ -11,11 +14,8 @@ from authentication.tests.conftest import (
     user_with_kucoin_integration,
 )
 from config.settings.base import BASE_API_URL, ENV_PRODUCTION
-from rest_framework.status import HTTP_200_OK, HTTP_403_FORBIDDEN
 from tasks.choices import TaskStates
 from tasks.tests.conftest import simple_task_history
-
-from django.utils import timezone
 
 pytestmark = pytest.mark.django_db
 
@@ -256,7 +256,7 @@ def test___sync_all(request, user_fixture_name, client_fixture_name, tasks_to_ru
     assert response.status_code == HTTP_200_OK
     assert list(response.json().keys()) == [t + "_task" for t in tasks_to_run]
 
-    for task_name, mocked_task in zip(tasks_to_run, mocked_tasks):
+    for mocked_task in mocked_tasks:
         assert mocked_task.call_args[1]["user_id"] == user.pk
 
 
@@ -295,5 +295,5 @@ def test___sync_all__check_last_run_permission(
     assert response.status_code == HTTP_403_FORBIDDEN
     assert response.json() == {}
 
-    for task_name, mocked_task in zip(tasks_to_run, mocked_tasks):
+    for mocked_task in mocked_tasks:
         assert not mocked_task.called

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from rest_framework.permissions import BasePermission
+
 from tasks.models import TaskHistory
 
 from .integrations.binance.handlers import sync_binance_transactions

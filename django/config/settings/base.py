@@ -182,7 +182,8 @@ GDRIVE_BACKUP_DB_FOLDER_ID = secret("GDRIVE_BACKUP_DB_FOLDER_ID", default="")
 STOCKS_MONTHLY_SELL_EXEMPTION_THRESHOLD = 20_000
 
 # as vendas até R$ 35.000, mesmo que tenham lucro, ficam isentas do imposto de renda.
-# Isso acontece porque os investimentos no exterior seguem a regra da tributação de Ganho de Capital.
+# Isso acontece porque os investimentos no exterior seguem a regra da tributação de
+# Ganho de Capital.
 STOCKS_USA_MONTHLY_SELL_EXEMPTION_THRESHOLD = 35_000
 
 # Os ganhos de capital obtidos com negociação de criptoativos ou moedas virtuais são tributados

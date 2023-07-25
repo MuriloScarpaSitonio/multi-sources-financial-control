@@ -2,6 +2,7 @@ from decimal import ROUND_HALF_UP, Decimal, DecimalException
 
 from rest_framework import serializers
 from rest_framework.exceptions import NotFound
+
 from shared.serializers_utils import CustomChoiceField
 
 from . import choices
@@ -81,8 +82,8 @@ class TransactionListSerializer(TransactionSerializer):
             asset: Asset = Asset.objects.annotate_for_domain().get(
                 user=validated_data.pop("user"), pk=validated_data.pop("asset_pk")
             )
-        except Asset.DoesNotExist:
-            raise NotFound({"asset": "Not found."})
+        except Asset.DoesNotExist as e:
+            raise NotFound({"asset": "Not found."}) from e
 
         try:
             asset_domain = asset.to_domain()
@@ -94,7 +95,7 @@ class TransactionListSerializer(TransactionSerializer):
             # serializing `transaction` object
             return transaction
         except DomainValidationError as e:
-            raise serializers.ValidationError(e.detail)
+            raise serializers.ValidationError(e.detail) from e
 
     def update(self, instance: Transaction, validated_data: dict) -> Transaction:
         try:
@@ -114,7 +115,7 @@ class TransactionListSerializer(TransactionSerializer):
             )
             return instance
         except DomainValidationError as e:
-            raise serializers.ValidationError(e.detail)
+            raise serializers.ValidationError(e.detail) from e
 
     def delete(self) -> None:
         asset_domain: AssetDomainModel = (
@@ -130,7 +131,7 @@ class TransactionListSerializer(TransactionSerializer):
                 )
             )
         except DomainValidationError as e:
-            raise serializers.ValidationError(e.detail)
+            raise serializers.ValidationError(e.detail) from e
 
         messagebus.handle(
             message=commands.DeleteTransaction(transaction=self.instance, asset=asset_domain),
@@ -180,8 +181,8 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
             currency = (
                 Asset.objects.only("currency").get(user=attrs.pop("user"), pk=asset_pk).currency
             )
-        except Asset.DoesNotExist:
-            raise NotFound({"asset": "Not found."})
+        except Asset.DoesNotExist as e:
+            raise NotFound({"asset": "Not found."}) from e
 
         if attrs["event_type"] == choices.PassiveIncomeEventTypes.credited:
             if currency == choices.Currencies.real:
@@ -191,8 +192,8 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         {
                             "current_currency_conversion_rate": (
-                                "This value can't be ommited or set to 1 if the asset's currency is "
-                                f"different than {choices.Currencies.real}"
+                                "This value can't be ommited or set to 1 if the asset's currency "
+                                f"is different than {choices.Currencies.real}"
                             )
                         }
                     )
@@ -220,7 +221,9 @@ class AssetSerializer(MinimalAssetSerializer):
         if attrs["currency"] not in choices.AssetTypes.get_choice(attrs["type"]).valid_currencies:
             raise serializers.ValidationError(
                 {
-                    "currency__type": f"{attrs['currency']} is not valid for an asset of type {attrs['type']}"
+                    "currency__type": (
+                        f"{attrs['currency']} is not valid for an asset of type {attrs['type']}"
+                    )
                 }
             )
         if (

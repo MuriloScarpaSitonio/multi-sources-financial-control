@@ -70,7 +70,7 @@ class KuCoinClient(AbstractTransactionsClient):
         method: str = "get",
     ) -> str:
         path = f"{path}?{urlencode(params)}" if params else path
-        sig_str = ("{}{}{}".format(timestamp, method.upper(), path)).encode("utf-8")
+        sig_str = (f"{timestamp}{method.upper()}{path}").encode()
         m = hmac_new(self._secrets.kucoin_api_secret.encode("utf-8"), sig_str, sha256)
         return str(b64encode(m.digest()), "utf-8")
 
@@ -79,10 +79,10 @@ class KuCoinClient(AbstractTransactionsClient):
         return f"/api/{api_version}/{path}"
 
     def _create_url(self, path: str) -> str:
-        return "{}{}".format(self.API_URL, path)
+        return f"{self.API_URL}{path}"
 
     async def _get(self, path: str, params: dict[str, str] | None = None) -> ClientResponse:
-        params = params if params is not None else dict()
+        params = params if params is not None else {}
         full_path = self._create_path(path)
 
         timestamp = int(time() * 1000)

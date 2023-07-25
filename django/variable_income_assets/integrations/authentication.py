@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import time
 from base64 import urlsafe_b64encode
+from collections.abc import Callable
 from functools import wraps
 from hashlib import sha256
 from hmac import new as hmac_new
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 import jwt
-from rest_framework.status import HTTP_403_FORBIDDEN
-
 from django.conf import settings
 from django.http import HttpResponse
+from rest_framework.status import HTTP_403_FORBIDDEN
 
 if TYPE_CHECKING:
     from django.core.handlers.asgi import ASGIRequest

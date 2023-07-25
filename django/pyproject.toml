@@ -41,13 +41,48 @@ aioresponses = "^0.7.4"
 pytest-freezegun = "^0.4.2"
 pytest-redis = "^3.0.2"
 pytest-env = "^0.8.2"
+ruff = "^0.0.280"
+bandit = "^1.7.5"
 
 [build-system]
 build-backend = "poetry.core.masonry.api"
 requires = ["poetry-core>=1.0.0"]
 
+[tool.ruff]
+select = [
+  "E",     # pycodestyle errors
+  "W",     # pycodestyle warnings
+  "F",     # pyflakes
+  "I",     # isort
+  "B",     # flake8-bugbear 
+  "G",     # flake8-logging-format
+  "SIM",   # flake8-simplify 
+  "C4",    # flake8-comprehensions
+  "ASYNC", # flake8-async
+  "UP",    # pyupgrade
+  "DJ",    # flake8-django
+]
+extend-ignore = ["B032"]
+line-length = 100
+# Exclude a variety of commonly ignored directories.
+exclude = ["migrations"]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401", "F403"]
+"test_*.py" = ["F401", "F811"]
+"conftest.py" = ["F401", "F811"]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+
 [tool.black]
-line-length = 88
+line-length = 100
+exclude = """
+/(
+  | migrations
+)/
+
+"""
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.base"
@@ -57,6 +92,7 @@ addopts = "--basetemp=/tmp/pytest"
 env = ["ENVIRONMENT=pytest"]
 
 [tool.coverage.run]
+parallel = true
 omit = [
   "*apps.py",
   "*/migrations/*",

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Type
+from collections.abc import Callable
+from typing import Any
 
+from ..domain import commands, events
 from . import handlers
 from .unit_of_work import AbstractUnitOfWork
-from ..domain import commands, events
 
 # region: types
 
@@ -15,7 +16,7 @@ MessageCallable = Callable[[Any, AbstractUnitOfWork], Any]
 
 # region: maps
 
-EVENT_HANDLERS: dict[Type[events.Event], list[MessageCallable]] = {
+EVENT_HANDLERS: dict[type[events.Event], list[MessageCallable]] = {
     events.TransactionsCreated: [
         handlers.upsert_read_model,
         # handlers.check_monthly_selling_transaction_threshold,
@@ -32,7 +33,7 @@ EVENT_HANDLERS: dict[Type[events.Event], list[MessageCallable]] = {
     events.AssetUpdated: [handlers.maybe_create_metadata, handlers.upsert_read_model],
 }
 
-COMMAND_HANDLERS: dict[Type[commands.Command], MessageCallable] = {
+COMMAND_HANDLERS: dict[type[commands.Command], MessageCallable] = {
     commands.CreateTransactions: handlers.create_transactions,
     commands.UpdateTransaction: handlers.update_transaction,
     commands.DeleteTransaction: handlers.delete_transaction,

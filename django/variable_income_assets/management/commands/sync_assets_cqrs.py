@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
-from django.core.management.base import BaseCommand, CommandParser
+from django.core.management.base import BaseCommand
 
 from variable_income_assets.models import Asset
 from variable_income_assets.tasks import upsert_asset_read_model

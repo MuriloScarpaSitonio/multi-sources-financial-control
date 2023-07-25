@@ -1,4 +1,4 @@
-from locust import events, HttpUser, task
+from locust import HttpUser, events, task
 
 
 @events.init_command_line_parser.add_listener

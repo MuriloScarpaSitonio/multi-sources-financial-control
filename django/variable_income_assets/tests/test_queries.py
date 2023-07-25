@@ -1,19 +1,19 @@
 from decimal import Decimal
-import pytest
 
+import pytest
 from django.db.models import Q
 from django.utils import timezone
 
 from authentication.tests.conftest import client, secrets, user
 
+from ..choices import PassiveIncomeTypes, TransactionActions
+from ..models import Asset, Transaction
 from .shared import (
     convert_and_quantitize,
     get_avg_price_bute_force,
     get_total_credited_incomes_brute_force,
     get_total_invested_brute_force,
 )
-from ..choices import PassiveIncomeTypes, TransactionActions
-from ..models import Asset, Transaction
 
 pytestmark = pytest.mark.django_db
 

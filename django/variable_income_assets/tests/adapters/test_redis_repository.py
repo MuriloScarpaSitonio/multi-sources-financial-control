@@ -1,6 +1,7 @@
 from time import monotonic, sleep
 
 import pytest
+
 from variable_income_assets.adapters import RedisBackendWInMemoryCache
 
 

@@ -1,4 +1,4 @@
-from djchoices import DjangoChoices, ChoiceItem
+from djchoices import ChoiceItem, DjangoChoices
 
 
 class ExpenseCategory(DjangoChoices):

@@ -6,13 +6,13 @@ from django.http import HttpResponse
 from rest_framework.status import HTTP_200_OK, HTTP_202_ACCEPTED, HTTP_400_BAD_REQUEST
 
 from .authentication import verify_qstash_signature
-from .handlers import update_prices
 from .binance.handlers import sync_binance_transactions
+from .handlers import update_prices
 from .kucoin.handlers import sync_kucoin_transactions
 
 if TYPE_CHECKING:
-    from django.core.handlers.wsgi import WSGIRequest
     from django.core.handlers.asgi import ASGIRequest
+    from django.core.handlers.wsgi import WSGIRequest
 
 
 def _get_status(error: Exception | None) -> int:

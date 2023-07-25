@@ -1,10 +1,10 @@
 import pytest
-
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
 
 from authentication.tests.conftest import client, secrets, user
 from config.settings.base import BASE_API_URL
-
+from variable_income_assets.choices import AssetObjectives, AssetSectors, AssetTypes
+from variable_income_assets.models import Asset, AssetReadModel
 from variable_income_assets.tests.shared import (
     convert_and_quantitize,
     convert_to_percentage_and_quantitize,
@@ -12,13 +12,6 @@ from variable_income_assets.tests.shared import (
     get_roi_brute_force,
     get_total_invested_brute_force,
 )
-from variable_income_assets.choices import (
-    AssetObjectives,
-    AssetSectors,
-    AssetTypes,
-)
-from variable_income_assets.models import Asset, AssetReadModel
-
 
 pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "assets"
@@ -31,10 +24,7 @@ URL = f"/{BASE_API_URL}" + "assets"
 )
 def test__total_invested_report(client, group_by, choices_class):
     # GIVEN
-    if group_by == "SECTOR":
-        field = "metadata__sector"
-    else:
-        field = group_by.lower()
+    field = "metadata__sector" if group_by == "SECTOR" else group_by.lower()
     totals = {
         v: sum(
             get_total_invested_brute_force(Asset.objects.get(pk=asset.write_model_pk))
@@ -65,10 +55,7 @@ def test__total_invested_report(client, group_by, choices_class):
 def test__total_invested_report__percentage(client, group_by, choices_class):
     # GIVEN
     total_invested = sum(get_total_invested_brute_force(asset) for asset in Asset.objects.all())
-    if group_by == "SECTOR":
-        field = "metadata__sector"
-    else:
-        field = group_by.lower()
+    field = "metadata__sector" if group_by == "SECTOR" else group_by.lower()
     totals = {
         v: sum(
             get_total_invested_brute_force(Asset.objects.get(pk=asset.write_model_pk))
@@ -100,10 +87,7 @@ def test__total_invested_report__percentage(client, group_by, choices_class):
 )
 def test__current_total_invested_report(client, group_by, choices_class):
     # GIVEN
-    if group_by == "SECTOR":
-        field = "metadata__sector"
-    else:
-        field = group_by.lower()
+    field = "metadata__sector" if group_by == "SECTOR" else group_by.lower()
     totals = {
         v: sum(
             get_current_total_invested_brute_force(Asset.objects.get(pk=asset.write_model_pk))
@@ -136,10 +120,7 @@ def test__current_total_invested_report__percentage(client, group_by, choices_cl
     current_total = sum(
         get_current_total_invested_brute_force(asset) for asset in Asset.objects.all()
     )
-    if group_by == "SECTOR":
-        field = "metadata__sector"
-    else:
-        field = group_by.lower()
+    field = "metadata__sector" if group_by == "SECTOR" else group_by.lower()
     totals = {
         v: sum(
             get_current_total_invested_brute_force(Asset.objects.get(pk=asset.write_model_pk))

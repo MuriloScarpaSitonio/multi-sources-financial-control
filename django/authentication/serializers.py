@@ -1,6 +1,5 @@
-from django.db.transaction import atomic
 from django.contrib.auth import get_user_model
-
+from django.db.transaction import atomic
 from rest_framework import serializers, validators
 
 from .models import IntegrationSecret
@@ -92,7 +91,7 @@ class IntegrationSecretSerializer(serializers.ModelSerializer):
 
         def get_cpf_sum(value: str, _range: range) -> int:
             _sum = 0
-            for char, i in zip(value, _range):
+            for char, i in zip(value, _range):  # noqa: B905
                 _sum += int(char) * i
             return _sum
 

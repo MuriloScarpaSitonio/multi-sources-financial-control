@@ -4,14 +4,14 @@ import pytest
 
 from authentication.tests.conftest import client, secrets, user
 
-from .shared import (
-    get_adjusted_avg_price_brute_forte,
-    get_quantity_balance_brute_force,
-    get_avg_price_bute_force,
-    get_roi_brute_force,
-)
 from ..choices import TransactionActions
 from ..models import Asset, AssetMetaData, Transaction
+from .shared import (
+    get_adjusted_avg_price_brute_forte,
+    get_avg_price_bute_force,
+    get_quantity_balance_brute_force,
+    get_roi_brute_force,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -24,10 +24,8 @@ class TestModels:
         roi = get_roi_brute_force(asset=asset)
         if percentage:
             initial_investment = sum(
-                (
-                    transaction.price * transaction.quantity
-                    for transaction in asset.transactions.bought()
-                )
+                transaction.price * transaction.quantity
+                for transaction in asset.transactions.bought()
             )
             expected = (roi / initial_investment) * 100
         else:

@@ -2,10 +2,9 @@ from datetime import date
 from decimal import Decimal
 from enum import Enum
 
+from django.conf import settings
 from djchoices import DjangoChoices
 from pydantic import BaseModel, Field, condecimal
-
-from django.conf import settings
 
 from ..choices import Currencies, TransactionActions
 from ..domain.commands import CreateTransactions

@@ -1,20 +1,21 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable, Iterator
 from datetime import date
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterator
+from typing import TYPE_CHECKING, Any
 
 from aiohttp.client_exceptions import ClientError
 from aiohttp.http_exceptions import HttpProcessingError
 from aiohttp.web_exceptions import HTTPException
 from asgiref.sync import async_to_sync, sync_to_async
-from authentication.models import IntegrationSecret
-from config.settings.base import ENV_PRODUCTION
-from tasks.models import TaskHistory
-
 from django.conf import settings
 from django.db.transaction import atomic
 from django.utils import timezone
+
+from authentication.models import IntegrationSecret
+from config.settings.base import ENV_PRODUCTION
+from tasks.models import TaskHistory
 
 from ..adapters import key_value_backend
 from ..choices import AssetObjectives, AssetSectors, AssetTypes, Currencies
@@ -135,8 +136,8 @@ class TransactionsIntegrationOrchestrator:
 
                 asset = await sync_to_async(self._create_entities)(transaction)
                 # it's ok to not overwrite the asset object because it'll
-                # be queried again in the emitted event below. In fact, this is necessary so we don't
-                # overwrite `__created__` (check `_create_entities` method)
+                # be queried again in the emitted event below. In fact, this is necessary so we
+                # don't overwrite `__created__` (check `_create_entities` method)
                 assets.add(asset)
                 count += 1
             except Exception as e:

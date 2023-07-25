@@ -1,6 +1,7 @@
 import pytest
 from aioresponses import aioresponses
 from asgiref.sync import async_to_sync
+
 from authentication.tests.conftest import (
     binance_secrets,
     kucoin_secrets,
@@ -190,10 +191,10 @@ def test__sync_kucoin_transactions__create_asset_and_transaction(
         == 1
     )
     assert (
-        sorted(list(Asset.objects.values_list("code", flat=True)))
-        == sorted(list(AssetMetaData.objects.values_list("code", flat=True).distinct()))
-        == sorted(list(AssetReadModel.objects.values_list("code", flat=True)))
-        == sorted(list({item["symbol"].split("-")[0] for item in data} ^ {"VELO"}))
+        sorted(Asset.objects.values_list("code", flat=True))
+        == sorted(AssetMetaData.objects.values_list("code", flat=True).distinct())
+        == sorted(AssetReadModel.objects.values_list("code", flat=True))
+        == sorted({item["symbol"].split("-")[0] for item in data} ^ {"VELO"})
     )
 
     assert Transaction.objects.count() == len(data) - 1

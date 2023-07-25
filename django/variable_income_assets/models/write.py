@@ -1,24 +1,22 @@
 from decimal import Decimal
-from typing import Literal
 
 from django.conf import settings
 from django.db import models
 from django.utils.functional import cached_property
 
 from shared.models_utils import serializable_today_function
-from tasks.models import TaskHistory
 
-from .managers import AssetQuerySet, PassiveIncomeQuerySet, TransactionQuerySet
 from ..choices import (
     AssetObjectives,
     AssetSectors,
     AssetTypes,
+    Currencies,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
     TransactionActions,
-    Currencies,
 )
 from ..domain.models import Asset as AssetDomainModel
+from .managers import AssetQuerySet, PassiveIncomeQuerySet, TransactionQuerySet
 
 
 class AssetMetaData(models.Model):
@@ -115,7 +113,7 @@ class Asset(models.Model):
 
 
 class Transaction(models.Model):
-    external_id = models.CharField(max_length=100, blank=True, null=True)
+    external_id = models.CharField(max_length=100, blank=True, null=True)  # noqa: DJ001
     action = models.CharField(max_length=4, validators=[TransactionActions.validator])
     price = models.DecimalField(decimal_places=8, max_digits=15)
     quantity = models.DecimalField(
@@ -132,8 +130,8 @@ class Transaction(models.Model):
 
     objects = TransactionQuerySet.as_manager()
 
-    def __str__(self) -> str:
-        return f"<Transaction {self.action} {self.quantity} {self.asset.code} {self.price}>"  # pragma: no cover
+    def __str__(self) -> str:  # pragma: no cover
+        return f"<Transaction {self.action} {self.quantity} {self.asset.code} {self.price}>"
 
     __repr__ = __str__
 
@@ -151,7 +149,7 @@ class PassiveIncome(models.Model):
 
     objects = PassiveIncomeQuerySet.as_manager()
 
-    def __str__(self) -> str:
-        return f"<PassiveIncome {self.type} {self.event_type} {self.asset.code} {self.amount}>"  # pragma: no cover
+    def __str__(self) -> str:  # pragma: no cover
+        return f"<PassiveIncome {self.type} {self.event_type} {self.asset.code} {self.amount}>"
 
     __repr__ = __str__

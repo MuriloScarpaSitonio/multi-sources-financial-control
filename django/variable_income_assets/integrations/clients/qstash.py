@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Self
 from urllib.parse import urljoin
 
 from aiohttp import ClientSession, ClientTimeout, TCPConnector
-
 from django.conf import settings
 
 if TYPE_CHECKING:

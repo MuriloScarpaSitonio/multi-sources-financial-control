@@ -1,7 +1,7 @@
-from rest_framework.routers import DefaultRouter
-from shared.routers import NestedDefaultRouter
-
 from django.urls import path
+from rest_framework.routers import DefaultRouter
+
+from shared.routers import NestedDefaultRouter
 
 from .integrations import qstash_views
 from .views import (

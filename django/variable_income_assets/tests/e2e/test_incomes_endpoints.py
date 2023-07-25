@@ -1,11 +1,9 @@
 from datetime import datetime
 from decimal import Decimal
 
-from django.utils import timezone
-from django.db.models import Avg, Q
-
 import pytest
-
+from django.db.models import Avg, Q
+from django.utils import timezone
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -23,15 +21,14 @@ from authentication.tests.conftest import (
     user_with_kucoin_integration,
 )
 from config.settings.base import BASE_API_URL
-from variable_income_assets.models import PassiveIncome
 from variable_income_assets.choices import (
     AssetTypes,
     Currencies,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
 )
+from variable_income_assets.models import PassiveIncome
 from variable_income_assets.tests.shared import convert_and_quantitize
-
 
 pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "incomes"
@@ -421,21 +418,17 @@ def test__indicators(client):
     # GIVEN
     today = timezone.now().date()
     current_credited = sum(
-        (
-            i.amount
-            for i in PassiveIncome.objects.filter(
-                operation_date__month=today.month, operation_date__year=today.year
-            ).credited()
-        )
+        i.amount
+        for i in PassiveIncome.objects.filter(
+            operation_date__month=today.month, operation_date__year=today.year
+        ).credited()
     )
     provisioned_future = sum(
-        (
-            i.amount
-            for i in PassiveIncome.objects.filter(
-                Q(operation_date__month__gte=today.month, operation_date__year=today.year)
-                | Q(operation_date__year__gt=today.year)
-            ).provisioned()
-        )
+        i.amount
+        for i in PassiveIncome.objects.filter(
+            Q(operation_date__month__gte=today.month, operation_date__year=today.year)
+            | Q(operation_date__year__gt=today.year)
+        ).provisioned()
     )
     avg = (
         PassiveIncome.objects.filter(
@@ -458,7 +451,7 @@ def test__indicators(client):
         "current_credited": convert_and_quantitize(current_credited),
         "provisioned_future": convert_and_quantitize(provisioned_future),
         "diff_percentage": convert_and_quantitize(
-            (((current_credited / avg) - Decimal("1.0")) * Decimal("100.0"))
+            ((current_credited / avg) - Decimal("1.0")) * Decimal("100.0")
         ),
     }
 

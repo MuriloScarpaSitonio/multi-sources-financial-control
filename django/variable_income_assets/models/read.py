@@ -43,8 +43,8 @@ class AssetReadModel(models.Model):
 
     objects = AssetReadModelQuerySet.as_manager()
 
-    def __str__(self) -> str:
-        return f"<AssetReadModel ({self.code} | {self.type} | {self.currency} | {self.user_id})>"  # pragma: no cover
+    def __str__(self) -> str:  # pragma: no cover
+        return f"<AssetReadModel ({self.code} | {self.type} | {self.currency} | {self.user_id})>"
 
     __repr__ = __str__
 

@@ -3,12 +3,12 @@ from random import choice, randint
 from time import time
 
 import pytest
-from authentication.models import CustomUser
-from authentication.tests.conftest import user
 from dateutil.relativedelta import relativedelta
+from django.utils import timezone
 from factory.django import DjangoModelFactory
 
-from django.utils import timezone
+from authentication.models import CustomUser
+from authentication.tests.conftest import user
 
 from ..choices import (
     AssetObjectives,
@@ -507,7 +507,7 @@ def binance_account_snapshot_response():
 def binance_symbol_orders_url(binance_signature, freezer):
     return (
         BinanceClient._create_url(path="allOrders", is_margin_api=False)
-        + f"?symbol=BTCBRL&startTime=0&limit=1000"
+        + "?symbol=BTCBRL&startTime=0&limit=1000"
         + f"&signature={binance_signature}&timestamp={int(time() * 1000)}"
     )
 
@@ -544,7 +544,7 @@ def binance_symbol_orders_response():
 def binance_fiat_payments_url(binance_signature, freezer):
     return (
         BinanceClient._create_url(path="fiat/payments", is_margin_api=True)
-        + f"?beginTime=0&rows=500"
+        + "?beginTime=0&rows=500"
         + f"&signature={binance_signature}&timestamp={int(time() * 1000)}"
     )
 
@@ -895,7 +895,7 @@ def report_data(indicators_data, stock_usa_asset, user):
 def transactions_indicators_data(stock_asset, crypto_transaction):
     today = timezone.now().date()
 
-    for i in range(4):
+    for _ in range(4):
         TransactionFactory(
             action=TransactionActions.buy,
             price=randint(5, 10),
@@ -903,7 +903,7 @@ def transactions_indicators_data(stock_asset, crypto_transaction):
             quantity=randint(100, 1000),
             operation_date=today,
         )
-    for i in range(3):
+    for _ in range(3):
         TransactionFactory(
             action=TransactionActions.sell,
             price=randint(5, 10),

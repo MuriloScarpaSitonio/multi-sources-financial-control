@@ -1,7 +1,7 @@
-from config.scripts import backup_revenues_db, backup_sqlite_db
-
 from django.conf import settings
 from django.core.management.base import BaseCommand
+
+from config.scripts import backup_revenues_db, backup_sqlite_db
 
 
 class Command(BaseCommand):

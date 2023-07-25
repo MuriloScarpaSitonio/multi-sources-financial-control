@@ -1,5 +1,5 @@
-from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.db import models
 
 from .fields import EncryptedField
 
@@ -47,6 +47,9 @@ class IntegrationSecret(models.Model):
             ),
         ]
 
+    def __str__(self) -> str:
+        return f"<IntegrationSecret ({self.user_id})>"
+
 
 class CustomUser(AbstractUser):
     secrets = models.OneToOneField(
@@ -77,3 +80,6 @@ class CustomUser(AbstractUser):
             and self.secrets.binance_api_key is not None
             and self.secrets.binance_api_secret is not None
         )
+
+    def __str__(self) -> str:
+        return f"<CustomUser ({self.username} | {self.email})>"

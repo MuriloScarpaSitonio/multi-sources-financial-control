@@ -95,14 +95,16 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
     def current_total(self) -> Case:
         return Coalesce(F("current_price_metadata"), Decimal()) * self.get_quantity_balance()
 
-    def get_avg_price(self, extra_filters: Q = Q()) -> Coalesce:
+    def get_avg_price(self, extra_filters: Q | None = None) -> Coalesce:
+        extra_filters = extra_filters if extra_filters is not None else Q()
         return Coalesce(
             self.get_total_bought(extra_filters=extra_filters)
             / self.get_quantity_bought(extra_filters=extra_filters),
             Decimal(),
         )
 
-    def get_total_bought(self, extra_filters: Q = Q()) -> CombinedExpression:
+    def get_total_bought(self, extra_filters: Q | None = None) -> CombinedExpression:
+        extra_filters = extra_filters if extra_filters is not None else Q()
         return Sum(
             F(f"{self.prefix}price") * F(f"{self.prefix}quantity"),
             filter=Q(self.filters.bought, extra_filters),
@@ -110,14 +112,16 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
             # I don't know why an out `Cast` doesn't work...
         ) * Cast(1.0, DecimalField())
 
-    def get_quantity_bought(self, extra_filters: Q = Q()) -> Sum:
+    def get_quantity_bought(self, extra_filters: Q | None = None) -> Sum:
+        extra_filters = extra_filters if extra_filters is not None else Q()
         return Sum(
             f"{self.prefix}quantity",
             filter=Q(self.filters.bought, extra_filters),
             default=Decimal(),
         )
 
-    def get_quantity_balance(self, extra_filters: Q = Q()) -> CombinedExpression:
+    def get_quantity_balance(self, extra_filters: Q | None = None) -> CombinedExpression:
+        extra_filters = extra_filters if extra_filters is not None else Q()
         return self.get_quantity_bought(extra_filters=extra_filters) - Sum(
             f"{self.prefix}quantity", filter=Q(self.filters.sold, extra_filters), default=Decimal()
         )

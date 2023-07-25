@@ -2,10 +2,10 @@ from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from statistics import fmean
 
+import pytest
+from dateutil.relativedelta import relativedelta
 from django.db.models import Avg, Q
 from django.utils import timezone
-
-import pytest
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -13,9 +13,9 @@ from rest_framework.status import (
     HTTP_400_BAD_REQUEST,
 )
 
-from expenses.choices import ExpenseCategory, ExpenseSource, ExpenseReportType
-from expenses.models import Expense
 from config.settings.base import BASE_API_URL
+from expenses.choices import ExpenseCategory, ExpenseReportType, ExpenseSource
+from expenses.models import Expense
 
 pytestmark = pytest.mark.django_db
 
@@ -440,9 +440,6 @@ def test_should_create_expense_if_installments_none_and_is_fixed(client):
     # THEN
     assert response.status_code == HTTP_201_CREATED
     assert Expense.objects.count() == 1
-
-
-from dateutil.relativedelta import relativedelta
 
 
 @pytest.mark.skip("Skip while endpoint is not live")

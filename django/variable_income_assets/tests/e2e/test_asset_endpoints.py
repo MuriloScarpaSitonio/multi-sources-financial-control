@@ -1,11 +1,9 @@
-from decimal import ROUND_HALF_UP, Decimal
 import operator
+from decimal import ROUND_HALF_UP, Decimal
 from random import randrange
 
 import pytest
-
 from django.db.models import F
-
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -16,9 +14,9 @@ from rest_framework.status import (
 
 from authentication.tests.conftest import (
     binance_client,
+    binance_secrets,
     client,
     kucoin_client,
-    binance_secrets,
     kucoin_secrets,
     secrets,
     user,
@@ -26,19 +24,6 @@ from authentication.tests.conftest import (
     user_with_kucoin_integration,
 )
 from config.settings.base import BASE_API_URL
-
-from variable_income_assets.tests.shared import (
-    convert_and_quantitize,
-    convert_to_percentage_and_quantitize,
-    get_adjusted_avg_price_brute_forte,
-    get_quantity_balance_brute_force,
-    get_avg_price_bute_force,
-    get_current_price_metadata,
-    get_current_total_invested_brute_force,
-    get_roi_brute_force,
-    get_total_bought_brute_force,
-    get_total_invested_brute_force,
-)
 from variable_income_assets.choices import (
     AssetObjectives,
     AssetSectors,
@@ -52,7 +37,18 @@ from variable_income_assets.models import (
     PassiveIncome,
     Transaction,
 )
-
+from variable_income_assets.tests.shared import (
+    convert_and_quantitize,
+    convert_to_percentage_and_quantitize,
+    get_adjusted_avg_price_brute_forte,
+    get_avg_price_bute_force,
+    get_current_price_metadata,
+    get_current_total_invested_brute_force,
+    get_quantity_balance_brute_force,
+    get_roi_brute_force,
+    get_total_bought_brute_force,
+    get_total_invested_brute_force,
+)
 
 pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "assets"
@@ -418,10 +414,10 @@ def test___list__aggregations__dollar(client, stock_usa_asset: Asset, fixture, o
 def test_list_assets_aggregate_data(client):
     # GIVEN
     total_invested_brute_force = sum(
-        (get_total_invested_brute_force(asset) for asset in Asset.objects.all())
+        get_total_invested_brute_force(asset) for asset in Asset.objects.all()
     )
     current_total_brute_force = sum(
-        (get_current_total_invested_brute_force(asset) for asset in Asset.objects.all())
+        get_current_total_invested_brute_force(asset) for asset in Asset.objects.all()
     )
 
     # WHEN

@@ -2,6 +2,16 @@ from datetime import datetime
 from decimal import Decimal
 
 import pytest
+from dateutil.relativedelta import relativedelta
+from django.utils import timezone
+from rest_framework.status import (
+    HTTP_200_OK,
+    HTTP_201_CREATED,
+    HTTP_204_NO_CONTENT,
+    HTTP_400_BAD_REQUEST,
+    HTTP_404_NOT_FOUND,
+)
+
 from authentication.tests.conftest import (
     client,
     kucoin_client,
@@ -11,21 +21,11 @@ from authentication.tests.conftest import (
     user_with_kucoin_integration,
 )
 from config.settings.base import BASE_API_URL
-from dateutil.relativedelta import relativedelta
-from rest_framework.status import (
-    HTTP_200_OK,
-    HTTP_201_CREATED,
-    HTTP_204_NO_CONTENT,
-    HTTP_400_BAD_REQUEST,
-    HTTP_404_NOT_FOUND,
-)
 from tasks.models import TaskHistory
 from variable_income_assets.choices import AssetTypes, Currencies, TransactionActions
 from variable_income_assets.integrations.helpers import get_dollar_conversion_rate
 from variable_income_assets.models import Transaction
 from variable_income_assets.tests.shared import convert_and_quantitize
-
-from django.utils import timezone
 
 pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "transactions"
@@ -563,25 +563,21 @@ def test_indicators(client):
         relative_date = relative_date + relativedelta(months=1)
 
         bought = sum(
-            (
-                t.price * t.quantity
-                if t.asset.currency == Currencies.real
-                else t.price * t.quantity * get_dollar_conversion_rate()
-                for t in Transaction.objects.bought().filter(
-                    operation_date__month=relative_date.month,
-                    operation_date__year=relative_date.year,
-                )
+            t.price * t.quantity
+            if t.asset.currency == Currencies.real
+            else t.price * t.quantity * get_dollar_conversion_rate()
+            for t in Transaction.objects.bought().filter(
+                operation_date__month=relative_date.month,
+                operation_date__year=relative_date.year,
             )
         )
         sold = sum(
-            (
-                t.price * t.quantity
-                if t.asset.currency == Currencies.real
-                else t.price * t.quantity * t.dollar_conversion_rate
-                for t in Transaction.objects.sold().filter(
-                    operation_date__month=relative_date.month,
-                    operation_date__year=relative_date.year,
-                )
+            t.price * t.quantity
+            if t.asset.currency == Currencies.real
+            else t.price * t.quantity * t.dollar_conversion_rate
+            for t in Transaction.objects.sold().filter(
+                operation_date__month=relative_date.month,
+                operation_date__year=relative_date.year,
             )
         )
 
@@ -621,25 +617,21 @@ def test_historic(client):
         relative_date = relative_date + relativedelta(months=1)
 
         bought = sum(
-            (
-                t.price * t.quantity
-                if t.asset.currency == Currencies.real
-                else t.price * t.quantity * get_dollar_conversion_rate()
-                for t in Transaction.objects.bought().filter(
-                    operation_date__month=relative_date.month,
-                    operation_date__year=relative_date.year,
-                )
+            t.price * t.quantity
+            if t.asset.currency == Currencies.real
+            else t.price * t.quantity * get_dollar_conversion_rate()
+            for t in Transaction.objects.bought().filter(
+                operation_date__month=relative_date.month,
+                operation_date__year=relative_date.year,
             )
         )
         sold = sum(
-            (
-                t.price * t.quantity
-                if t.asset.currency == Currencies.real
-                else t.price * t.quantity * t.dollar_conversion_rate
-                for t in Transaction.objects.sold().filter(
-                    operation_date__month=relative_date.month,
-                    operation_date__year=relative_date.year,
-                )
+            t.price * t.quantity
+            if t.asset.currency == Currencies.real
+            else t.price * t.quantity * t.dollar_conversion_rate
+            for t in Transaction.objects.sold().filter(
+                operation_date__month=relative_date.month,
+                operation_date__year=relative_date.year,
             )
         )
 
@@ -738,7 +730,9 @@ def test__list__sanity_check(client, buy_transaction):
                 "quantity": convert_and_quantitize(buy_transaction.quantity),
                 "operation_date": buy_transaction.operation_date.strftime("%Y-%m-%d"),
                 "initial_price": buy_transaction.initial_price,
-                "current_currency_conversion_rate": buy_transaction.current_currency_conversion_rate,
+                "current_currency_conversion_rate": (
+                    buy_transaction.current_currency_conversion_rate
+                ),
                 "asset": {
                     "pk": buy_transaction.asset.pk,
                     "code": buy_transaction.asset.code,

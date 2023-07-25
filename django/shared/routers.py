@@ -1,4 +1,4 @@
-from typing import Type, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from rest_framework.routers import DefaultRouter, Route
 
@@ -32,7 +32,7 @@ class NestedMixin:
 
         self.parent_regex = f"{parent_prefix}/{self._get_lookup_regex(parent_viewset)}/"
 
-        nested_routes: list["Route"] = []
+        nested_routes: list[Route] = []
         for route in self.routes:
             route_contents = route._asdict()
 
@@ -45,7 +45,7 @@ class NestedMixin:
 
         self.routes = nested_routes
 
-    def _get_lookup_regex(self, parent_viewset: Type["ViewSet"]) -> str:
+    def _get_lookup_regex(self, parent_viewset: type["ViewSet"]) -> str:
         """Slightly modified version of SimpleRouter.get_lookup_regex"""
         base_regex = "(?P<{lookup_prefix}>{lookup_value})"
         return base_regex.format(

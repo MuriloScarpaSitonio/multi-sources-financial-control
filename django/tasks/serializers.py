@@ -1,8 +1,5 @@
 from django.utils import timezone
-
 from rest_framework import serializers
-
-from variable_income_assets.serializers import TransactionSerializer, PassiveIncomeSerializer
 
 from .choices import TaskStates
 from .managers import TaskHistoryQuerySet

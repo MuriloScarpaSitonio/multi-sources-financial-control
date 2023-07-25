@@ -3,10 +3,9 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from django.forms import Form
-from django.core.exceptions import ValidationError
-
 import django_filters as filters
+from django.core.exceptions import ValidationError
+from django.forms import Form
 
 from .choices import AssetsTotalInvestedReportAggregations, AssetTypes
 from .models import Asset, AssetReadModel, PassiveIncome, Transaction
@@ -173,8 +172,8 @@ class PassiveIncomeAssetsAgreggationReportFilterSet(filters.FilterSet):
             #     "credited": True,
             #     "provisioned": True,
             # }:
-            #     # TODO
-            #     # special case when only `credited` incomes should be filtered by `since_a_year_ago`
+            #    TODO
+            #    special case when only `credited` incomes should be filtered by `since_a_year_ago`
             _qs = (
                 self.queryset if self.form.cleaned_data["all"] else self.queryset.since_a_year_ago()
             )

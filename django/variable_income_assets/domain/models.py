@@ -5,14 +5,13 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from ..choices import Currencies, PassiveIncomeEventTypes, PassiveIncomeTypes, TransactionActions
 from .events import Event
 from .exceptions import (
     CurrencyConversionRateNotNullWhenActionIsBuy,
     CurrencyConversionRateNullOrOneForNonBrlAssets,
     NegativeQuantityNotAllowedException,
 )
-from ..choices import Currencies, PassiveIncomeEventTypes, PassiveIncomeTypes, TransactionActions
-
 
 if TYPE_CHECKING:
     from ..models import Transaction

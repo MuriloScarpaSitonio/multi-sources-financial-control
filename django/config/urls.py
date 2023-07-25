@@ -1,6 +1,5 @@
 from django.contrib import admin
 from django.urls import include, path
-
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from config.settings.base import BASE_API_URL

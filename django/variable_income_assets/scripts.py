@@ -99,21 +99,22 @@ def _print_stocks_elegible_for_taxation(user_pk: int, year: int, debug: bool):
         ):
             if debug > 1:
                 results.append(
-                    f"\t\t\t{t.quantity} {t.asset_code} por R$ {t.price} (Inicial: R$ {t.initial_price}) "
-                    f"-> roi = R$ {t.roi}"
+                    f"\t\t\t{t.quantity} {t.asset_code} por R$ {t.price} "
+                    f"(Inicial: R$ {t.initial_price}) -> roi = R$ {t.roi}"
                 )
             roi += t.roi
 
         if debug > 1:
             results.append("")
         results.append(
-            f"\t\t\tDeclare que teve {'lucro' if roi > 0 else 'prejuízo'} de R$ {roi} em operações no "
-            f"mês {month:02d}/{year}\n"
+            f"\t\t\tDeclare que teve {'lucro' if roi > 0 else 'prejuízo'} de R$ {roi} em operações "
+            f"no mês {month:02d}/{year}\n"
         )
 
     if results:
         print(
-            f"\n\tAÇÕES: SOMATÓRIO MENSAL DE VENDAS SUPERIOR A {settings.STOCKS_MONTHLY_SELL_EXEMPTION_THRESHOLD} "
+            "\n\tAÇÕES: SOMATÓRIO MENSAL DE VENDAS SUPERIOR A "
+            f"{settings.STOCKS_MONTHLY_SELL_EXEMPTION_THRESHOLD} "
             "(seção 'Renda Variável', opção 'Operações Comuns / Day Trade')"
         )
         print(*results, sep="\n")
@@ -153,13 +154,14 @@ def _print_stocks_usa_elegible_for_taxation(
         if debug > 1:
             results.append("")
         results.append(
-            f"\t\t\tDeclare que teve {'lucro' if roi > 0 else 'prejuízo'} de R$ {roi} em operações no "
-            f"mês {month:02d}/{year}\n"
+            f"\t\t\tDeclare que teve {'lucro' if roi > 0 else 'prejuízo'} de R$ {roi} "
+            f"em operações no mês {month:02d}/{year}\n"
         )
 
     if results:
         print(
-            f"\n\tAÇÕES EUA: SOMATÓRIO MENSAL DE VENDAS SUPERIOR A {settings.STOCKS_USA_MONTHLY_SELL_EXEMPTION_THRESHOLD} "
+            "\n\tAÇÕES EUA: SOMATÓRIO MENSAL DE VENDAS SUPERIOR A "
+            f"{settings.STOCKS_USA_MONTHLY_SELL_EXEMPTION_THRESHOLD} "
             "(seção 'Renda Variável', opção 'Operações Comuns / Day Trade')"
         )
         print(*results, sep="\n")
@@ -199,13 +201,14 @@ def _print_cryptos_elegible_for_taxation(
         if debug > 1:
             results.append("")
         results.append(
-            f"\t\t\tDeclare que teve {'lucro' if roi > 0 else 'prejuízo'} de R$ {roi} em operações no "
-            f"mês {month:02d}/{year}\n"
+            f"\t\t\tDeclare que teve {'lucro' if roi > 0 else 'prejuízo'} de R$ {roi} em operações "
+            f"no mês {month:02d}/{year}\n"
         )
 
     if results:
         print(
-            f"\n\tCRIPTOS: SOMATÓRIO MENSAL DE VENDAS SUPERIOR A {settings.CRYPTOS_MONTHLY_SELL_EXEMPTION_THRESHOLD} "
+            "\n\tCRIPTOS: SOMATÓRIO MENSAL DE VENDAS SUPERIOR A "
+            f"{settings.CRYPTOS_MONTHLY_SELL_EXEMPTION_THRESHOLD} "
             "(seção 'Renda Variável', opção 'Operações Comuns / Day Trade')"
         )
         print(*results, sep="\n")
@@ -233,8 +236,8 @@ def _print_fiis_elegible_for_taxation(user_pk: int, year: int, debug: bool):
         ):
             if debug > 1:
                 results.append(
-                    f"\t\t\t{t.quantity} {t.asset_code} por R$ {t.price} (Inicial: R$ {t.initial_price}) "
-                    f"-> roi = R$ {t.roi}"
+                    f"\t\t\t{t.quantity} {t.asset_code} por R$ {t.price} "
+                    f"(Inicial: R$ {t.initial_price}) -> roi = R$ {t.roi}"
                 )
             roi += t.roi
 
@@ -242,13 +245,14 @@ def _print_fiis_elegible_for_taxation(user_pk: int, year: int, debug: bool):
             results.append("")
 
         results.append(
-            f"\t\t\tDeclare que teve {'lucro' if roi > 0 else 'prejuízo'} de R$ {roi} em operações no "
-            f"mês {month:02d}/{year}\n"
+            f"\t\t\tDeclare que teve {'lucro' if roi > 0 else 'prejuízo'} de R$ {roi} em operações "
+            f"no mês {month:02d}/{year}\n"
         )
 
     if results:
         print(
-            f"\n\tFIIs: SOMATÓRIO MENSAL DE VENDAS SUPERIOR A {settings.FII_MONTHLY_SELL_EXEMPTION_THRESHOLD} "
+            "\n\tFIIs: SOMATÓRIO MENSAL DE VENDAS SUPERIOR A "
+            f"{settings.FII_MONTHLY_SELL_EXEMPTION_THRESHOLD} "
             "(seção 'Renda Variável', opção 'Operações de Fundos de Investimento Imobiliário')"
         )
         print(*results, sep="\n")
@@ -285,8 +289,8 @@ def _print_stocks_not_elegible_for_taxation(user_pk: int, year: int, debug: bool
         ):
             if debug > 1:
                 results.append(
-                    f"\t\t\t{t.quantity} {t.asset_code} por R$ {t.price} (Inicial: R$ {t.initial_price}) "
-                    f"-> roi = R$ {t.roi}"
+                    f"\t\t\t{t.quantity} {t.asset_code} por R$ {t.price} "
+                    f"(Inicial: R$ {t.initial_price}) -> roi = R$ {t.roi}"
                 )
             if t.roi > 0:
                 profits += t.roi
@@ -306,7 +310,8 @@ def _print_stocks_not_elegible_for_taxation(user_pk: int, year: int, debug: bool
 
     if results:
         print(
-            f"\n\tAÇÕES: SOMATÓRIO MENSAL DE VENDAS INFERIOR A {settings.STOCKS_MONTHLY_SELL_EXEMPTION_THRESHOLD}"
+            "\n\tAÇÕES: SOMATÓRIO MENSAL DE VENDAS INFERIOR A "
+            f"{settings.STOCKS_MONTHLY_SELL_EXEMPTION_THRESHOLD}"
         )
         print(*results, sep="\n")
 
@@ -368,7 +373,8 @@ def _print_stocks_usa_not_elegible_for_taxation(
 
     if results:
         print(
-            f"\n\tAÇÕES EUA: SOMATÓRIO MENSAL DE VENDAS INFERIOR A {settings.STOCKS_USA_MONTHLY_SELL_EXEMPTION_THRESHOLD}"
+            "\n\tAÇÕES EUA: SOMATÓRIO MENSAL DE VENDAS INFERIOR A "
+            f"{settings.STOCKS_USA_MONTHLY_SELL_EXEMPTION_THRESHOLD}"
         )
         print(*results, sep="\n")
 
@@ -433,14 +439,15 @@ def _print_cryptos_not_elegible_for_taxation(
 
     if results:
         print(
-            f"\n\tCRIPTOS: SOMATÓRIO MENSAL DE VENDAS INFERIOR A {settings.CRYPTOS_MONTHLY_SELL_EXEMPTION_THRESHOLD}"
+            "\n\tCRIPTOS: SOMATÓRIO MENSAL DE VENDAS INFERIOR A "
+            f"{settings.CRYPTOS_MONTHLY_SELL_EXEMPTION_THRESHOLD}"
         )
         print(*results, sep="\n")
 
 
 def print_irpf_infos(
     user_pk: int,
-    year: int = timezone.localtime().year - 1,
+    year: int | None = None,
     dollar_conversion_rate: Decimal | None = None,
     normalize: bool = True,
     debug: int = 1,
@@ -456,6 +463,7 @@ def print_irpf_infos(
         .order_by("code")
     )
 
+    year = year if year is not None else timezone.localtime().year - 1
     _print_assets_portfolio(qs=qs, year=year)
     _print_credited_incomes(qs=qs, year=year)
 

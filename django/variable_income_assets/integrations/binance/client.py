@@ -1,9 +1,7 @@
 import asyncio
-from itertools import chain
 from hashlib import sha256
 from hmac import new as hmac_new
 from time import time
-from typing import Dict, Optional
 from urllib.parse import urlencode
 
 from aiohttp import ClientResponse
@@ -53,7 +51,7 @@ class BinanceClient(AbstractTransactionsClient):
             cls._create_path(path=path, api_version=api_version, is_margin_api=is_margin_api),
         )
 
-    def _generate_signature(self, params: Dict[str, str]) -> str:
+    def _generate_signature(self, params: dict[str, str]) -> str:
         return hmac_new(
             self._secrets.binance_api_secret.encode("utf-8"),
             (urlencode(params)).encode("utf-8"),
@@ -63,7 +61,7 @@ class BinanceClient(AbstractTransactionsClient):
     async def _get(
         self,
         path: str,
-        params: Optional[Dict[str, str]] = None,
+        params: dict[str, str] | None = None,
         is_margin_api: bool = False,
         signed: bool = False,
     ) -> ClientResponse:

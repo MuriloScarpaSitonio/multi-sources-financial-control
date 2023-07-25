@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING
 
 from asgiref.sync import async_to_sync
+from django.db import transaction as djtransaction
+from django.db.models import F, Sum
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
@@ -17,17 +20,14 @@ from rest_framework.mixins import (
 from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK, HTTP_403_FORBIDDEN
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
-from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
 
-from django.db import transaction as djtransaction
-from django.db.models import F, Sum
-from django.utils import timezone
+from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
 
 from . import choices, filters, serializers
 from .domain import events
 from .integrations.binance.handlers import sync_binance_transactions
-from .integrations.kucoin.handlers import sync_kucoin_transactions
 from .integrations.helpers import dispatch
+from .integrations.kucoin.handlers import sync_kucoin_transactions
 from .models import Asset, AssetReadModel, PassiveIncome, Transaction
 from .models.managers import (
     AssetQuerySet,
@@ -136,7 +136,7 @@ class AssetViewSet(
         return Response(serializer.data, status=HTTP_200_OK)
 
     @staticmethod
-    def _get_report_serializer_class(choice: ChoiceItem) -> Type[Serializer]:
+    def _get_report_serializer_class(choice: ChoiceItem) -> type[Serializer]:
         module = __import__("variable_income_assets.serializers", fromlist=[choice.serializer_name])
         return getattr(module, choice.serializer_name)
 
@@ -176,15 +176,15 @@ class AssetViewSet(
 
         response: dict[str, str] = {}
         for task, permissions in TASK_PERMISSIONS_MAP.items():
-            if all((permission().has_permission(request, self) for permission in permissions)):
+            if all(permission().has_permission(request, self) for permission in permissions):
                 task_id = async_to_sync(dispatch)(task, user_id=request.user.pk)
                 response[task.name] = task_id
         return Response(response, status=HTTP_200_OK if response else HTTP_403_FORBIDDEN)
 
     @action(methods=("GET",), detail=False)
     def minimal_data(self, _: Request) -> Response:
-        # TODO: change `list` endpoint to support `fields` kwarg on serializer and set the return values
-        # by doing `/assets?fields=code,currency`
+        # TODO: change `list` endpoint to support `fields` kwarg on serializer and set the return
+        # values by doing `/assets?fields=code,currency`
         return Response(
             data=self.get_queryset()
             .annotate(pk=F("write_model_pk"))

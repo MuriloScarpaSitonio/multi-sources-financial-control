@@ -1,19 +1,16 @@
 from urllib.parse import urljoin
 
+import requests
 from django.conf import settings
-
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.mixins import CreateModelMixin, RetrieveModelMixin, UpdateModelMixin
-from rest_framework.response import Response
 from rest_framework.request import Request
+from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet
-
-from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.views import TokenObtainPairView
-
-import requests
 
 from .models import CustomUser
 from .serializers import UserSerializer
@@ -36,7 +33,7 @@ class TokenWUserObtainPairView(TokenObtainPairView):
         try:
             serializer.is_valid(raise_exception=True)
         except TokenError as e:
-            raise InvalidToken(e.args[0])
+            raise InvalidToken(e.args[0]) from e
 
         return Response(
             {"user": UserSerializer(serializer.user).data, **serializer.validated_data},

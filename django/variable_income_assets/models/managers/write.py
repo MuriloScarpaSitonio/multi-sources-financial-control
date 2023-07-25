@@ -3,8 +3,6 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING, Self
 
-from shared.managers_utils import GenericDateFilters
-
 from django.db.models import (
     Case,
     CharField,
@@ -19,6 +17,8 @@ from django.db.models import (
     Value,
 )
 from django.db.models.functions import Cast, Coalesce, Concat, TruncMonth
+
+from shared.managers_utils import GenericDateFilters
 
 from ...choices import AssetTypes, PassiveIncomeEventTypes
 from .expressions import GenericQuerySetExpressions
@@ -337,8 +337,8 @@ class PassiveIncomeQuerySet(QuerySet):
     def indicators(self, fixed_avg_denominator: bool) -> dict[str, Decimal]:
         """
         Args:
-            fixed_avg_denominator (bool): If True the denominator will be 12, indicating the last 12 months. If False,
-                The denominator will be dynamically calculated.
+            fixed_avg_denominator (bool): If True the denominator will be 12, indicating the
+                last 12 months. If False, The denominator will be dynamically calculated.
         """
         avg_denominator = (
             Value(Decimal("12.0"))

@@ -29,14 +29,15 @@ def get_current_price_metadata(asset: Asset, normalize: bool = False) -> Decimal
 
 def get_total_bought_brute_force(asset: Asset, normalize: bool = True):
     result = sum(
-        (transaction.price * transaction.quantity for transaction in asset.transactions.bought())
+        transaction.price * transaction.quantity for transaction in asset.transactions.bought()
     )
     if normalize and asset.currency != Currencies.real:
         result *= get_dollar_conversion_rate()
     return result
 
 
-def get_avg_price_bute_force(asset: Asset, normalize: bool = False, extra_filters: Q = Q()):
+def get_avg_price_bute_force(asset: Asset, normalize: bool = False, extra_filters: Q | None = None):
+    extra_filters = extra_filters if extra_filters is not None else Q()
     weights = []
     quantities = []
     for transaction in asset.transactions.filter(extra_filters).bought():
@@ -50,7 +51,8 @@ def get_avg_price_bute_force(asset: Asset, normalize: bool = False, extra_filter
     return weights / sum(quantities)
 
 
-def get_quantity_balance_brute_force(asset: Asset, extra_filters: Q = Q()):
+def get_quantity_balance_brute_force(asset: Asset, extra_filters: Q | None = None):
+    extra_filters = extra_filters if extra_filters is not None else Q()
     bought = (
         transaction.quantity for transaction in asset.transactions.filter(extra_filters).bought()
     )
@@ -60,8 +62,9 @@ def get_quantity_balance_brute_force(asset: Asset, extra_filters: Q = Q()):
 
 
 def get_total_credited_incomes_brute_force(
-    asset: Asset, normalize: bool = True, extra_filters: Q = Q()
+    asset: Asset, normalize: bool = True, extra_filters: Q | None = None
 ):
+    extra_filters = extra_filters if extra_filters is not None else Q()
     total = 0
     for income in asset.incomes.credited().filter(extra_filters):
         t = income.amount
@@ -131,13 +134,14 @@ def _(value: int, decimal_places: int = 2, rounding: str = ROUND_HALF_UP) -> flo
     return float(Decimal(str(value)).quantize(Decimal(".1") ** decimal_places, rounding=rounding))
 
 
-get_total_invested_brute_force = (
-    lambda asset, normalize=True, extra_filters=Q(): get_avg_price_bute_force(
+def get_total_invested_brute_force(asset, normalize=True, extra_filters: Q | None = None):
+    extra_filters = extra_filters if extra_filters is not None else Q()
+    return get_avg_price_bute_force(
         asset, normalize=normalize, extra_filters=extra_filters
-    )
-    * get_quantity_balance_brute_force(asset, extra_filters=extra_filters)
-)
+    ) * get_quantity_balance_brute_force(asset, extra_filters=extra_filters)
 
-get_current_total_invested_brute_force = lambda asset, normalize=True: get_current_price_metadata(
-    asset, normalize=normalize
-) * get_quantity_balance_brute_force(asset)
+
+def get_current_total_invested_brute_force(asset, normalize=True):
+    return get_current_price_metadata(
+        asset, normalize=normalize
+    ) * get_quantity_balance_brute_force(asset)

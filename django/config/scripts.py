@@ -1,10 +1,9 @@
 import sqlite3
 
 import requests
+from django.conf import settings
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
-
-from django.conf import settings
 
 from authentication.models import CustomUser
 
@@ -28,6 +27,7 @@ def backup_revenues_db(gdrive_folder_id: str | None = None) -> None:
             url=settings.REVENUES_API_URL + "revenues",
             headers={"user-id": str(user_id), "x-key": settings.REVENUES_API_SECRET_KEY},
             params={"size": 100},
+            timeout=60,
         )
         revenues += r.json()["items"]
     import json

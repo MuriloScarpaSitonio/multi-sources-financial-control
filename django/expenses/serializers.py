@@ -1,10 +1,9 @@
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
+from dateutil.relativedelta import relativedelta
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-
-from dateutil.relativedelta import relativedelta
 
 from shared.serializers_utils import CustomChoiceField
 

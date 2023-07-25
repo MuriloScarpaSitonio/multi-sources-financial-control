@@ -2,11 +2,11 @@ from uuid import uuid4
 
 import pytest
 from asgiref.sync import async_to_sync
-from authentication.tests.conftest import client, secrets, user
-from config.settings.base import BASE_API_URL
+from django.utils import timezone
 from rest_framework.status import HTTP_200_OK
 
-from django.utils import timezone
+from authentication.tests.conftest import client, secrets, user
+from config.settings.base import BASE_API_URL
 
 from ..choices import TaskStates
 from ..constants import ERROR_DISPLAY_TEXT

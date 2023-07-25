@@ -1,11 +1,10 @@
-import pickle
+import pickle  # nosec
 from threading import Lock, RLock
 from time import monotonic
 from typing import Any, TypedDict
 
-from redis import Redis
-
 from django.conf import settings
+from redis import Redis
 
 # region: types
 
@@ -26,7 +25,7 @@ class RedisBackend:
 
     def get(self, key: str) -> Any:
         value = self._client.get(key)
-        return pickle.loads(value) if value else value
+        return pickle.loads(value) if value else value  # nosec
 
     def set(self, key: str, value: Any) -> None:
         self._client.set(key, pickle.dumps(value), ex=self.timeout)

@@ -5,10 +5,10 @@ from .choices import (
     AssetObjectives,
     AssetSectors,
     AssetTypes,
+    Currencies,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
     TransactionActions,
-    Currencies,
 )
 from .models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
 
@@ -18,7 +18,7 @@ class _TransactionForm(ModelForm):
 
     class Meta:
         model = Transaction
-        fields = "__all__"
+        fields = "__all__"  # noqa: DJ007
 
 
 @admin.register(Transaction)
@@ -34,7 +34,7 @@ class _PassiveIncomeForm(ModelForm):
 
     class Meta:
         model = PassiveIncome
-        fields = "__all__"
+        fields = "__all__"  # noqa: DJ007
 
 
 @admin.register(PassiveIncome)
@@ -54,7 +54,7 @@ def _create_form(django_model: Asset | AssetMetaData | AssetReadModel, *fields) 
     class _ModelForm(ModelForm):
         class Meta:
             model = django_model
-            fields = "__all__"
+            fields = "__all__"  # noqa: DJ007
 
     for field in fields:
         _ModelForm.declared_fields[field] = mapping[field]
