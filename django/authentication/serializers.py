@@ -136,9 +136,9 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class ChangePasswordSerializer(serializers.Serializer):
-    old_password = serializers.CharField(required=True, allow_blank=False, min_length=4)
-    new_password = serializers.CharField(required=True, allow_blank=False, min_length=4)
-    new_password2 = serializers.CharField(required=True, allow_blank=False, min_length=4)
+    old_password = serializers.CharField(required=True, min_length=4)
+    new_password = serializers.CharField(required=True, min_length=4)
+    new_password2 = serializers.CharField(required=True, min_length=4)
 
     def validate(self, attrs: dict[str, str]) -> dict[str, str]:
         if attrs["new_password"] != attrs["new_password2"]:
@@ -150,3 +150,7 @@ class ChangePasswordSerializer(serializers.Serializer):
 
         password_validation.validate_password(attrs["new_password"], user)
         return attrs
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)

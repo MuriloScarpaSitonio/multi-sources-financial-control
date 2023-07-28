@@ -107,7 +107,7 @@ AUTH_PASSWORD_VALIDATORS = [
         "OPTIONS": {"min_length": 4},
     },
 ]
-
+PASSWORD_RESET_TIMEOUT = 6 * 60 * 60  # 6h
 
 # Internationalization
 # https://docs.djangoproject.com/en/3.2/topics/i18n/

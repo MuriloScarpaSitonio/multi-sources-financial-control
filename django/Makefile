@@ -25,3 +25,9 @@ test-last:
 pre-commit: test code-convention security-check #typing-check
 
 pc: pre-commit  # alias
+
+migrate: 
+	docker-compose run django python3 manage.py migrate
+
+shell: 
+	docker-compose run django python3 manage.py shell

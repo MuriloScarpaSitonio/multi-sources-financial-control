@@ -4,6 +4,7 @@ import requests
 from django.conf import settings
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.decorators import action
+from rest_framework.generics import get_object_or_404
 from rest_framework.mixins import CreateModelMixin, RetrieveModelMixin, UpdateModelMixin
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -14,7 +15,8 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import CustomUser
-from .serializers import ChangePasswordSerializer, UserSerializer
+from .serializers import ChangePasswordSerializer, ResetPasswordSerializer, UserSerializer
+from .utils import dispatch_reset_password_email
 
 
 class UserViewSet(
@@ -27,13 +29,32 @@ class UserViewSet(
     queryset = CustomUser.objects.select_related("secrets").all()
 
     @action(methods=("PATCH",), detail=True)
-    def change_password(self, request: Request, pk: int) -> Response:
+    def change_password(self, request: Request, **kw) -> Response:
         user = self.get_object()
         serializer = ChangePasswordSerializer(data=request.data, context={"user": user})
         serializer.is_valid(raise_exception=True)
         user.set_password(serializer.validated_data["new_password"])
         user.save(update_fields=("password",))
         return Response(status=HTTP_204_NO_CONTENT)
+
+
+class AuthViewSet(GenericViewSet):
+    permission_classes = ()
+    authentication_classes = ()
+
+    @action(methods=("POST",), detail=False)
+    def dispatch_reset_password_email(self, request: Request) -> Response:
+        serializer = ResetPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = get_object_or_404(CustomUser.objects.all(), email=serializer.validated_data["email"])
+        dispatch_reset_password_email(user=user)
+        return Response(status=HTTP_204_NO_CONTENT)
+
+    @action(
+        methods=("GET",), detail=False, url_path="reset_password/(?P<uidb64>\w+)/(?P<token>\w+)"
+    )
+    def reset_password(self, request: Request, uidb64: str, token: str) -> Response:
+        return Response(status=HTTP_200_OK)
 
 
 class TokenWUserObtainPairView(TokenObtainPairView):

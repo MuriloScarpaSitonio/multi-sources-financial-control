@@ -22,6 +22,11 @@ class IntegrationSecretFactory(DjangoModelFactory):
 
 
 @pytest.fixture
+def api_client():
+    return APIClient()
+
+
+@pytest.fixture
 def secrets():
     return IntegrationSecretFactory(cpf="93804358004")
 
