@@ -23,12 +23,12 @@ class IntegrationSecretFactory(DjangoModelFactory):
 
 @pytest.fixture
 def secrets():
-    return IntegrationSecretFactory(cpf="93804358004", cei_password="password")
+    return IntegrationSecretFactory(cpf="93804358004")
 
 
 @pytest.fixture
 def user(secrets):
-    return UserFactory(username="murilo", secrets=secrets)
+    return UserFactory(email="murilo@gmail.com", secrets=secrets)
 
 
 @pytest.fixture

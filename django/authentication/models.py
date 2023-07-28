@@ -7,7 +7,6 @@ from .fields import EncryptedField
 class IntegrationSecret(models.Model):
     # do not encrypt cpf as it won't be unique
     cpf = models.CharField(max_length=14, null=True, blank=True, unique=True)
-    cei_password = EncryptedField(null=True, blank=True)
     kucoin_api_key = EncryptedField(null=True, blank=True)
     kucoin_api_secret = EncryptedField(null=True, blank=True)
     kucoin_api_passphrase = EncryptedField(null=True, blank=True)
@@ -16,11 +15,6 @@ class IntegrationSecret(models.Model):
 
     class Meta:
         constraints = [
-            models.CheckConstraint(
-                check=(models.Q(cpf__isnull=True) & models.Q(cei_password__isnull=True))
-                | (models.Q(cpf__isnull=False) & models.Q(cei_password__isnull=False)),
-                name="cei_secrets_all_null_or_all_filled",
-            ),
             models.CheckConstraint(
                 check=(
                     models.Q(kucoin_api_key__isnull=True)
@@ -55,14 +49,15 @@ class CustomUser(AbstractUser):
     secrets = models.OneToOneField(
         IntegrationSecret, on_delete=models.CASCADE, null=True, blank=True, related_name="user"
     )
+    username = models.CharField(max_length=150)
+    email = models.EmailField(unique=True, db_index=True)
+
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["username"]
 
     @property
     def has_cei_integration(self) -> bool:
-        return (
-            self.secrets is not None
-            and self.secrets.cei_password is not None
-            and self.secrets.cpf is not None
-        )
+        return self.secrets is not None and self.secrets.cpf is not None
 
     @property
     def has_kucoin_integration(self) -> bool:

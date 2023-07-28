@@ -3,17 +3,18 @@ from urllib.parse import urljoin
 import requests
 from django.conf import settings
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework.decorators import action
 from rest_framework.mixins import CreateModelMixin, RetrieveModelMixin, UpdateModelMixin
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.status import HTTP_200_OK
+from rest_framework.status import HTTP_200_OK, HTTP_204_NO_CONTENT
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import CustomUser
-from .serializers import UserSerializer
+from .serializers import ChangePasswordSerializer, UserSerializer
 
 
 class UserViewSet(
@@ -24,6 +25,15 @@ class UserViewSet(
 ):
     serializer_class = UserSerializer
     queryset = CustomUser.objects.select_related("secrets").all()
+
+    @action(methods=("PATCH",), detail=True)
+    def change_password(self, request: Request, pk: int) -> Response:
+        user = self.get_object()
+        serializer = ChangePasswordSerializer(data=request.data, context={"user": user})
+        serializer.is_valid(raise_exception=True)
+        user.set_password(serializer.validated_data["new_password"])
+        user.save(update_fields=("password",))
+        return Response(status=HTTP_204_NO_CONTENT)
 
 
 class TokenWUserObtainPairView(TokenObtainPairView):

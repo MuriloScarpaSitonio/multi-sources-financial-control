@@ -1,5 +1,10 @@
 import pytest
-from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST
+from rest_framework.status import (
+    HTTP_200_OK,
+    HTTP_201_CREATED,
+    HTTP_204_NO_CONTENT,
+    HTTP_400_BAD_REQUEST,
+)
 
 from config.settings.base import BASE_API_URL
 
@@ -11,24 +16,25 @@ pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "users"
 
 
-def test_should_create_user_without_secrets(client):
+def test__create__without_secrets(client):
     # GIVEN
-    data = {"username": "murilo2", "password": "1234"}
+    data = {"username": "murilo2", "email": "murilo2@gmail.com", "password": "1234"}
 
     # WHEN
     response = client.post(URL, data=data)
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
-    assert response.json()["username"] == data["username"]
+    assert response.json()["email"] == data["email"]
 
 
-def test_should_create_user_with_cei_secrets(client):
+def test__create__with_cei_secrets(client):
     # GIVEN
     data = {
         "username": "murilo2",
+        "email": "murilo2@gmail.com",
         "password": "1234",
-        "secrets": {"cpf": "75524399047", "cei_password": "pass"},
+        "secrets": {"cpf": "75524399047"},
     }
 
     # WHEN
@@ -36,47 +42,17 @@ def test_should_create_user_with_cei_secrets(client):
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
-    assert response.json()["username"] == data["username"]
+    assert response.json()["email"] == data["email"]
 
-    secrets = IntegrationSecret.objects.get(user__username=data["username"])
+    secrets = IntegrationSecret.objects.get(user__email=data["email"])
     assert secrets.cpf == data["secrets"]["cpf"]
-    assert secrets.cei_password == data["secrets"]["cei_password"]
 
 
-@pytest.mark.parametrize(
-    "data",
-    (
-        {
-            "username": "murilo2",
-            "password": "1234",
-            "secrets": {"cei_password": "test"},
-        },
-        {
-            "username": "murilo2",
-            "password": "1234",
-            "secrets": {"cpf": "75524399047"},
-        },
-    ),
-)
-def test_should_not_create_user_by_enforcing_cei_constraint(client, data):
-    # GIVEN
-
-    # WHEN
-    response = client.post(URL, data=data)
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {
-        "secrets": {
-            "cei": ["Tanto o CPF quanto a senha do CEI devem ser nulos ou ter um valor válido."]
-        }
-    }
-
-
-def test_should_create_user_with_kucoin_secrets(client):
+def test__create__with_kucoin_secrets(client):
     # GIVEN
     data = {
         "username": "murilo2",
+        "email": "murilo2@gmail.com",
         "password": "1234",
         "secrets": {
             "kucoin_api_key": "test",
@@ -90,9 +66,9 @@ def test_should_create_user_with_kucoin_secrets(client):
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
-    assert response.json()["username"] == data["username"]
+    assert response.json()["email"] == data["email"]
 
-    secrets = IntegrationSecret.objects.get(user__username=data["username"])
+    secrets = IntegrationSecret.objects.get(user__email=data["email"])
     assert secrets.kucoin_api_key == data["secrets"]["kucoin_api_key"]
     assert secrets.kucoin_api_secret == data["secrets"]["kucoin_api_secret"]
     assert secrets.kucoin_api_passphrase == data["secrets"]["kucoin_api_passphrase"]
@@ -103,37 +79,43 @@ def test_should_create_user_with_kucoin_secrets(client):
     (
         {
             "username": "murilo2",
+            "email": "murilo2@gmail.com",
             "password": "1234",
             "secrets": {"kucoin_api_key": "test"},
         },
         {
             "username": "murilo2",
+            "email": "murilo2@gmail.com",
             "password": "1234",
             "secrets": {"kucoin_api_key": "test", "kucoin_api_secret": "test"},
         },
         {
             "username": "murilo2",
+            "email": "murilo2@gmail.com",
             "password": "1234",
             "secrets": {"kucoin_api_key": "test", "kucoin_api_passphrase": "str"},
         },
         {
             "username": "murilo2",
+            "email": "murilo2@gmail.com",
             "password": "1234",
             "secrets": {"kucoin_api_secret": "test"},
         },
         {
             "username": "murilo2",
+            "email": "murilo2@gmail.com",
             "password": "1234",
             "secrets": {"kucoin_api_secret": "test", "kucoin_api_passphrase": "test"},
         },
         {
             "username": "murilo2",
+            "email": "murilo2@gmail.com",
             "password": "1234",
             "secrets": {"kucoin_api_passphrase": "test"},
         },
     ),
 )
-def test_should_not_create_user_by_enforcing_kucoin_constraint(client, data):
+def test__not_create__by_enforcing_kucoin_constraint(client, data):
     # GIVEN
 
     # WHEN
@@ -148,10 +130,11 @@ def test_should_not_create_user_by_enforcing_kucoin_constraint(client, data):
     }
 
 
-def test_should_create_user_with_binance_secrets(client):
+def test__create__with_binance_secrets(client):
     # GIVEN
     data = {
         "username": "murilo2",
+        "email": "murilo2@gmail.com",
         "password": "1234",
         "secrets": {"binance_api_key": "test", "binance_api_secret": "test"},
     }
@@ -161,9 +144,9 @@ def test_should_create_user_with_binance_secrets(client):
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
-    assert response.json()["username"] == data["username"]
+    assert response.json()["email"] == data["email"]
 
-    secrets = IntegrationSecret.objects.get(user__username=data["username"])
+    secrets = IntegrationSecret.objects.get(user__email=data["email"])
     assert secrets.binance_api_secret == data["secrets"]["binance_api_secret"]
     assert secrets.binance_api_key == data["secrets"]["binance_api_key"]
 
@@ -173,17 +156,19 @@ def test_should_create_user_with_binance_secrets(client):
     (
         {
             "username": "murilo2",
+            "email": "murilo2@gmail.com",
             "password": "1234",
             "secrets": {"binance_api_key": "test"},
         },
         {
             "username": "murilo2",
+            "email": "murilo2@gmail.com",
             "password": "1234",
             "secrets": {"binance_api_secret": "test"},
         },
     ),
 )
-def test_should_not_create_user_by_enforcing_binance_constraint(client, data):
+def test__not_create__by_enforcing_binance_constraint(client, data):
     # GIVEN
 
     # WHEN
@@ -199,9 +184,14 @@ def test_should_not_create_user_by_enforcing_binance_constraint(client, data):
 
 
 @pytest.mark.parametrize("cpf", ("1", "11111111111"))
-def test_should_raise_error_invalid_cpf(client, cpf):
+def test__raise_error_invalid_cpf(client, cpf):
     # GIVEN
-    data = {"username": "murilo2", "password": "1234", "secrets": {"cpf": cpf}}
+    data = {
+        "username": "murilo2",
+        "email": "murilo2@gmail.com",
+        "password": "1234",
+        "secrets": {"cpf": cpf},
+    }
 
     # WHEN
     response = client.post(URL, data=data)
@@ -211,10 +201,11 @@ def test_should_raise_error_invalid_cpf(client, cpf):
     assert response.json() == {"secrets": {"cpf": ["CPF inválido"]}}
 
 
-def test_should_validate_cpf_uniqueness(client, user):
+def test__validate_cpf_uniqueness(client, user):
     # GIVEN
     data = {
         "username": "murilo2",
+        "email": "murilo2@gmail.com",
         "password": "1234",
         "secrets": {"cpf": user.secrets.cpf},
     }
@@ -227,7 +218,7 @@ def test_should_validate_cpf_uniqueness(client, user):
     assert response.json() == {"secrets": {"cpf": ["Um usuário com esse CPF já existe."]}}
 
 
-def test_should_retrieve_user(client, user):
+def test__retrieve(client, user):
     # GIVEN
 
     # WHEN
@@ -237,17 +228,19 @@ def test_should_retrieve_user(client, user):
     assert response.json() == {
         "id": user.pk,
         "username": user.username,
+        "email": user.email,
         "has_binance_integration": False,
         "has_cei_integration": True,
         "has_kucoin_integration": False,
     }
 
 
-def test_should_update_user(client, user):
+def test__update(client, user):
     # GIVEN
     data = {
         "username": "murilo2",
-        "secrets": {"cpf": "75524399047", "cei_password": "pass"},
+        "email": "murilo2@gmail.com",
+        "secrets": {"cpf": "75524399047"},
     }
 
     # WHEN
@@ -257,16 +250,14 @@ def test_should_update_user(client, user):
     assert response.status_code == HTTP_200_OK
 
     user.refresh_from_db()
-    assert response.json()["username"] == user.username
+    assert response.json()["email"] == user.email
     assert data["secrets"]["cpf"] == user.secrets.cpf
-    assert data["secrets"]["cei_password"] == user.secrets.cei_password
 
 
-def test_should_partial_update_user(client, user):
+def test__partial_update(client, user):
     # GIVEN
     old_cpf = user.secrets.cpf
-    old_cei_password = user.secrets.cei_password
-    data = {"username": "murilo2"}
+    data = {"email": "murilo2@gmail.com"}
 
     # WHEN
     response = client.patch(f"{URL}/{user.pk}", data=data)
@@ -275,6 +266,55 @@ def test_should_partial_update_user(client, user):
     assert response.status_code == HTTP_200_OK
 
     user.refresh_from_db()
-    assert response.json()["username"] == user.username == "murilo2"
+    assert response.json()["email"] == user.email == "murilo2@gmail.com"
     assert old_cpf == user.secrets.cpf
-    assert old_cei_password == user.secrets.cei_password
+
+
+def test__change_password(client, user):
+    # GIVEN
+    old_password = user.password
+    data = {"old_password": "1X<ISRUkw+tuK", "new_password": "abcd", "new_password2": "abcd"}
+
+    # WHEN
+    response = client.patch(f"{URL}/{user.pk}/change_password", data=data)
+
+    # THEN
+    user.refresh_from_db()
+    assert response.status_code == HTTP_204_NO_CONTENT
+    assert old_password != user.password
+
+
+def test__change_password__diff_new(client, user):
+    # GIVEN
+    data = {"old_password": "1X<ISRUkw+tuK", "new_password": "abcd", "new_password2": "abcde"}
+
+    # WHEN
+    response = client.patch(f"{URL}/{user.pk}/change_password", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"new_password": ["As senhas novas não são iguais"]}
+
+
+def test__change_password__diff_old(client, user):
+    # GIVEN
+    data = {"old_password": "abcd", "new_password": "abcd", "new_password2": "abcd"}
+
+    # WHEN
+    response = client.patch(f"{URL}/{user.pk}/change_password", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"old_password": ["A senha antiga está incorreta"]}
+
+
+def test__change_password__validate_classes_in_config(client, user):
+    # GIVEN
+    data = {"old_password": "1X<ISRUkw+tuK", "new_password": "murilo", "new_password2": "murilo"}
+
+    # WHEN
+    response = client.patch(f"{URL}/{user.pk}/change_password", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"non_field_errors": ["The password is too similar to the email."]}

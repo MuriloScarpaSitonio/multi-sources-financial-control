@@ -1,4 +1,4 @@
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, password_validation
 from django.db.transaction import atomic
 from rest_framework import serializers, validators
 
@@ -20,25 +20,12 @@ class IntegrationSecretSerializer(serializers.ModelSerializer):
         model = IntegrationSecret
         fields = (
             "cpf",
-            "cei_password",
             "kucoin_api_key",
             "kucoin_api_secret",
             "kucoin_api_passphrase",
             "binance_api_key",
             "binance_api_secret",
         )
-
-    @staticmethod
-    def _validate_cei_secrets(cpf: str | None, cei_password: str | None) -> None:
-        ERROR = serializers.ValidationError(
-            {"cei": ["Tanto o CPF quanto a senha do CEI devem ser nulos ou ter um valor válido."]}
-        )
-
-        if cpf and not cei_password:
-            raise ERROR
-
-        if cei_password and not cpf:
-            raise ERROR
 
     @staticmethod
     def _validate_kucoin_secrets(
@@ -74,7 +61,6 @@ class IntegrationSecretSerializer(serializers.ModelSerializer):
             raise ERROR
 
     def validate(self, attrs: dict[str, str]) -> dict[str, str]:
-        self._validate_cei_secrets(cpf=attrs.get("cpf"), cei_password=attrs.get("cei_password"))
         self._validate_kucoin_secrets(
             kucoin_api_key=attrs.get("kucoin_api_key"),
             kucoin_api_secret=attrs.get("kucoin_api_secret"),
@@ -120,6 +106,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "username",
+            "email",
             "has_cei_integration",
             "has_kucoin_integration",
             "has_binance_integration",
@@ -146,3 +133,20 @@ class UserSerializer(serializers.ModelSerializer):
             )
 
         return super().update(instance=instance, validated_data=validated_data)
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True, allow_blank=False, min_length=4)
+    new_password = serializers.CharField(required=True, allow_blank=False, min_length=4)
+    new_password2 = serializers.CharField(required=True, allow_blank=False, min_length=4)
+
+    def validate(self, attrs: dict[str, str]) -> dict[str, str]:
+        if attrs["new_password"] != attrs["new_password2"]:
+            raise serializers.ValidationError({"new_password": "As senhas novas não são iguais"})
+
+        user = self.context["user"]
+        if not user.check_password(attrs["old_password"]):
+            raise serializers.ValidationError({"old_password": "A senha antiga está incorreta"})
+
+        password_validation.validate_password(attrs["new_password"], user)
+        return attrs
