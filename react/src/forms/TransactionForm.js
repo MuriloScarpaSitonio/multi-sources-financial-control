@@ -70,7 +70,7 @@ const schema = yup.object().shape({
     .number()
     .required("O preço é obrigatório")
     .positive("Apenas números positivos"),
-  initial_price: yup.number().positive("Apenas números positivos"),
+  initial_price: yup.number().positive("Apenas números positivos").nullable(),
   quantity: yup
     .number()
     .required("A quantidade é obrigatória")
@@ -130,6 +130,9 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
 
       if (!isSellTransaction) {
         delete data.current_currency_conversion_rate;
+      } else {
+        data.current_currency_conversion_rate =
+          data.current_currency_conversion_rate || 1;
       }
       new TransactionsApi(initialData.id)
         [method]({

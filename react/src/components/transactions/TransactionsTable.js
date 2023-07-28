@@ -196,7 +196,8 @@ export const TransactionsTable = () => {
       });
     },
     onFilterChange: (column, filterList, __, changedColumnIndex) => {
-      if (column === "operation_date") return;
+      let _column = column === "asset.type" ? "asset_type" : column;
+      if (_column === "operation_date") return;
       let _filters = filterList[changedColumnIndex].map(
         (f) =>
           getChoiceByLabel(f, [
@@ -204,7 +205,7 @@ export const TransactionsTable = () => {
             ...AssetsTypesMapping,
           ]).value
       );
-      setFilters({ ...filters, [column]: _filters, page: 1 });
+      setFilters({ ...filters, [_column]: _filters, page: 1 });
     },
     customToolbar: () => {
       return (
@@ -238,7 +239,7 @@ export const TransactionsTable = () => {
     },
     {
       name: "asset.type",
-      label: "Tipo",
+      label: "Classe",
       options: {
         filter: true,
         sort: false,
@@ -246,7 +247,7 @@ export const TransactionsTable = () => {
           names: AssetsTypesMapping.map((v) => v.label),
         },
         customFilterListOptions: {
-          render: (v) => `Tipo: ${v}`,
+          render: (v) => `Classe: ${v}`,
         },
       },
     },

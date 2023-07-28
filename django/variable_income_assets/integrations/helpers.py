@@ -46,7 +46,8 @@ async def get_stocks_usa_prices(codes: list[str]):
 
 
 def get_dollar_conversion_rate() -> Decimal:
-    return key_value_backend.get(key="DOLLAR_CONVERSION_RATE")
+    value = key_value_backend.get(key="DOLLAR_CONVERSION_RATE")
+    return value if value is not None else Decimal("5.0")
 
 
 # TODO: fetch API

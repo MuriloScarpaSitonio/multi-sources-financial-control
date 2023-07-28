@@ -18,8 +18,8 @@ import ArrowUpwardIcon from "@material-ui/icons/ArrowUpward";
 
 import { RevenuesApi } from "../../api";
 
-const SUCCESS = "#00c914";
-const DANGER = "#ff0505";
+const SUCCESS = "rgba(0, 201, 20, 0.5)";
+const DANGER = "rgba(255, 5, 5, 0.5)";
 
 const StyledTooltip = withStyles((theme) => ({
   tooltip: {
@@ -57,7 +57,13 @@ const Indicators = ({ title, indicators, icon, color, secondaryIcon }) => {
             </Typography>
           </Grid>
           <Grid item>
-            <Avatar style={isPastRevenue ? { backgroundColor: "#ff7878" } : {}}>
+            <Avatar
+              style={
+                isPastRevenue
+                  ? { backgroundColor: "#ff7878" }
+                  : { backgroundColor: color }
+              }
+            >
               {icon}
             </Avatar>
           </Grid>
@@ -145,12 +151,12 @@ export const RevenuesIndicators = () => {
           <Grid item>
             {isLoaded ? (
               <Indicators
-                title="INDICADORES"
+                title="RECEITA MENSAL"
                 indicators={data}
                 icon={<AccountBalanceIcon />}
-                color={data.diff > 0 ? SUCCESS : DANGER}
+                color={data.diff >= 0 ? SUCCESS : DANGER}
                 secondaryIcon={
-                  data.diff > 0 ? <ArrowUpwardIcon /> : <ArrowDownwardIcon />
+                  data.diff >= 0 ? <ArrowUpwardIcon /> : <ArrowDownwardIcon />
                 }
               />
             ) : (

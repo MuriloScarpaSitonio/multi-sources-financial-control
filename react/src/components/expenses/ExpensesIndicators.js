@@ -326,9 +326,9 @@ export const ExpensesIndicators = ({ condensed = false }) => {
                 title="RECEITA MENSAL"
                 indicators={revenuesIndicators}
                 icon={<AccountBalanceIcon />}
-                color={revenuesIndicators.diff > 0 ? SUCCESS : DANGER}
+                color={revenuesIndicators.diff >= 0 ? SUCCESS : DANGER}
                 secondaryIcon={
-                  revenuesIndicators.diff > 0 ? (
+                  revenuesIndicators.diff >= 0 ? (
                     <ArrowUpwardIcon />
                   ) : (
                     <ArrowDownwardIcon />

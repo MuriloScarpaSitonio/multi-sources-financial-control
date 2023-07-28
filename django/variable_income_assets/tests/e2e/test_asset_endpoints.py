@@ -303,7 +303,6 @@ def test__update__uppercase_code(client, stock_asset, mocker):
     # THEN
     assert response.status_code == HTTP_200_OK
     assert Asset.objects.filter(code=stock_asset.code.upper()).exists()
-    print(Asset.objects.filter(code=stock_asset.code.lower()).exists())
 
 
 @pytest.mark.usefixtures("stock_asset_metadata", "stock_asset", "sync_assets_read_model")

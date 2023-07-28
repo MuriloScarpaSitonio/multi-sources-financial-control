@@ -14,6 +14,7 @@ services:
       # used only for superuser creation on the first time
       - ADMIN_USERNAME=murilo
       - ADMIN_PASSWORD=test
+      - PERFORM_METADATA_UPDATES=false
       - REVENUES_API_URL=http://revenues:5050/
       - REDIS_CONNECTION_URL=redis://redis:6379
     depends_on:

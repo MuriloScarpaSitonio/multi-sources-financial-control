@@ -143,6 +143,9 @@ export const PassiveIncomeForm = ({
       setIsLoaded(false);
       if (!isCreditedIncome) {
         delete data.current_currency_conversion_rate;
+      } else {
+        data.current_currency_conversion_rate =
+          data.current_currency_conversion_rate || 1;
       }
       new PassiveIncomesApi(initialData.id)
         [method]({

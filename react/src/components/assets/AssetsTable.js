@@ -496,7 +496,7 @@ export const AssetsTable = () => {
     },
     {
       name: "type",
-      label: "Tipo",
+      label: "Classe",
       options: {
         filter: true,
         sort: false,
@@ -504,7 +504,7 @@ export const AssetsTable = () => {
           names: AssetsTypesMapping.map((v) => v.label),
         },
         customFilterListOptions: {
-          render: (v) => `Tipo: ${v}`,
+          render: (v) => `Classe: ${v}`,
         },
       },
     },

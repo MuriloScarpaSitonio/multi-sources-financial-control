@@ -63,7 +63,6 @@ class TransactionSerializer(serializers.ModelSerializer):
             "current_currency_conversion_rate",
         )
         extra_kwargs = {
-            "initial_price": {"allow_null": False},
             "operation_date": {"required": True},
             "current_currency_conversion_rate": {"allow_null": False, "min_value": 1},
         }

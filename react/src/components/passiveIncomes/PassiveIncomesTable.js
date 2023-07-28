@@ -29,6 +29,7 @@ import { Loader } from "../Loaders";
 import { PassiveIncomesApi } from "../../api";
 import { getChoiceByLabel } from "../../helpers";
 import {
+  AssetsTypesMapping,
   PassiveIncomeEventTypesMapping,
   PassiveIncomeTypesMapping,
 } from "../../consts";
@@ -145,6 +146,7 @@ export const PassiveIncomesTable = () => {
     let multipleChoiceFilters = {
       type: filters.type || [],
       event_type: filters.event_type || [],
+      asset_type: filters.asset_type || [],
     };
     let _filters = new URLSearchParams({
       page: filters.page,
@@ -208,15 +210,17 @@ export const PassiveIncomesTable = () => {
       });
     },
     onFilterChange: (column, filterList, __, changedColumnIndex) => {
-      if (column === "operation_date") return;
+      let _column = column === "asset.type" ? "asset_type" : column;
+      if (_column === "operation_date") return;
       let _filters = filterList[changedColumnIndex].map(
         (f) =>
           getChoiceByLabel(f, [
             ...PassiveIncomeEventTypesMapping,
             ...PassiveIncomeTypesMapping,
+            ...AssetsTypesMapping,
           ]).value
       );
-      setFilters({ ...filters, [column]: _filters, page: 1 });
+      setFilters({ ...filters, [_column]: _filters, page: 1 });
     },
     customToolbar: () => {
       return (
@@ -246,6 +250,20 @@ export const PassiveIncomesTable = () => {
       options: {
         filter: false,
         sort: true,
+      },
+    },
+    {
+      name: "asset.type",
+      label: "Classe",
+      options: {
+        filter: true,
+        sort: false,
+        filterOptions: {
+          names: AssetsTypesMapping.map((v) => v.label),
+        },
+        customFilterListOptions: {
+          render: (v) => `Classe: ${v}`,
+        },
       },
     },
     {
