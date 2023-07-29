@@ -1,8 +1,9 @@
 from random import choice, randint
 
+from django.utils import timezone
+
 import pytest
 from dateutil.relativedelta import relativedelta
-from django.utils import timezone
 from factory.django import DjangoModelFactory
 
 from authentication.tests.conftest import client, secrets, user

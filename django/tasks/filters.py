@@ -1,5 +1,6 @@
-import django_filters as filters
 from django.db.models import F, Q
+
+import django_filters as filters
 
 from .models import TaskHistory, TaskHistoryQuerySet
 

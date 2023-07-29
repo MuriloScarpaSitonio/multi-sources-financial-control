@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Self
 from urllib.parse import urljoin
 
-from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from django.conf import settings
+
+from aiohttp import ClientSession, ClientTimeout, TCPConnector
 
 if TYPE_CHECKING:
     from aiohttp import ClientResponse

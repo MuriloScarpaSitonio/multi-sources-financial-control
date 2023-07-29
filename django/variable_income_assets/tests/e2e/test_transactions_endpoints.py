@@ -1,9 +1,10 @@
 from datetime import datetime
 from decimal import Decimal
 
+from django.utils import timezone
+
 import pytest
 from dateutil.relativedelta import relativedelta
-from django.utils import timezone
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -122,7 +123,10 @@ def test__create__sell__stock__w_initial_price(client, data, stock_asset, mocker
 
 
 @pytest.mark.usefixtures("buy_transaction")
-def test__create__sell__stock__wo_initial_price_should_use_avg_price(client, stock_asset, mocker):
+@pytest.mark.parametrize("initial_price_data", ({}, {"initial_price": None}))
+def test__create__sell__stock__wo_initial_price_should_use_avg_price(
+    client, stock_asset, mocker, initial_price_data
+):
     # GIVEN
     data = {
         "action": TransactionActions.sell,
@@ -130,6 +134,7 @@ def test__create__sell__stock__wo_initial_price_should_use_avg_price(client, sto
         "quantity": 50,
         "operation_date": "12/12/2022",
         "asset_pk": stock_asset.pk,
+        **initial_price_data,
     }
     mocker.patch("variable_income_assets.service_layer.handlers.upsert_asset_read_model")
 
@@ -227,27 +232,6 @@ def test__create__should_raise_error_if_asset_does_not_exist(client):
     # THEN
     assert response.status_code == HTTP_404_NOT_FOUND
     assert response.json() == {"asset": "Not found."}
-
-
-@pytest.mark.usefixtures("buy_transaction")
-def test__create__should_raise_error_if_initial_price_is_null(client, stock_asset):
-    # GIVEN
-    data = {
-        "action": TransactionActions.sell,
-        "price": 10,
-        "quantity": 100,
-        "operation_date": "12/12/2022",
-        "asset_pk": stock_asset.pk,
-        "initial_price": None,
-    }
-
-    # WHEN
-    response = client.post(URL, data=data)
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"initial_price": ["This field may not be null."]}
-    assert not Transaction.objects.filter(action=TransactionActions.sell).exists()
 
 
 def test__create__should_raise_error_if_sell_transaction_and_no_transactions(client, stock_asset):
@@ -390,8 +374,9 @@ def test__update__transaction_does_not_belong_to_user(kucoin_client, buy_transac
 
 
 @pytest.mark.usefixtures("buy_transaction")
+@pytest.mark.parametrize("initial_price_data", ({}, {"initial_price": None}))
 def test__update__sell_wo_initial_price_should_use_avg_price(
-    client, stock_asset, sell_transaction, mocker
+    client, stock_asset, sell_transaction, mocker, initial_price_data
 ):
     # GIVEN
     data = {
@@ -399,6 +384,7 @@ def test__update__sell_wo_initial_price_should_use_avg_price(
         "price": sell_transaction.price * 2,
         "quantity": sell_transaction.quantity,
         "operation_date": sell_transaction.operation_date.strftime("%d/%m/%Y"),
+        **initial_price_data,
     }
     mocker.patch("variable_income_assets.service_layer.handlers.upsert_asset_read_model")
 
@@ -492,24 +478,6 @@ def test__update__buy__current_currency_conversion_rate(client, buy_transaction)
             "This value must be ommited when the action of a transaction is BUY"
         )
     }
-
-
-def test__update__should_raise_error_if_initial_price_is_null(client, sell_transaction):
-    # GIVEN
-    data = {
-        "action": sell_transaction.action,
-        "price": sell_transaction.price * 2,
-        "quantity": sell_transaction.quantity,
-        "operation_date": sell_transaction.operation_date.strftime("%d/%m/%Y"),
-        "initial_price": None,
-    }
-
-    # WHEN
-    response = client.put(f"{URL}/{sell_transaction.pk}", data=data)
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"initial_price": ["This field may not be null."]}
 
 
 def test__update__should_raise_error_if_sell_transaction_and_no_transactions(

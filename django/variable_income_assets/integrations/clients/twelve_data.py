@@ -1,5 +1,6 @@
-from aiohttp import ClientResponse, ClientSession, ClientTimeout, TCPConnector
 from django.conf import settings
+
+from aiohttp import ClientResponse, ClientSession, ClientTimeout, TCPConnector
 
 
 class TwelveDataClient:

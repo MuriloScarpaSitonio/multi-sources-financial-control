@@ -2,14 +2,27 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from django.contrib.auth.tokens import default_token_generator, PasswordResetTokenGenerator
+from django.contrib.auth.views import PasswordResetConfirmView
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
 
 if TYPE_CHECKING:
+    from django.contrib.auth.tokens import PasswordResetTokenGenerator
+
     from .models import CustomUser
 
-    default_token_generator: PasswordResetTokenGenerator
+token_generator: PasswordResetTokenGenerator = PasswordResetConfirmView.token_generator
+
+
+def generate_reset_password_secrets(user: CustomUser) -> tuple[str, str]:
+    return token_generator.make_token(user=user), urlsafe_base64_encode(force_bytes(user.pk))
 
 
 def dispatch_reset_password_email(user: CustomUser) -> None:
-    token = default_token_generator.make_token(user=user)
-    print(token, default_token_generator.check_token(user=user, token=token))
+    token, uidb64 = generate_reset_password_secrets(user=user)
+    # TODO
+
+
+def dispatch_not_found_email(email: str) -> None:
+    # TODO
+    ...

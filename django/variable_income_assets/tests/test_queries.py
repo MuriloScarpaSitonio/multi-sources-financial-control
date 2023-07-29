@@ -1,8 +1,9 @@
 from decimal import Decimal
 
-import pytest
 from django.db.models import Q
 from django.utils import timezone
+
+import pytest
 
 from authentication.tests.conftest import client, secrets, user
 

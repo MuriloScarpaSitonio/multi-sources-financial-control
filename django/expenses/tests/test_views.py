@@ -2,10 +2,11 @@ from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from statistics import fmean
 
-import pytest
-from dateutil.relativedelta import relativedelta
 from django.db.models import Avg, Q
 from django.utils import timezone
+
+import pytest
+from dateutil.relativedelta import relativedelta
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,

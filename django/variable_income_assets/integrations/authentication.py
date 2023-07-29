@@ -8,9 +8,10 @@ from hashlib import sha256
 from hmac import new as hmac_new
 from typing import TYPE_CHECKING
 
-import jwt
 from django.conf import settings
 from django.http import HttpResponse
+
+import jwt
 from rest_framework.status import HTTP_403_FORBIDDEN
 
 if TYPE_CHECKING:

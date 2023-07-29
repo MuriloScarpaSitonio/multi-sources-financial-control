@@ -1,7 +1,8 @@
 import sqlite3
 
-import requests
 from django.conf import settings
+
+import requests
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 

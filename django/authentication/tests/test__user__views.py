@@ -293,7 +293,7 @@ def test__change_password__diff_new(client, user):
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"new_password": ["As senhas novas não são iguais"]}
+    assert response.json() == {"new_password": ["As senhas não são iguais"]}
 
 
 def test__change_password__diff_old(client, user):
@@ -317,15 +317,4 @@ def test__change_password__validate_classes_in_config(client, user):
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"non_field_errors": ["The password is too similar to the email."]}
-
-
-def test__reset_password(client, user):
-    # GIVEN
-    from uuid import uuid4
-
-    # WHEN
-    response = client.get(f"{URL}/{user.pk}/reset_password")
-
-    # THEN
-    from django.contrib.auth.views import PasswordResetView
+    assert response.json() == {"new_password": ["The password is too similar to the email."]}

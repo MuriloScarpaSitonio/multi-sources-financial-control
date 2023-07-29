@@ -1,5 +1,6 @@
-import pytest
 from django.utils import timezone
+
+import pytest
 from factory.django import DjangoModelFactory
 
 from authentication.tests.conftest import secrets, user

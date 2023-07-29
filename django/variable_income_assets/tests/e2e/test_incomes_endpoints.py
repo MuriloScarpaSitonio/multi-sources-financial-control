@@ -1,9 +1,10 @@
 from datetime import datetime
 from decimal import Decimal
 
-import pytest
 from django.db.models import Avg, Q
 from django.utils import timezone
+
+import pytest
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,

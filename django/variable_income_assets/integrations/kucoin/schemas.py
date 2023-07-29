@@ -3,6 +3,7 @@ from decimal import Decimal, DecimalException
 from typing import Annotated
 
 from django.conf import settings
+
 from pydantic import AfterValidator, ConfigDict, Field, computed_field
 
 from ...choices import Currencies

@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model, password_validation
 from django.db.transaction import atomic
+
 from rest_framework import serializers, validators
 
 from .models import IntegrationSecret
@@ -135,22 +136,29 @@ class UserSerializer(serializers.ModelSerializer):
         return super().update(instance=instance, validated_data=validated_data)
 
 
-class ChangePasswordSerializer(serializers.Serializer):
-    old_password = serializers.CharField(required=True, min_length=4)
+class ResetPasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(required=True, min_length=4)
     new_password2 = serializers.CharField(required=True, min_length=4)
 
+    def validate_new_password(self, value: str) -> str:
+        password_validation.validate_password(value, self.context["user"])
+        return value
+
     def validate(self, attrs: dict[str, str]) -> dict[str, str]:
         if attrs["new_password"] != attrs["new_password2"]:
-            raise serializers.ValidationError({"new_password": "As senhas novas não são iguais"})
+            raise serializers.ValidationError({"new_password": "As senhas não são iguais"})
 
-        user = self.context["user"]
-        if not user.check_password(attrs["old_password"]):
-            raise serializers.ValidationError({"old_password": "A senha antiga está incorreta"})
-
-        password_validation.validate_password(attrs["new_password"], user)
         return attrs
 
 
-class ResetPasswordSerializer(serializers.Serializer):
+class ChangePasswordSerializer(ResetPasswordSerializer):
+    old_password = serializers.CharField(required=True, min_length=4)
+
+    def validate_old_password(self, value: str) -> str:
+        if not self.context["user"].check_password(value):
+            raise serializers.ValidationError("A senha antiga está incorreta")
+        return value
+
+
+class ResetPasswordRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)

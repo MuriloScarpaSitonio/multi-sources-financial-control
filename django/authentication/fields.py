@@ -1,10 +1,11 @@
 from typing import TYPE_CHECKING, Any
 
-from cryptography.fernet import Fernet
 from django.conf import settings
 from django.db.models import CharField
 from django.utils.encoding import force_bytes, force_str
 from django.utils.functional import cached_property
+
+from cryptography.fernet import Fernet
 
 if TYPE_CHECKING:
     from django.db.backends.base.base import BaseDatabaseWrapper

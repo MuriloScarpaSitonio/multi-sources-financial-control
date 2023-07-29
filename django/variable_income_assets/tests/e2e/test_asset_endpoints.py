@@ -2,8 +2,9 @@ import operator
 from decimal import ROUND_HALF_UP, Decimal
 from random import randrange
 
-import pytest
 from django.db.models import F
+
+import pytest
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,

@@ -1,8 +1,9 @@
 from uuid import uuid4
 
+from django.utils import timezone
+
 import pytest
 from asgiref.sync import async_to_sync
-from django.utils import timezone
 from rest_framework.status import HTTP_200_OK
 
 from authentication.tests.conftest import client, secrets, user

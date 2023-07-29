@@ -1,6 +1,7 @@
-import pytest
 from django.conf import settings
 from django.contrib.auth.hashers import make_password
+
+import pytest
 from factory.django import DjangoModelFactory
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken

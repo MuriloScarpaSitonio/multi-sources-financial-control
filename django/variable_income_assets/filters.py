@@ -3,9 +3,10 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-import django_filters as filters
 from django.core.exceptions import ValidationError
 from django.forms import Form
+
+import django_filters as filters
 
 from .choices import AssetsTotalInvestedReportAggregations, AssetTypes
 from .models import Asset, AssetReadModel, PassiveIncome, Transaction

@@ -1,5 +1,6 @@
-import pytest
 from django.utils import timezone
+
+import pytest
 from rest_framework.status import HTTP_200_OK, HTTP_403_FORBIDDEN
 
 from authentication.tests.conftest import (
