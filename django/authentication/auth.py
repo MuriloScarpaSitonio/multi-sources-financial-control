@@ -15,11 +15,11 @@ if TYPE_CHECKING:
 UserModel = get_user_model()
 
 
-class ResetPasswordAuthentication(BaseAuthentication):
+class UIDB64Authentication(BaseAuthentication):
     def authenticate(self, request: Request) -> tuple[UserModel, None] | None:
         """Check django.contrib.auth.views.PasswordResetConfirmView.get_user"""
         try:
-            uidb64, _ = request.path.split("/")[-2:]
+            uidb64 = request.path.split("/")[-1]
         except ValueError:
             # If authentication is not attempted, return None.
             # Any other authentication schemes also in use will still be checked.

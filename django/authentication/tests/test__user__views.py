@@ -1,3 +1,5 @@
+from django.contrib.auth import get_user_model
+
 import pytest
 from rest_framework.status import (
     HTTP_200_OK,
@@ -10,14 +12,16 @@ from config.settings.base import BASE_API_URL
 
 from ..models import IntegrationSecret
 
+UserModel = get_user_model()
 pytestmark = pytest.mark.django_db
 
 
 URL = f"/{BASE_API_URL}" + "users"
 
 
-def test__create__without_secrets(client):
+def test__create__without_secrets(client, mocker):
     # GIVEN
+    m = mocker.patch("authentication.views.dispatch_activation_email")
     data = {"username": "murilo2", "email": "murilo2@gmail.com", "password": "1234"}
 
     # WHEN
@@ -26,6 +30,33 @@ def test__create__without_secrets(client):
     # THEN
     assert response.status_code == HTTP_201_CREATED
     assert response.json()["email"] == data["email"]
+
+    assert UserModel.objects.filter(email=data["email"], is_active=False).exists()
+
+    assert m.call_args[1] == {"user": UserModel.objects.get(email="murilo2@gmail.com")}
+
+
+def test__create__same_email(client, user):
+    # GIVEN
+    data = {"username": "murilo2", "email": user.email, "password": "1234"}
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"email": ["Um usuário com esse email já existe"]}
+
+
+def test__create__same_username(client, user):
+    # GIVEN
+    data = {"username": user.username, "email": "murilo2@gmail.com", "password": "1234"}
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
 
 
 def test__create__with_cei_secrets(client):
@@ -215,7 +246,7 @@ def test__validate_cpf_uniqueness(client, user):
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"secrets": {"cpf": ["Um usuário com esse CPF já existe."]}}
+    assert response.json() == {"secrets": {"cpf": ["Um usuário com esse CPF já existe"]}}
 
 
 def test__retrieve(client, user):
@@ -317,4 +348,4 @@ def test__change_password__validate_classes_in_config(client, user):
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"new_password": ["The password is too similar to the email."]}
+    assert response.json() == {"new_password": ["The password is too similar to the username."]}

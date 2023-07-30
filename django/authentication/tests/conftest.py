@@ -34,7 +34,7 @@ def secrets():
 
 @pytest.fixture
 def user(secrets):
-    return UserFactory(email="murilo@gmail.com", secrets=secrets)
+    return UserFactory(email="murilo@gmail.com", username="murilo", secrets=secrets)
 
 
 @pytest.fixture

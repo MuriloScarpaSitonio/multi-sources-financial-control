@@ -1,22 +1,16 @@
 from time import sleep
 from uuid import uuid4
 
-from django.contrib.auth.views import (
-    INTERNAL_RESET_SESSION_TOKEN,
-    PasswordResetConfirmView,
-)
-
 import pytest
 from rest_framework.status import (
     HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
     HTTP_403_FORBIDDEN,
-    HTTP_404_NOT_FOUND,
 )
 
 from config.settings.base import BASE_API_URL
 
-from ..utils import generate_reset_password_secrets
+from ..utils import generate_token_secrets
 
 pytestmark = pytest.mark.django_db
 
@@ -50,46 +44,15 @@ def test__dispatch_reset_password_email__not_found(api_client, mocker):
     assert m.call_args[1] == data
 
 
-def test__reset_password__e2e(api_client, user):
-    # region: GET
+def test__reset_password(api_client, user):
     # GIVEN
     old_password = user.password
-    token, uidb64 = generate_reset_password_secrets(user=user)
+    token, uidb64 = generate_token_secrets(user=user)
+
+    data = {"new_password": "12478-1rhy2e2314", "new_password2": "12478-1rhy2e2314", "token": token}
 
     # WHEN
-    response = api_client.get(f"{URL}/reset_password/{uidb64}/{token}")
-
-    # THEN
-    assert (
-        response.url == f"{URL}/reset_password/{uidb64}/{PasswordResetConfirmView.reset_url_token}"
-    )
-    assert response.wsgi_request.session[INTERNAL_RESET_SESSION_TOKEN] == token
-
-    # endregion: GET
-
-    # region: POST
-    # GIVEN
-    data = {"new_password": "12478-1rhy2e2314", "new_password2": "12478-1rhy2e2314"}
-
-    # WHEN
-    response = api_client.post(response.url, data=data)
-
-    # THEN
-    user.refresh_from_db()
-    assert response.status_code == HTTP_204_NO_CONTENT
-    assert old_password != user.password
-
-    # endregion: POST
-
-
-def test__reset_password__post__wo_session_token(api_client, user):
-    # GIVEN
-    old_password = user.password
-    token, uidb64 = generate_reset_password_secrets(user=user)
-    data = {"new_password": "12478-1rhy2e2314", "new_password2": "12478-1rhy2e2314"}
-
-    # WHEN
-    response = api_client.post(f"{URL}/reset_password/{uidb64}/{token}", data=data)
+    response = api_client.post(f"{URL}/reset_password/{uidb64}", data=data)
 
     # THEN
     user.refresh_from_db()
@@ -97,39 +60,41 @@ def test__reset_password__post__wo_session_token(api_client, user):
     assert old_password != user.password
 
 
-def test__reset_password__wo_token_in_session(api_client, user):
+def test__reset_password__wo_token(api_client, user):
     # GIVEN
-    _, uidb64 = generate_reset_password_secrets(user=user)
+    _, uidb64 = generate_token_secrets(user=user)
     data = {"new_password": "12478-1rhy2e2314", "new_password2": "12478-1rhy2e2314"}
 
     # WHEN
-    response = api_client.post(
-        f"{URL}/reset_password/{uidb64}/{PasswordResetConfirmView.reset_url_token}", data=data
-    )
+    response = api_client.post(f"{URL}/reset_password/{uidb64}", data=data)
 
     # THEN
-    assert response.status_code == HTTP_403_FORBIDDEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"token": ["This field is required."]}
 
 
 def test__reset_password__wrong_token(api_client, user):
     # GIVEN
-    _, uidb64 = generate_reset_password_secrets(user=user)
-    data = {"new_password": "12478-1rhy2e2314", "new_password2": "12478-1rhy2e2314"}
+    _, uidb64 = generate_token_secrets(user=user)
+    data = {
+        "new_password": "12478-1rhy2e2314",
+        "new_password2": "12478-1rhy2e2314",
+        "token": uuid4().hex,
+    }
 
     # WHEN
-    response = api_client.post(f"{URL}/reset_password/{uidb64}/{uuid4().hex}", data=data)
+    response = api_client.post(f"{URL}/reset_password/{uidb64}", data=data)
 
     # THEN
-    assert response.status_code == HTTP_403_FORBIDDEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"token": ["Token inválido"]}
 
 
 def test__reset_password__wrong_uidb64(api_client, user):
     # GIVEN
-    token, _ = generate_reset_password_secrets(user=user)
-    data = {"new_password": "12478-1rhy2e2314", "new_password2": "12478-1rhy2e2314"}
 
     # WHEN
-    response = api_client.post(f"{URL}/reset_password/{uuid4().hex}/{token}", data=data)
+    response = api_client.post(f"{URL}/reset_password/{uuid4().hex}", data={})
 
     # THEN
     assert response.status_code == HTTP_403_FORBIDDEN
@@ -138,25 +103,94 @@ def test__reset_password__wrong_uidb64(api_client, user):
 def test__reset_password__token_expired(api_client, user, settings):
     # GIVEN
     settings.PASSWORD_RESET_TIMEOUT = 1
-    token, uidb64 = generate_reset_password_secrets(user=user)
-    data = {"new_password": "12478-1rhy2e2314", "new_password2": "12478-1rhy2e2314"}
+    token, uidb64 = generate_token_secrets(user=user)
+    data = {"new_password": "12478-1rhy2e2314", "new_password2": "12478-1rhy2e2314", "token": token}
     sleep(2)
 
     # WHEN
-    response = api_client.post(f"{URL}/reset_password/{uidb64}/{token}", data=data)
+    response = api_client.post(f"{URL}/reset_password/{uidb64}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"token": ["Token inválido"]}
+
+
+def test__reset_password__validate_classes_in_config(api_client, user):
+    # GIVEN
+    token, uidb64 = generate_token_secrets(user=user)
+    data = {"new_password": "murilo", "new_password2": "murilo", "token": token}
+
+    # WHEN
+    response = api_client.post(f"{URL}/reset_password/{uidb64}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"new_password": ["The password is too similar to the username."]}
+
+
+def test__activate_user(api_client, user):
+    # GIVEN
+    token, uidb64 = generate_token_secrets(user=user)
+    data = {"token": token}
+
+    # WHEN
+    response = api_client.post(f"{URL}/activate_user/{uidb64}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_204_NO_CONTENT
+
+    user.refresh_from_db()
+    assert user.is_active
+
+
+def test__activate_user__wo_token(api_client, user):
+    # GIVEN
+    _, uidb64 = generate_token_secrets(user=user)
+    data = {}
+
+    # WHEN
+    response = api_client.post(f"{URL}/activate_user/{uidb64}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"token": ["This field is required."]}
+
+
+def test__activate_user__wrong_token(api_client, user):
+    # GIVEN
+    _, uidb64 = generate_token_secrets(user=user)
+    data = {"token": uuid4().hex}
+
+    # WHEN
+    response = api_client.post(f"{URL}/activate_user/{uidb64}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"token": ["Token inválido"]}
+
+
+def test__activate_user__wrong_uidb64(api_client, user):
+    # GIVEN
+
+    # WHEN
+    response = api_client.post(f"{URL}/activate_user/{uuid4().hex}", data={})
 
     # THEN
     assert response.status_code == HTTP_403_FORBIDDEN
 
 
-def test__reset_password__validate_classes_in_config(api_client, user):
+def test__activate_user__token_does_not(api_client, user, settings):
     # GIVEN
-    token, uidb64 = generate_reset_password_secrets(user=user)
-    data = {"new_password": "murilo", "new_password2": "murilo"}
+    settings.PASSWORD_RESET_TIMEOUT = 1
+    token, uidb64 = generate_token_secrets(user=user)
+    data = {"token": token}
+    sleep(2)
 
     # WHEN
-    response = api_client.post(f"{URL}/reset_password/{uidb64}/{token}", data=data)
+    response = api_client.post(f"{URL}/activate_user/{uidb64}", data=data)
 
     # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"new_password": ["The password is too similar to the email."]}
+    assert response.status_code == HTTP_204_NO_CONTENT
+
+    user.refresh_from_db()
+    assert user.is_active

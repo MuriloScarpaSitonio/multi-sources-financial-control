@@ -11,4 +11,9 @@ from .sql import (
 if settings.ENVIRONMENT == "pytest":
     key_value_backend = MemoryBackend()
 else:  # pragma: no cover
-    key_value_backend = RedisBackendWInMemoryCache()
+    try:
+        key_value_backend = RedisBackendWInMemoryCache()
+        key_value_backend._client.ping()
+    except Exception as e:
+        print(e)
+        key_value_backend = MemoryBackend()
