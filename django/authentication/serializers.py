@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model, password_validation
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.transaction import atomic
 
 from rest_framework import serializers, validators
@@ -104,11 +105,14 @@ class IntegrationSecretSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     secrets = IntegrationSecretSerializer(required=False, write_only=True)
+    password2 = serializers.CharField(required=False, write_only=True, min_length=4)
 
     class Meta:
         model = UserModel
         fields = (
             "id",
+            "password",
+            "password2",
             "username",
             "email",
             "has_cei_integration",
@@ -124,51 +128,73 @@ class UserSerializer(serializers.ModelSerializer):
                         message="Um usuário com esse email já existe",
                     )
                 ]
-            }
+            },
+            "password": {"write_only": True, "required": False},
         }
 
+    def validate(self, attrs: dict[str, str]) -> dict[str, str]:
+        if not self.instance:
+            if "password" not in attrs or "password2" not in attrs:
+                raise serializers.ValidationError({"password": "A senha é obrigatória"})
+            if attrs["password"] != attrs["password2"]:
+                raise serializers.ValidationError({"password": "As senhas não são iguais"})
+
+        return attrs
+
     @atomic
-    def create(self, validated_data: dict[str, str]) -> "UserSerializer.Meta.model":
+    def create(self, validated_data: dict[str, str]) -> UserModel:
         if "secrets" in validated_data:
             secrets_serializer = IntegrationSecretSerializer(data=validated_data.pop("secrets"))
             secrets_serializer.is_valid(raise_exception=True)
             validated_data["secrets"] = secrets_serializer.save()
 
-        return super().create(validated_data=validated_data)
+        validated_data.pop("password2")
+        password = validated_data.pop("password")
+        user: UserModel = super().create(validated_data=validated_data)
+        try:
+            password_validation.validate_password(password, user)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError({"password": serializers.get_error_detail(e)}) from e
+
+        user.set_password(password)
+        user.save(update_fields=("password",))
+        return user
 
     @atomic
     def update(
-        self, instance: "UserSerializer.Meta.model", validated_data: dict[str, str | dict[str, str]]
-    ) -> "UserSerializer.Meta.model":
+        self, instance: UserModel, validated_data: dict[str, str | dict[str, str]]
+    ) -> UserModel:
         if "secrets" in validated_data:
             secrets_serializer: IntegrationSecretSerializer = self.fields["secrets"]
             secrets_serializer.update(
                 instance=instance.secrets, validated_data=validated_data.pop("secrets")
             )
 
+        validated_data.pop("password", None)
+        validated_data.pop("password2", None)
         return super().update(instance=instance, validated_data=validated_data)
 
 
 class _ResetPasswordSerializer(serializers.Serializer):
-    new_password = serializers.CharField(required=True, min_length=4)
-    new_password2 = serializers.CharField(required=True, min_length=4)
+    password = serializers.CharField(required=True, min_length=4)
+    password2 = serializers.CharField(required=True, min_length=4)
 
     @property
     def user(self) -> UserModel:
         return self.context["user"]
 
-    def validate_new_password(self, value: str) -> str:
-        password_validation.validate_password(value, self.user)
-        return value
-
     def validate(self, attrs: dict[str, str]) -> dict[str, str]:
-        if attrs["new_password"] != attrs["new_password2"]:
-            raise serializers.ValidationError({"new_password": "As senhas não são iguais"})
+        if attrs["password"] != attrs["password2"]:
+            raise serializers.ValidationError({"password": "As senhas não são iguais"})
 
         return attrs
 
+    def validate_password(self, value: str) -> str:
+        password_validation.validate_password(value, self.user)
+        return value
+
     def save(self) -> UserModel:
-        self.user.set_password(self.validated_data["new_password"])
+        self.user.set_password(self.validated_data["password"])
         self.user.save(update_fields=("password",))
         return self.user
 

@@ -49,7 +49,7 @@ def test__reset_password(api_client, user):
     old_password = user.password
     token, uidb64 = generate_token_secrets(user=user)
 
-    data = {"new_password": "12478-1rhy2e2314", "new_password2": "12478-1rhy2e2314", "token": token}
+    data = {"password": "12478-1rhy2e2314", "password2": "12478-1rhy2e2314", "token": token}
 
     # WHEN
     response = api_client.post(f"{URL}/reset_password/{uidb64}", data=data)
@@ -63,7 +63,7 @@ def test__reset_password(api_client, user):
 def test__reset_password__wo_token(api_client, user):
     # GIVEN
     _, uidb64 = generate_token_secrets(user=user)
-    data = {"new_password": "12478-1rhy2e2314", "new_password2": "12478-1rhy2e2314"}
+    data = {"password": "12478-1rhy2e2314", "password2": "12478-1rhy2e2314"}
 
     # WHEN
     response = api_client.post(f"{URL}/reset_password/{uidb64}", data=data)
@@ -77,8 +77,8 @@ def test__reset_password__wrong_token(api_client, user):
     # GIVEN
     _, uidb64 = generate_token_secrets(user=user)
     data = {
-        "new_password": "12478-1rhy2e2314",
-        "new_password2": "12478-1rhy2e2314",
+        "password": "12478-1rhy2e2314",
+        "password2": "12478-1rhy2e2314",
         "token": uuid4().hex,
     }
 
@@ -104,7 +104,7 @@ def test__reset_password__token_expired(api_client, user, settings):
     # GIVEN
     settings.PASSWORD_RESET_TIMEOUT = 1
     token, uidb64 = generate_token_secrets(user=user)
-    data = {"new_password": "12478-1rhy2e2314", "new_password2": "12478-1rhy2e2314", "token": token}
+    data = {"password": "12478-1rhy2e2314", "password2": "12478-1rhy2e2314", "token": token}
     sleep(2)
 
     # WHEN
@@ -118,14 +118,14 @@ def test__reset_password__token_expired(api_client, user, settings):
 def test__reset_password__validate_classes_in_config(api_client, user):
     # GIVEN
     token, uidb64 = generate_token_secrets(user=user)
-    data = {"new_password": "murilo", "new_password2": "murilo", "token": token}
+    data = {"password": "murilo", "password2": "murilo", "token": token}
 
     # WHEN
     response = api_client.post(f"{URL}/reset_password/{uidb64}", data=data)
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"new_password": ["The password is too similar to the username."]}
+    assert response.json() == {"password": ["The password is too similar to the username."]}
 
 
 def test__activate_user(api_client, user):

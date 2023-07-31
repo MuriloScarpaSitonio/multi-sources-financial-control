@@ -20,10 +20,15 @@ pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "users"
 
 
-def test__create__without_secrets(api_client, mocker):
+def test__create__wo_secrets(api_client, mocker):
     # GIVEN
     m = mocker.patch("authentication.views.dispatch_activation_email")
-    data = {"username": "murilo2", "email": "murilo2@gmail.com", "password": "1234"}
+    data = {
+        "username": "murilo2",
+        "email": "murilo2@gmail.com",
+        "password": "1234",
+        "password2": "1234",
+    }
 
     # WHEN
     response = api_client.post(URL, data=data)
@@ -32,14 +37,16 @@ def test__create__without_secrets(api_client, mocker):
     assert response.status_code == HTTP_201_CREATED
     assert response.json()["email"] == data["email"]
 
-    assert UserModel.objects.filter(email=data["email"], is_active=False).exists()
+    user = UserModel.objects.get(email="murilo2@gmail.com")
 
-    assert m.call_args[1] == {"user": UserModel.objects.get(email="murilo2@gmail.com")}
+    assert not user.is_active
+    assert user.check_password(data["password"])
+    assert m.call_args[1] == {"user": user}
 
 
 def test__create__same_email(api_client, user):
     # GIVEN
-    data = {"username": "murilo2", "email": user.email, "password": "1234"}
+    data = {"username": "murilo2", "email": user.email, "password": "1234", "password2": "1234"}
 
     # WHEN
     response = api_client.post(URL, data=data)
@@ -51,7 +58,12 @@ def test__create__same_email(api_client, user):
 
 def test__create__same_username(api_client, user):
     # GIVEN
-    data = {"username": user.username, "email": "murilo2@gmail.com", "password": "1234"}
+    data = {
+        "username": user.username,
+        "email": "murilo2@gmail.com",
+        "password": "1234",
+        "password2": "1234",
+    }
 
     # WHEN
     response = api_client.post(URL, data=data)
@@ -60,12 +72,60 @@ def test__create__same_username(api_client, user):
     assert response.status_code == HTTP_201_CREATED
 
 
+@pytest.mark.parametrize("password_data", ({}, {"password": "5555"}, {"password2": "5555"}))
+def test__create__wo_passwords(api_client, user, password_data):
+    # GIVEN
+    data = {"username": user.username, "email": "murilo2@gmail.com", **password_data}
+
+    # WHEN
+    response = api_client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"password": ["A senha é obrigatória"]}
+
+
+def test__create__diff_passwords(api_client):
+    # GIVEN
+    data = {
+        "username": "murilo2",
+        "email": "murilo2@gmail.com",
+        "password": "1234",
+        "password2": "5678",
+    }
+
+    # WHEN
+    response = api_client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"password": ["As senhas não são iguais"]}
+
+
+def test__create__validate_classes_in_config(api_client, user):
+    # GIVEN
+    data = {
+        "username": "murilo2",
+        "email": "murilo2@gmail.com",
+        "password": "murilo",
+        "password2": "murilo",
+    }
+
+    # WHEN
+    response = api_client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"password": ["The password is too similar to the username."]}
+
+
 def test__create__with_cei_secrets(api_client):
     # GIVEN
     data = {
         "username": "murilo2",
         "email": "murilo2@gmail.com",
         "password": "1234",
+        "password2": "1234",
         "secrets": {"cpf": "75524399047"},
     }
 
@@ -86,6 +146,7 @@ def test__create__with_kucoin_secrets(api_client):
         "username": "murilo2",
         "email": "murilo2@gmail.com",
         "password": "1234",
+        "password2": "1234",
         "secrets": {
             "kucoin_api_key": "test",
             "kucoin_api_secret": "test",
@@ -107,48 +168,25 @@ def test__create__with_kucoin_secrets(api_client):
 
 
 @pytest.mark.parametrize(
-    "data",
+    "secrets_data",
     (
-        {
-            "username": "murilo2",
-            "email": "murilo2@gmail.com",
-            "password": "1234",
-            "secrets": {"kucoin_api_key": "test"},
-        },
-        {
-            "username": "murilo2",
-            "email": "murilo2@gmail.com",
-            "password": "1234",
-            "secrets": {"kucoin_api_key": "test", "kucoin_api_secret": "test"},
-        },
-        {
-            "username": "murilo2",
-            "email": "murilo2@gmail.com",
-            "password": "1234",
-            "secrets": {"kucoin_api_key": "test", "kucoin_api_passphrase": "str"},
-        },
-        {
-            "username": "murilo2",
-            "email": "murilo2@gmail.com",
-            "password": "1234",
-            "secrets": {"kucoin_api_secret": "test"},
-        },
-        {
-            "username": "murilo2",
-            "email": "murilo2@gmail.com",
-            "password": "1234",
-            "secrets": {"kucoin_api_secret": "test", "kucoin_api_passphrase": "test"},
-        },
-        {
-            "username": "murilo2",
-            "email": "murilo2@gmail.com",
-            "password": "1234",
-            "secrets": {"kucoin_api_passphrase": "test"},
-        },
+        {"kucoin_api_key": "test"},
+        {"kucoin_api_key": "test", "kucoin_api_secret": "test"},
+        {"kucoin_api_key": "test", "kucoin_api_passphrase": "str"},
+        {"kucoin_api_secret": "test"},
+        {"kucoin_api_secret": "test", "kucoin_api_passphrase": "test"},
+        {"kucoin_api_passphrase": "test"},
     ),
 )
-def test__not_create__by_enforcing_kucoin_constraint(api_client, data):
+def test__not_create__by_enforcing_kucoin_constraint(api_client, secrets_data):
     # GIVEN
+    data = {
+        "username": "murilo2",
+        "email": "murilo2@gmail.com",
+        "password": "1234",
+        "password2": "1234",
+        "secrets": secrets_data,
+    }
 
     # WHEN
     response = api_client.post(URL, data=data)
@@ -168,6 +206,7 @@ def test__create__with_binance_secrets(api_client):
         "username": "murilo2",
         "email": "murilo2@gmail.com",
         "password": "1234",
+        "password2": "1234",
         "secrets": {"binance_api_key": "test", "binance_api_secret": "test"},
     }
 
@@ -184,24 +223,17 @@ def test__create__with_binance_secrets(api_client):
 
 
 @pytest.mark.parametrize(
-    "data",
-    (
-        {
-            "username": "murilo2",
-            "email": "murilo2@gmail.com",
-            "password": "1234",
-            "secrets": {"binance_api_key": "test"},
-        },
-        {
-            "username": "murilo2",
-            "email": "murilo2@gmail.com",
-            "password": "1234",
-            "secrets": {"binance_api_secret": "test"},
-        },
-    ),
+    "secrets_data", ({"binance_api_key": "test"}, {"binance_api_secret": "test"})
 )
-def test__not_create__by_enforcing_binance_constraint(api_client, data):
+def test__not_create__by_enforcing_binance_constraint(api_client, secrets_data):
     # GIVEN
+    data = {
+        "username": "murilo2",
+        "email": "murilo2@gmail.com",
+        "password": "1234",
+        "password2": "1234",
+        "secrets": secrets_data,
+    }
 
     # WHEN
     response = api_client.post(URL, data=data)
@@ -222,6 +254,7 @@ def test__raise_error_invalid_cpf(api_client, cpf):
         "username": "murilo2",
         "email": "murilo2@gmail.com",
         "password": "1234",
+        "password2": "1234",
         "secrets": {"cpf": cpf},
     }
 
@@ -239,6 +272,7 @@ def test__validate_cpf_uniqueness(api_client, user):
         "username": "murilo2",
         "email": "murilo2@gmail.com",
         "password": "1234",
+        "password2": "1234",
         "secrets": {"cpf": user.secrets.cpf},
     }
 
@@ -296,6 +330,24 @@ def test__update(client, user):
     assert data["secrets"]["cpf"] == user.secrets.cpf
 
 
+@pytest.mark.parametrize(
+    "password_data", ({"password": "5555"}, {"password": "5555", "password2": "5555"})
+)
+def test__update__w_password(client, user, password_data):
+    # GIVEN
+    old_password = user.password
+    data = {"username": "murilo2", "email": "murilo2@gmail.com", **password_data}
+
+    # WHEN
+    response = client.put(f"{URL}/{user.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    user.refresh_from_db()
+    assert user.password == old_password
+
+
 def test__update__unauthorized(api_client, user):
     # GIVEN
 
@@ -322,6 +374,23 @@ def test__partial_update(client, user):
     assert old_cpf == user.secrets.cpf
 
 
+@pytest.mark.parametrize(
+    "password_data", ({"password": "5555"}, {"password": "5555", "password2": "5555"})
+)
+def test__partial_update__password(client, user, password_data):
+    # GIVEN
+    old_password = user.password
+
+    # WHEN
+    response = client.patch(f"{URL}/{user.pk}", data=password_data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    user.refresh_from_db()
+    assert user.password == old_password
+
+
 def test__partial_update__unauthorized(api_client, user):
     # GIVEN
 
@@ -335,7 +404,7 @@ def test__partial_update__unauthorized(api_client, user):
 def test__change_password(client, user):
     # GIVEN
     old_password = user.password
-    data = {"old_password": "1X<ISRUkw+tuK", "new_password": "abcd", "new_password2": "abcd"}
+    data = {"old_password": "1X<ISRUkw+tuK", "password": "abcd", "password2": "abcd"}
 
     # WHEN
     response = client.patch(f"{URL}/{user.pk}/change_password", data=data)
@@ -348,19 +417,19 @@ def test__change_password(client, user):
 
 def test__change_password__diff_new(client, user):
     # GIVEN
-    data = {"old_password": "1X<ISRUkw+tuK", "new_password": "abcd", "new_password2": "abcde"}
+    data = {"old_password": "1X<ISRUkw+tuK", "password": "abcd", "password2": "abcde"}
 
     # WHEN
     response = client.patch(f"{URL}/{user.pk}/change_password", data=data)
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"new_password": ["As senhas não são iguais"]}
+    assert response.json() == {"password": ["As senhas não são iguais"]}
 
 
 def test__change_password__diff_old(client, user):
     # GIVEN
-    data = {"old_password": "abcd", "new_password": "abcd", "new_password2": "abcd"}
+    data = {"old_password": "abcd", "password": "abcd", "password2": "abcd"}
 
     # WHEN
     response = client.patch(f"{URL}/{user.pk}/change_password", data=data)
@@ -372,14 +441,14 @@ def test__change_password__diff_old(client, user):
 
 def test__change_password__validate_classes_in_config(client, user):
     # GIVEN
-    data = {"old_password": "1X<ISRUkw+tuK", "new_password": "murilo", "new_password2": "murilo"}
+    data = {"old_password": "1X<ISRUkw+tuK", "password": "murilo", "password2": "murilo"}
 
     # WHEN
     response = client.patch(f"{URL}/{user.pk}/change_password", data=data)
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"new_password": ["The password is too similar to the username."]}
+    assert response.json() == {"password": ["The password is too similar to the username."]}
 
 
 def test__change_password__unauthorized(api_client, user):
