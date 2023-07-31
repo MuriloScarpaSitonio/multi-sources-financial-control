@@ -6,6 +6,7 @@ from rest_framework.status import (
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
+    HTTP_401_UNAUTHORIZED,
 )
 
 from config.settings.base import BASE_API_URL
@@ -19,13 +20,13 @@ pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "users"
 
 
-def test__create__without_secrets(client, mocker):
+def test__create__without_secrets(api_client, mocker):
     # GIVEN
     m = mocker.patch("authentication.views.dispatch_activation_email")
     data = {"username": "murilo2", "email": "murilo2@gmail.com", "password": "1234"}
 
     # WHEN
-    response = client.post(URL, data=data)
+    response = api_client.post(URL, data=data)
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
@@ -36,30 +37,30 @@ def test__create__without_secrets(client, mocker):
     assert m.call_args[1] == {"user": UserModel.objects.get(email="murilo2@gmail.com")}
 
 
-def test__create__same_email(client, user):
+def test__create__same_email(api_client, user):
     # GIVEN
     data = {"username": "murilo2", "email": user.email, "password": "1234"}
 
     # WHEN
-    response = client.post(URL, data=data)
+    response = api_client.post(URL, data=data)
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {"email": ["Um usuário com esse email já existe"]}
 
 
-def test__create__same_username(client, user):
+def test__create__same_username(api_client, user):
     # GIVEN
     data = {"username": user.username, "email": "murilo2@gmail.com", "password": "1234"}
 
     # WHEN
-    response = client.post(URL, data=data)
+    response = api_client.post(URL, data=data)
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
 
 
-def test__create__with_cei_secrets(client):
+def test__create__with_cei_secrets(api_client):
     # GIVEN
     data = {
         "username": "murilo2",
@@ -69,7 +70,7 @@ def test__create__with_cei_secrets(client):
     }
 
     # WHEN
-    response = client.post(URL, data=data)
+    response = api_client.post(URL, data=data)
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
@@ -79,7 +80,7 @@ def test__create__with_cei_secrets(client):
     assert secrets.cpf == data["secrets"]["cpf"]
 
 
-def test__create__with_kucoin_secrets(client):
+def test__create__with_kucoin_secrets(api_client):
     # GIVEN
     data = {
         "username": "murilo2",
@@ -93,7 +94,7 @@ def test__create__with_kucoin_secrets(client):
     }
 
     # WHEN
-    response = client.post(URL, data=data)
+    response = api_client.post(URL, data=data)
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
@@ -146,11 +147,11 @@ def test__create__with_kucoin_secrets(client):
         },
     ),
 )
-def test__not_create__by_enforcing_kucoin_constraint(client, data):
+def test__not_create__by_enforcing_kucoin_constraint(api_client, data):
     # GIVEN
 
     # WHEN
-    response = client.post(URL, data=data)
+    response = api_client.post(URL, data=data)
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
@@ -161,7 +162,7 @@ def test__not_create__by_enforcing_kucoin_constraint(client, data):
     }
 
 
-def test__create__with_binance_secrets(client):
+def test__create__with_binance_secrets(api_client):
     # GIVEN
     data = {
         "username": "murilo2",
@@ -171,7 +172,7 @@ def test__create__with_binance_secrets(client):
     }
 
     # WHEN
-    response = client.post(URL, data=data)
+    response = api_client.post(URL, data=data)
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
@@ -199,11 +200,11 @@ def test__create__with_binance_secrets(client):
         },
     ),
 )
-def test__not_create__by_enforcing_binance_constraint(client, data):
+def test__not_create__by_enforcing_binance_constraint(api_client, data):
     # GIVEN
 
     # WHEN
-    response = client.post(URL, data=data)
+    response = api_client.post(URL, data=data)
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
@@ -215,7 +216,7 @@ def test__not_create__by_enforcing_binance_constraint(client, data):
 
 
 @pytest.mark.parametrize("cpf", ("1", "11111111111"))
-def test__raise_error_invalid_cpf(client, cpf):
+def test__raise_error_invalid_cpf(api_client, cpf):
     # GIVEN
     data = {
         "username": "murilo2",
@@ -225,14 +226,14 @@ def test__raise_error_invalid_cpf(client, cpf):
     }
 
     # WHEN
-    response = client.post(URL, data=data)
+    response = api_client.post(URL, data=data)
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {"secrets": {"cpf": ["CPF inválido"]}}
 
 
-def test__validate_cpf_uniqueness(client, user):
+def test__validate_cpf_uniqueness(api_client, user):
     # GIVEN
     data = {
         "username": "murilo2",
@@ -242,7 +243,7 @@ def test__validate_cpf_uniqueness(client, user):
     }
 
     # WHEN
-    response = client.post(URL, data=data)
+    response = api_client.post(URL, data=data)
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
@@ -266,6 +267,16 @@ def test__retrieve(client, user):
     }
 
 
+def test__retrieve__unauthorized(api_client, user):
+    # GIVEN
+
+    # WHEN
+    response = api_client.get(f"{URL}/{user.pk}")
+
+    # THEN
+    assert response.status_code == HTTP_401_UNAUTHORIZED
+
+
 def test__update(client, user):
     # GIVEN
     data = {
@@ -285,6 +296,16 @@ def test__update(client, user):
     assert data["secrets"]["cpf"] == user.secrets.cpf
 
 
+def test__update__unauthorized(api_client, user):
+    # GIVEN
+
+    # WHEN
+    response = api_client.put(f"{URL}/{user.pk}", data={})
+
+    # THEN
+    assert response.status_code == HTTP_401_UNAUTHORIZED
+
+
 def test__partial_update(client, user):
     # GIVEN
     old_cpf = user.secrets.cpf
@@ -299,6 +320,16 @@ def test__partial_update(client, user):
     user.refresh_from_db()
     assert response.json()["email"] == user.email == "murilo2@gmail.com"
     assert old_cpf == user.secrets.cpf
+
+
+def test__partial_update__unauthorized(api_client, user):
+    # GIVEN
+
+    # WHEN
+    response = api_client.patch(f"{URL}/{user.pk}", data={})
+
+    # THEN
+    assert response.status_code == HTTP_401_UNAUTHORIZED
 
 
 def test__change_password(client, user):
@@ -349,3 +380,13 @@ def test__change_password__validate_classes_in_config(client, user):
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {"new_password": ["The password is too similar to the username."]}
+
+
+def test__change_password__unauthorized(api_client, user):
+    # GIVEN
+
+    # WHEN
+    response = api_client.patch(f"{URL}/{user.pk}/change_password", data={})
+
+    # THEN
+    assert response.status_code == HTTP_401_UNAUTHORIZED

@@ -32,14 +32,16 @@ from .utils import (
 UserModel = get_user_model()
 
 
-class UserViewSet(
-    GenericViewSet,
-    CreateModelMixin,
-    RetrieveModelMixin,
-    UpdateModelMixin,
-):
+class UserViewSet(GenericViewSet, CreateModelMixin, RetrieveModelMixin, UpdateModelMixin):
     serializer_class = UserSerializer
     queryset = UserModel.objects.select_related("secrets").all()
+
+    def get_permissions(self) -> list:
+        return [] if self.action == "create" else super().get_permissions()
+
+    def get_authenticators(self) -> list:
+        # self.action throws AttributeError
+        return [] if self.request.method == "POST" else super().get_authenticators()
 
     def perform_create(self, serializer: UserSerializer) -> None:
         user = serializer.save()
