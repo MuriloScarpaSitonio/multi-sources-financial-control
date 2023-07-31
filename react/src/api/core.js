@@ -90,6 +90,9 @@ export class RevenuesApi extends Api {
 export class AuthenticationApi {
   constructor() {
     this.login = (data) => apiProvider.login(data);
+    this.signup = (data) => apiProvider.signup(data);
+    this.activateUser = (uidb64, token) =>
+      apiProvider.activateUser(uidb64, token);
     this.refreshToken = () => apiProvider.refreshToken();
   }
 }
@@ -139,7 +142,6 @@ export class AssetsApi extends Api {
         `${this.resource}/roi_report?${new URLSearchParams(filters).toString()}`
       );
     this.syncAll = () => apiProvider.get(`${this.resource}/sync_all`);
-
   }
 }
 

@@ -20,6 +20,11 @@ const Delete = async (url) => privateAxios.delete(url);
 
 const login = (data) => publicAxios.post("token", data);
 
+const signup = (data) => publicAxios.post("users", data);
+
+const activateUser = (uidb64, token) =>
+  publicAxios.post(`auth/activate_user/${uidb64}`, { token });
+
 const refreshToken = async () => {
   let data = { refresh: localStorage.getItem(RefreshTokenStr) };
   try {
@@ -35,6 +40,8 @@ export const apiProvider = {
   Query,
   QueryWithInfiteScroll,
   login,
+  signup,
+  activateUser,
   post,
   patch,
   put,

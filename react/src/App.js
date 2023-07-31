@@ -10,10 +10,13 @@ import {
 
 import { Navbar } from "./components/Navbar";
 import { useHideValues } from "./hooks/useHideValues";
+import { ActivateUser } from "./pages/ActivateUser";
 import Assets from "./pages/Assets";
 import Expenses from "./pages/Expenses";
 import Home from "./pages/Home";
 import { Login } from "./pages/Login";
+import { Signup } from "./pages/Signup";
+import { SignupDone } from "./pages/SignupDone";
 import PassiveIncomes from "./pages/PassiveIncomes";
 import Revenues from "./pages/Revenues";
 import Transactions from "./pages/Transactions";
@@ -67,6 +70,21 @@ export default function App() {
           exact
           path="/"
           render={(props) => <Wrapper {...props} component={Login} />}
+        />
+        <Route
+          exact
+          path="/signup"
+          render={(props) => <Wrapper {...props} component={Signup} />}
+        />
+        <Route
+          exact
+          path="/signup/done"
+          render={(props) => <Wrapper {...props} component={SignupDone} />}
+        />
+        <Route
+          exact
+          path="/activate/:uidb64/:token"
+          render={(props) => <Wrapper {...props} component={ActivateUser} />}
         />
       </Switch>
       <Switch>

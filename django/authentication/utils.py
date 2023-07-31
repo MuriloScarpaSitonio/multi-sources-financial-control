@@ -18,8 +18,9 @@ def generate_token_secrets(user: UserModel) -> tuple[str, str]:
 
 
 def dispatch_reset_password_email(user: UserModel) -> None:
-    token, uidb64 = generate_token_secrets(user=user)
     # TODO
+    token, uidb64 = generate_token_secrets(user=user)
+    print(token, uidb64)
 
 
 def dispatch_not_found_email(email: str) -> None:
@@ -30,3 +31,4 @@ def dispatch_not_found_email(email: str) -> None:
 def dispatch_activation_email(user: UserModel) -> None:
     # TODO
     token, uidb64 = generate_token_secrets(user=user)
+    print(token, uidb64)

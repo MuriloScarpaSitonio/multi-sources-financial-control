@@ -14,7 +14,6 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 
 import { AuthenticationApi } from "../api";
-import { AccessTokenStr, RefreshTokenStr } from "../consts";
 import { FormFeedback } from "../components/FormFeedback";
 
 const useStyles = makeStyles((theme) => ({
@@ -39,10 +38,15 @@ const useStyles = makeStyles((theme) => ({
 
 const schema = yup.object().shape({
   email: yup.string().email().required(),
+  username: yup.string().required(),
   password: yup.string().min(4).required(),
+  password2: yup
+    .string()
+    .min(4)
+    .oneOf([yup.ref("password"), null], "As senhas precisam ser iguais"),
 });
 
-export const Login = (props) => {
+export const Signup = (props) => {
   const [isLoaded, setIsLoaded] = useState(true);
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
@@ -62,42 +66,37 @@ export const Login = (props) => {
     setIsLoaded(false);
     let api = new AuthenticationApi();
     api
-      .login(data)
-      .then((response) => {
-        localStorage.setItem(RefreshTokenStr, response.data.refresh);
-        localStorage.setItem(AccessTokenStr, response.data.access);
-        for (const [key, value] of Object.entries(response.data.user)) {
-          localStorage.setItem("user_" + key, value);
-        }
+      .signup(data)
+      .then(() => {
         setAlertInfos({
           message: "Sucesso! Redirecionando...",
           severity: "success",
         });
-        props.history.push("/home");
+        props.history.push("/signup/done");
       })
       .catch((error) => {
         setAlertInfos({
           message: JSON.stringify(error.response.data),
           severity: "error",
         });
-        reset({ password: "", email: data.email });
+        reset({
+          password: "",
+          password2: "",
+          email: data.email,
+          username: data.username,
+        });
       })
       .finally(() => {
         setIsLoaded(true);
         setShowAlert(true);
       });
   };
-  // if (
-  //   localStorage.getItem(AccessTokenStr) &&
-  //   localStorage.getItem(RefreshTokenStr)
-  // ) {
-  //   props.history.push("/home");
-  // }
+
   return (
     <Container component="main" maxWidth="xs">
       <div className={classes.paper}>
         <Typography component="h1" variant="h5">
-          Login
+          Cadastre-se
         </Typography>
         <form className={classes.form}>
           <Controller
@@ -119,6 +118,23 @@ export const Login = (props) => {
             )}
           />
           <Controller
+            name="username"
+            id="username"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                variant="outlined"
+                margin="normal"
+                required
+                fullWidth
+                label="Nome de usuário"
+                error={!!errors.username}
+                helperText={errors.username?.message}
+              />
+            )}
+          />
+          <Controller
             name="password"
             id="password"
             control={control}
@@ -131,9 +147,26 @@ export const Login = (props) => {
                 fullWidth
                 label="Senha"
                 type="password"
-                autoComplete="current-password"
                 error={!!errors.password}
                 helperText={errors.password?.message}
+              />
+            )}
+          />
+          <Controller
+            name="password2"
+            id="password2"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                variant="outlined"
+                margin="normal"
+                required
+                fullWidth
+                label="Senha (de novo)"
+                type="password"
+                error={!!errors.password2}
+                helperText={errors.password2?.message}
               />
             )}
           />
@@ -146,20 +179,15 @@ export const Login = (props) => {
             onClick={handleSubmit(onSubmit)}
           >
             {isLoaded ? (
-              "Login"
+              "Cadastrar"
             ) : (
               <CircularProgress size={24} style={{ color: "white" }} />
             )}
           </Button>
           <Grid container>
-            <Grid item xs>
-              <Link href="#" variant="body2">
-                Esqueceu a senha?
-              </Link>
-            </Grid>
             <Grid item>
-              <Link href="/signup" variant="body2">
-                Ainda não tem conta? Cadastre-se!
+              <Link href="/" variant="body2">
+                Já tem conta? Entre!
               </Link>
             </Grid>
           </Grid>
