@@ -25,7 +25,7 @@ def dispatch_reset_password_email(user: UserModel) -> None:
 
 def dispatch_not_found_email(email: str) -> None:
     # TODO
-    ...
+    print("not found!")
 
 
 def dispatch_activation_email(user: UserModel) -> None:

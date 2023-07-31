@@ -14,7 +14,6 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 
 import { AuthenticationApi } from "../api";
-import { AccessTokenStr, RefreshTokenStr } from "../consts";
 import { FormFeedback } from "../components/FormFeedback";
 
 const useStyles = makeStyles((theme) => ({
@@ -39,10 +38,9 @@ const useStyles = makeStyles((theme) => ({
 
 const schema = yup.object().shape({
   email: yup.string().email().required(),
-  password: yup.string().min(4).required(),
 });
 
-export const Login = (props) => {
+export const ForgotPassword = (props) => {
   const [isLoaded, setIsLoaded] = useState(true);
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
@@ -51,7 +49,6 @@ export const Login = (props) => {
   const {
     control,
     handleSubmit,
-    reset,
     formState: { errors },
   } = useForm({
     mode: "all",
@@ -60,44 +57,32 @@ export const Login = (props) => {
 
   const onSubmit = (data) => {
     setIsLoaded(false);
-    let api = new AuthenticationApi();
-    api
-      .login(data)
-      .then((response) => {
-        localStorage.setItem(RefreshTokenStr, response.data.refresh);
-        localStorage.setItem(AccessTokenStr, response.data.access);
-        for (const [key, value] of Object.entries(response.data.user)) {
-          localStorage.setItem("user_" + key, value);
-        }
+    new AuthenticationApi()
+      .forgotPassword(data.email)
+      .then(() => {
         setAlertInfos({
           message: "Sucesso! Redirecionando...",
           severity: "success",
         });
-        props.history.push("/home");
+        props.history.push("/forgot_password/done");
       })
       .catch((error) => {
         setAlertInfos({
           message: JSON.stringify(error.response.data),
           severity: "error",
         });
-        reset({ password: "", email: data.email });
       })
       .finally(() => {
         setIsLoaded(true);
         setShowAlert(true);
       });
   };
-  // if (
-  //   localStorage.getItem(AccessTokenStr) &&
-  //   localStorage.getItem(RefreshTokenStr)
-  // ) {
-  //   props.history.push("/home");
-  // }
+
   return (
     <Container component="main" maxWidth="xs">
       <div className={classes.paper}>
         <Typography component="h1" variant="h5">
-          Login
+          Esqueci minha senha
         </Typography>
         <form className={classes.form}>
           <Controller
@@ -114,26 +99,10 @@ export const Login = (props) => {
                 label="E-mail"
                 autoFocus
                 error={!!errors.email}
-                helperText={errors.email?.message}
-              />
-            )}
-          />
-          <Controller
-            name="password"
-            id="password"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                variant="outlined"
-                margin="normal"
-                required
-                fullWidth
-                label="Senha"
-                type="password"
-                autoComplete="current-password"
-                error={!!errors.password}
-                helperText={errors.password?.message}
+                helperText={
+                  errors.email?.message ||
+                  "Um link para definir uma nova senha será enviado para este email, se ele existir no nosso banco de dados"
+                }
               />
             )}
           />
@@ -146,20 +115,15 @@ export const Login = (props) => {
             onClick={handleSubmit(onSubmit)}
           >
             {isLoaded ? (
-              "Login"
+              "Enviar"
             ) : (
               <CircularProgress size={24} style={{ color: "white" }} />
             )}
           </Button>
           <Grid container>
             <Grid item xs>
-              <Link href="/forgot_password" variant="body2">
-                Esqueceu a senha?
-              </Link>
-            </Grid>
-            <Grid item>
-              <Link href="/signup" variant="body2">
-                Ainda não tem conta? Cadastre-se!
+              <Link href="/" variant="body2">
+                Retornar a página de login
               </Link>
             </Grid>
           </Grid>

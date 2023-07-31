@@ -62,7 +62,7 @@ class AuthViewSet(GenericViewSet):
     authentication_classes = ()
 
     @action(methods=("POST",), detail=False)
-    def dispatch_reset_password_email(self, request: Request) -> Response:
+    def forgot_password(self, request: Request) -> Response:
         serializer = ResetPasswordRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         if user := UserModel.objects.filter(email=serializer.validated_data["email"]).first():

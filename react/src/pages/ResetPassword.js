@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useHistory, useParams } from "react-router-dom";
 
 import Button from "@material-ui/core/Button";
 import CircularProgress from "@material-ui/core/CircularProgress";
@@ -14,7 +15,6 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 
 import { AuthenticationApi } from "../api";
-import { AccessTokenStr, RefreshTokenStr } from "../consts";
 import { FormFeedback } from "../components/FormFeedback";
 
 const useStyles = makeStyles((theme) => ({
@@ -23,10 +23,6 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-  },
-  avatar: {
-    margin: theme.spacing(1),
-    backgroundColor: theme.palette.secondary.main,
   },
   form: {
     width: "100%", // Fix IE 11 issue.
@@ -38,16 +34,33 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 const schema = yup.object().shape({
-  email: yup.string().email().required(),
   password: yup.string().min(4).required(),
+  password2: yup
+    .string()
+    .min(4)
+    .oneOf([yup.ref("password"), null], "As senhas precisam ser iguais"),
 });
 
-export const Login = (props) => {
+const TOKEN = "reset-password";
+const INTERNAL_RESET_PASSWORD_SESSION_TOKEN = "_reset_password_token";
+
+export const ResetPassword = (props) => {
   const [isLoaded, setIsLoaded] = useState(true);
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
 
+  let { uidb64, token } = useParams();
+  const history = useHistory();
   const classes = useStyles();
+
+  if (token !== TOKEN) {
+    // Store the token in the session and redirect to the
+    // URL without the token. This avoids the possibility of leaking the token in the
+    // HTTP Referer header.
+    sessionStorage.setItem(INTERNAL_RESET_PASSWORD_SESSION_TOKEN, token);
+    history.push(history.location.pathname.replace(token, TOKEN));
+  }
+
   const {
     control,
     handleSubmit,
@@ -60,64 +73,39 @@ export const Login = (props) => {
 
   const onSubmit = (data) => {
     setIsLoaded(false);
-    let api = new AuthenticationApi();
-    api
-      .login(data)
-      .then((response) => {
-        localStorage.setItem(RefreshTokenStr, response.data.refresh);
-        localStorage.setItem(AccessTokenStr, response.data.access);
-        for (const [key, value] of Object.entries(response.data.user)) {
-          localStorage.setItem("user_" + key, value);
-        }
+    new AuthenticationApi()
+      .resetPassword(uidb64, {
+        ...data,
+        token: sessionStorage.getItem(INTERNAL_RESET_PASSWORD_SESSION_TOKEN),
+      })
+      .then(() => {
+        sessionStorage.removeItem(INTERNAL_RESET_PASSWORD_SESSION_TOKEN);
         setAlertInfos({
           message: "Sucesso! Redirecionando...",
           severity: "success",
         });
-        props.history.push("/home");
+        setTimeout(() => history.push("/"), 1200);
       })
       .catch((error) => {
         setAlertInfos({
           message: JSON.stringify(error.response.data),
           severity: "error",
         });
-        reset({ password: "", email: data.email });
+        reset({ password: "", password2: "" });
       })
       .finally(() => {
         setIsLoaded(true);
         setShowAlert(true);
       });
   };
-  // if (
-  //   localStorage.getItem(AccessTokenStr) &&
-  //   localStorage.getItem(RefreshTokenStr)
-  // ) {
-  //   props.history.push("/home");
-  // }
+
   return (
     <Container component="main" maxWidth="xs">
       <div className={classes.paper}>
         <Typography component="h1" variant="h5">
-          Login
+          Redefinir senha
         </Typography>
         <form className={classes.form}>
-          <Controller
-            name="email"
-            id="email"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                variant="outlined"
-                margin="normal"
-                required
-                fullWidth
-                label="E-mail"
-                autoFocus
-                error={!!errors.email}
-                helperText={errors.email?.message}
-              />
-            )}
-          />
           <Controller
             name="password"
             id="password"
@@ -131,9 +119,26 @@ export const Login = (props) => {
                 fullWidth
                 label="Senha"
                 type="password"
-                autoComplete="current-password"
                 error={!!errors.password}
                 helperText={errors.password?.message}
+              />
+            )}
+          />
+          <Controller
+            name="password2"
+            id="password2"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                variant="outlined"
+                margin="normal"
+                required
+                fullWidth
+                label="Senha (de novo)"
+                type="password"
+                error={!!errors.password2}
+                helperText={errors.password2?.message}
               />
             )}
           />
@@ -146,20 +151,15 @@ export const Login = (props) => {
             onClick={handleSubmit(onSubmit)}
           >
             {isLoaded ? (
-              "Login"
+              "Redefinir"
             ) : (
               <CircularProgress size={24} style={{ color: "white" }} />
             )}
           </Button>
           <Grid container>
             <Grid item xs>
-              <Link href="/forgot_password" variant="body2">
-                Esqueceu a senha?
-              </Link>
-            </Grid>
-            <Grid item>
-              <Link href="/signup" variant="body2">
-                Ainda não tem conta? Cadastre-se!
+              <Link href="/" variant="body2">
+                Retornar a página de login
               </Link>
             </Grid>
           </Grid>

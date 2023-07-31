@@ -18,26 +18,26 @@ pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "auth"
 
 
-def test__dispatch_reset_password_email(api_client, user, mocker):
+def test__forgot_password(api_client, user, mocker):
     # GIVEN
     m = mocker.patch("authentication.views.dispatch_reset_password_email")
     data = {"email": user.email}
 
     # WHEN
-    response = api_client.post(f"{URL}/dispatch_reset_password_email", data=data)
+    response = api_client.post(f"{URL}/forgot_password", data=data)
 
     # THEN
     assert response.status_code == HTTP_204_NO_CONTENT
     assert m.call_args[1] == {"user": user}
 
 
-def test__dispatch_reset_password_email__not_found(api_client, mocker):
+def test__forgot_password_email__not_found(api_client, mocker):
     # GIVEN
     m = mocker.patch("authentication.views.dispatch_not_found_email")
     data = {"email": "user@gmail.com"}
 
     # WHEN
-    response = api_client.post(f"{URL}/dispatch_reset_password_email", data=data)
+    response = api_client.post(f"{URL}/forgot_password", data=data)
 
     # THEN
     assert response.status_code == HTTP_204_NO_CONTENT
@@ -58,6 +58,10 @@ def test__reset_password(api_client, user):
     user.refresh_from_db()
     assert response.status_code == HTTP_204_NO_CONTENT
     assert old_password != user.password
+
+    # make sure can't use token twice
+    response = api_client.post(f"{URL}/reset_password/{uidb64}", data=data)
+    assert response.status_code == HTTP_400_BAD_REQUEST
 
 
 def test__reset_password__wo_token(api_client, user):

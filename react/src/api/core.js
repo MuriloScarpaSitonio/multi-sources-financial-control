@@ -93,6 +93,9 @@ export class AuthenticationApi {
     this.signup = (data) => apiProvider.signup(data);
     this.activateUser = (uidb64, token) =>
       apiProvider.activateUser(uidb64, token);
+    this.forgotPassword = (email) => apiProvider.forgotPassword(email);
+    this.resetPassword = (uidb64, data) =>
+      apiProvider.resetPassword(uidb64, data);
     this.refreshToken = () => apiProvider.refreshToken();
   }
 }

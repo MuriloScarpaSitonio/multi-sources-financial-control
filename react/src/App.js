@@ -15,6 +15,9 @@ import Assets from "./pages/Assets";
 import Expenses from "./pages/Expenses";
 import Home from "./pages/Home";
 import { Login } from "./pages/Login";
+import { ForgotPassword } from "./pages/ForgotPassword";
+import { ForgotPasswordDone } from "./pages/ForgotPasswordDone";
+import { ResetPassword } from "./pages/ResetPassword";
 import { Signup } from "./pages/Signup";
 import { SignupDone } from "./pages/SignupDone";
 import PassiveIncomes from "./pages/PassiveIncomes";
@@ -71,20 +74,49 @@ export default function App() {
           path="/"
           render={(props) => <Wrapper {...props} component={Login} />}
         />
+      </Switch>
+      <Switch>
         <Route
           exact
           path="/signup"
           render={(props) => <Wrapper {...props} component={Signup} />}
         />
+      </Switch>
+      <Switch>
         <Route
           exact
           path="/signup/done"
           render={(props) => <Wrapper {...props} component={SignupDone} />}
         />
+      </Switch>
+      <Switch>
         <Route
           exact
           path="/activate/:uidb64/:token"
           render={(props) => <Wrapper {...props} component={ActivateUser} />}
+        />
+      </Switch>
+      <Switch>
+        <Route
+          exact
+          path="/forgot_password"
+          render={(props) => <Wrapper {...props} component={ForgotPassword} />}
+        />
+      </Switch>
+      <Switch>
+        <Route
+          exact
+          path="/forgot_password/done"
+          render={(props) => (
+            <Wrapper {...props} component={ForgotPasswordDone} />
+          )}
+        />
+      </Switch>
+      <Switch>
+        <Route
+          exact
+          path="/reset_password/:uidb64/:token"
+          render={(props) => <Wrapper {...props} component={ResetPassword} />}
         />
       </Switch>
       <Switch>

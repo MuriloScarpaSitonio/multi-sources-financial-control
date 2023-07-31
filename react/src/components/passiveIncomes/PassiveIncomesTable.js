@@ -288,7 +288,7 @@ export const PassiveIncomesTable = () => {
         sort: true,
         customBodyRender: (v, tableMeta) =>
           `${
-            tableMeta.rowData[6] === "Real" ? "R$" : "US$"
+            tableMeta.rowData[7] === "Real" ? "R$" : "US$"
           } ${v?.toLocaleString("pt-br", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 4,
@@ -449,6 +449,7 @@ export const PassiveIncomesTable = () => {
       let [
         id,
         asset_code,
+        _,
         type,
         amount,
         event_type,

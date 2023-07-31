@@ -25,6 +25,11 @@ const signup = (data) => publicAxios.post("users", data);
 const activateUser = (uidb64, token) =>
   publicAxios.post(`auth/activate_user/${uidb64}`, { token });
 
+const forgotPassword = (email) =>
+  publicAxios.post("auth/forgot_password", { email });
+
+const resetPassword = (uidb64, data) =>
+  publicAxios.post(`auth/reset_password/${uidb64}`, data);
 const refreshToken = async () => {
   let data = { refresh: localStorage.getItem(RefreshTokenStr) };
   try {
@@ -41,6 +46,8 @@ export const apiProvider = {
   QueryWithInfiteScroll,
   login,
   signup,
+  forgotPassword,
+  resetPassword,
   activateUser,
   post,
   patch,
