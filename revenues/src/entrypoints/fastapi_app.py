@@ -172,7 +172,7 @@ def list_revenues_endpoint(
             description=description,
             start_date=start_date or None,
             end_date=end_date or None,
-            sort=ordering or None,
+            sort=ordering or "-created_at",
         )
         return mongo.paginate(cursor=cursor, total=uow.revenues.query.count(), page=page, size=size)
 
