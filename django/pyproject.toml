@@ -9,6 +9,7 @@ Django = "^4.2.2"
 aiohttp = "^3.8.4"
 asgiref = "^3.7.2"
 cryptography = "^41.0.1"
+django-anymail = {extras = ["brevo"], version = "^10.1"}
 django-choices = "^1.7.2"
 django-cors-headers = "3.8.0"
 django-filter = "^23.2"
@@ -68,6 +69,7 @@ select = [
 exclude = ["migrations"]
 
 [tool.ruff.per-file-ignores]
+"*settings*" = ["F403", "F405"]
 "__init__.py" = ["F401", "F403"]
 "conftest.py" = ["F401", "F811"]
 "test_*.py" = ["F401", "F811"]

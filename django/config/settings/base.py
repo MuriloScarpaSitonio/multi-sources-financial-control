@@ -43,12 +43,7 @@ LOCAL_APPS = [
     "tasks.apps.TasksConfig",
 ]
 
-THIRD_PARTY_APPS = [
-    "rest_framework",
-    "django_filters",
-    "drf_spectacular",
-    "corsheaders",
-]
+THIRD_PARTY_APPS = ["rest_framework", "django_filters", "drf_spectacular", "corsheaders", "anymail"]
 
 INSTALLED_APPS = DEFAULT_APPS + LOCAL_APPS + THIRD_PARTY_APPS
 
@@ -135,6 +130,14 @@ BASE_API_URL = "api/v1/"
 
 AUTH_USER_MODEL = "authentication.CustomUser"
 
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+ANYMAIL = {"SENDINBLUE_API_KEY": secret("BREVO_API_KEY", default="")}
+BREVO_TEMPLATE_IDS = {
+    "activation": secret("BREVO_ACTIVATION_TEMPLATE_ID", default=0, cast=int),
+    "not_found": secret("BREVO_NOT_FOUND_TEMPLATE_ID", default=0, cast=int),
+    "reset_password": secret("BREVO_RESET_PASSWORD_TEMPLATE_ID", default=0, cast=int),
+}
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -201,3 +204,5 @@ QSTASH_NEXT_SIGNING_KEY = secret("QSTASH_NEXT_SIGNING_KEY", default="")
 
 REDIS_CONNECTION_URL = secret("REDIS_CONNECTION_URL", default="redis://localhost:6379")
 REDIS_TIMEOUT_IN_SECONDS = secret("REDIS_TIMEOUT_IN_SECONDS", default=1 * 60 * 60, cast=int)
+
+FRONTEND_BASE_URL = secret("FRONTEND_URL", default="http://localhost:3000/")

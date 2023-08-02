@@ -721,6 +721,26 @@ argon2 = ["argon2-cffi (>=19.1.0)"]
 bcrypt = ["bcrypt"]
 
 [[package]]
+name = "django-anymail"
+version = "10.1"
+description = "Django email backends and webhooks for Amazon SES, Brevo (Sendinblue),     MailerSend, Mailgun, Mailjet, Mandrill, Postal, Postmark, SendGrid, and SparkPost"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "django_anymail-10.1-py3-none-any.whl", hash = "sha256:e0a65c1e235dcb863dab67a3e193e899a48503b650df483d7b73f73983fd874b"},
+    {file = "django_anymail-10.1.tar.gz", hash = "sha256:5c4f26bd0f5507324ed1da31e430bca3293bb2c16f386e813484f2ea2df83d06"},
+]
+
+[package.dependencies]
+django = ">=2.0"
+requests = ">=2.4.3"
+urllib3 = ">=1.25.0"
+
+[package.extras]
+amazon-ses = ["boto3"]
+postal = ["cryptography"]
+
+[[package]]
 name = "django-choices"
 version = "1.7.2"
 description = "Sanity for the django choices functionality."
@@ -3341,4 +3361,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "7d8333e3dadd994115a69bb63175a45375e82e3f3c059f3045c3f01b0730c8ad"
+content-hash = "e2ce8b437fb09d3fbb4997c80e8ab823b262d2d083206d4578b6784f69244d47"
