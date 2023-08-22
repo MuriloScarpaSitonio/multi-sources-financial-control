@@ -1,4 +1,6 @@
+import json
 import sqlite3
+from collections.abc import Iterable
 
 from django.conf import settings
 
@@ -9,19 +11,16 @@ from pydrive2.drive import GoogleDrive
 from authentication.models import CustomUser
 
 
-def backup_sqlite_db(gdrive_folder_id: str | None = None) -> None:
+def backup_sqlite_db(file_name: str = "backup.sqlite3") -> None:
     src = sqlite3.connect("db.sqlite3")
-    dst = sqlite3.connect("backup.sqlite3")
+    dst = sqlite3.connect(file_name)
     with dst:
         src.backup(dst)
     dst.close()
     src.close()
 
-    if gdrive_folder_id:
-        _send_to_gdrive(backup_name="backup.sqlite3", folder_id=gdrive_folder_id)
 
-
-def backup_revenues_db(gdrive_folder_id: str | None = None) -> None:
+def backup_revenues_db(file_name: str = "revenues.json") -> None:
     revenues = []
     for user_id in CustomUser.objects.values_list("pk", flat=True):
         r = requests.get(
@@ -31,20 +30,17 @@ def backup_revenues_db(gdrive_folder_id: str | None = None) -> None:
             timeout=60,
         )
         revenues += r.json()["items"]
-    import json
 
-    with open("revenues.json", "w") as outfile:
+    with open(file_name, "w") as outfile:
         json.dump(revenues, outfile, ensure_ascii=False)
 
-    if gdrive_folder_id:
-        _send_to_gdrive(backup_name="revenues.json", folder_id=gdrive_folder_id)
 
-
-def _send_to_gdrive(backup_name: str, folder_id: str) -> None:
+def send_to_gdrive(backup_names: Iterable[str], folder_id: str) -> None:
     gauth = GoogleAuth()
     gauth.LocalWebserverAuth()
     drive = GoogleDrive(gauth)
 
-    file1 = drive.CreateFile({"title": backup_name, "parents": [{"id": folder_id}]})
-    file1.SetContentFile(backup_name)
-    file1.Upload()
+    for backup_name in backup_names:
+        file1 = drive.CreateFile({"title": backup_name, "parents": [{"id": folder_id}]})
+        file1.SetContentFile(backup_name)
+        file1.Upload()
