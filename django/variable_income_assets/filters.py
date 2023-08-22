@@ -45,7 +45,7 @@ class AssetReadFilterSet(filters.FilterSet):
     def filter_status(
         self, queryset: AssetReadModelQuerySet[AssetReadModel], _, value: str
     ) -> AssetReadModelQuerySet[AssetReadModel]:
-        return queryset.opened() if value == "OPENED" else queryset.finished()
+        return queryset.opened() if value == AssetStatus.opened else queryset.finished()
 
 
 class AssetFetchCurrentPriceFilterSet(filters.FilterSet):
