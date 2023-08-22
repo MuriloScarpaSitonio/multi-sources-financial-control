@@ -254,6 +254,25 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
         </FormGroup>
         <FormGroup row style={{ marginTop: "10px" }}>
           <Controller
+            name="quantity"
+            control={control}
+            defaultValue={initialData.quantity}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                required
+                label="Quantidade"
+                InputProps={{
+                  inputComponent: NumberFormatCustom,
+                  inputProps: { prefix: "" },
+                }}
+                style={{ width: "30%", marginRight: "2%" }}
+                error={!!errors.quantity}
+                helperText={errors.quantity?.message}
+              />
+            )}
+          />
+          <Controller
             name="price"
             control={control}
             defaultValue={initialData.price}
@@ -271,25 +290,6 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                 style={{ width: "30%", marginRight: "2%" }}
                 error={!!errors.price}
                 helperText={errors.price?.message}
-              />
-            )}
-          />
-          <Controller
-            name="quantity"
-            control={control}
-            defaultValue={initialData.quantity}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                required
-                label="Quantidade"
-                InputProps={{
-                  inputComponent: NumberFormatCustom,
-                  inputProps: { prefix: "" },
-                }}
-                style={{ width: "30%", marginRight: "2%" }}
-                error={!!errors.quantity}
-                helperText={errors.quantity?.message}
               />
             )}
           />

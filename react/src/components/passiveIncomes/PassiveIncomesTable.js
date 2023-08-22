@@ -171,6 +171,7 @@ export const PassiveIncomesTable = () => {
     rowsPerPageOptions: [5, 10, 20, 50, 100],
     count: data.count,
     serverSide: true,
+    jumpToPage: true,
     filter: true,
     selectableRows: "none",
     search: true,
@@ -194,12 +195,17 @@ export const PassiveIncomesTable = () => {
         previous: "Página anterior",
         rowsPerPage: "Rendimentos passivos por página",
         displayRows: "de",
+        jumpToPage: "Pular para a página",
       },
     },
     onChangeRowsPerPage: (p) => setPageSize(p),
     onChangePage: (p) => setFilters({ ...filters, page: p + 1 }),
     onSearchChange: (text) => {
-      setFilters({ ...filters, asset_code: Boolean(text) ? text : "" });
+      setFilters({
+        ...filters,
+        page: 1,
+        asset_code: Boolean(text) ? text : "",
+      });
     },
     onColumnSortChange: (column, direction) => {
       let _column = column === "asset_code" ? "asset__code" : column;

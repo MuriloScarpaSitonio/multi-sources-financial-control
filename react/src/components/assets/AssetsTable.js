@@ -6,8 +6,13 @@ import Container from "@material-ui/core/Container";
 import Dialog from "@material-ui/core/Dialog";
 import DialogContent from "@material-ui/core/DialogContent";
 import DialogTitle from "@material-ui/core/DialogTitle";
+import FormControl from "@material-ui/core/FormControl";
+import FormControlLabel from "@material-ui/core/FormControlLabel";
+import FormLabel from "@material-ui/core/FormLabel";
 import IconButton from "@material-ui/core/IconButton";
 import Paper from "@material-ui/core/Paper";
+import Radio from "@material-ui/core/Radio";
+import RadioGroup from "@material-ui/core/RadioGroup";
 import TableCell from "@material-ui/core/TableCell";
 import TableRow from "@material-ui/core/TableRow";
 import Tooltip from "@material-ui/core/Tooltip";
@@ -275,6 +280,7 @@ export const AssetsTable = () => {
     ordering: "",
     code: "",
   });
+  const [status, setStatus] = useState("OPENED");
   const [
     simulateTransactionDialogIsOpened,
     setSimulateTransactionDialogIsOpened,
@@ -285,17 +291,18 @@ export const AssetsTable = () => {
   const [data, isLoaded] = new AssetsApi().query(getAdjustedFilters());
   const [tabValue, setTabValue] = useState(0);
 
+  const isOpenedAssetsFiltered = status === "OPENED";
   function getAdjustedFilters() {
     let multipleChoiceFilters = {
       type: filters.type || [],
       objective: filters.objective || [],
       sector: filters.sector || [],
     };
-
     let _filters = new URLSearchParams({
       page: filters.page,
       ordering: filters.ordering,
       code: filters.code,
+      status: status,
       page_size: pageSize,
     });
 
@@ -311,6 +318,7 @@ export const AssetsTable = () => {
   const options = {
     filterType: "multiselect",
     serverSide: true,
+    jumpToPage: true,
     count: data.count,
     rowsPerPage: pageSize,
     rowsPerPageOptions: [5, 10, 20, 50, 100],
@@ -322,12 +330,6 @@ export const AssetsTable = () => {
           style: { background: "rgba(255, 5, 5, 0.2)" },
         };
       }
-      // if (!row[10].includes("undefined")) {
-      //   // positive values
-      //   return {
-      //     style: { background: "rgba(0, 201, 20, 0.2)" },
-      //   };
-      // }
       return {
         style: { background: "rgba(0, 201, 20, 0.2)" },
       };
@@ -344,6 +346,7 @@ export const AssetsTable = () => {
         previous: "Página anterior",
         rowsPerPage: "Ativos por página",
         displayRows: "de",
+        jumpToPage: "Pular para a página",
       },
     },
     download: true,
@@ -358,9 +361,10 @@ export const AssetsTable = () => {
       });
     },
     onSearchChange: (text) => {
-      setFilters({ ...filters, code: Boolean(text) ? text : "" });
+      setFilters({ ...filters, page: 1, code: Boolean(text) ? text : "" });
     },
     onFilterChange: (column, filterList, __, changedColumnIndex) => {
+      if (column === "status") return;
       let _filters = filterList[changedColumnIndex].map(
         (f) =>
           getChoiceByLabel(f, [
@@ -512,6 +516,7 @@ export const AssetsTable = () => {
       name: "adjusted_avg_price",
       label: "Preço médio aj.",
       options: {
+        display: isOpenedAssetsFiltered,
         filter: false,
         sort: false,
         customBodyRender: (v, tableMeta) => {
@@ -530,6 +535,7 @@ export const AssetsTable = () => {
       name: "current_price",
       label: "Preço atual",
       options: {
+        display: isOpenedAssetsFiltered,
         filter: false,
         sort: false,
         customBodyRender: (v, tableMeta) => {
@@ -565,6 +571,7 @@ export const AssetsTable = () => {
       name: "quantity_balance",
       label: "Quantidade",
       options: {
+        display: isOpenedAssetsFiltered,
         filter: false,
         sort: false,
         customBodyRender: (v) => v?.toLocaleString("pt-br"),
@@ -574,6 +581,7 @@ export const AssetsTable = () => {
       name: "normalized_total_invested",
       label: "Total investido aj.",
       options: {
+        display: isOpenedAssetsFiltered,
         filter: false,
         sort: true,
         customBodyRender: (v) =>
@@ -612,6 +620,7 @@ export const AssetsTable = () => {
       name: "percentage_invested",
       label: "% real",
       options: {
+        display: isOpenedAssetsFiltered,
         filter: false,
         sort: false,
         customBodyRender: (v) =>
@@ -624,6 +633,7 @@ export const AssetsTable = () => {
       name: "current_percentage",
       label: "% atual",
       options: {
+        display: isOpenedAssetsFiltered,
         filter: false,
         sort: false,
         customBodyRender: (v) =>
@@ -654,6 +664,48 @@ export const AssetsTable = () => {
         display: false,
         filter: false,
         viewColumns: false,
+      },
+    },
+    {
+      name: "status",
+      label: "Status",
+      options: {
+        display: false,
+        viewColumns: false,
+        filter: true,
+        filterType: "custom",
+        customFilterListOptions: {
+          render: (v) =>
+            `Status: ${v[0] === "FINISHED" ? "Finalizado" : "Aberto"}`,
+        },
+        filterOptions: {
+          names: [],
+          display: (filterList, onChange, index, column) => (
+            <FormControl>
+              <FormLabel>Status</FormLabel>
+              <RadioGroup
+                value={status}
+                row
+                onChange={(_, s) => {
+                  filterList[index][0] = s;
+                  onChange(filterList[index], index, column);
+                  setStatus(s);
+                }}
+              >
+                <FormControlLabel
+                  value="OPENED"
+                  control={<Radio color="default" size="small" />}
+                  label="Aberto"
+                />
+                <FormControlLabel
+                  value="FINISHED"
+                  control={<Radio color="default" size="small" />}
+                  label="Finalizado"
+                />
+              </RadioGroup>
+            </FormControl>
+          ),
+        },
       },
     },
   ];

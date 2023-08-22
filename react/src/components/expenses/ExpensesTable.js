@@ -205,6 +205,7 @@ export const ExpensesTable = () => {
   const options = {
     filterType: "multiselect",
     serverSide: true,
+    jumpToPage: true,
     count: data.count,
     rowsPerPage: pageSize,
     rowsPerPageOptions: [5, 10, 20, 50, 100],
@@ -221,6 +222,7 @@ export const ExpensesTable = () => {
         previous: "Página anterior",
         rowsPerPage: "Despesas por página",
         displayRows: "de",
+        jumpToPage: "Pular para a página",
       },
     },
     download: false,
@@ -235,7 +237,11 @@ export const ExpensesTable = () => {
       });
     },
     onSearchChange: (text) => {
-      setFilters({ ...filters, description: Boolean(text) ? text : "" });
+      setFilters({
+        ...filters,
+        page: 1,
+        description: Boolean(text) ? text : "",
+      });
     },
     onFilterChange: (column, filterList, _, changedColumnIndex) => {
       if (column === "created_at") return;

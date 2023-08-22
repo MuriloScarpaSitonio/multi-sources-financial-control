@@ -8,7 +8,13 @@ from django.forms import Form
 
 import django_filters as filters
 
-from .choices import AssetStatus, AssetsTotalInvestedReportAggregations, AssetTypes
+from .choices import (
+    AssetObjectives,
+    AssetSectors,
+    AssetStatus,
+    AssetsTotalInvestedReportAggregations,
+    AssetTypes,
+)
 from .models import Asset, AssetReadModel, PassiveIncome, Transaction
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -33,8 +39,11 @@ class AssetFilterSet(filters.FilterSet):
 
 class AssetReadFilterSet(filters.FilterSet):
     code = filters.CharFilter(lookup_expr="icontains")
-    sector = filters.CharFilter(
-        field_name="metadata__sector"  # TODO: unable to resolve via repository?
+    objective = filters.MultipleChoiceFilter(choices=AssetObjectives.choices)
+    type = filters.MultipleChoiceFilter(choices=AssetTypes.choices)
+    sector = filters.MultipleChoiceFilter(
+        choices=AssetSectors.choices,
+        field_name="metadata__sector",  # TODO: unable to resolve via repository?
     )
     status = filters.ChoiceFilter(choices=AssetStatus.choices, method="filter_status")
 

@@ -167,6 +167,7 @@ export const RevenuesTable = () => {
   const options = {
     filterType: "multiselect",
     serverSide: true,
+    jumpToPage: true,
     count: data.total,
     rowsPerPage: pageSize,
     rowsPerPageOptions: [5, 10, 20, 50, 100],
@@ -183,6 +184,7 @@ export const RevenuesTable = () => {
         previous: "Página anterior",
         rowsPerPage: "Receitas por página",
         displayRows: "de",
+        jumpToPage: "Pular para a página",
       },
     },
     download: false,
@@ -197,7 +199,11 @@ export const RevenuesTable = () => {
       });
     },
     onSearchChange: (text) => {
-      setFilters({ ...filters, description: Boolean(text) ? text : "" });
+      setFilters({
+        ...filters,
+        page: 1,
+        description: Boolean(text) ? text : "",
+      });
     },
     onFilterChange: (column, filterList, _, changedColumnIndex) => {
       if (column === "created_at") return;
