@@ -8,12 +8,14 @@ from django.forms import Form
 
 import django_filters as filters
 
-from .choices import AssetsTotalInvestedReportAggregations, AssetTypes
+from .choices import AssetStatus, AssetsTotalInvestedReportAggregations, AssetTypes
 from .models import Asset, AssetReadModel, PassiveIncome, Transaction
 
 if TYPE_CHECKING:  # pragma: no cover
     from django.db.models import QuerySet
     from django.views import View
+
+    from .models.managers import AssetReadModelQuerySet
 
 
 class CQRSDjangoFilterBackend(filters.rest_framework.DjangoFilterBackend):
@@ -34,10 +36,16 @@ class AssetReadFilterSet(filters.FilterSet):
     sector = filters.CharFilter(
         field_name="metadata__sector"  # TODO: unable to resolve via repository?
     )
+    status = filters.ChoiceFilter(choices=AssetStatus.choices, method="filter_status")
 
     class Meta:
         model = AssetReadModel
         exclude = ("user",)
+
+    def filter_status(
+        self, queryset: AssetReadModelQuerySet[AssetReadModel], _, value: str
+    ) -> AssetReadModelQuerySet[AssetReadModel]:
+        return queryset.opened() if value == "OPENED" else queryset.finished()
 
 
 class AssetFetchCurrentPriceFilterSet(filters.FilterSet):

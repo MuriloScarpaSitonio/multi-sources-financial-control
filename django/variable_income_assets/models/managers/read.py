@@ -73,7 +73,7 @@ class AssetReadModelQuerySet(models.QuerySet):
         return self.filter(models.Q(quantity_balance__gt=0) | models.Q(total_bought=0))
 
     def finished(self) -> Self:
-        return self.filter(quantity_balance__lte=0)
+        return self.filter(quantity_balance__lte=0, total_bought__gt=0)
 
     def annotate_normalized_current_total(self) -> Self:
         return self.annotate(normalized_current_total=self.expressions.normalized_current_total)

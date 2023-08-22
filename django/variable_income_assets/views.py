@@ -74,7 +74,6 @@ class AssetViewSet(
                 (
                     qs.annotate_normalized_total_invested()
                     .annotate_normalized_roi()
-                    .opened()
                     .order_by("-normalized_total_invested")
                 )
                 if self.action == "list"

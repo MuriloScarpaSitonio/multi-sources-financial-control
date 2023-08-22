@@ -306,17 +306,26 @@ def test__update__uppercase_code(client, stock_asset, mocker):
     assert Asset.objects.filter(code=stock_asset.code.upper()).exists()
 
 
-@pytest.mark.usefixtures("stock_asset_metadata", "stock_asset", "sync_assets_read_model")
+@pytest.mark.usefixtures(
+    "stock_asset_metadata",
+    "stock_asset",
+    "another_stock_asset",
+    "another_stock_asset_transactions",
+    "another_stock_asset_metadata",
+    "sync_assets_read_model",
+)
 @pytest.mark.parametrize(
     "filter_by, count",
     (
-        ("", 1),
+        ("", 2),
         ("code=ALUP", 1),
-        # # ("ROI_type=PROFIT", 1),
-        # # ("ROI_type=LOSS", 0),
-        ("type=STOCK", 1),
+        # ("ROI_type=PROFIT", 1),
+        # ("ROI_type=LOSS", 0),
+        ("type=STOCK", 2),
         ("type=STOCK_USA", 0),
         ("sector=UTILITIES", 1),
+        ("status=OPENED", 1),
+        ("status=FINISHED", 1),
     ),
 )
 def test__list__filters(client, filter_by, count):
@@ -345,7 +354,7 @@ def test__list__filters(client, filter_by, count):
         ("loss_asset_both_transactions_incomes_loss", operator.lt),
     ),
 )
-def test___list__aggregations(client, stock_asset, fixture, operation, request):
+def test__list__aggregations(client, stock_asset, fixture, operation, request):
     # GIVEN
     request.getfixturevalue(fixture)
     request.getfixturevalue("sync_assets_read_model")
@@ -384,7 +393,7 @@ def test___list__aggregations(client, stock_asset, fixture, operation, request):
         ("loss_asset_usa_both_transactions_incomes_loss", operator.lt),
     ),
 )
-def test___list__aggregations__dollar(client, stock_usa_asset: Asset, fixture, operation, request):
+def test__list__aggregations__dollar(client, stock_usa_asset: Asset, fixture, operation, request):
     # GIVEN
     request.getfixturevalue(fixture)
     request.getfixturevalue("sync_assets_read_model")
@@ -421,7 +430,7 @@ def test_list_assets_aggregate_data(client):
     )
 
     # WHEN
-    response = client.get(URL)
+    response = client.get(f"{URL}?status=OPENED")
 
     # THEN
     for result in response.json()["results"]:

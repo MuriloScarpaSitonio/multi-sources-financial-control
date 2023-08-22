@@ -90,3 +90,8 @@ class AssetsTotalInvestedReportAggregations(DjangoChoices):
         field_name="objective",
         serializer_name="AssetTotalInvestedByObjectiveReportSerializer",
     )
+
+
+class AssetStatus(DjangoChoices):
+    opened = ChoiceItem("OPENED", label="Aberto")
+    finished = ChoiceItem("FINISHED", label="Finalizado")
