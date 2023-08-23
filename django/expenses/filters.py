@@ -15,6 +15,19 @@ class ExpenseFilterSet(filters.FilterSet):
         model = Expense
         fields = ("is_fixed",)
 
+    @property
+    def qs(self):
+        start_date = self.form.cleaned_data["start_date"]
+        end_date = self.form.cleaned_data["end_date"]
+        _qs = super().qs
+        if start_date is None and end_date is None:
+            _qs = _qs.current_month_and_past()
+        elif end_date is not None:
+            _qs = _qs.order_by("-created_at")
+        elif start_date is not None:
+            _qs = _qs.order_by("created_at")
+        return _qs
+
 
 class ExpenseReportFilterSet(filters.FilterSet):
     of = filters.ChoiceFilter(choices=ExpenseReportType.choices, required=True)

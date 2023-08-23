@@ -33,11 +33,7 @@ class ExpenseViewSet(ModelViewSet):
 
     def get_queryset(self) -> ExpenseQueryset:
         if self.request.user.is_authenticated:
-            return (
-                self.request.user.expenses.current_month_and_past()
-                if self.action == "list"
-                else self.request.user.expenses.all()
-            )
+            return self.request.user.expenses.all()
         return Expense.objects.none()  # pragma: no cover -- drf-spectatular
 
     @staticmethod
