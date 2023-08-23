@@ -1,6 +1,7 @@
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from statistics import fmean
+from typing import Literal
 
 from django.db.models import Avg, Q
 from django.utils import timezone
@@ -47,7 +48,7 @@ def _convert_and_quantize(
         ("is_fixed=True", 6),
     ],
 )
-def test_should_filter_expenses(client, filter_by, count):
+def test__list(client, filter_by, count):
     # GIVEN
 
     # WHEN
@@ -63,7 +64,7 @@ def test_should_filter_expenses(client, filter_by, count):
     "field, value",
     [("source", "MONEY"), ("category", "HOUSE")],
 )
-def test_should_filter_expenses_by_choice(client, field, value):
+def test__list__filter_by_choice(client, field, value):
     # GIVEN
 
     # WHEN
@@ -73,7 +74,53 @@ def test_should_filter_expenses_by_choice(client, field, value):
     assert response.status_code == HTTP_200_OK
     assert (
         response.json()["count"]
-        == Expense.objects.since_a_year_ago().filter(**{field: value}).count()
+        == Expense.objects.current_month_and_past().filter(**{field: value}).count()
+    )
+
+
+@pytest.mark.usefixtures("expenses2")
+@pytest.mark.parametrize(
+    "filter_date_type, filter_field, count",
+    (
+        (None, None, 24),
+        ("future", "start", 24),
+        ("current", "start", 25),
+        ("future", "end", 25),
+        ("current", "end", 24),
+    ),
+)
+def test__list__filter_by_date(
+    client,
+    filter_date_type: Literal["future", "current"] | None,
+    filter_field: Literal["start", "end"] | None,
+    count,
+):
+    # GIVEN
+    if filter_date_type is None or filter_field is None:
+        f = ""
+        order_by = "-created_at"
+    else:
+        if filter_date_type == "future":
+            d = str(timezone.now().date() + relativedelta(months=1))
+        elif filter_date_type == "current":
+            d = str(timezone.now().date())
+
+        if filter_field == "start":
+            f = f"start_date={d}"
+            order_by = "created_at"
+        elif filter_field == "end":
+            f = f"end_date={d}"
+            order_by = "-created_at"
+
+    # WHEN
+    response = client.get(f"{URL}?{f}&page_size=100")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert response.json()["count"] == count
+    assert (
+        Expense.objects.order_by(order_by).only("id").last().id
+        == response.json()["results"][-1]["id"]
     )
 
 

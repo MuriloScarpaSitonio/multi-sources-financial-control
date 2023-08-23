@@ -39,7 +39,7 @@ class ExpenseViewSet(
     serializer_class = ExpenseSerializer
     ordering_fields = ("description", "price", "created_at", "category", "source")
 
-    def get_queryset(self) -> ExpenseQueryset:
+    def get_queryset(self) -> ExpenseQueryset[Expense]:
         return (
             self.request.user.expenses.all()
             if self.request.user.is_authenticated
