@@ -235,6 +235,7 @@ export const RevenuesReports = () => {
     setIsLoaded(false);
 
     axios
+      // TODO change this to a robust solution
       .all([api.salaries(), new ExpensesApi().cnpj()])
       .then(
         axios.spread((...responses) => {
