@@ -6,12 +6,18 @@ from django.utils import timezone
 from dateutil.relativedelta import relativedelta
 from djchoices.choices import ChoiceItem
 from rest_framework.decorators import action
+from rest_framework.mixins import (
+    CreateModelMixin,
+    DestroyModelMixin,
+    ListModelMixin,
+    UpdateModelMixin,
+)
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.serializers import Serializer
 from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED
 from rest_framework.utils.serializer_helpers import ReturnList
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.viewsets import GenericViewSet
 
 from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
 
@@ -26,19 +32,19 @@ from .serializers import (
 )
 
 
-class ExpenseViewSet(ModelViewSet):
+class ExpenseViewSet(
+    CreateModelMixin, UpdateModelMixin, DestroyModelMixin, ListModelMixin, GenericViewSet
+):
     filterset_class = ExpenseFilterSet
     serializer_class = ExpenseSerializer
     ordering_fields = ("description", "price", "created_at", "category", "source")
 
-    def get_queryset(self) -> ExpenseQueryset:
-        if self.request.user.is_authenticated:
-            return (
-                self.request.user.expenses.current_month_and_past()
-                if self.action == "list"
-                else self.request.user.expenses.all()
-            )
-        return Expense.objects.none()  # pragma: no cover -- drf-spectatular
+    def get_queryset(self) -> ExpenseQueryset[Expense]:
+        return (
+            self.request.user.expenses.all()
+            if self.request.user.is_authenticated
+            else Expense.objects.none()  # pragma: no cover -- drf-spectatular
+        )
 
     @staticmethod
     def _get_report_serializer_class(choice: ChoiceItem) -> type[Serializer]:
@@ -86,12 +92,13 @@ class ExpenseViewSet(ModelViewSet):
     @action(methods=("GET",), detail=False)
     def cnpj(self, _: Request) -> Response:  # pragma: no cover
         qs = (
-            Expense.objects.since_a_year_ago()
+            self.get_queryset()
+            .since_a_year_ago()
             .filter(category=ExpenseCategory.cnpj)
-            .exclude(
-                Q(description__icontains="Contabilidade")
-                | Q(description__icontains="Agilize")
-                | Q(description__icontains="Taxa")
+            .filter(
+                Q(description__icontains="DAS")
+                | Q(description__icontains="IRRF")
+                | Q(description__icontains="INSS")
             )
         )
         return Response(qs.trunc_months().order_by("month"), status=HTTP_200_OK)
