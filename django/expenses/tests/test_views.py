@@ -124,6 +124,24 @@ def test__list__filter_by_date(
     )
 
 
+@pytest.mark.parametrize("is_fixed", (True, False))
+def test__list__include_date_fixed_expense(client, expense, is_fixed):
+    # GIVEN
+    expense.is_fixed = is_fixed
+    expense.save()
+
+    # WHEN
+    response = client.get(URL)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    if is_fixed:
+        assert response.json()["results"][0]["full_description"] == expense.full_description
+    else:
+        assert response.json()["results"][0]["full_description"] == expense.description
+
+
 def test_should_create_expense(client):
     # GIVEN
     data = {
@@ -488,37 +506,3 @@ def test_should_create_expense_if_installments_none_and_is_fixed(client):
     # THEN
     assert response.status_code == HTTP_201_CREATED
     assert Expense.objects.count() == 1
-
-
-@pytest.mark.skip("Skip while endpoint is not live")
-@pytest.mark.usefixtures("expenses")
-def test_should_create_fixed_expenses_from_last_month(client, user):
-    # GIVEN
-    today = timezone.now().date()
-    one_month_before = today - relativedelta(months=1)
-
-    Expense.objects.create(
-        price=12,
-        description=f"Test expense ({one_month_before.month:02}/{str(one_month_before.year)[2:]})",
-        category=ExpenseCategory.recreation,
-        source=ExpenseSource.money,
-        is_fixed=True,
-        created_at=one_month_before.replace(day=1),
-        user=user,
-    )
-    qs = Expense.objects.filter_by_month_and_year(
-        month=one_month_before.month, year=one_month_before.year
-    ).filter(is_fixed=True)
-
-    # WHEN
-    response = client.post(f"{URL}/fixed_from_last_month")
-
-    # THEN
-    assert response.status_code == HTTP_201_CREATED
-    assert len(response.json()) == qs.count()
-    assert response.json()[0]["created_at"] == today.strftime("%Y-%m-%d")
-    assert response.json()[1]["created_at"] == today.replace(day=1).strftime("%Y-%m-%d")
-    assert all(
-        f"({today.month:02}/{str(today.year)[2:]})" in expense["description"]
-        for expense in response.json()
-    )

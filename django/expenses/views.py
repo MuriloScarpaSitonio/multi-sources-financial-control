@@ -1,9 +1,7 @@
 from decimal import Decimal
 
 from django.db.models import Q
-from django.utils import timezone
 
-from dateutil.relativedelta import relativedelta
 from djchoices.choices import ChoiceItem
 from rest_framework.decorators import action
 from rest_framework.mixins import (
@@ -15,7 +13,7 @@ from rest_framework.mixins import (
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.serializers import Serializer
-from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED
+from rest_framework.status import HTTP_200_OK
 from rest_framework.utils.serializer_helpers import ReturnList
 from rest_framework.viewsets import GenericViewSet
 
@@ -102,54 +100,3 @@ class ExpenseViewSet(
             )
         )
         return Response(qs.trunc_months().order_by("month"), status=HTTP_200_OK)
-
-    @action(methods=("POST",), detail=False)
-    def fixed_from_last_month(self, _: Request) -> Response:
-        # expenses = self._get_fixed_expenses_from_queryset()
-
-        # data = Expense.objects.bulk_create(objs=expenses)
-        # serializer = self.get_serializer(data=data, many=True)
-        # serializer.is_valid()
-        # return Response(serializer.data, status=HTTP_201_CREATED)
-        return Response(status=HTTP_201_CREATED)
-
-    def _get_fixed_expenses_from_queryset(self) -> list[Expense]:  # pragma: no cover
-        today = timezone.localdate()
-        one_month_before = today - relativedelta(months=1)
-        two_months_before = today - relativedelta(months=2)
-        qs = (
-            self.get_queryset()
-            .filter_by_month_and_year(month=one_month_before.month, year=one_month_before.year)
-            .filter(is_fixed=True)
-            .values()
-        )
-
-        today_date_str = f"{today.month:02}/{str(today.year)[2:]}"
-        one_month_before_date_str = f"{one_month_before.month:02}/{str(one_month_before.year)[2:]}"
-        two_months_before_date_str = (
-            f"{two_months_before.month:02}/{str(two_months_before.year)[2:]}"
-        )
-        expenses = []
-        for expense in qs:
-            del expense["id"]
-            description = expense.pop("description")
-            # TODO: change to regex
-            if one_month_before_date_str in description:
-                description = description.replace(
-                    f"{one_month_before_date_str}", f"{today_date_str}"
-                )
-            elif two_months_before_date_str in description:
-                description = description.replace(
-                    f"{two_months_before_date_str}", f"{today_date_str}"
-                )
-            else:
-                description = f"{description} ({today_date_str})"
-
-            expenses.append(
-                Expense(
-                    **expense,
-                    created_at=expense.pop("created_at") + relativedelta(months=1),
-                    description=description,
-                )
-            )
-        return expenses

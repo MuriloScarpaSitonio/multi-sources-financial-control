@@ -95,6 +95,3 @@ class ExpenseQueryset(QuerySet):
 
     def sum(self) -> dict[str, Decimal]:
         return self.aggregate(total=Sum("price"))
-
-    def filter_by_month_and_year(self, month: int, year: int) -> ExpenseQueryset:
-        return self.filter(created_at__month=month, created_at__year=year)

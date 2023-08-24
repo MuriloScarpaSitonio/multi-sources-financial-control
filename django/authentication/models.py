@@ -79,3 +79,5 @@ class CustomUser(AbstractUser):
 
     def __str__(self) -> str:
         return f"<CustomUser ({self.username} | {self.email})>"
+
+    __repr__ = __str__

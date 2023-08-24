@@ -26,6 +26,17 @@ class Expense(models.Model):
         ordering = ("-created_at", "-pk")
 
     def __str__(self) -> str:  # pragma: no cover
-        return f"<Expense ({self.description})>"
+        return f"<Expense ({self.full_description})>"
 
     __repr__ = __str__
+
+    @property
+    def full_description(self) -> str:
+        return (
+            self.description
+            if not self.is_fixed
+            else (
+                f"{self.description} "
+                + f"({self.created_at.month:02}/{str(self.created_at.year)[2:]})"
+            )
+        )

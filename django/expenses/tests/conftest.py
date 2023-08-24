@@ -30,6 +30,19 @@ def expense(user):
 
 
 @pytest.fixture
+def another_expense(user):
+    return ExpenseFactory(
+        price=12,
+        description="Test",
+        category=ExpenseCategory.recreation,
+        created_at=timezone.now().date(),
+        source=ExpenseSource.money,
+        is_fixed=True,
+        user=user,
+    )
+
+
+@pytest.fixture
 def expenses(user):
     today = timezone.now().date()
     for i in range(1, 13):
