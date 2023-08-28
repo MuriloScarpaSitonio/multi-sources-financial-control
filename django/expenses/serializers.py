@@ -37,7 +37,6 @@ class ExpenseSerializer(serializers.ModelSerializer):
             "installments",
             "full_description",
         )
-        extra_kwargs = {"description": {"write_only": True}}
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         installments = attrs.get("installments") or 1
