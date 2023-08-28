@@ -22,8 +22,6 @@ class ExpenseFilterSet(filters.FilterSet):
         _qs = super().qs
         if start_date is None and end_date is None:
             _qs = _qs.current_month_and_past()
-        elif end_date is not None:
-            _qs = _qs.order_by("-created_at")
         elif start_date is not None:
             _qs = _qs.order_by("created_at")
         return _qs

@@ -142,6 +142,21 @@ def test__list__include_date_fixed_expense(client, expense, is_fixed):
         assert response.json()["results"][0]["full_description"] == expense.description
 
 
+@pytest.mark.usefixtures("expenses_w_installments")
+def test__list__installments(client):
+    # GIVEN
+    f = f"start_date={str(timezone.now().date() + relativedelta(months=1))}"
+
+    # WHEN
+    response = client.get(f"{URL}?{f}&page_size=100")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    for r in response.json()["results"]:
+        assert r["id"] == int(r["full_description"].split("(")[-1][0])
+
+
 def test_should_create_expense(client):
     # GIVEN
     data = {
@@ -164,7 +179,7 @@ def test_should_create_expense(client):
     assert Expense.objects.count() == 1
 
 
-def test_should_update_expense(client, expense):
+def test__update(client, expense):
     # GIVEN
     data = {
         "price": 12.00,
@@ -188,6 +203,76 @@ def test_should_update_expense(client, expense):
     assert expense.source == data["source"]
 
 
+def test__update__installments(client, expenses_w_installments):
+    # GIVEN
+    e = expenses_w_installments[0]
+    data = {
+        "price": e.price + 10,
+        "description": e.description,
+        "category": e.category,
+        "created_at": e.created_at.strftime("%d/%m/%Y"),
+        "source": e.source,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{e.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    assert Expense.objects.filter(
+        installments_id=e.installments_id, price=data["price"]
+    ).count() == len(expenses_w_installments)
+
+
+def test__update__installments__created_at(client, expenses_w_installments):
+    # GIVEN
+    e = expenses_w_installments[0]
+    created_at = datetime(year=2021, month=12, day=3)
+    data = {
+        "price": e.price,
+        "description": e.description,
+        "category": e.category,
+        "created_at": created_at.strftime("%d/%m/%Y"),
+        "source": e.source,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{e.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    for i, expense in enumerate(
+        Expense.objects.filter(installments_id=e.installments_id, price=data["price"]).order_by(
+            "created_at"
+        )
+    ):
+        assert expense.created_at == (created_at + relativedelta(months=i)).date()
+        assert expense.id == expense.installment_number
+
+
+def test__update__installments__created_at__not_1st_installment(client, expenses_w_installments):
+    # GIVEN
+    e = expenses_w_installments[3]
+    created_at = datetime(year=2021, month=12, day=3)
+    data = {
+        "price": e.price,
+        "description": e.description,
+        "category": e.category,
+        "created_at": created_at.strftime("%d/%m/%Y"),
+        "source": e.source,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{e.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "created_at": ["You can only update the date of the first installment"]
+    }
+
+
 def test_should_partial_update_expense(client, expense):
     # GIVEN
     data = {"price": 12.00}
@@ -202,11 +287,22 @@ def test_should_partial_update_expense(client, expense):
     assert expense.price == Decimal(data["price"])
 
 
-def test_should_delete_expense(client, expense):
+def test__delete(client, expense):
     # GIVEN
 
     # WHEN
     response = client.delete(f"{URL}/{expense.pk}")
+
+    # THEN
+    assert response.status_code == HTTP_204_NO_CONTENT
+    assert not Expense.objects.exists()
+
+
+def test__delete__installments(client, expenses_w_installments):
+    # GIVEN
+
+    # WHEN
+    response = client.delete(f"{URL}/{expenses_w_installments[3].pk}")
 
     # THEN
     assert response.status_code == HTTP_204_NO_CONTENT
@@ -423,7 +519,7 @@ def test__indicators__wo_data(client):
     assert response.json() == {"total": 0.0, "avg": 0.0, "diff": 0.0, "future": 0.0}
 
 
-def test_should_create_multiple_expenses_if_installments(client):
+def test__create__installments(client):
     # GIVEN
     INSTALLMENTS = 3
     data = {
@@ -440,10 +536,12 @@ def test_should_create_multiple_expenses_if_installments(client):
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
-    assert Expense.objects.count() == INSTALLMENTS
-    for i, expense in enumerate(Expense.objects.all().order_by("created_at")):
+    assert Expense.objects.filter(installments_id__isnull=False).count() == INSTALLMENTS
+    for i, expense in enumerate(
+        Expense.objects.filter(installments_id__isnull=False).order_by("created_at")
+    ):
         assert expense.created_at.month == i + 1
-        assert f"({i+1}/{INSTALLMENTS})" in expense.description
+        assert f"({i+1}/{INSTALLMENTS})" in expense.full_description
         assert round(float(expense.price), 2) == round(data["price"] / INSTALLMENTS, 2)
 
 

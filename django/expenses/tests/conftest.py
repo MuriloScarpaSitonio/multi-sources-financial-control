@@ -1,4 +1,5 @@
 from random import choice, randint
+from uuid import uuid4
 
 from django.utils import timezone
 
@@ -96,3 +97,26 @@ def expenses2(user):
             is_fixed=bool(i % 2),
             user=user,
         )
+
+
+@pytest.fixture
+def expenses_w_installments(user):
+    today = timezone.now().date()
+    installments_id, installments_qty = uuid4(), 5
+    category = choice(ExpenseCategory.choices)[0]
+    source = choice(ExpenseSource.choices)[0]
+    return [
+        ExpenseFactory(
+            price=200,
+            description="Expense",
+            created_at=today + relativedelta(months=i),
+            installments_id=installments_id,
+            installments_qty=installments_qty,
+            installment_number=i + 1,
+            category=category,
+            source=source,
+            user=user,
+            is_fixed=False,
+        )
+        for i in range(installments_qty)
+    ]

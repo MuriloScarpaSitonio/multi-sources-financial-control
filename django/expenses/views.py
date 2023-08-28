@@ -39,10 +39,19 @@ class ExpenseViewSet(
 
     def get_queryset(self) -> ExpenseQueryset[Expense]:
         return (
-            self.request.user.expenses.all()
+            self.request.user.expenses.all().order_by("-created_at")
             if self.request.user.is_authenticated
             else Expense.objects.none()  # pragma: no cover -- drf-spectatular
         )
+
+    def filter_queryset(self, queryset: ExpenseQueryset[Expense]) -> ExpenseQueryset[Expense]:
+        return super().filter_queryset(queryset) if self.action == "list" else queryset
+
+    def perform_destroy(self, instance: Expense) -> None:
+        if instance.installments_id is None:
+            instance.delete()
+        else:
+            Expense.objects.filter(installments_id=instance.installments_id).delete()
 
     @staticmethod
     def _get_report_serializer_class(choice: ChoiceItem) -> type[Serializer]:

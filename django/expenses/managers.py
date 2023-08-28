@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import TYPE_CHECKING, Self
 
 from django.db.models import CharField, Count, DecimalField, Q, QuerySet, Sum
-from django.db.models.expressions import CombinedExpression
 from django.db.models.functions import Cast, Coalesce, Concat, TruncMonth
 
 from shared.managers_utils import GenericDateFilters
 
 from .choices import ExpenseReportType
+
+if TYPE_CHECKING:
+    from django.db.models.expressions import CombinedExpression
 
 
 class _ExpenseDateFilters(GenericDateFilters):
@@ -36,16 +39,16 @@ class ExpenseQueryset(QuerySet):
             * Cast(1.0, DecimalField())
         )
 
-    def since_a_year_ago(self) -> ExpenseQueryset:
+    def since_a_year_ago(self) -> Self:
         return self.filter(self.filters.since_a_year_ago)
 
-    def current_month_and_past(self) -> ExpenseQueryset:
+    def current_month_and_past(self) -> Self:
         return self.filter(self.filters.current_month_and_past)
 
-    def future(self) -> ExpenseQueryset:
+    def future(self) -> Self:
         return self.filter(self.filters.future)
 
-    def report(self, of: str) -> ExpenseQueryset:
+    def report(self, of: str) -> Self:
         """
         Args:
             of (str): The type of report. For valid choices check ExpenseReportType.choices
@@ -85,7 +88,7 @@ class ExpenseQueryset(QuerySet):
     def monthly_avg(self) -> dict[str, Decimal]:
         return self.aggregate(avg=self._monthly_avg_expression)
 
-    def trunc_months(self) -> ExpenseQueryset:
+    def trunc_months(self) -> Self:
         return (
             self.annotate(month=TruncMonth("created_at"))
             .values("month")
