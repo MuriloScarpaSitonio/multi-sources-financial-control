@@ -3,7 +3,7 @@
 
 cat <<EOF | python manage.py shell
 import os
-if bool(os.getenv("PERFORM_METADATA_UPDATES")):
+if os.getenv("PERFORM_METADATA_UPDATES", "false").lower() in ("true", "1"):
     from variable_income_assets.integrations.handlers import update_dollar_conversion_rate
     update_dollar_conversion_rate()
     print("USD-BRL convertion rate updated!")
