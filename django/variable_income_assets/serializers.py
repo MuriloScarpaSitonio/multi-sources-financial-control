@@ -1,5 +1,7 @@
 from decimal import ROUND_HALF_UP, Decimal, DecimalException
 
+from django.utils import timezone
+
 from rest_framework import serializers
 from rest_framework.exceptions import NotFound
 
@@ -184,6 +186,14 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
             raise NotFound({"asset": "Not found."}) from e
 
         if attrs["event_type"] == choices.PassiveIncomeEventTypes.credited:
+            if attrs["operation_date"] > timezone.localdate():
+                raise serializers.ValidationError(
+                    {
+                        "operation_date": (
+                            "The date can't be in the future if the income was already credited"
+                        )
+                    }
+                )
             if currency == choices.Currencies.real:
                 attrs["current_currency_conversion_rate"] = 1
             else:

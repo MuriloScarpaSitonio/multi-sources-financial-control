@@ -56,7 +56,25 @@ def test__create__buy(client, stock_asset, mocker):
     assert Transaction.objects.filter(current_currency_conversion_rate__isnull=True).count() == 1
 
 
-def test__create__buy__w_current_currency_conversion_rate(client, stock_asset, mocker):
+def test__create__future(client, stock_asset):
+    # GIVEN
+    data = {
+        "action": TransactionActions.buy,
+        "price": 10,
+        "quantity": 100,
+        "asset_pk": stock_asset.pk,
+        "operation_date": "12/12/2999",
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"operation_date": "You can't create a transaction in the future"}
+
+
+def test__create__buy__w_current_currency_conversion_rate(client, stock_asset):
     # GIVEN
     data = {
         "action": TransactionActions.buy,
@@ -66,12 +84,12 @@ def test__create__buy__w_current_currency_conversion_rate(client, stock_asset, m
         "operation_date": "12/12/2022",
         "current_currency_conversion_rate": 5,
     }
-    mocker.patch("variable_income_assets.service_layer.handlers.upsert_asset_read_model")
 
     # WHEN
     response = client.post(URL, data=data)
 
     # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {
         "current_currency_conversion_rate": (
             "This value must be ommited when the action of "
@@ -216,7 +234,7 @@ def test__create__sell__stock_usa__current_currency_conversion_rate(client, data
     }
 
 
-def test__create__should_raise_error_if_asset_does_not_exist(client):
+def test__create__asset_does_not_exist(client):
     # GIVEN
     data = {
         "action": TransactionActions.buy,
@@ -234,7 +252,7 @@ def test__create__should_raise_error_if_asset_does_not_exist(client):
     assert response.json() == {"asset": "Not found."}
 
 
-def test__create__should_raise_error_if_sell_transaction_and_no_transactions(client, stock_asset):
+def test__create__sell_transaction_and_no_transactions(client, stock_asset):
     # GIVEN
     data = {
         "action": TransactionActions.sell,
@@ -253,7 +271,7 @@ def test__create__should_raise_error_if_sell_transaction_and_no_transactions(cli
     assert not Transaction.objects.exists()
 
 
-def test__create__should_raise_error_if_sell_transaction_and_no_asset(client, stock_asset):
+def test__create__sell_transaction_and_no_asset(client, stock_asset):
     # GIVEN
     data = {
         "action": TransactionActions.sell,
@@ -353,6 +371,24 @@ def test__update(client, buy_transaction, mocker):
 
     buy_transaction.refresh_from_db()
     assert buy_transaction.price == data["price"]
+
+
+@pytest.mark.usefixtures("stock_asset")
+def test__update__future(client, buy_transaction):
+    # GIVEN
+    data = {
+        "action": buy_transaction.action,
+        "price": buy_transaction.price + 1,
+        "quantity": buy_transaction.quantity,
+        "operation_date": "12/12/2999",
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{buy_transaction.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"operation_date": "You can't create a transaction in the future"}
 
 
 @pytest.mark.usefixtures("stock_asset")

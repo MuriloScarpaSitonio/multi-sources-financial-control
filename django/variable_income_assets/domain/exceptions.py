@@ -51,3 +51,10 @@ class CurrencyConversionRateNullOrOneForNonBrlAssets(ValidationError):
 
     def __init__(self) -> None:
         super().__init__(field="current_currency_conversion_rate")
+
+
+class FutureTransactionNotAllowedException(ValidationError):
+    default_message = "You can't create a transaction in the future"
+
+    def __init__(self) -> None:
+        super().__init__(field="operation_date")

@@ -180,6 +180,26 @@ def test__create__provisioned__w_rate(client, stock_usa_asset):
     }
 
 
+def test__create__credited__future(client, stock_usa_asset):
+    # GIVEN
+    data = {
+        "type": PassiveIncomeTypes.dividend,
+        "event_type": PassiveIncomeEventTypes.credited,
+        "amount": 100,
+        "operation_date": "06/12/2999",
+        "asset_pk": stock_usa_asset.pk,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "operation_date": ["The date can't be in the future if the income was already credited"]
+    }
+
+
 @pytest.mark.django_db(transaction=True)
 def test__update(client, simple_income, mocker):
     # GIVEN
@@ -340,6 +360,25 @@ def test__update__provisioned__wo_rate(client, another_income, mocker):
 
     # THEN
     assert response.status_code == HTTP_200_OK
+
+
+def test__update__credited__future(client, another_income):
+    # GIVEN
+    data = {
+        "type": another_income.type,
+        "event_type": another_income.event_type,
+        "amount": another_income.amount,
+        "operation_date": "06/12/2999",
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{another_income.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "operation_date": ["The date can't be in the future if the income was already credited"]
+    }
 
 
 def test__list__sanity_check(client, simple_income):

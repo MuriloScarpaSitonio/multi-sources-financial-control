@@ -5,11 +5,19 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from ..choices import Currencies, PassiveIncomeEventTypes, PassiveIncomeTypes, TransactionActions
+from django.utils import timezone
+
+from ..choices import (
+    Currencies,
+    PassiveIncomeEventTypes,
+    PassiveIncomeTypes,
+    TransactionActions,
+)
 from .events import Event
 from .exceptions import (
     CurrencyConversionRateNotNullWhenActionIsBuy,
     CurrencyConversionRateNullOrOneForNonBrlAssets,
+    FutureTransactionNotAllowedException,
     NegativeQuantityNotAllowedException,
 )
 
@@ -57,6 +65,8 @@ class Asset:
         self.events: list[Event] = []
 
     def add_transaction(self, transaction_dto: TransactionDTO) -> None:
+        if transaction_dto.operation_date > timezone.localdate():
+            raise FutureTransactionNotAllowedException
         if transaction_dto.is_sale:
             if transaction_dto.quantity > self.quantity_balance:
                 raise NegativeQuantityNotAllowedException
@@ -76,6 +86,8 @@ class Asset:
         self._transactions.append(transaction_dto)
 
     def update_transaction(self, dto: TransactionDTO, transaction: Transaction) -> TransactionDTO:
+        if dto.operation_date > timezone.localdate():
+            raise FutureTransactionNotAllowedException
         if dto.is_sale:
             if transaction.quantity != dto.quantity and dto.quantity > self.quantity_balance:
                 raise NegativeQuantityNotAllowedException()
@@ -101,4 +113,4 @@ class Asset:
 
     def validate_delete_transaction_command(self, dto: TransactionDTO) -> None:
         if not dto.is_sale and (self.quantity_balance - dto.quantity) < 0:
-            raise NegativeQuantityNotAllowedException()
+            raise NegativeQuantityNotAllowedException
