@@ -16,24 +16,15 @@ from rest_framework.status import (
 )
 
 from config.settings.base import BASE_API_URL
-from expenses.choices import ExpenseCategory, ExpenseReportType, ExpenseSource
-from expenses.models import Expense
+from shared.tests import convert_and_quantitize
+
+from ..choices import ExpenseCategory, ExpenseReportType, ExpenseSource
+from ..models import Expense
 
 pytestmark = pytest.mark.django_db
 
 
 URL = f"/{BASE_API_URL}" + "expenses"
-
-
-def _convert_and_quantize(
-    value: str | float | int | Decimal | None, precision: int = 1, cast: type = Decimal
-) -> Decimal | None:
-    if value is None:
-        return
-    result = Decimal(str(value)).quantize(
-        Decimal(f"0.{'0' * (precision - 1)}1"), rounding=ROUND_HALF_UP
-    )
-    return cast(result)
 
 
 @pytest.mark.usefixtures("expenses")
@@ -82,7 +73,7 @@ def test__list__filter_by_choice(client, field, value):
 @pytest.mark.parametrize(
     "filter_date_type, filter_field, count",
     (
-        (None, None, 24),
+        (None, None, 48),
         ("future", "start", 24),
         ("current", "start", 25),
         ("future", "end", 25),
@@ -157,10 +148,10 @@ def test__list__installments(client):
         assert r["id"] == int(r["full_description"].split("(")[-1][0])
 
 
-def test_should_create_expense(client):
+def test__create(client):
     # GIVEN
     data = {
-        "price": 12.00,
+        "value": 12.00,
         "description": "Test",
         "category": ExpenseCategory.house,
         "created_at": "01/01/2021",
@@ -179,10 +170,97 @@ def test_should_create_expense(client):
     assert Expense.objects.count() == 1
 
 
+def test__create__installments(client):
+    # GIVEN
+    INSTALLMENTS = 3
+    data = {
+        "value": 10.00,
+        "description": "Test",
+        "category": ExpenseCategory.house,
+        "created_at": "01/01/2021",
+        "source": ExpenseSource.bank_slip,
+        "installments": INSTALLMENTS,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+    assert Expense.objects.filter(installments_id__isnull=False).count() == INSTALLMENTS
+    for i, expense in enumerate(
+        Expense.objects.filter(installments_id__isnull=False).order_by("created_at")
+    ):
+        assert expense.created_at.month == i + 1
+        assert f"({i+1}/{INSTALLMENTS})" in expense.full_description
+        assert round(float(expense.value), 2) == round(data["value"] / INSTALLMENTS, 2)
+
+
+def test__create__installments__none(client):
+    # GIVEN
+    data = {
+        "value": 12.00,
+        "description": "Test",
+        "category": ExpenseCategory.house,
+        "created_at": "01/01/2021",
+        "source": ExpenseSource.bank_slip,
+        "installments": None,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+    assert Expense.objects.count() == 1
+
+
+def test__create__installments__gt_1__is_fixed(client):
+    # GIVEN
+    data = {
+        "value": 12.00,
+        "description": "Test",
+        "category": ExpenseCategory.house,
+        "created_at": "01/01/2021",
+        "source": ExpenseSource.bank_slip,
+        "installments": 2,
+        "is_fixed": True,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "non_field_errors": ["Fixed expense with installments is not permitted"]
+    }
+
+
+def test__create__installments__none__is_fixed(client):
+    # GIVEN
+    data = {
+        "value": 12.00,
+        "description": "Test",
+        "category": ExpenseCategory.house,
+        "created_at": "01/01/2021",
+        "source": ExpenseSource.bank_slip,
+        "installments": None,
+        "is_fixed": True,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+    assert Expense.objects.count() == 1
+
+
 def test__update(client, expense):
     # GIVEN
     data = {
-        "price": 12.00,
+        "value": 12.00,
         "description": "Test",
         "category": ExpenseCategory.house,
         "created_at": "01/01/2021",
@@ -196,7 +274,7 @@ def test__update(client, expense):
     assert response.status_code == HTTP_200_OK
 
     expense.refresh_from_db()
-    assert expense.price == Decimal(data["price"])
+    assert expense.value == Decimal(data["value"])
     assert expense.description == data["description"]
     assert expense.category == data["category"]
     assert expense.created_at == datetime.strptime(data["created_at"], "%d/%m/%Y").date()
@@ -207,7 +285,7 @@ def test__update__installments(client, expenses_w_installments):
     # GIVEN
     e = expenses_w_installments[0]
     data = {
-        "price": e.price + 10,
+        "value": e.value + 10,
         "description": e.description,
         "category": e.category,
         "created_at": e.created_at.strftime("%d/%m/%Y"),
@@ -221,7 +299,7 @@ def test__update__installments(client, expenses_w_installments):
     assert response.status_code == HTTP_200_OK
 
     assert Expense.objects.filter(
-        installments_id=e.installments_id, price=data["price"]
+        installments_id=e.installments_id, value=data["value"]
     ).count() == len(expenses_w_installments)
 
 
@@ -230,7 +308,7 @@ def test__update__installments__created_at(client, expenses_w_installments):
     e = expenses_w_installments[0]
     created_at = datetime(year=2021, month=12, day=3)
     data = {
-        "price": e.price,
+        "value": e.value,
         "description": e.description,
         "category": e.category,
         "created_at": created_at.strftime("%d/%m/%Y"),
@@ -243,7 +321,7 @@ def test__update__installments__created_at(client, expenses_w_installments):
     # THEN
     assert response.status_code == HTTP_200_OK
     for i, expense in enumerate(
-        Expense.objects.filter(installments_id=e.installments_id, price=data["price"]).order_by(
+        Expense.objects.filter(installments_id=e.installments_id, value=data["value"]).order_by(
             "created_at"
         )
     ):
@@ -256,7 +334,7 @@ def test__update__installments__created_at__not_1st_installment(client, expenses
     e = expenses_w_installments[3]
     created_at = datetime(year=2021, month=12, day=3)
     data = {
-        "price": e.price,
+        "value": e.value,
         "description": e.description,
         "category": e.category,
         "created_at": created_at.strftime("%d/%m/%Y"),
@@ -271,20 +349,6 @@ def test__update__installments__created_at__not_1st_installment(client, expenses
     assert response.json() == {
         "created_at": ["You can only update the date of the first installment"]
     }
-
-
-def test_should_partial_update_expense(client, expense):
-    # GIVEN
-    data = {"price": 12.00}
-
-    # WHEN
-    response = client.patch(f"{URL}/{expense.pk}", data=data)
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-
-    expense.refresh_from_db()
-    assert expense.price == Decimal(data["price"])
 
 
 def test__delete(client, expense):
@@ -309,7 +373,7 @@ def test__delete__installments(client, expenses_w_installments):
     assert not Expense.objects.exists()
 
 
-def test_should_not_get_report_without_of_parameter(client):
+def test__report__wo_kind(client):
     # GIVEN
 
     # WHEN
@@ -317,28 +381,28 @@ def test_should_not_get_report_without_of_parameter(client):
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"of": ["This field is required."]}
+    assert response.json() == {"kind": ["This field is required."]}
 
 
-def test_should_not_get_report_if_of_parameter_is_invalid_choice(client):
+def test__report__invalid_kind(client):
     # GIVEN
 
     # WHEN
-    response = client.get(f"{URL}/report?of=wrong")
+    response = client.get(f"{URL}/report?kind=wrong")
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {
-        "of": ["Select a valid choice. wrong is not one of the available choices."]
+        "kind": ["Select a valid choice. wrong is not one of the available choices."]
     }
 
 
-@pytest.mark.usefixtures("report_data")
+@pytest.mark.usefixtures("expenses_report_data")
 @pytest.mark.parametrize(
-    "of, field_name",
+    "kind, field_name",
     [(value, ExpenseReportType.get_choice(value).field_name) for value in ExpenseReportType.values],
 )
-def test_should_get_reports(client, of, field_name):
+def test__reports(client, kind, field_name):
     # GIVEN
     choices_class_map = {"category": ExpenseCategory, "source": ExpenseSource}
     choices_class = choices_class_map.get(field_name)
@@ -353,48 +417,52 @@ def test_should_get_reports(client, of, field_name):
             else field_name
         )
         if e.created_at.month == today.month and e.created_at.year == today.year:
-            current_month.setdefault(f, []).append(e.price)
+            current_month.setdefault(f, []).append(e.value)
         else:
-            since_a_year_ago.setdefault(f, []).append(e.price)
+            since_a_year_ago.setdefault(f, []).append(e.value)
     result_brute_force = [
         {
-            "total": sum(current_month.get(k)) if current_month.get(k) is not None else None,
-            "avg": _convert_and_quantize(fmean(v)),
+            "total": sum(current_month.get(k)) if current_month.get(k) is not None else 0,
+            "avg": convert_and_quantitize(fmean(v)),
             field_name: k,
         }
         for k, v in since_a_year_ago.items()
     ]
 
     # WHEN
-    response = client.get(f"{URL}/report?of={of}")
+    response = client.get(f"{URL}/report?kind={kind}")
 
     # THEN
     for result in response.json():
         for brute_force in result_brute_force:
             if result[field_name] == brute_force[field_name]:
-                assert _convert_and_quantize(result["total"]) == brute_force["total"]
-                assert _convert_and_quantize(result["avg"]) == brute_force["avg"]
+                assert convert_and_quantitize(result["total"]) == convert_and_quantitize(
+                    brute_force["total"]
+                )
+                assert convert_and_quantitize(result["avg"]) == convert_and_quantitize(
+                    brute_force["avg"]
+                )
     assert response.status_code == HTTP_200_OK
 
 
-@pytest.mark.parametrize("of", list(ExpenseReportType.values))
-def test__report__wo_data(client, of):
+@pytest.mark.parametrize("kind", list(ExpenseReportType.values))
+def test__report__wo_data(client, kind):
     # GIVEN
 
     # WHEN
-    response = client.get(f"{URL}/report?of={of}")
+    response = client.get(f"{URL}/report?kind={kind}")
 
     # THEN
     assert response.status_code == HTTP_200_OK
     assert response.json() == []
 
 
-@pytest.mark.usefixtures("report_data")
+@pytest.mark.usefixtures("expenses_report_data")
 @pytest.mark.parametrize(
-    "of, field_name",
+    "kind, field_name",
     [(value, ExpenseReportType.get_choice(value).field_name) for value in ExpenseReportType.values],
 )
-def test_should_get_reports_all_period(client, of, field_name):
+def test__report__all_period(client, kind, field_name):
     # GIVEN
     choices_class_map = {"category": ExpenseCategory, "source": ExpenseSource}
     choices_class = choices_class_map.get(field_name)
@@ -409,35 +477,47 @@ def test_should_get_reports_all_period(client, of, field_name):
             else field_name
         )
         if e.created_at.month == today.month and e.created_at.year == today.year:
-            current_month.setdefault(f, []).append(e.price)
+            current_month.setdefault(f, []).append(e.value)
         else:
-            past.setdefault(f, []).append(e.price)
+            past.setdefault(f, []).append(e.value)
     result_brute_force = [
         {
-            "total": sum(current_month.get(k)) if current_month.get(k) is not None else None,
-            "avg": _convert_and_quantize(fmean(v)),
+            "total": sum(current_month.get(k)) if current_month.get(k) is not None else 0,
+            "avg": convert_and_quantitize(fmean(v)),
             field_name: k,
         }
         for k, v in past.items()
     ]
 
     # WHEN
-    response = client.get(f"{URL}/report?of={of}&all=true")
+    response = client.get(f"{URL}/report?kind={kind}&all=true")
 
     # THEN
     for result in response.json():
         for brute_force in result_brute_force:
             if result[field_name] == brute_force[field_name]:
-                assert _convert_and_quantize(result["total"]) == brute_force["total"]
-                assert _convert_and_quantize(result["avg"]) == brute_force["avg"]
+                assert convert_and_quantitize(result["total"]) == convert_and_quantitize(
+                    brute_force["total"]
+                )
+                assert convert_and_quantitize(result["avg"]) == convert_and_quantitize(
+                    brute_force["avg"]
+                )
     assert response.status_code == HTTP_200_OK
 
 
-@pytest.mark.usefixtures("report_data")
-@pytest.mark.parametrize("filters", ("", "future=true"))
-def test_should_get_historic_data(client, filters):
+@pytest.mark.usefixtures("expenses_report_data")
+@pytest.mark.parametrize(
+    ("filters", "db_filters"),
+    (
+        ("future=false", {}),
+        ("future=true", {}),
+        (f"future=false&category={ExpenseCategory.cnpj}", {"category": ExpenseCategory.cnpj}),
+    ),
+)
+def test__historic(client, user, filters, db_filters):
     # GIVEN
     today = timezone.now().date()
+    qs = Expense.objects.filter(user_id=user.id, **db_filters)
 
     # WHEN
     response = client.get(f"{URL}/historic?{filters}")
@@ -449,46 +529,36 @@ def test_should_get_historic_data(client, filters):
     total = 0
     for result in response_json["historic"]:
         d = datetime.strptime(result["month"], "%d/%m/%Y").date()
-        assert _convert_and_quantize(result["total"]) == _convert_and_quantize(
-            Expense.objects.filter(created_at__month=d.month, created_at__year=d.year).sum()[
-                "total"
-            ]
+        assert convert_and_quantitize(result["total"]) == convert_and_quantitize(
+            qs.filter(created_at__month=d.month, created_at__year=d.year).sum()["total"]
         )
         if d == today.replace(day=1):  # we don't evaluate the current month on the avg calculation
             continue
         total += result["total"]
 
-    if filters:
-        assert response_json["avg"] is None
-    else:
-        assert _convert_and_quantize(
-            total / (len(response_json["historic"]) - 1)
-        ) == _convert_and_quantize(response_json["avg"])
+    assert convert_and_quantitize(response_json["avg"]) == convert_and_quantitize(
+        qs.monthly_avg()["avg"] if "future=true" not in filters else 0
+    )
 
 
-@pytest.mark.usefixtures("report_data")
-def test_should_get_indicators(client):
+@pytest.mark.usefixtures("expenses_report_data")
+def test__indicators(client, user):
     # GIVEN
     today = timezone.now().date()
-    qs = Expense.objects.since_a_year_ago()
+    qs = Expense.objects.filter(user_id=user.id)
     avg = (
-        qs.exclude(created_at__month=today.month, created_at__year=today.year)
+        qs.since_a_year_ago()
+        .exclude(created_at__month=today.month, created_at__year=today.year)
         .trunc_months()
         .aggregate(avg=Avg("total"))["avg"]
     )
-    total = (
-        Expense.objects.filter(created_at__month=today.month, created_at__year=today.year).sum()[
-            "total"
-        ]
-        or Decimal()
-    )
-    future = (
-        qs.filter(
-            Q(created_at__month__gt=today.month, created_at__year=today.year)
-            | Q(created_at__year__gt=today.year)
-        ).sum()["total"]
-        or Decimal()
-    )
+    total = Expense.objects.filter(
+        created_at__month=today.month, created_at__year=today.year
+    ).sum()["total"]
+    future = qs.filter(
+        Q(created_at__month__gt=today.month, created_at__year=today.year)
+        | Q(created_at__year__gt=today.year)
+    ).sum()["total"]
 
     # WHEN
     response = client.get(f"{URL}/indicators")
@@ -497,14 +567,11 @@ def test_should_get_indicators(client):
     response_json = response.json()
 
     assert response.status_code == HTTP_200_OK
-    assert Decimal(response_json["total"]) == total
     assert response_json == {
-        "total": _convert_and_quantize(total, precision=2, cast=float),
-        "avg": _convert_and_quantize(avg, precision=2, cast=float),
-        "diff": _convert_and_quantize(
-            ((total / avg) - Decimal("1.0")) * Decimal("100.0"), precision=2, cast=float
-        ),
-        "future": _convert_and_quantize(future, precision=2, cast=float),
+        "total": convert_and_quantitize(total),
+        "avg": convert_and_quantitize(avg),
+        "diff": convert_and_quantitize(((total / avg) - Decimal("1.0")) * Decimal("100.0")),
+        "future": convert_and_quantitize(future),
     }
 
 
@@ -517,90 +584,3 @@ def test__indicators__wo_data(client):
     # THEN
     assert response.status_code == HTTP_200_OK
     assert response.json() == {"total": 0.0, "avg": 0.0, "diff": 0.0, "future": 0.0}
-
-
-def test__create__installments(client):
-    # GIVEN
-    INSTALLMENTS = 3
-    data = {
-        "price": 10.00,
-        "description": "Test",
-        "category": ExpenseCategory.house,
-        "created_at": "01/01/2021",
-        "source": ExpenseSource.bank_slip,
-        "installments": INSTALLMENTS,
-    }
-
-    # WHEN
-    response = client.post(URL, data=data)
-
-    # THEN
-    assert response.status_code == HTTP_201_CREATED
-    assert Expense.objects.filter(installments_id__isnull=False).count() == INSTALLMENTS
-    for i, expense in enumerate(
-        Expense.objects.filter(installments_id__isnull=False).order_by("created_at")
-    ):
-        assert expense.created_at.month == i + 1
-        assert f"({i+1}/{INSTALLMENTS})" in expense.full_description
-        assert round(float(expense.price), 2) == round(data["price"] / INSTALLMENTS, 2)
-
-
-def test_should_create_one_expenses_if_installments_is_none(client):
-    # GIVEN
-    data = {
-        "price": 12.00,
-        "description": "Test",
-        "category": ExpenseCategory.house,
-        "created_at": "01/01/2021",
-        "source": ExpenseSource.bank_slip,
-        "installments": None,
-    }
-
-    # WHEN
-    response = client.post(URL, data=data)
-
-    # THEN
-    assert response.status_code == HTTP_201_CREATED
-    assert Expense.objects.count() == 1
-
-
-def test_should_raise_error_if_installments_gt_1_and_is_fixed(client):
-    # GIVEN
-    data = {
-        "price": 12.00,
-        "description": "Test",
-        "category": ExpenseCategory.house,
-        "created_at": "01/01/2021",
-        "source": ExpenseSource.bank_slip,
-        "installments": 2,
-        "is_fixed": True,
-    }
-
-    # WHEN
-    response = client.post(URL, data=data)
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {
-        "non_field_errors": ["Fixed expense with installments is not permitted"]
-    }
-
-
-def test_should_create_expense_if_installments_none_and_is_fixed(client):
-    # GIVEN
-    data = {
-        "price": 12.00,
-        "description": "Test",
-        "category": ExpenseCategory.house,
-        "created_at": "01/01/2021",
-        "source": ExpenseSource.bank_slip,
-        "installments": None,
-        "is_fixed": True,
-    }
-
-    # WHEN
-    response = client.post(URL, data=data)
-
-    # THEN
-    assert response.status_code == HTTP_201_CREATED
-    assert Expense.objects.count() == 1

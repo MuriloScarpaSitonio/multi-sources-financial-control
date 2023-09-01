@@ -5,12 +5,11 @@ from django.utils import timezone
 
 import pytest
 
-from authentication.tests.conftest import client, secrets, user
+from shared.tests import convert_and_quantitize
 
 from ..choices import PassiveIncomeTypes, TransactionActions
 from ..models import Asset, Transaction
 from .shared import (
-    convert_and_quantitize,
     get_avg_price_bute_force,
     get_total_credited_incomes_brute_force,
     get_total_invested_brute_force,

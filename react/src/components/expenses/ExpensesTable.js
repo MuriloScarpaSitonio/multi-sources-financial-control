@@ -173,12 +173,12 @@ export const ExpensesTable = () => {
 
   const handleCreateEdit = (expenseData) => {
     if (expenseData && Object.keys(expenseData).length > 0) {
-      let [id, _, price, date, category, source, isFixed, description] =
+      let [id, _, value, date, category, source, isFixed, description] =
         expenseData;
       setExpenseEditData({
         id,
         description,
-        price,
+        value,
         date,
         category,
         source,
@@ -186,20 +186,6 @@ export const ExpensesTable = () => {
       });
     }
     setEditCreateExpenseDialogIsOpened(true);
-  };
-
-  const handleBulkCreate = () => {
-    // api
-    //   .list(
-    //     "page_size=100&start_date=2021-12-01&end_date=2021-12-31&is_fixed=true"
-    //   )
-    //   .then((response) => console.log(response.data));
-    // api.bulkCreateFixed().then((response) => {
-    //   showSuccessFeedbackForm(
-    //     `${response.data.length} despesas criada com sucesso!`
-    //   );
-    //   reload();
-    // });
   };
 
   const options = {
@@ -267,11 +253,6 @@ export const ExpensesTable = () => {
               <PlusOneIcon />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Adicionar gastos fixos do mês">
-            <IconButton onClick={() => handleBulkCreate()}>
-              <AddIcon />
-            </IconButton>
-          </Tooltip>
         </>
       );
     },
@@ -295,7 +276,7 @@ export const ExpensesTable = () => {
       },
     },
     {
-      name: "price",
+      name: "value",
       label: "Preço",
       options: {
         filter: false,

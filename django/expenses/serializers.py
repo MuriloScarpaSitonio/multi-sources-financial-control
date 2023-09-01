@@ -11,7 +11,7 @@ from rest_framework.exceptions import ValidationError
 from shared.serializers_utils import CustomChoiceField
 
 from .choices import ExpenseCategory, ExpenseSource
-from .models import Expense
+from .models import Expense, Revenue
 
 if TYPE_CHECKING:
     from datetime import date
@@ -27,7 +27,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
         model = Expense
         fields = (
             "id",
-            "price",
+            "value",
             "description",
             "category",
             "created_at",
@@ -57,7 +57,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
     def create(self, validated_data: dict[str, Any]) -> Expense:
         installments = validated_data.pop("installments") or 1
         if installments > 1:
-            validated_data["price"] /= installments
+            validated_data["value"] /= installments
             created_at = validated_data.pop("created_at")
             installments_id = uuid4()
             return Expense.objects.bulk_create(
@@ -100,21 +100,37 @@ class ExpenseSerializer(serializers.ModelSerializer):
         return instance
 
 
-class _ExpenseExtraBaseSerializer(serializers.Serializer):
+class RevenueSerializer(serializers.ModelSerializer):
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
+    class Meta:
+        model = Revenue
+        fields = (
+            "id",
+            "value",
+            "description",
+            "created_at",
+            "is_fixed",
+            "user",
+            "full_description",
+        )
+
+
+class _ExtraBaseSerializer(serializers.Serializer):
     total = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
 
 
-class ExpenseReportCategorySerializer(_ExpenseExtraBaseSerializer):
+class ExpenseReportCategorySerializer(_ExtraBaseSerializer):
     category = CustomChoiceField(choices=ExpenseCategory.choices)
     avg = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
 
 
-class ExpenseReportSourceSerializer(_ExpenseExtraBaseSerializer):
+class ExpenseReportSourceSerializer(_ExtraBaseSerializer):
     source = CustomChoiceField(choices=ExpenseSource.choices)
     avg = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
 
 
-class ExpenseReportTypeSerializer(_ExpenseExtraBaseSerializer):
+class ExpenseReportTypeSerializer(_ExtraBaseSerializer):
     type = serializers.SerializerMethodField()
     avg = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
     is_fixed = serializers.BooleanField()
@@ -123,16 +139,19 @@ class ExpenseReportTypeSerializer(_ExpenseExtraBaseSerializer):
         return "Fixo" if data["is_fixed"] is True else "Variável"
 
 
-class ExpenseHistoricSerializer(_ExpenseExtraBaseSerializer):
+class ExpenseHistoricSerializer(_ExtraBaseSerializer):
     month = serializers.DateField(format="%d/%m/%Y")
 
 
-class ExpenseHistoricResponseSerializer(serializers.Serializer):
+class HistoricResponseSerializer(serializers.Serializer):
     historic = ExpenseHistoricSerializer(many=True)
     avg = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
 
 
-class ExpenseIndicatorsSerializer(_ExpenseExtraBaseSerializer):
+class RevenueIndicatorsSerializer(_ExtraBaseSerializer):
     avg = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
     diff = serializers.DecimalField(max_digits=8, decimal_places=2, rounding=ROUND_HALF_UP)
+
+
+class ExpenseIndicatorsSerializer(RevenueIndicatorsSerializer):
     future = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)

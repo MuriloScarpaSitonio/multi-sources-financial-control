@@ -221,10 +221,10 @@ export const ExpensesReports = () => {
       .finally(() => setIsLoaded(true));
   }
 
-  function fetchReportData(type_of_report, filters = {}) {
+  function fetchReportData(kind, filters = {}) {
     setIsLoaded(false);
     api
-      .report(type_of_report, filters)
+      .report(kind, filters)
       .then((response) => setData(response.data))
       //.catch((err) => setError(err))
       .finally(() => setIsLoaded(true));
@@ -235,7 +235,7 @@ export const ExpensesReports = () => {
   const handleTabsChange = (event, newValue) => {
     switch (newValue) {
       case 0:
-        fetchHistoricData();
+        fetchHistoricData({future: false});
         break;
       case 1:
         fetchHistoricData({future: true})

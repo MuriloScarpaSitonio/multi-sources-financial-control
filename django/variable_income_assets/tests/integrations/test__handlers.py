@@ -2,14 +2,6 @@ import pytest
 from aioresponses import aioresponses
 from asgiref.sync import async_to_sync
 
-from authentication.tests.conftest import (
-    binance_secrets,
-    kucoin_secrets,
-    secrets,
-    user,
-    user_with_binance_integration,
-    user_with_kucoin_integration,
-)
 from tasks.models import TaskHistory
 
 from ...choices import AssetSectors, AssetTypes, Currencies

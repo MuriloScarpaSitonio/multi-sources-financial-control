@@ -1,5 +1,4 @@
-from decimal import ROUND_HALF_UP, Decimal
-from functools import singledispatch
+from decimal import Decimal
 
 from django.db.models import Q
 
@@ -108,30 +107,6 @@ def get_roi_brute_force(asset: Asset, normalize: bool = True):
     current_total = current_price * quantity_balance
     total_invested = avg_price * quantity_balance
     return current_total - (total_invested - total_incomes - total_sold)
-
-
-def convert_to_percentage_and_quantitize(
-    value: Decimal, total: Decimal, decimal_places: int = 2, rounding: str = ROUND_HALF_UP
-) -> Decimal:
-    value = (value / total) * Decimal("100.0")
-    return value.quantize(Decimal(".1") ** decimal_places, rounding=rounding)
-
-
-@singledispatch
-def convert_and_quantitize(
-    value: Decimal, decimal_places: int = 2, rounding: str = ROUND_HALF_UP
-) -> float:
-    return float(value.quantize(Decimal(".1") ** decimal_places, rounding=rounding))
-
-
-@convert_and_quantitize.register
-def _(value: float, decimal_places: int = 2, rounding: str = ROUND_HALF_UP) -> float:
-    return float(Decimal(str(value)).quantize(Decimal(".1") ** decimal_places, rounding=rounding))
-
-
-@convert_and_quantitize.register
-def _(value: int, decimal_places: int = 2, rounding: str = ROUND_HALF_UP) -> float:
-    return float(Decimal(str(value)).quantize(Decimal(".1") ** decimal_places, rounding=rounding))
 
 
 def get_total_invested_brute_force(asset, normalize=True, extra_filters: Q | None = None):

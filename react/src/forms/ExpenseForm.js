@@ -59,7 +59,7 @@ function NumberFormatCustom(props) {
 
 const schema = yup.object().shape({
   description: yup.string().required("A descrição é obrigatória"),
-  price: yup
+  value: yup
     .number()
     .required("O preço é obrigatório")
     .positive("Apenas números positivos"),
@@ -172,9 +172,9 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
         </FormGroup>
         <FormGroup row style={{ marginTop: "10px" }}>
           <Controller
-            name="price"
+            name="value"
             control={control}
-            defaultValue={initialData.price}
+            defaultValue={initialData.value}
             render={({ field }) => (
               <TextField
                 {...field}
@@ -184,8 +184,8 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
                   inputComponent: NumberFormatCustom,
                 }}
                 style={{ width: "30%", marginRight: "2%" }}
-                error={!!errors.price}
-                helperText={errors.price?.message}
+                error={!!errors.value}
+                helperText={errors.value?.message}
               />
             )}
           />

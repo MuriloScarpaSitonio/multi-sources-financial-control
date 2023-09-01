@@ -13,23 +13,16 @@ from rest_framework.status import (
     HTTP_404_NOT_FOUND,
 )
 
-from authentication.tests.conftest import (
-    client,
-    kucoin_client,
-    kucoin_secrets,
-    secrets,
-    user,
-    user_with_kucoin_integration,
-)
 from config.settings.base import BASE_API_URL
-from variable_income_assets.choices import (
+from shared.tests import convert_and_quantitize
+
+from ...choices import (
     AssetTypes,
     Currencies,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
 )
-from variable_income_assets.models import PassiveIncome
-from variable_income_assets.tests.shared import convert_and_quantitize
+from ...models import PassiveIncome
 
 pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "incomes"

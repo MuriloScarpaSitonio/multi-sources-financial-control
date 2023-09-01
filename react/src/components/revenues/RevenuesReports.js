@@ -80,7 +80,7 @@ const RevenuesHistoricChartComponent = ({ data }) => {
       <CardContent>
         <BarChart width={chartWidth} height={chartHeight} data={data.historic}>
           <CartesianGrid stroke="#eee" />
-          <XAxis dataKey="date" />
+          <XAxis dataKey="month" />
           <YAxis />
           <ChartTooltip
             cursor={{ fill: "#f5f5f5" }}
@@ -236,7 +236,7 @@ export const RevenuesReports = () => {
 
     axios
       // TODO change this to a robust solution
-      .all([api.salaries(), new ExpensesApi().cnpj()])
+      .all([api.historic({is_fixed: true}), new ExpensesApi().historic({future: false, category: "CNPJ"})])
       .then(
         axios.spread((...responses) => {
           let salaries = responses[0].data.items;
