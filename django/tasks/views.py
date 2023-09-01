@@ -1,6 +1,6 @@
 from django.db.models import QuerySet
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.decorators import action
 from rest_framework.mixins import ListModelMixin
 from rest_framework.request import Request
@@ -13,6 +13,11 @@ from .models import TaskHistory
 from .serializers import TaskHistoryBulkSaveAsNotifiedSerializer, TaskHistorySerializer
 
 
+@extend_schema_view(
+    list=extend_schema(exclude=True),
+    bulk_update_notified_at=extend_schema(exclude=True),
+    count=extend_schema(exclude=True),
+)
 class TaskHistoryViewSet(GenericViewSet, ListModelMixin):
     serializer_class = TaskHistorySerializer
     filterset_class = TaskHistoryFilterSet
@@ -24,7 +29,6 @@ class TaskHistoryViewSet(GenericViewSet, ListModelMixin):
             else TaskHistory.objects.none()  # drf-spectatular
         )
 
-    @extend_schema(request=TaskHistoryBulkSaveAsNotifiedSerializer)
     @action(methods=("POST",), detail=False)
     def bulk_update_notified_at(self, request: Request) -> Response:
         serializer = TaskHistoryBulkSaveAsNotifiedSerializer(data=request.data)

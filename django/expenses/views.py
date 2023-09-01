@@ -124,5 +124,5 @@ class RevenueViewSet(_PersonalFinanceViewSet):
         return (
             self.request.user.revenues.all().order_by("-created_at")
             if self.request.user.is_authenticated
-            else Expense.objects.none()  # pragma: no cover -- drf-spectatular
+            else Revenue.objects.none()  # pragma: no cover -- drf-spectatular
         )

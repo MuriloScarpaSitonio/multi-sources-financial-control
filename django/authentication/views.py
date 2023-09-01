@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.decorators import action
 from rest_framework.mixins import CreateModelMixin, RetrieveModelMixin, UpdateModelMixin
 from rest_framework.request import Request
@@ -26,6 +27,13 @@ from .utils import (
 UserModel = get_user_model()
 
 
+@extend_schema_view(
+    retrieve=extend_schema(exclude=True),
+    create=extend_schema(exclude=True),
+    update=extend_schema(exclude=True),
+    partial_update=extend_schema(exclude=True),
+    change_password=extend_schema(exclude=True),
+)
 class UserViewSet(GenericViewSet, CreateModelMixin, RetrieveModelMixin, UpdateModelMixin):
     serializer_class = UserSerializer
     queryset = UserModel.objects.select_related("secrets").all()
@@ -35,7 +43,9 @@ class UserViewSet(GenericViewSet, CreateModelMixin, RetrieveModelMixin, UpdateMo
 
     def get_authenticators(self) -> list:
         # self.action throws AttributeError
-        return [] if self.request.method == "POST" else super().get_authenticators()
+        return (
+            [] if self.request and self.request.method == "POST" else super().get_authenticators()
+        )
 
     def perform_create(self, serializer: UserSerializer) -> None:
         user = serializer.save()
@@ -51,6 +61,11 @@ class UserViewSet(GenericViewSet, CreateModelMixin, RetrieveModelMixin, UpdateMo
         return Response(status=HTTP_204_NO_CONTENT)
 
 
+@extend_schema_view(
+    forgot_password=extend_schema(exclude=True),
+    reset_password=extend_schema(exclude=True),
+    activate_user=extend_schema(exclude=True),
+)
 class AuthViewSet(GenericViewSet):
     permission_classes = ()
     authentication_classes = ()
@@ -93,6 +108,7 @@ class AuthViewSet(GenericViewSet):
 
 
 class TokenWUserObtainPairView(TokenObtainPairView):
+    @extend_schema(exclude=True)
     def post(self, request: Request, *_, **__) -> Response:
         serializer = self.get_serializer(data=request.data)
 

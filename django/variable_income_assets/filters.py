@@ -49,7 +49,7 @@ class AssetReadFilterSet(filters.FilterSet):
 
     class Meta:
         model = AssetReadModel
-        exclude = ("user",)
+        fields = ("code", "objective", "type", "sector")
 
     def filter_status(
         self, queryset: AssetReadModelQuerySet[AssetReadModel], _, value: str
