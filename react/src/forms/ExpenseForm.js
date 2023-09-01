@@ -84,7 +84,10 @@ const schema = yup.object().shape({
     })
     .required("A fonte é obrigatória")
     .nullable(),
-  installments: yup.number().positive("Apenas números positivos").typeError("Por favor, inclua um valor"),
+  installments: yup
+    .number()
+    .positive("Apenas números positivos")
+    .typeError("Por favor, inclua um valor"),
 });
 
 export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
@@ -110,9 +113,9 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
     const actionVerb = isCreateForm ? "criada" : "editada";
     if (isDirty) {
       setIsLoaded(false);
-      
+
       if (isFixedExpense) {
-        data.installments = 1
+        data.installments = 1;
       }
 
       api[method]({
@@ -194,8 +197,8 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
               name="created_at"
               control={control}
               defaultValue={
-                initialData.date
-                  ? new Date(initialData.date + "T00:00") // make sure to include hours and minutes
+                initialData.created_at
+                  ? new Date(initialData.created_at + "T00:00") // make sure to include hours and minutes
                   : // to adjust timezone
                     new Date()
               }
@@ -327,12 +330,12 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
               )}
             />
           </FormControl>
-          <Tooltip 
+          <Tooltip
             title={
-              !isFixedExpense ?
-              "Se for uma despesa parcelada, coloque o valor completo da compra (e não da parcela)"
-              : ""
-          }
+              !isFixedExpense
+                ? "Se for uma despesa parcelada, coloque o valor completo da compra (e não da parcela)"
+                : ""
+            }
           >
             <FormControl style={{ width: "18%" }}>
               <Controller

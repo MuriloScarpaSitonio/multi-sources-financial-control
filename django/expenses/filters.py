@@ -64,3 +64,7 @@ class ExpenseHistoricFilterSet(filters.FilterSet):
 
 class RevenueHistoricFilterSet(filters.FilterSet):
     is_fixed = filters.BooleanFilter()
+
+    @property
+    def qs(self):
+        return super().qs.since_a_year_ago()

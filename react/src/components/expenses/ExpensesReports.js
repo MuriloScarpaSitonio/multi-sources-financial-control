@@ -176,7 +176,7 @@ const ExpenseBarChartComponent = ({ data, dataKey, fetchReportData }) => {
   );
 };
 
-const ExpenseHistoricChartComponent = ({ data }) => {
+const ExpenseHistoricChartComponent = ({ data, future }) => {
   return (
     <Card elevation={6}>
       <CardContent>
@@ -191,12 +191,14 @@ const ExpenseHistoricChartComponent = ({ data }) => {
             labelFormatter={(_) => ""}
           />
           <Bar dataKey="total" fill={currentDataFillColor} />
-          <ReferenceLine
-            y={data.avg}
-            label="Média"
-            stroke="#e65100"
-            strokeDasharray="3 3"
-          />
+          {!future && (
+            <ReferenceLine
+              y={data.avg}
+              label="Média"
+              stroke="#e65100"
+              strokeDasharray="3 3"
+            />
+          )}
         </BarChart>
       </CardContent>
     </Card>
@@ -230,15 +232,15 @@ export const ExpensesReports = () => {
       .finally(() => setIsLoaded(true));
   }
 
-  useEffect(() => fetchHistoricData(), []);
+  useEffect(() => fetchHistoricData({ future: false }), []);
 
   const handleTabsChange = (event, newValue) => {
     switch (newValue) {
       case 0:
-        fetchHistoricData({future: false});
+        fetchHistoricData({ future: false });
         break;
       case 1:
-        fetchHistoricData({future: true})
+        fetchHistoricData({ future: true });
         break;
       case 2:
         fetchReportData("CATEGORY");
@@ -277,7 +279,7 @@ export const ExpensesReports = () => {
       </TabPanel>
       <TabPanel value={tabValue} index={1}>
         {!isLoaded && <Loader />}
-        <ExpenseHistoricChartComponent data={data} />
+        <ExpenseHistoricChartComponent data={data} future />
       </TabPanel>
       <TabPanel value={tabValue} index={2}>
         {!isLoaded && <Loader />}

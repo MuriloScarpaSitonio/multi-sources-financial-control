@@ -118,9 +118,12 @@ const ExpenseDeleteDialog = ({ id, open, onClose, reloadTable }) => {
 };
 
 export const ExpensesTable = () => {
+  let now = new Date();
   const [pageSize, setPageSize] = useState(5);
   const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(
+    new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  );
   const [filters, setFilters] = useState({
     page: 1,
     ordering: "",
@@ -173,13 +176,13 @@ export const ExpensesTable = () => {
 
   const handleCreateEdit = (expenseData) => {
     if (expenseData && Object.keys(expenseData).length > 0) {
-      let [id, _, value, date, category, source, isFixed, description] =
+      let [id, _, value, created_at, category, source, isFixed, description] =
         expenseData;
       setExpenseEditData({
         id,
         description,
         value,
-        date,
+        created_at,
         category,
         source,
         isFixed,

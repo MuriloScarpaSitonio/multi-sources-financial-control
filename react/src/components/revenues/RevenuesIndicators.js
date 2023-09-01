@@ -38,7 +38,7 @@ const Indicators = ({ title, indicators, icon, color, secondaryIcon }) => {
   const borderStyle = isPastRevenue ? "1px solid red" : "1px solid white";
   const hideValues = Boolean(window.localStorage.getItem("hideValues"));
 
-  const card = (
+  return (
     <Card style={{ border: borderStyle, height: 180 }}>
       <CardContent>
         <Grid container spacing={3}>
@@ -106,23 +106,6 @@ const Indicators = ({ title, indicators, icon, color, secondaryIcon }) => {
         </Box>
       </CardContent>
     </Card>
-  );
-
-  return isPastRevenue ? (
-    <StyledTooltip
-      title={
-        <>
-          <Typography color="inherit">
-            Você não cadastrou nenhuma receita este mês!
-          </Typography>
-          Clique no botão +1 da tabela abaixo para adicionar
-        </>
-      }
-    >
-      {card}
-    </StyledTooltip>
-  ) : (
-    card
   );
 };
 
