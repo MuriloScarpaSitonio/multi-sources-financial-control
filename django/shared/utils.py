@@ -1,14 +1,14 @@
 from copy import deepcopy
-from datetime import datetime
+from datetime import date
 from functools import reduce
 from typing import Any, Required, TypedDict
 from urllib.parse import urlencode, urljoin
 
-from dateutil import relativedelta
+from dateutil.relativedelta import relativedelta
 
 
 class MonthlyHistoricType(TypedDict, total=False):
-    month: Required[datetime]
+    month: Required[date]
     total: float
 
 
@@ -24,15 +24,21 @@ def insert_zeros_if_no_data_in_monthly_historic_data(
     if len(historic) == 13:
         return historic
 
+    return _insert_zeros_in_between(historic=historic, total_fields=total_fields)
+
+
+def _insert_zeros_in_between(
+    historic: list[MonthlyHistoricType], total_fields: tuple[str, ...]
+) -> list[MonthlyHistoricType]:
     _historic, diffs = deepcopy(historic), 0
     for idx, (current, _next) in enumerate(zip(historic[:], historic[1:])):  # noqa: B905
-        delta = relativedelta.relativedelta(dt1=_next["month"], dt2=current["month"])
+        delta = relativedelta(dt1=_next["month"], dt2=current["month"])
         diff_months = delta.months + (12 * delta.years)
         for diff in range(1, diff_months):
             _historic.insert(
                 idx + diff + diffs,
                 {
-                    "month": current["month"] + relativedelta.relativedelta(months=diff),
+                    "month": current["month"] + relativedelta(months=diff),
                     **{k: 0 for k in total_fields},
                 },
             )

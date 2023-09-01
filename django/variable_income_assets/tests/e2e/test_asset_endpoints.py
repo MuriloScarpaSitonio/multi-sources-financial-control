@@ -13,34 +13,12 @@ from rest_framework.status import (
     HTTP_404_NOT_FOUND,
 )
 
-from authentication.tests.conftest import (
-    binance_client,
-    binance_secrets,
-    client,
-    kucoin_client,
-    kucoin_secrets,
-    secrets,
-    user,
-    user_with_binance_integration,
-    user_with_kucoin_integration,
-)
 from config.settings.base import BASE_API_URL
-from variable_income_assets.choices import (
-    AssetObjectives,
-    AssetSectors,
-    AssetTypes,
-    Currencies,
-)
-from variable_income_assets.models import (
-    Asset,
-    AssetMetaData,
-    AssetReadModel,
-    PassiveIncome,
-    Transaction,
-)
-from variable_income_assets.tests.shared import (
-    convert_and_quantitize,
-    convert_to_percentage_and_quantitize,
+from shared.tests import convert_and_quantitize
+
+from ...choices import AssetObjectives, AssetSectors, AssetTypes, Currencies
+from ...models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
+from ..shared import (
     get_adjusted_avg_price_brute_forte,
     get_avg_price_bute_force,
     get_current_price_metadata,

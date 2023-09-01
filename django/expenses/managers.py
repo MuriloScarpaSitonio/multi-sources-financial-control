@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from django.db.models.expressions import CombinedExpression
 
 
-class _ExpenseDateFilters(GenericDateFilters):
+class _PersonalFinancialDateFilters(GenericDateFilters):
     def __init__(self) -> None:
         super().__init__(date_field_name="created_at")
 
@@ -23,13 +23,13 @@ class _ExpenseDateFilters(GenericDateFilters):
         return Q(created_at__year__lt=self.base_date.year) | self._current_year
 
 
-class ExpenseQueryset(QuerySet):
-    filters = _ExpenseDateFilters()
+class _PersonalFinancialQuerySet(QuerySet):
+    filters = _PersonalFinancialDateFilters()
 
     @property
     def _monthly_avg_expression(self) -> CombinedExpression:
         return Sum(
-            "price", filter=self.filters.since_a_year_ago & ~self.filters.current, default=Decimal()
+            "value", filter=self.filters.since_a_year_ago & ~self.filters.current, default=Decimal()
         ) / (
             Count(
                 Concat("created_at__month", "created_at__year", output_field=CharField()),
@@ -48,18 +48,34 @@ class ExpenseQueryset(QuerySet):
     def future(self) -> Self:
         return self.filter(self.filters.future)
 
-    def report(self, of: str) -> Self:
+    def monthly_avg(self) -> dict[str, Decimal]:
+        return self.aggregate(avg=Coalesce(self._monthly_avg_expression, Decimal()))
+
+    def trunc_months(self) -> Self:
+        return (
+            self.annotate(month=TruncMonth("created_at"))
+            .values("month")
+            .annotate(total=Sum("value"))
+            .order_by("-total")
+        )
+
+    def sum(self) -> dict[str, Decimal]:
+        return self.aggregate(total=Coalesce(Sum("value"), Decimal()))
+
+
+class ExpenseQueryset(_PersonalFinancialQuerySet):
+    def report(self, kind: str) -> Self:
         """
         Args:
             of (str): The type of report. For valid choices check ExpenseReportType.choices
         """
-        choice = ExpenseReportType.get_choice(value=of)
+        choice = ExpenseReportType.get_choice(value=kind)
         return (
             self.values(choice.field_name)
             .annotate(
-                total=Sum("price", filter=self.filters.current),
+                total=Sum("value", filter=self.filters.current, default=Decimal()),
                 avg=(
-                    Sum("price", filter=~self.filters.current, default=Decimal())
+                    Sum("value", filter=~self.filters.current, default=Decimal())
                     / (
                         # we are dividing by the amount of months a given aggregation appears.
                         # in order to divide for the whole period we should compute some subquery
@@ -80,21 +96,15 @@ class ExpenseQueryset(QuerySet):
 
     def indicators(self) -> dict[str, Decimal]:
         return self.aggregate(
-            total=Sum("price", filter=self.filters.current, default=Decimal()),
-            future=Sum("price", filter=self.filters.future, default=Decimal()),
+            total=Sum("value", filter=self.filters.current, default=Decimal()),
+            future=Sum("value", filter=self.filters.future, default=Decimal()),
             avg=Coalesce(self._monthly_avg_expression, Decimal()),
         )
 
-    def monthly_avg(self) -> dict[str, Decimal]:
-        return self.aggregate(avg=self._monthly_avg_expression)
 
-    def trunc_months(self) -> Self:
-        return (
-            self.annotate(month=TruncMonth("created_at"))
-            .values("month")
-            .annotate(total=Sum("price"))
-            .order_by("-total")
+class RevenueQueryset(_PersonalFinancialQuerySet):
+    def indicators(self) -> dict[str, Decimal]:
+        return self.aggregate(
+            total=Sum("value", filter=self.filters.current, default=Decimal()),
+            avg=Coalesce(self._monthly_avg_expression, Decimal()),
         )
-
-    def sum(self) -> dict[str, Decimal]:
-        return self.aggregate(total=Sum("price"))

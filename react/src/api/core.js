@@ -24,8 +24,7 @@ class Api {
   }
 }
 
-export class ExpensesApi extends Api {
-  resource = "expenses";
+class _PersonalFinancesApi extends Api {
   constructor(id = null) {
     super(
       {
@@ -39,52 +38,32 @@ export class ExpensesApi extends Api {
       id
     );
 
-    this.report = (type_of_report, filters) => {
-      return apiProvider.get(
-        `${this.resource}/report?of=${type_of_report}&${new URLSearchParams(
-          filters
-        ).toString()}`
-      );
-    };
-
     this.historic = (filters) =>
       apiProvider.get(
         `${this.resource}/historic?${new URLSearchParams(filters).toString()}`
       );
 
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
-
-    this.list = (filters = "") =>
-      apiProvider.get(`${this.resource}?${filters}`);
-
-    this.bulkCreateFixed = () =>
-      apiProvider.post(`${this.resource}/fixed_from_last_month`);
-
-    this.cnpj = () => apiProvider.get(`${this.resource}/cnpj`);
   }
 }
 
-export class RevenuesApi extends Api {
-  resource = "gateway/revenues";
+export class ExpensesApi extends _PersonalFinancesApi {
+  resource = "expenses";
   constructor(id = null) {
-    super(
-      {
-        query: true,
-        get: false,
-        post: true,
-        put: false,
-        patch: true,
-        delete: true,
-      },
-      id
-    );
+    super(id);
 
-    this.indicators = () =>
-      apiProvider.get(`${this.resource}/reports/indicators`);
-    this.historic = () => apiProvider.get(`${this.resource}/reports/historic`);
-    this.salaries = () =>
-      apiProvider.get(`${this.resource}?description=Salário&size=13`);
+    this.report = (kind, filters) => {
+      return apiProvider.get(
+        `${this.resource}/report?kind=${kind}&${new URLSearchParams(
+          filters
+        ).toString()}`
+      );
+    };
   }
+}
+
+export class RevenuesApi extends _PersonalFinancesApi {
+  resource = "revenues";
 }
 
 export class AuthenticationApi {

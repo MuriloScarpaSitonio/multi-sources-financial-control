@@ -22,11 +22,11 @@ from authentication.tests.conftest import (
     user_with_kucoin_integration,
 )
 from config.settings.base import BASE_API_URL
+from shared.tests import convert_and_quantitize
 from tasks.models import TaskHistory
 from variable_income_assets.choices import AssetTypes, Currencies, TransactionActions
 from variable_income_assets.integrations.helpers import get_dollar_conversion_rate
 from variable_income_assets.models import Transaction
-from variable_income_assets.tests.shared import convert_and_quantitize
 
 pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "transactions"

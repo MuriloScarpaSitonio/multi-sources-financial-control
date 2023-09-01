@@ -1,6 +1,5 @@
 import pytest
 
-from authentication.tests.conftest import client, secrets, user
 from variable_income_assets.adapters import DjangoSQLAssetMetaDataRepository
 
 pytestmark = pytest.mark.django_db

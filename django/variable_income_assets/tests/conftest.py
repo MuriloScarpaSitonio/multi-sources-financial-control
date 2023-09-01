@@ -9,7 +9,17 @@ from dateutil.relativedelta import relativedelta
 from factory.django import DjangoModelFactory
 
 from authentication.models import CustomUser
-from authentication.tests.conftest import user
+from authentication.tests.conftest import (
+    binance_client,
+    binance_secrets,
+    client,
+    kucoin_client,
+    kucoin_secrets,
+    secrets,
+    user,
+    user_with_binance_integration,
+    user_with_kucoin_integration,
+)
 
 from ..choices import (
     AssetObjectives,

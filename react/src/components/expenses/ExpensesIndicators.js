@@ -135,15 +135,11 @@ const Indicators = ({
   condensed = false,
   setCreateRevenueDialogIsOpened = null,
 }) => {
-  const currentMonth = new Date().getMonth() + 1;
   const isRevenue = title.includes("RECEITA");
-  const indicatorsMonth = isRevenue && indicators.month;
-  const isPastRevenue = isRevenue && indicatorsMonth !== currentMonth;
-  const borderStyle = isPastRevenue ? "1px solid red" : "1px solid white";
   const hideValues = Boolean(window.localStorage.getItem("hideValues"));
 
-  const card = (
-    <Card style={{ border: borderStyle, height: condensed ? 160 : 180 }}>
+  return (
+    <Card style={{ border: "1px solid white", height: condensed ? 160 : 180 }}>
       <CardContent>
         <Grid container spacing={3}>
           <Grid item>
@@ -161,15 +157,7 @@ const Indicators = ({
             </Typography>
           </Grid>
           <Grid item>
-            <Avatar
-              style={
-                isPastRevenue
-                  ? { backgroundColor: "#ff7878" }
-                  : { backgroundColor: color }
-              }
-            >
-              {icon}
-            </Avatar>
+            <Avatar style={{ backgroundColor: color }}>{icon}</Avatar>
           </Grid>
         </Grid>
         {!isRevenue && !condensed && (
@@ -241,23 +229,6 @@ const Indicators = ({
         </Box>
       </CardContent>
     </Card>
-  );
-
-  return isPastRevenue ? (
-    <StyledTooltip
-      title={
-        <>
-          <Typography color="inherit">
-            Você não cadastrou nenhuma receita este mês!
-          </Typography>
-          {!condensed && "Clique no botão + para adicionar"}
-        </>
-      }
-    >
-      {card}
-    </StyledTooltip>
-  ) : (
-    card
   );
 };
 

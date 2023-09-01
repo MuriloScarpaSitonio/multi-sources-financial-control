@@ -3,17 +3,6 @@ from django.utils import timezone
 import pytest
 from rest_framework.status import HTTP_200_OK, HTTP_403_FORBIDDEN
 
-from authentication.tests.conftest import (
-    binance_client,
-    binance_secrets,
-    client,
-    kucoin_client,
-    kucoin_secrets,
-    secrets,
-    user,
-    user_with_binance_integration,
-    user_with_kucoin_integration,
-)
 from config.settings.base import BASE_API_URL, ENV_PRODUCTION
 from tasks.choices import TaskStates
 from tasks.tests.conftest import simple_task_history

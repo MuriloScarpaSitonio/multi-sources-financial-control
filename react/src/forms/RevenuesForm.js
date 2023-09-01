@@ -78,7 +78,7 @@ export const RevenuesForm = ({ initialData, handleClose, reloadTable }) => {
       setIsLoaded(false);
       api[method]({
         ...data,
-        created_at: data.created_at.toLocaleDateString("fr-CA"),
+        created_at: data.created_at.toLocaleDateString("pt-br"),
       })
         .then(() => {
           setAlertInfos({

@@ -1,13 +1,12 @@
 import pytest
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
 
-from authentication.tests.conftest import client, secrets, user
 from config.settings.base import BASE_API_URL
-from variable_income_assets.choices import AssetObjectives, AssetSectors, AssetTypes
-from variable_income_assets.models import Asset, AssetReadModel
-from variable_income_assets.tests.shared import (
-    convert_and_quantitize,
-    convert_to_percentage_and_quantitize,
+from shared.tests import convert_and_quantitize, convert_to_percentage_and_quantitize
+
+from ...choices import AssetObjectives, AssetSectors, AssetTypes
+from ...models import Asset, AssetReadModel
+from ...tests.shared import (
     get_current_total_invested_brute_force,
     get_roi_brute_force,
     get_total_invested_brute_force,

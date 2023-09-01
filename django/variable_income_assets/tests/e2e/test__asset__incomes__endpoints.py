@@ -1,8 +1,8 @@
 import pytest
 
-from authentication.tests.conftest import client, secrets, user
 from config.settings.base import BASE_API_URL
-from variable_income_assets.choices import (
+
+from ...choices import (
     AssetTypes,
     Currencies,
     PassiveIncomeEventTypes,

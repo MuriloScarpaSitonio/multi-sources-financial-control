@@ -2,8 +2,6 @@ from decimal import Decimal
 
 import pytest
 
-from authentication.tests.conftest import client, secrets, user
-
 from ..choices import TransactionActions
 from ..models import Asset, AssetMetaData, Transaction
 from .shared import (

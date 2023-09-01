@@ -80,7 +80,7 @@ const RevenuesHistoricChartComponent = ({ data }) => {
       <CardContent>
         <BarChart width={chartWidth} height={chartHeight} data={data.historic}>
           <CartesianGrid stroke="#eee" />
-          <XAxis dataKey="date" />
+          <XAxis dataKey="month" />
           <YAxis />
           <ChartTooltip
             cursor={{ fill: "#f5f5f5" }}
@@ -235,29 +235,19 @@ export const RevenuesReports = () => {
     setIsLoaded(false);
 
     axios
-      // TODO change this to a robust solution
-      .all([api.salaries(), new ExpensesApi().cnpj()])
+      // TODO change this to a robust solution, eg if one of the historic datas
+      // have more values than the other
+      .all([
+        api.historic({ is_fixed: true }),
+        new ExpensesApi().historic({ future: false, category: "CNPJ" }),
+      ])
       .then(
         axios.spread((...responses) => {
-          let salaries = responses[0].data.items;
-          let cnpjExpenses = responses[1].data;
-
           function formatDate(m) {
-            const [year, month] = m.split("-");
+            const [_, month, year] = m.split("/");
             return `${month}/${year}`;
           }
 
-          let result = salaries
-            .slice(0)
-            .reverse()
-            .map((d, index) => {
-              return {
-                CNPJ: cnpjExpenses[index].total * -1,
-                salary: d.value,
-                percentage: (cnpjExpenses[index].total / d.value) * 100,
-                month: formatDate(cnpjExpenses[index].month),
-              };
-            });
           function getAvg(r) {
             let total = 0;
             for (const d of r.slice(0, -1)) {
@@ -265,6 +255,20 @@ export const RevenuesReports = () => {
             }
             return total / (r.length - 1);
           }
+
+          let cnpjExpenses = responses[1].data.historic;
+          let result = responses[0].data.historic
+            .slice(0)
+            .reverse()
+            .map((d, index) => {
+              return {
+                CNPJ: cnpjExpenses[index].total * -1,
+                salary: d.total,
+                percentage: (cnpjExpenses[index].total / d.total) * 100,
+                month: formatDate(cnpjExpenses[index].month),
+              };
+            });
+
           setData({
             historic: result,
             avg: getAvg(result),

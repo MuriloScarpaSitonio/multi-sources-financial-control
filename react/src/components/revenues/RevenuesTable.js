@@ -153,7 +153,7 @@ export const RevenuesTable = () => {
 
   const handleCreateEdit = (revenueData) => {
     if (revenueData && Object.keys(revenueData).length > 0) {
-      let [id, description, value, created_at] = revenueData;
+      let [id, _, value, created_at, description] = revenueData;
       setRevenueEditData({
         id,
         description,
@@ -225,7 +225,7 @@ export const RevenuesTable = () => {
 
   const columns = [
     {
-      name: "_id",
+      name: "id",
       options: {
         display: false,
         filter: false,
@@ -233,7 +233,7 @@ export const RevenuesTable = () => {
       },
     },
     {
-      name: "description",
+      name: "full_description",
       label: "Descrição",
       options: {
         filter: false,
@@ -333,6 +333,15 @@ export const RevenuesTable = () => {
       },
     },
     {
+      name: "description",
+      label: "",
+      options: {
+        filter: false,
+        sort: true,
+        display: false,
+      },
+    },
+    {
       name: "",
       options: {
         filter: false,
@@ -368,7 +377,7 @@ export const RevenuesTable = () => {
       maxWidth="lg"
     >
       {!isLoaded && <Loader />}
-      <MUIDataTable data={data.items} columns={columns} options={options} />
+      <MUIDataTable data={data.results} columns={columns} options={options} />
       <RevenueCreateEditDialog
         data={revenueEditData}
         open={editCreateRevenueDialogIsOpened}
