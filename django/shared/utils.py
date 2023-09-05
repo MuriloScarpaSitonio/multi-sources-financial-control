@@ -1,8 +1,6 @@
 from copy import deepcopy
 from datetime import date
-from functools import reduce
-from typing import Any, Required, TypedDict
-from urllib.parse import urlencode, urljoin
+from typing import Required, TypedDict
 
 from dateutil.relativedelta import relativedelta
 
@@ -10,12 +8,6 @@ from dateutil.relativedelta import relativedelta
 class MonthlyHistoricType(TypedDict, total=False):
     month: Required[date]
     total: float
-
-
-def build_url(url: str, parts: tuple[str, ...], query_params: dict[str, Any] | None = None) -> str:
-    query_params = query_params if query_params is not None else {}
-    query_params = {k: v for k, v in query_params.items() if v is not None}
-    return reduce(urljoin, (url,) + parts) + f"?{urlencode(query_params)}"
 
 
 def insert_zeros_if_no_data_in_monthly_historic_data(

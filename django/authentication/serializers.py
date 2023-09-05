@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model, password_validation
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.transaction import atomic
@@ -5,7 +6,7 @@ from django.db.transaction import atomic
 from rest_framework import serializers, validators
 
 from .models import IntegrationSecret
-from .utils import token_generator
+from .services.token_generator import token_generator
 
 UserModel = get_user_model()
 
@@ -227,11 +228,15 @@ class ChangePasswordSerializer(_ResetPasswordSerializer):
 
 
 class ActivateUserSerializer(_TokenSerializer):
-    def save(self) -> UserModel:
-        self.user.is_active = True
-        self.user.save(update_fields=("is_active",))
-        return self.user
+    ...
 
 
 class ResetPasswordRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
+
+
+class StripeSessionSerializer(serializers.Serializer):
+    plan_id = serializers.ChoiceField(choices=tuple(settings.STRIPE_SUBSCRIPTION_TYPE_PRICE_MAP))
+
+    def get_price_id(self) -> str:
+        return settings.STRIPE_SUBSCRIPTION_TYPE_PRICE_MAP[self.validated_data["plan_id"]]

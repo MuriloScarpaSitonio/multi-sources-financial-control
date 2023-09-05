@@ -139,9 +139,7 @@ BREVO_TEMPLATE_IDS = {
 }
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-    ),
+    "DEFAULT_AUTHENTICATION_CLASSES": ("authentication.auth.CustomJWTAuthentication",),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_PAGINATION_CLASS": "shared.pagination.CustomPageNumberPagination",
     "DEFAULT_FILTER_BACKENDS": (
@@ -201,4 +199,16 @@ QSTASH_NEXT_SIGNING_KEY = secret("QSTASH_NEXT_SIGNING_KEY", default="")
 REDIS_CONNECTION_URL = secret("REDIS_CONNECTION_URL", default="redis://localhost:6379")
 REDIS_TIMEOUT_IN_SECONDS = secret("REDIS_TIMEOUT_IN_SECONDS", default=1 * 60 * 60, cast=int)
 
-FRONTEND_BASE_URL = secret("FRONTEND_URL", default="http://localhost:3000/")
+FRONTEND_BASE_URL = secret("FRONTEND_URL", default="http://localhost:3000")
+
+STRIPE_SECRET_KEY = secret("STRIPE_SECRET_KEY", default="")
+STRIPE_PUBLIC_KEY = secret("STRIPE_PUBLIC_KEY", default="")
+STRIPE_SUBSCRIPTION_TYPE_PRICE_MAP = {
+    "PERSONAL_FINANCES_MONTHLY": secret("PERSONAL_FINANCES_MONTHLY", default=""),
+    "PERSONAL_FINANCES_YEARLY": secret("PERSONAL_FINANCES_YEARLY", default=""),
+    "INVESTMENTS_MONTHLY": secret("INVESTMENTS_MONTHLY", default=""),
+    "INVESTMENTS_YEARLY": secret("INVESTMENTS_YEARLY", default=""),
+    "ALL_MONTHLY": secret("ALL_MONTHLY", default=""),
+    "ALL_YEARLY": secret("ALL_YEARLY", default=""),
+}
+STRIPE_WEBHOOK_SECRET = secret("STRIPE_WEBHOOK_SECRET", default="")

@@ -44,6 +44,8 @@ class IntegrationSecret(models.Model):
     def __str__(self) -> str:
         return f"<IntegrationSecret ({self.user_id})>"
 
+    __repr__ = __str__
+
 
 class CustomUser(AbstractUser):
     secrets = models.OneToOneField(
@@ -52,6 +54,11 @@ class CustomUser(AbstractUser):
     username = models.CharField(max_length=150)
     email = models.EmailField(unique=True, db_index=True)
     is_active = models.BooleanField(default=False)
+    stripe_customer_id = models.CharField(
+        max_length=40, null=True, blank=True, unique=True, db_index=True
+    )
+    stripe_subscription_id = models.CharField(max_length=40, null=True, blank=True, unique=True)
+    subscription_ends_at = models.DateTimeField(null=True, blank=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]

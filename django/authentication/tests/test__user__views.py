@@ -22,7 +22,7 @@ URL = f"/{BASE_API_URL}" + "users"
 
 def test__create__wo_secrets(api_client, mocker):
     # GIVEN
-    m = mocker.patch("authentication.views.dispatch_activation_email")
+    m = mocker.patch("authentication.views.mailing.dispatch_activation_email")
     data = {
         "username": "murilo2",
         "email": "murilo2@gmail.com",

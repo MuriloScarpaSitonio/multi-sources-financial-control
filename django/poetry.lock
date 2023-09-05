@@ -3006,6 +3006,21 @@ files = [
 pbr = ">=2.0.0,<2.1.0 || >2.1.0"
 
 [[package]]
+name = "stripe"
+version = "6.1.0"
+description = "Python bindings for the Stripe API"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "stripe-6.1.0-py2.py3-none-any.whl", hash = "sha256:9ad69f1ec57b91d81c39c2c02e3c9445dfc84c06bcbe11d7c1077b40dbbcb67b"},
+    {file = "stripe-6.1.0.tar.gz", hash = "sha256:5a99b50510d74f4ce33bb68961cc073c31df7eb3def90594e8ffe25a5c4dcaea"},
+]
+
+[package.dependencies]
+requests = {version = ">=2.20", markers = "python_version >= \"3.0\""}
+typing-extensions = {version = ">3.7.2", markers = "python_version >= \"3.7\""}
+
+[[package]]
 name = "termcolor"
 version = "2.3.0"
 description = "ANSI color formatting for output in terminal"
@@ -3361,4 +3376,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "e2ce8b437fb09d3fbb4997c80e8ab823b262d2d083206d4578b6784f69244d47"
+content-hash = "36caad7eb3b0594cc3be1173f27088f9f787d4b4bc3cc94818d4cd8466973c38"

@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from django.conf import settings
 from django.contrib.auth.hashers import make_password
 
@@ -15,6 +17,7 @@ class UserFactory(DjangoModelFactory):
 
     password = make_password("1X<ISRUkw+tuK")
     is_active = True
+    subscription_ends_at = datetime(year=2999, month=12, day=31, tzinfo=timezone.utc)
 
 
 class IntegrationSecretFactory(DjangoModelFactory):
@@ -86,3 +89,31 @@ def binance_client(user_with_binance_integration):
     client = APIClient()
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
     return client
+
+
+@pytest.fixture
+def stripe_customer_id():
+    return "cus_21847"
+
+
+@pytest.fixture
+def stripe_subscription_id():
+    return "sub_23ef"
+
+
+@pytest.fixture
+def stripe_secret_key():
+    return "2904709237"
+
+
+@pytest.fixture
+def stripe_plan_id():
+    return "21834976"
+
+
+@pytest.fixture
+def stripe_user(user, stripe_customer_id, stripe_subscription_id):
+    user.stripe_customer_id = stripe_customer_id
+    user.stripe_subscription_id = stripe_subscription_id
+    user.save()
+    return user

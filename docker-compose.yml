@@ -21,7 +21,7 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
 
   redis:
-    container_name: redis
+    container_name: redis-multi-sources
     image: redis:7
 
   react:
