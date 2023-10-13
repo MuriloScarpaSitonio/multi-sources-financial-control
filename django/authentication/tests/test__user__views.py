@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 import pytest
 from rest_framework.status import (
@@ -7,11 +10,14 @@ from rest_framework.status import (
     HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
     HTTP_401_UNAUTHORIZED,
+    HTTP_404_NOT_FOUND,
 )
 
 from config.settings.base import BASE_API_URL
 
+from ..choices import SubscriptionStatus
 from ..models import IntegrationSecret
+from .conftest import default_stripe_subscription_updated_at
 
 UserModel = get_user_model()
 pytestmark = pytest.mark.django_db
@@ -20,9 +26,9 @@ pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "users"
 
 
-def test__create__wo_secrets(api_client, mocker):
+def test__create(api_client, mocker):
     # GIVEN
-    m = mocker.patch("authentication.views.dispatch_activation_email")
+    m = mocker.patch("authentication.views.mailing.dispatch_activation_email")
     data = {
         "username": "murilo2",
         "email": "murilo2@gmail.com",
@@ -38,10 +44,42 @@ def test__create__wo_secrets(api_client, mocker):
     assert response.json()["email"] == data["email"]
 
     user = UserModel.objects.get(email="murilo2@gmail.com")
-
     assert not user.is_active
+    assert not user.is_personal_finances_module_enabled
+    assert not user.is_investments_module_enabled
+    assert not user.is_investments_integrations_module_enabled
     assert user.check_password(data["password"])
     assert m.call_args[1] == {"user": user}
+
+
+def test__create__do_not_set_readonly_fields(api_client, mocker):
+    # GIVEN
+    mocker.patch("authentication.views.mailing.dispatch_activation_email")
+    data = {
+        "username": "murilo2",
+        "email": "murilo2@gmail.com",
+        "password": "1234",
+        "password2": "1234",
+        "is_personal_finances_module_enabled": True,
+        "is_investments_module_enabled": True,
+        "is_investments_integrations_module_enabled": True,
+        "subscription_ends_at": "2999-12-31",
+        "subscription_status": SubscriptionStatus.ACTIVE,
+    }
+
+    # WHEN
+    response = api_client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+
+    user = UserModel.objects.get(email="murilo2@gmail.com")
+    assert not user.is_active
+    assert not user.is_personal_finances_module_enabled
+    assert not user.is_investments_module_enabled
+    assert not user.is_investments_integrations_module_enabled
+    assert user.subscription_ends_at is None
+    assert user.subscription_status == SubscriptionStatus.INACTIVE
 
 
 def test__create__same_email(api_client, user):
@@ -102,7 +140,7 @@ def test__create__diff_passwords(api_client):
     assert response.json() == {"password": ["As senhas não são iguais"]}
 
 
-def test__create__validate_classes_in_config(api_client, user):
+def test__create__validate_classes_in_config(api_client):
     # GIVEN
     data = {
         "username": "murilo2",
@@ -286,6 +324,8 @@ def test__validate_cpf_uniqueness(api_client, user):
 
 def test__retrieve(client, user):
     # GIVEN
+    user.subscription_ends_at = timezone.localtime() + timedelta(days=1)
+    user.save()
 
     # WHEN
     response = client.get(f"{URL}/{user.pk}")
@@ -295,9 +335,17 @@ def test__retrieve(client, user):
         "id": user.pk,
         "username": user.username,
         "email": user.email,
+        "subscription_status": SubscriptionStatus.TRIALING,
         "has_binance_integration": False,
         "has_cei_integration": True,
         "has_kucoin_integration": False,
+        "is_personal_finances_module_enabled": True,
+        "is_investments_module_enabled": True,
+        "is_investments_integrations_module_enabled": True,
+        "trial_will_end_message": "O período de testes termina em 23 hora(s)",
+        "stripe_subscription_updated_at": timezone.localtime(
+            default_stripe_subscription_updated_at
+        ).isoformat(),
     }
 
 
@@ -309,6 +357,16 @@ def test__retrieve__unauthorized(api_client, user):
 
     # THEN
     assert response.status_code == HTTP_401_UNAUTHORIZED
+
+
+def test__not_found__other_user(client, user_with_binance_integration):
+    # GIVEN
+
+    # WHEN
+    response = client.put(f"{URL}/{user_with_binance_integration.pk}", data={"name": "test"})
+
+    # THEN
+    assert response.status_code == HTTP_404_NOT_FOUND
 
 
 def test__update(client, user):
@@ -333,7 +391,7 @@ def test__update(client, user):
 @pytest.mark.parametrize(
     "password_data", ({"password": "5555"}, {"password": "5555", "password2": "5555"})
 )
-def test__update__w_password(client, user, password_data):
+def test__update__do_not_set_password(client, user, password_data):
     # GIVEN
     old_password = user.password
     data = {"username": "murilo2", "email": "murilo2@gmail.com", **password_data}
@@ -348,20 +406,17 @@ def test__update__w_password(client, user, password_data):
     assert user.password == old_password
 
 
-def test__update__unauthorized(api_client, user):
-    # GIVEN
-
-    # WHEN
-    response = api_client.put(f"{URL}/{user.pk}", data={})
-
-    # THEN
-    assert response.status_code == HTTP_401_UNAUTHORIZED
-
-
 def test__partial_update(client, user):
     # GIVEN
     old_cpf = user.secrets.cpf
-    data = {"email": "murilo2@gmail.com"}
+    data = {
+        "email": "murilo2@gmail.com",
+        "is_personal_finances_module_enabled": False,
+        "is_investments_module_enabled": False,
+        "is_investments_integrations_module_enabled": False,
+        "subscription_ends_at": None,
+        "subscription_status": SubscriptionStatus.ACTIVE,
+    }
 
     # WHEN
     response = client.patch(f"{URL}/{user.pk}", data=data)
@@ -372,12 +427,17 @@ def test__partial_update(client, user):
     user.refresh_from_db()
     assert response.json()["email"] == user.email == "murilo2@gmail.com"
     assert old_cpf == user.secrets.cpf
+    assert user.is_personal_finances_module_enabled
+    assert user.is_investments_module_enabled
+    assert user.is_investments_integrations_module_enabled
+    assert user.subscription_ends_at is not None
+    assert user.subscription_status == SubscriptionStatus.TRIALING
 
 
 @pytest.mark.parametrize(
     "password_data", ({"password": "5555"}, {"password": "5555", "password2": "5555"})
 )
-def test__partial_update__password(client, user, password_data):
+def test__partial_update__do_not_set_password(client, user, password_data):
     # GIVEN
     old_password = user.password
 
@@ -389,16 +449,6 @@ def test__partial_update__password(client, user, password_data):
 
     user.refresh_from_db()
     assert user.password == old_password
-
-
-def test__partial_update__unauthorized(api_client, user):
-    # GIVEN
-
-    # WHEN
-    response = api_client.patch(f"{URL}/{user.pk}", data={})
-
-    # THEN
-    assert response.status_code == HTTP_401_UNAUTHORIZED
 
 
 def test__change_password(client, user):
@@ -415,7 +465,7 @@ def test__change_password(client, user):
     assert old_password != user.password
 
 
-def test__change_password__diff_new(client, user):
+def test__change_password__diff__new(client, user):
     # GIVEN
     data = {"old_password": "1X<ISRUkw+tuK", "password": "abcd", "password2": "abcde"}
 
@@ -427,7 +477,7 @@ def test__change_password__diff_new(client, user):
     assert response.json() == {"password": ["As senhas não são iguais"]}
 
 
-def test__change_password__diff_old(client, user):
+def test__change_password__diff__old(client, user):
     # GIVEN
     data = {"old_password": "abcd", "password": "abcd", "password2": "abcd"}
 
@@ -451,11 +501,23 @@ def test__change_password__validate_classes_in_config(client, user):
     assert response.json() == {"password": ["The password is too similar to the username."]}
 
 
-def test__change_password__unauthorized(api_client, user):
+def test__change_password__not_found(client, user_with_binance_integration):
     # GIVEN
 
     # WHEN
-    response = api_client.patch(f"{URL}/{user.pk}/change_password", data={})
+    response = client.patch(f"{URL}/{user_with_binance_integration.pk}/change_password", data={})
+
+    # THEN
+    assert response.status_code == HTTP_404_NOT_FOUND
+
+
+def test__unauthorized__inactive(client, user):
+    # GIVEN
+    user.is_active = False
+    user.save()
+
+    # WHEN
+    response = client.get(f"{URL}/{user.pk}")
 
     # THEN
     assert response.status_code == HTTP_401_UNAUTHORIZED

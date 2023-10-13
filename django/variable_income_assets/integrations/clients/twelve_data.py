@@ -6,10 +6,10 @@ from aiohttp import ClientResponse, ClientSession, ClientTimeout, TCPConnector
 class TwelveDataClient:
     API_URL = "https://api.twelvedata.com/{path}?apikey={api_key}"
 
-    def __init__(self, timeout: int = 30) -> None:
+    def __init__(self, timeout: int = 300) -> None:
         self._session = ClientSession(
             timeout=ClientTimeout(total=timeout),
-            connector=TCPConnector(limit=30, ssl=False, force_close=True),
+            connector=TCPConnector(ssl=False, force_close=True),
         )
 
     async def __aenter__(self) -> "TwelveDataClient":

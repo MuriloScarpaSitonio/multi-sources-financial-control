@@ -4,7 +4,7 @@ export const useHideValues = () => {
   const [hideValues, setHideValues] = useState("");
 
   const setHide = (value) => {
-    window.localStorage.setItem("hideValues", value);
+    localStorage.setItem("hideValues", value);
     setHideValues(value);
   };
 
@@ -12,7 +12,7 @@ export const useHideValues = () => {
     Boolean(hideValues) ? setHide("") : setHide("true");
 
   useEffect(() => {
-    const localHideValues = window.localStorage.getItem("hideValues");
+    const localHideValues = localStorage.getItem("hideValues");
     localHideValues && setHideValues(localHideValues);
   }, []);
   return hideValuesToggler;

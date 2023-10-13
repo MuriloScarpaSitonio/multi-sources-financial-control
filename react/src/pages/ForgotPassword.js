@@ -37,7 +37,7 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 const schema = yup.object().shape({
-  email: yup.string().email().required(),
+  email: yup.string().email().required("Campo obrigatório"),
 });
 
 export const ForgotPassword = (props) => {

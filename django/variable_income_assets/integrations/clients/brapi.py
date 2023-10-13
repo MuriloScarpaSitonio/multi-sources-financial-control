@@ -1,5 +1,7 @@
 import asyncio
 
+from django.conf import settings
+
 from aiohttp import ClientResponse, ClientSession, ClientTimeout, TCPConnector
 from aiohttp.client_exceptions import ClientError
 
@@ -7,11 +9,12 @@ from aiohttp.client_exceptions import ClientError
 class BrApiClient:
     API_URL = "https://brapi.dev"
 
-    def __init__(self, timeout: int = 30) -> None:
+    def __init__(self, timeout: int = 300, api_key: str = "") -> None:
         self._session = ClientSession(
             timeout=ClientTimeout(total=timeout),
-            connector=TCPConnector(limit=30, ssl=False, force_close=True),
+            connector=TCPConnector(ssl=False, force_close=True),
         )
+        self._api_key = api_key or settings.BRAPI_API_KEY
 
     async def __aenter__(self) -> "BrApiClient":
         return self
@@ -30,7 +33,10 @@ class BrApiClient:
         self, path: str, params: dict[str, str] | None = None, v2: bool = False
     ) -> ClientResponse:
         response = await self._session.get(
-            url=await self._create_url(path=path, v2=v2), params=params
+            url=await self._create_url(path=path, v2=v2),
+            params=(
+                {"token": self._api_key} if params is None else {**params, "token": self._api_key}
+            ),
         )
         response.raise_for_status()
         return response
@@ -51,13 +57,27 @@ class BrApiClient:
             if not isinstance(result, ClientError) and result.get("stocks")
         ]
 
+    async def get_b3_price(self, code: str) -> dict[str, float]:
+        response = await self._request(path=f"quote/{code}")
+        result = await response.json()
+        for r in result["results"]:
+            return r["regularMarketPrice"]
+
     async def get_b3_prices(self, codes: list[str]) -> dict[str, float]:
         if not codes:
             return {}
+
+        result = {}
         valid_codes = await self.get_valid_codes(codes=codes)
-        response = await self._request(path=f"quote/{','.join(valid_codes)}")
-        result = await response.json()
-        return {r["symbol"]: r["regularMarketPrice"] for r in result["results"]}
+        coroutines = [self.get_b3_price(code=code) for code in valid_codes]
+        for code, price in zip(
+            valid_codes, await asyncio.gather(*coroutines, return_exceptions=True), strict=True
+        ):
+            if isinstance(price, Exception):
+                # TODO: log error
+                print(repr(price))
+            result[code] = price
+        return result
 
     async def get_crypto_prices(self, codes: list[str], currency: str) -> dict[str, float]:
         if not codes:

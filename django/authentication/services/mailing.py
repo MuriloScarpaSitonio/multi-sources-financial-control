@@ -5,19 +5,13 @@ from urllib.parse import urljoin
 
 from django.conf import settings
 from django.core.mail import EmailMessage
-from django.utils.encoding import force_bytes
-from django.utils.http import urlsafe_base64_encode
 
-from .token_generator import token_generator
+from .token_generator import generate_token_secrets
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model
 
     UserModel = get_user_model()
-
-
-def generate_token_secrets(user: UserModel) -> tuple[str, str]:
-    return token_generator.make_token(user=user), urlsafe_base64_encode(force_bytes(user.pk))
 
 
 def _send_email(to: list[str], template_id: int, **kwargs) -> None:
@@ -55,4 +49,12 @@ def dispatch_activation_email(user: UserModel) -> None:
         merge_global_data={
             "url": urljoin(settings.FRONTEND_BASE_URL, f"/activate/{uidb64}/{token}")
         },
+    )
+
+
+def dispatch_trial_will_end_email(user: UserModel) -> None:
+    _send_email(
+        to=[user.email],
+        template_id=settings.BREVO_TEMPLATE_IDS["triall_will_end"],
+        merge_global_data={"url": urljoin(settings.FRONTEND_BASE_URL, "/me?tab=1")},
     )

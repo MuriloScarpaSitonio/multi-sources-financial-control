@@ -1,22 +1,26 @@
 from __future__ import annotations
 
-import time
+import json
 from base64 import urlsafe_b64encode
-from collections.abc import Callable
 from functools import wraps
 from hashlib import sha256
 from hmac import new as hmac_new
+from time import time
 from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.http import HttpResponse
 
-import jwt
+from jwt import decode as decode_jwt
 from rest_framework.status import HTTP_403_FORBIDDEN
 
 if TYPE_CHECKING:
-    from django.core.handlers.asgi import ASGIRequest
+    from collections.abc import Callable
+
+    # from django.core.handlers.asgi import ASGIRequest -> TODO: uncomment when ASGI
     from django.core.handlers.wsgi import WSGIRequest
+
+    ViewType = Callable[[WSGIRequest], HttpResponse]
 
 # region: exceptions
 
@@ -30,14 +34,12 @@ class InvalidQstashSignatureException(Exception):
 # endregion: exceptions
 
 
-def verify_qstash_signature(
-    view: Callable[[WSGIRequest | ASGIRequest], HttpResponse]
-) -> Callable[[WSGIRequest | ASGIRequest], HttpResponse]:
+def verify_qstash_signature(view: ViewType) -> ViewType:
     @wraps(view)
-    def wrapper(request: WSGIRequest | ASGIRequest) -> HttpResponse:  # pragma: no cover
+    def wrapper(request: WSGIRequest) -> HttpResponse:
         token = request.headers.get("upstash-signature")
         url = request.build_absolute_uri()
-        body = request.POST
+        body = json.loads(request.body or "{}")
         try:
             _verify_qstash_signature(
                 token=token, signing_key=settings.QSTASH_CURRENT_SIGNING_KEY, body=body, url=url
@@ -49,7 +51,8 @@ def verify_qstash_signature(
                 )
             except InvalidQstashSignatureException as e:
                 return HttpResponse(e.message, status=HTTP_403_FORBIDDEN)
-        return view(request)
+        return view(request, **body)
+        # return await view(request, **body) -> TODO: uncomment when ASGI
 
     return wrapper
 
@@ -75,7 +78,7 @@ def _verify_qstash_signature(
     if generated_signature != signature and signature + "=" != generated_signature:
         raise InvalidQstashSignatureException("Invalid token signature")
 
-    decoded = jwt.decode(token, options={"verify_signature": False})
+    decoded = decode_jwt(token, options={"verify_signature": False})
     decoded_body = decoded["body"]
 
     if decoded["iss"] != "Upstash":
@@ -84,7 +87,7 @@ def _verify_qstash_signature(
     if decoded["sub"] != url:
         raise InvalidQstashSignatureException(f"Invalid subject: {decoded['sub']}")
 
-    now = time.time()
+    now = time()
     if now > decoded["exp"]:
         raise InvalidQstashSignatureException("Token has expired")
 

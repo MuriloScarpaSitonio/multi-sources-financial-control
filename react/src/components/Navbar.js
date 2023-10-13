@@ -4,8 +4,6 @@ import AppBar from "@material-ui/core/AppBar";
 import Badge from "@material-ui/core/Badge";
 import Box from "@material-ui/core/Box";
 import Button from "@material-ui/core/Button";
-import Collapse from "@material-ui/core/Collapse";
-import Divider from "@material-ui/core/Divider";
 import IconButton from "@material-ui/core/IconButton";
 import Link from "@material-ui/core/Link";
 import ListItemIcon from "@material-ui/core/ListItemIcon";
@@ -27,19 +25,14 @@ import MonetizationOnIcon from "@material-ui/icons/MonetizationOn";
 import NotificationsIcon from "@material-ui/icons/Notifications";
 import PersonIcon from "@material-ui/icons/Person";
 import ReceiptIcon from "@material-ui/icons/Receipt";
-import SyncIcon from "@material-ui/icons/Sync";
 import TimelineIcon from "@material-ui/icons/Timeline";
 import VisibilityIcon from "@material-ui/icons/Visibility";
 import VisibilityOffIcon from "@material-ui/icons/VisibilityOff";
 import HomeIcon from "@material-ui/icons/Home";
 
-import { AssetsApi, TasksApi, TransactionsApi } from "../api";
+import { TasksApi } from "../api";
 import { logout } from "../api/instances";
-import { FormFeedback } from "./FormFeedback";
-import {
-  evaluateBooleanFromLocalStorage,
-  getDateDiffString,
-} from "../helpers.js";
+import { stringToBoolean, getDateDiffString } from "../helpers.js";
 
 const useStyles = makeStyles({
   root: {
@@ -167,60 +160,11 @@ const Notifications = () => {
   );
 };
 
-const Sync = () => {
-  const [showAlert, setShowAlert] = useState(false);
-  const [feedbackMessage, setFeedbackMessage] = useState("");
-
-  let api = new AssetsApi();
-  const sync = (method, message) => {
-    api[method]().then(() => {
-      setShowAlert(true);
-      setFeedbackMessage(message);
-    });
-  };
-
-  return (
-    <>
-      <Tooltip title="Sincronizar preços, transferências e renda passiva">
-        <IconButton size="large" color="black">
-          <SyncIcon
-            onClick={() => sync("syncAll", "Sincronizações em andamento!")}
-          />
-        </IconButton>
-      </Tooltip>
-      <FormFeedback
-        open={showAlert}
-        onClose={() => setShowAlert(false)}
-        message={feedbackMessage}
-        severity="info"
-      />
-    </>
-  );
-};
-
 const AssetsMenu = () => {
   const [anchorEl, setAnchorEl] = useState(null);
-  const [openIntegrationsMenu, setOpenIntegrationsMenu] = useState(false);
-  const [feedbackMessage, setFeedbackMessage] = useState("");
-  const [showAlert, setShowAlert] = useState(false);
 
   const open = Boolean(anchorEl);
 
-  let api = new TransactionsApi()
-  const sync = (method, message) => {
-    api[method]().then(() => {
-      setShowAlert(true);
-      setFeedbackMessage(message);
-    });
-    setAnchorEl(null);
-  };
-
-  let hasKucoinIntegration = evaluateBooleanFromLocalStorage(
-    localStorage.getItem("user_has_kucoin_integration")
-  )
-  let hasBinanceIntegration = evaluateBooleanFromLocalStorage(
-    localStorage.getItem("user_has_binance_integration")
-  )
   return (
     <>
       <Button
@@ -280,75 +224,8 @@ const AssetsMenu = () => {
               <ListItemText primary="Rendimentos" />
             </MenuItem>
           </Link>
-          {(hasBinanceIntegration || hasKucoinIntegration) && (
-            <>
-              <Divider />
-              <MenuItem
-                onClick={() => setOpenIntegrationsMenu(!openIntegrationsMenu)}
-              >
-                <ListItemText primary="Integrações" />
-                {openIntegrationsMenu ? <ExpandLess /> : <ExpandMore />}
-              </MenuItem>
-            </>
-          )
-          }
-          <Collapse in={openIntegrationsMenu} timeout="auto" unmountOnExit>
-            <MenuList>
-              {/* <MenuItem
-                onClick={() =>
-                  sync(
-                    "syncCeiTransactions",
-                    "Sincronização das transações do CEI em andamento!"
-                  )
-                }
-              >
-                Sincronizar transações do CEI
-              </MenuItem> */}
-              {/* <MenuItem
-                onClick={() =>
-                  sync(
-                    "syncCeiPassiveIncomes",
-                    "Sincronização da renda passiva do CEI em andamento!"
-                  )
-                }
-              >
-                Sincronizar renda passiva do CEI
-              </MenuItem> */}
-              {hasKucoinIntegration && (
-                <MenuItem
-                  onClick={() =>
-                    sync(
-                      "syncKuCoin",
-                      "Sincronização das transações da KuCoin em andamento!"
-                    )
-                  }
-                >
-                  Sincronizar transações da KuCoin
-                </MenuItem>
-              )}
-              {hasBinanceIntegration && (
-                <MenuItem
-                  sx={{ paddingLeft: 20 }}
-                  onClick={() =>
-                    sync(
-                      "syncBinance",
-                      "Sincronização das transações da Binance em andamento!"
-                    )
-                  }
-                >
-                  Sincronizar transações da Binance
-                </MenuItem>
-              )}
-            </MenuList>
-          </Collapse>
         </MenuList>
       </Menu>
-      <FormFeedback
-        open={showAlert}
-        onClose={() => setShowAlert(false)}
-        message={feedbackMessage}
-        severity="info"
-      />
     </>
   );
 };
@@ -482,46 +359,54 @@ const UserMenu = ({ ...props }) => {
     </>
   );
 };
+
 export const Navbar = ({ hideValuesToggler, ...props }) => {
   const [hideValues, setHideValues] = useState(
-    Boolean(window.localStorage.getItem("hideValues"))
+    Boolean(localStorage.getItem("hideValues"))
   );
 
-  let hasKucoinIntegration = evaluateBooleanFromLocalStorage(
-    localStorage.getItem("user_has_kucoin_integration")
-  )
-  let hasBinanceIntegration = evaluateBooleanFromLocalStorage(
-    localStorage.getItem("user_has_binance_integration")
-  )
+  const isPersonalFinancesModuleEnabled = stringToBoolean(
+    localStorage.getItem("user_is_personal_finances_module_enabled")
+  );
+  const isInvestmentsModuleEnabled = stringToBoolean(
+    localStorage.getItem("user_is_investments_module_enabled")
+  );
+  const isSubscriptionCancelled =
+    localStorage.getItem("user_subscription_status") === "CANCELED";
   return (
     <AppBar position="static" style={{ backgroundColor: "transparent" }}>
       <Toolbar variant="dense">
-        <FinancesMenu />
-        <AssetsMenu />
+        {isPersonalFinancesModuleEnabled && <FinancesMenu />}
+        {isInvestmentsModuleEnabled && <AssetsMenu />}
         <Box sx={{ flexGrow: 1, textAlign: "center", marginLeft: "85px" }}>
-          {(hasBinanceIntegration || hasKucoinIntegration) && <Sync />}
-          <IconButton
-            size="large"
-            color="black"
-            onClick={() => props.history.push("/home")}
-          >
-            <HomeIcon />
-          </IconButton>
-          <Tooltip title={hideValues ? "Ocultar valores " : "Exibir valores"}>
+          {isSubscriptionCancelled ? (
+            <Button href="/subscription">Renovar assinatura</Button>
+          ) : (
             <IconButton
               size="large"
               color="black"
-              onClick={() => {
-                hideValuesToggler();
-                setHideValues(!hideValues);
-              }}
+              onClick={() => props.history.push("/home")}
             >
-              {hideValues ? <VisibilityIcon /> : <VisibilityOffIcon />}
+              <HomeIcon />
             </IconButton>
-          </Tooltip>
+          )}
+          {!isSubscriptionCancelled && (
+            <Tooltip title={hideValues ? "Ocultar valores " : "Exibir valores"}>
+              <IconButton
+                size="large"
+                color="black"
+                onClick={() => {
+                  hideValuesToggler();
+                  setHideValues(!hideValues);
+                }}
+              >
+                {hideValues ? <VisibilityIcon /> : <VisibilityOffIcon />}
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
         <Box sx={{ flexGrow: 1, textAlign: "end" }}>
-          <Notifications />
+          {!isSubscriptionCancelled && <Notifications />}
           <UserMenu {...props} />
         </Box>
       </Toolbar>

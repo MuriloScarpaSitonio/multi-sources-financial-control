@@ -7,7 +7,6 @@ from django.db import transaction as djtransaction
 from django.db.models import F, Sum
 from django.utils import timezone
 
-from asgiref.sync import async_to_sync
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
@@ -19,16 +18,14 @@ from rest_framework.mixins import (
     UpdateModelMixin,
 )
 from rest_framework.response import Response
-from rest_framework.status import HTTP_200_OK, HTTP_403_FORBIDDEN
+from rest_framework.status import HTTP_200_OK
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
+from shared.permissions import SubscriptionEndedPermission
 from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
 
 from . import choices, filters, serializers
 from .domain import events
-from .integrations.binance.handlers import sync_binance_transactions
-from .integrations.helpers import dispatch
-from .integrations.kucoin.handlers import sync_kucoin_transactions
 from .models import Asset, AssetReadModel, PassiveIncome, Transaction
 from .models.managers import (
     AssetQuerySet,
@@ -36,13 +33,7 @@ from .models.managers import (
     PassiveIncomeQuerySet,
     TransactionQuerySet,
 )
-from .permissions import (
-    BinancePermission,
-    BinanceTaskRunCheckerPermission,
-    CeiPermission,
-    KuCoinPermission,
-    KucoinTaskRunCheckerPermission,
-)
+from .permissions import InventmentsModulePermission
 from .service_layer import messagebus
 from .service_layer.unit_of_work import DjangoUnitOfWork
 
@@ -57,8 +48,9 @@ if TYPE_CHECKING:  # pragma: no cover
 class AssetViewSet(
     GenericViewSet, ListModelMixin, CreateModelMixin, UpdateModelMixin, DestroyModelMixin
 ):
+    permission_classes = (SubscriptionEndedPermission, InventmentsModulePermission)
     filter_backends = (filters.CQRSDjangoFilterBackend, OrderingFilter)
-    ordering_fields = ("normalized_total_invested", "normalized_roi", "roi_percentage")
+    ordering_fields = ("code", "normalized_total_invested", "normalized_roi", "roi_percentage")
 
     def _is_write_action(self) -> bool:
         return self.action in ("create", "update", "destroy")
@@ -166,21 +158,6 @@ class AssetViewSet(
         serializer = serializers.AssetTypeReportSerializer(filterset.qs, many=True)
         return Response(serializer.data, status=HTTP_200_OK)
 
-    @action(methods=("GET",), detail=False, url_path="integrations/sync_all")
-    def sync_all(self, request: Request) -> Response:
-        TASK_PERMISSIONS_MAP = {
-            # maybe set this at integrations.decorators.qstash_user_task?
-            sync_kucoin_transactions: (KuCoinPermission, KucoinTaskRunCheckerPermission),
-            sync_binance_transactions: (BinancePermission, BinanceTaskRunCheckerPermission),
-        }
-
-        response: dict[str, str] = {}
-        for task, permissions in TASK_PERMISSIONS_MAP.items():
-            if all(permission().has_permission(request, self) for permission in permissions):
-                task_id = async_to_sync(dispatch)(task, user_id=request.user.pk)
-                response[task.name] = task_id
-        return Response(response, status=HTTP_200_OK if response else HTTP_403_FORBIDDEN)
-
     @action(methods=("GET",), detail=False)
     def minimal_data(self, _: Request) -> Response:
         # TODO: change `list` endpoint to support `fields` kwarg on serializer and set the return
@@ -195,13 +172,14 @@ class AssetViewSet(
 
 
 class TransactionViewSet(ModelViewSet):
+    permission_classes = (SubscriptionEndedPermission, InventmentsModulePermission)
     serializer_class = serializers.TransactionListSerializer
     filterset_class = filters.TransactionFilterSet
     ordering_fields = ("operation_date", "asset__code")
 
     def get_queryset(self) -> TransactionQuerySet[Transaction]:
         if self.request.user.is_authenticated:
-            qs = Transaction.objects.filter(asset__user=self.request.user).order_by(
+            qs = Transaction.objects.filter(asset__user=self.request.user.pk).order_by(
                 "-operation_date"
             )
             return (
@@ -245,38 +223,9 @@ class TransactionViewSet(ModelViewSet):
         )
         return Response(serializer.data, status=HTTP_200_OK)
 
-    @extend_schema(deprecated=True)
-    @action(
-        methods=("GET",),
-        detail=False,
-        permission_classes=(CeiPermission,),
-        url_path="integrations/cei",
-    )
-    def sync_cei_transactions(self, _: Request) -> Response:
-        return Response({"task_id": None, "warning": "Integration is deprecated"}, status=299)
-
-    @action(
-        methods=("GET",),
-        detail=False,
-        permission_classes=(KuCoinPermission, KucoinTaskRunCheckerPermission),
-        url_path="integrations/kucoin",
-    )
-    def sync_kucoin(self, request: Request) -> Response:
-        task_id = async_to_sync(dispatch)(sync_kucoin_transactions, user_id=request.user.pk)
-        return Response({"task_id": task_id}, status=HTTP_200_OK)
-
-    @action(
-        methods=("GET",),
-        detail=False,
-        permission_classes=(BinancePermission, BinanceTaskRunCheckerPermission),
-        url_path="integrations/binance",
-    )
-    def sync_binance(self, request: Request) -> Response:
-        task_id = async_to_sync(dispatch)(sync_binance_transactions, user_id=request.user.pk)
-        return Response({"task_id": task_id}, status=HTTP_200_OK)
-
 
 class PassiveIncomeViewSet(ModelViewSet):
+    permission_classes = (SubscriptionEndedPermission, InventmentsModulePermission)
     serializer_class = serializers.PassiveIncomeSerializer
     filterset_class = filters.PassiveIncomeFilterSet
     ordering_fields = ("operation_date", "amount", "asset__code")
@@ -357,18 +306,9 @@ class PassiveIncomeViewSet(ModelViewSet):
         serializer = serializers.PassiveIncomeAssetsAggregationSerializer(filterset.qs, many=True)
         return Response(serializer.data, status=HTTP_200_OK)
 
-    @extend_schema(deprecated=True)
-    @action(
-        methods=("GET",),
-        detail=False,
-        permission_classes=(CeiPermission,),
-        url_path="integrations/cei",
-    )
-    def sync_cei_passive_incomes(self, _: Request) -> Response:
-        return Response({"task_id": None, "warning": "Integration is deprecated"}, status=299)
-
 
 class AssetTransactionViewSet(GenericViewSet, ListModelMixin):
+    permission_classes = (SubscriptionEndedPermission, InventmentsModulePermission)
     serializer_class = serializers.TransactionListSerializer
     filterset_class = filters.TransactionFilterSet
     ordering_fields = ("operation_date", "asset__code")
@@ -378,9 +318,6 @@ class AssetTransactionViewSet(GenericViewSet, ListModelMixin):
             asset__user_id=self.request.user.pk, asset_id=self.kwargs["pk"]
         ).order_by("-operation_date")
 
-    def get_related_queryset(self) -> AssetQuerySet[Asset]:
-        return self.request.user.assets.all()
-
     @extend_schema(
         responses={200: serializers.AssetTransactionSimulateEndpointSerializer},
         parameters=[
@@ -389,7 +326,7 @@ class AssetTransactionViewSet(GenericViewSet, ListModelMixin):
     )
     @action(methods=("POST",), detail=False)
     def simulate(self, request: Request, pk: int) -> Response:
-        asset = get_object_or_404(self.get_related_queryset(), pk=pk)
+        asset = get_object_or_404(request.user.assets.all(), pk=pk)
         serializer = serializers.TransactionSimulateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.data
@@ -414,6 +351,7 @@ class AssetTransactionViewSet(GenericViewSet, ListModelMixin):
 
 
 class AssetIncomesiewSet(GenericViewSet, ListModelMixin):
+    permission_classes = (SubscriptionEndedPermission, InventmentsModulePermission)
     serializer_class = serializers.PassiveIncomeSerializer
     filterset_class = filters.PassiveIncomeFilterSet
     ordering_fields = ("operation_date", "amount", "asset__code")

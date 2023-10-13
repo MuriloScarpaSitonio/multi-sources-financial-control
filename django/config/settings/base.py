@@ -172,6 +172,8 @@ FERNET_KEY = secret(
 
 TWELVE_DATA_API_KEY = secret("TWELVE_DATA_API_KEY", default="")
 
+BRAPI_API_KEY = secret("BRAPI_API_KEY", default="")
+
 USD_CRYPTO_SYMBOLS = ("USDT", "USDC", "BUSD", "TUSD")
 
 GDRIVE_BACKUP_DB_FOLDER_ID = secret("GDRIVE_BACKUP_DB_FOLDER_ID", default="")
@@ -201,4 +203,11 @@ QSTASH_NEXT_SIGNING_KEY = secret("QSTASH_NEXT_SIGNING_KEY", default="")
 REDIS_CONNECTION_URL = secret("REDIS_CONNECTION_URL", default="redis://localhost:6379")
 REDIS_TIMEOUT_IN_SECONDS = secret("REDIS_TIMEOUT_IN_SECONDS", default=1 * 60 * 60, cast=int)
 
-FRONTEND_BASE_URL = secret("FRONTEND_URL", default="http://localhost:3000/")
+FRONTEND_BASE_URL = secret("FRONTEND_URL", default="http://localhost:3000")
+
+STRIPE_SECRET_KEY = secret("STRIPE_SECRET_KEY", default="")
+STRIPE_PUBLIC_KEY = secret("STRIPE_PUBLIC_KEY", default="")
+STRIPE_WEBHOOK_SECRET = secret("STRIPE_WEBHOOK_SECRET", default="")
+STRIPE_TRIAL_SUBSCRIPTION_PRICE_ID = secret("STRIPE_TRIAL_SUBSCRIPTION_PRICE_ID", default="")
+
+DEFAULT_TRIAL_PERIOD_IN_DAYS = secret("DEFAULT_TRIAL_PERIOD_IN_DAYS", default=7, cast=int)

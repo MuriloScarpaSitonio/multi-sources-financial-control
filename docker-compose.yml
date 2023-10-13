@@ -11,9 +11,6 @@ services:
     ports:
       - 8000:8000
     environment:
-      # used only for superuser creation on the first time
-      - ADMIN_USERNAME=murilo
-      - ADMIN_PASSWORD=test
       - PERFORM_METADATA_UPDATES=false
       - REDIS_CONNECTION_URL=redis://redis:6379
     depends_on:
@@ -21,7 +18,7 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
 
   redis:
-    container_name: redis
+    container_name: redis-multi-sources
     image: redis:7
 
   react:

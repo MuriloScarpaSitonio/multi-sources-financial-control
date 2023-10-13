@@ -4,15 +4,18 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db.models import F
 from django.utils import timezone
 
+from .adapters.key_value_store import get_dollar_conversion_rate
 from .choices import AssetTypes, Currencies, PassiveIncomeTypes, TransactionActions
-from .integrations.helpers import get_dollar_conversion_rate
 from .models import Asset, Transaction
 
 if TYPE_CHECKING:
     from .models.managers import AssetQuerySet
+
+UserModel = get_user_model()
 
 
 def _print_assets_portfolio(qs: AssetQuerySet[Asset], year: int) -> None:
@@ -516,3 +519,25 @@ def update_assets_metadata_current_price() -> None:
     from .integrations.handlers import update_prices
 
     async_to_sync(update_prices)()
+
+
+def sync_all_kucoin_transactions() -> None:
+    from asgiref.sync import async_to_sync
+
+    from .integrations.kucoin.handlers import sync_kucoin_transactions
+
+    for user_pk in UserModel.objects.filter_kucoin_integration_active().values_list(
+        "pk", flat=True
+    ):
+        async_to_sync(sync_kucoin_transactions)(user_id=user_pk)
+
+
+def sync_all_binance_transactions() -> None:
+    from asgiref.sync import async_to_sync
+
+    from .integrations.binance.handlers import sync_binance_transactions
+
+    for user_pk in UserModel.objects.filter_binance_integration_active().values_list(
+        "pk", flat=True
+    ):
+        async_to_sync(sync_binance_transactions)(user_id=user_pk)

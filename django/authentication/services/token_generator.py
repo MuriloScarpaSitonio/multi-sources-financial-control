@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.crypto import constant_time_compare
-from django.utils.http import base36_to_int
+from django.utils.encoding import force_bytes
+from django.utils.http import base36_to_int, urlsafe_base64_encode
 
 if TYPE_CHECKING:
     from django.contrib.auth import get_user_model
@@ -47,3 +48,7 @@ class TokenGenerator(PasswordResetTokenGenerator):
 
 
 token_generator = TokenGenerator()
+
+
+def generate_token_secrets(user: UserModel) -> tuple[str, str]:
+    return token_generator.make_token(user=user), urlsafe_base64_encode(force_bytes(user.pk))

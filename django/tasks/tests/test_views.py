@@ -53,7 +53,7 @@ def test__list__notification_display(
 
 def test__notification_display_text__error(client, simple_task_history):
     # GIVEN
-    async_to_sync(simple_task_history.finish)(error=Exception("Error!"))
+    async_to_sync(simple_task_history.finish)(exc=Exception("Error!"))
 
     # WHEN
     response = client.get(URL)

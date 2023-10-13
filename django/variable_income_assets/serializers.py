@@ -8,11 +8,11 @@ from rest_framework.exceptions import NotFound
 from shared.serializers_utils import CustomChoiceField
 
 from . import choices
+from .adapters.key_value_store import get_dollar_conversion_rate
 from .domain import commands
 from .domain.exceptions import ValidationError as DomainValidationError
 from .domain.models import Asset as AssetDomainModel
 from .domain.models import TransactionDTO
-from .integrations.helpers import get_dollar_conversion_rate
 from .models import Asset, AssetReadModel, PassiveIncome, Transaction
 from .service_layer import messagebus
 from .service_layer.unit_of_work import DjangoUnitOfWork

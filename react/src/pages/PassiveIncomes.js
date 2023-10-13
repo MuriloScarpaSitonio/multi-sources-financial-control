@@ -3,7 +3,7 @@ import { PassiveIncomesIndicators } from "../components/passiveIncomes/PassiveIn
 import { PassiveIncomesReports } from "../components/passiveIncomes/PassiveIncomesReports";
 import { PassiveIncomesTable } from "../components/passiveIncomes/PassiveIncomesTable";
 
-export default function Transactions() {
+export default function PassiveIncomes() {
   return (
     <>
       <PassiveIncomesIndicators />

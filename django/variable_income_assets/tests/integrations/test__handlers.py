@@ -2,6 +2,8 @@ import pytest
 from aioresponses import aioresponses
 from asgiref.sync import async_to_sync
 
+from tasks.choices import TaskStates
+from tasks.constants import ERROR_DISPLAY_TEXT
 from tasks.models import TaskHistory
 
 from ...choices import AssetSectors, AssetTypes, Currencies
@@ -133,10 +135,6 @@ def test__sync_kucoin_transactions__create_asset_and_transaction(
     kucoin_fetch_transactions_url,
 ):
     # GIVEN
-    task_history = TaskHistory.objects.create(
-        name="sync_kucoin_transactions_task", created_by_id=user_with_kucoin_integration.pk
-    )
-
     crypto_asset.user = user_with_kucoin_integration
     crypto_asset.save()
 
@@ -145,13 +143,21 @@ def test__sync_kucoin_transactions__create_asset_and_transaction(
         aiohttp_mock.get(kucoin_fetch_transactions_url, payload=kucoin_transactions_response)
 
         # TODO: convert to async
-        async_to_sync(sync_kucoin_transactions)(
-            user_id=user_with_kucoin_integration.pk, task_history_id=task_history.id
-        )
+        async_to_sync(sync_kucoin_transactions)(user_id=user_with_kucoin_integration.pk)
 
     data = kucoin_transactions_response["data"]["items"]
 
     # THEN
+    assert (
+        TaskHistory.objects.filter(
+            name="sync_kucoin_transactions_task",
+            created_by_id=user_with_kucoin_integration.pk,
+            error="",
+            state=TaskStates.success,
+        ).count()
+        == 1
+    )
+
     assert (
         Asset.objects.filter(user=user_with_kucoin_integration, type=AssetTypes.crypto).count() == 2
     )
@@ -201,10 +207,6 @@ def test__sync_kucoin_transactions__skip_if_already_exists(
     kucoin_fetch_transactions_url,
 ):
     # GIVEN
-    task_history = TaskHistory.objects.create(
-        name="sync_kucoin_transactions_task", created_by_id=user_with_kucoin_integration.pk
-    )
-
     crypto_asset.user = user_with_kucoin_integration
     crypto_asset.save()
 
@@ -217,14 +219,36 @@ def test__sync_kucoin_transactions__skip_if_already_exists(
         aiohttp_mock.get(kucoin_fetch_transactions_url, payload=kucoin_transactions_response)
 
         # TODO: convert to async
-        async_to_sync(sync_kucoin_transactions)(
-            user_id=user_with_kucoin_integration.pk, task_history_id=task_history.id
-        )
+        async_to_sync(sync_kucoin_transactions)(user_id=user_with_kucoin_integration.pk)
 
     # WHEN
 
     # THEN
     assert Transaction.objects.count() == len(kucoin_transactions_response["data"]["items"]) - 2
+
+
+def test__sync_kucoin_transactions__error(user_with_kucoin_integration, mocker):
+    # GIVEN
+    mocker.patch(
+        "variable_income_assets.integrations.kucoin.handlers.TransactionsIntegrationOrchestrator.sync",
+        return_value=("", Exception("Error!")),
+    )
+
+    # WHEN
+    # TODO: convert to async
+    async_to_sync(sync_kucoin_transactions)(user_id=user_with_kucoin_integration.pk)
+
+    # THEN
+    assert (
+        TaskHistory.objects.filter(
+            name="sync_kucoin_transactions_task",
+            created_by_id=user_with_kucoin_integration.pk,
+            error="Exception('Error!')",
+            state=TaskStates.failure,
+            notification_display_text=ERROR_DISPLAY_TEXT,
+        ).count()
+        == 1
+    )
 
 
 @pytest.mark.freeze_time
@@ -241,9 +265,6 @@ def test__sync_binance_transactions__create_asset_and_transaction(
     mocker,
 ):
     # GIVEN
-    task_history = TaskHistory.objects.create(
-        name="sync_binance_transactions_task", created_by_id=user_with_binance_integration.pk
-    )
     mocker.patch(
         "variable_income_assets.integrations.binance.handlers.BinanceClient._generate_signature",
         return_value=binance_signature,
@@ -265,11 +286,18 @@ def test__sync_binance_transactions__create_asset_and_transaction(
         )
 
         # TODO: convert to async
-        async_to_sync(sync_binance_transactions)(
-            user_id=user_with_binance_integration.pk, task_history_id=task_history.id
-        )
+        async_to_sync(sync_binance_transactions)(user_id=user_with_binance_integration.pk)
 
     # THEN
+    assert (
+        TaskHistory.objects.filter(
+            name="sync_binance_transactions_task",
+            created_by_id=user_with_binance_integration.pk,
+            error="",
+            state=TaskStates.success,
+        ).count()
+        == 1
+    )
     assert Asset.objects.count() == 2  # do not create USDT
     assert (
         Asset.objects.filter(code=code, currency=Currencies.real, type=AssetTypes.crypto).count()
@@ -295,3 +323,27 @@ def test__sync_binance_transactions__create_asset_and_transaction(
     )
     assert Transaction.objects.filter(asset__code=code, price=25000, quantity=0.1).count() == 1
     assert Transaction.objects.filter(asset__code=fiat_code).count() == 2
+
+
+def test__sync_binance_transactions__error(user_with_binance_integration, mocker):
+    # GIVEN
+    mocker.patch(
+        "variable_income_assets.integrations.kucoin.handlers.TransactionsIntegrationOrchestrator.sync",
+        return_value=("", Exception("Error!")),
+    )
+
+    # WHEN
+    # TODO: convert to async
+    async_to_sync(sync_binance_transactions)(user_id=user_with_binance_integration.pk)
+
+    # THEN
+    assert (
+        TaskHistory.objects.filter(
+            name="sync_binance_transactions_task",
+            created_by_id=user_with_binance_integration.pk,
+            error="Exception('Error!')",
+            state=TaskStates.failure,
+            notification_display_text=ERROR_DISPLAY_TEXT,
+        ).count()
+        == 1
+    )

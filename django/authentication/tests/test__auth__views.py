@@ -1,5 +1,8 @@
+from datetime import timedelta
 from time import sleep
 from uuid import uuid4
+
+from django.utils import timezone
 
 import pytest
 from rest_framework.status import (
@@ -10,7 +13,7 @@ from rest_framework.status import (
 
 from config.settings.base import BASE_API_URL
 
-from ..utils import generate_token_secrets
+from ..services.token_generator import generate_token_secrets
 
 pytestmark = pytest.mark.django_db
 
@@ -20,7 +23,7 @@ URL = f"/{BASE_API_URL}" + "auth"
 
 def test__forgot_password(api_client, user, mocker):
     # GIVEN
-    m = mocker.patch("authentication.views.dispatch_reset_password_email")
+    m = mocker.patch("authentication.views.mailing.dispatch_reset_password_email")
     data = {"email": user.email}
 
     # WHEN
@@ -33,7 +36,7 @@ def test__forgot_password(api_client, user, mocker):
 
 def test__forgot_password_email__not_found(api_client, mocker):
     # GIVEN
-    m = mocker.patch("authentication.views.dispatch_not_found_email")
+    m = mocker.patch("authentication.views.mailing.dispatch_not_found_email")
     data = {"email": "user@gmail.com"}
 
     # WHEN
@@ -132,19 +135,31 @@ def test__reset_password__validate_classes_in_config(api_client, user):
     assert response.json() == {"password": ["The password is too similar to the username."]}
 
 
-def test__activate_user(api_client, user):
+@pytest.mark.freeze_time("2023-09-01")
+def test__activate_user(api_client, user, mocker):
     # GIVEN
     token, uidb64 = generate_token_secrets(user=user)
-    data = {"token": token}
+    mocker.patch(
+        "authentication.services.stripe.create_customer",
+        return_value=mocker.Mock(stripe_id="cus_217903"),
+    )
+    mocker.patch(
+        "authentication.services.stripe.create_trial_subscription",
+        return_value=mocker.Mock(stripe_id="sub_1N"),
+    )
 
     # WHEN
-    response = api_client.post(f"{URL}/activate_user/{uidb64}", data=data)
+    response = api_client.post(f"{URL}/activate_user/{uidb64}", data={"token": token})
 
     # THEN
     assert response.status_code == HTTP_204_NO_CONTENT
 
     user.refresh_from_db()
     assert user.is_active
+    assert user.stripe_customer_id == "cus_217903"
+    assert user.stripe_subscription_id == "sub_1N"
+    assert user.subscription_ends_at == timezone.now() + timedelta(days=7)
+    assert user.stripe_subscription_updated_at == timezone.now()
 
 
 def test__activate_user__wo_token(api_client, user):
@@ -183,15 +198,22 @@ def test__activate_user__wrong_uidb64(api_client, user):
     assert response.status_code == HTTP_403_FORBIDDEN
 
 
-def test__activate_user__token_does_not(api_client, user, settings):
+def test__activate_user__token_does_not_expire(api_client, user, settings, mocker):
     # GIVEN
     settings.PASSWORD_RESET_TIMEOUT = 1
     token, uidb64 = generate_token_secrets(user=user)
-    data = {"token": token}
+    mocker.patch(
+        "authentication.services.stripe.create_customer",
+        return_value=mocker.Mock(stripe_id="cus_217903"),
+    )
+    mocker.patch(
+        "authentication.services.stripe.create_trial_subscription",
+        return_value=mocker.Mock(stripe_id="sub_1N"),
+    )
     sleep(2)
 
     # WHEN
-    response = api_client.post(f"{URL}/activate_user/{uidb64}", data=data)
+    response = api_client.post(f"{URL}/activate_user/{uidb64}", data={"token": token})
 
     # THEN
     assert response.status_code == HTTP_204_NO_CONTENT

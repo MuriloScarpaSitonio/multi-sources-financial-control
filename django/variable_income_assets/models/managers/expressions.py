@@ -4,6 +4,7 @@ from django.db.models import Case, DecimalField, Expression, F, Q, Sum, Value, W
 from django.db.models.expressions import CombinedExpression
 from django.db.models.functions import Cast, Coalesce
 
+from ...adapters.key_value_store import get_dollar_conversion_rate
 from ...choices import Currencies, TransactionActions
 
 
@@ -28,8 +29,6 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
         prefix: str | None = None,
         dollar_conversion_rate: Decimal | None = None,
     ) -> None:
-        from ...integrations.helpers import get_dollar_conversion_rate
-
         super().__init__(prefix=prefix)
         self.dollar_conversion_rate = (
             Value(dollar_conversion_rate)

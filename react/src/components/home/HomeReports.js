@@ -186,7 +186,10 @@ const ExpenseRevenueHistoricChartComponent = ({ data }) => {
   );
 };
 
-export const HomeReports = () => {
+export const HomeReports = ({
+  isPersonalFinancesModuleEnabled,
+  isInvestmentsModuleEnabled,
+}) => {
   const [data, setData] = useState({ historic: [], avg: 0 });
   const [roiData, setRoiData] = useState([]);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -238,7 +241,13 @@ export const HomeReports = () => {
       .finally(() => setIsLoaded(true));
   }
 
-  useEffect(() => fetchHistoricData(), []);
+  useEffect(
+    () =>
+      isPersonalFinancesModuleEnabled
+        ? fetchHistoricData()
+        : fetchRoiReportData({ opened: true, finished: true }),
+    []
+  );
 
   const handleTabsChange = (_, newValue) => {
     switch (newValue) {
@@ -263,15 +272,27 @@ export const HomeReports = () => {
         onChange={handleTabsChange}
         className={classes.tabs}
       >
-        <Tab label="Despesas x receitas" {...getTabProps(0)} />
-        <Tab label="ROI" {...getTabProps(1)} />
+        {isPersonalFinancesModuleEnabled && (
+          <Tab label="Despesas x receitas" {...getTabProps(0)} />
+        )}
+        {isInvestmentsModuleEnabled && (
+          <Tab
+            label="ROI"
+            {...getTabProps(isPersonalFinancesModuleEnabled ? 1 : 0)}
+          />
+        )}
       </Tabs>
 
-      <TabPanel value={tabValue} index={0}>
-        {!isLoaded && <Loader />}
-        <ExpenseRevenueHistoricChartComponent data={data} />
-      </TabPanel>
-      <TabPanel value={tabValue} index={1}>
+      {isPersonalFinancesModuleEnabled && (
+        <TabPanel value={tabValue} index={0}>
+          {!isLoaded && <Loader />}
+          <ExpenseRevenueHistoricChartComponent data={data} />
+        </TabPanel>
+      )}
+      <TabPanel
+        value={tabValue}
+        index={isPersonalFinancesModuleEnabled ? 1 : 0}
+      >
         {!isLoaded && <Loader />}
         <AssetRoiChartComponent
           data={roiData}
