@@ -1,19 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from django.utils import timezone
 
-from ..adapters import DjangoSQLAssetMetaDataRepository, key_value_backend
+from ..adapters import DjangoSQLAssetMetaDataRepository
 from ..choices import AssetTypes, Currencies
-from .helpers import (
-    fetch_dollar_to_real_conversion_value,
-    get_b3_prices,
-    get_crypto_prices,
-    get_stocks_usa_prices,
-)
+from .helpers import get_b3_prices, get_crypto_prices, get_stocks_usa_prices
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
@@ -63,7 +57,7 @@ async def _fetch_prices(
     for i, result in enumerate(results):  # order is guaranteed
         if isinstance(result, Exception):
             # TODO: log error
-            print(result)
+            print(repr(result))
             continue
         prices.append({"prices": result, **task_metadata[i]})
 
@@ -71,7 +65,7 @@ async def _fetch_prices(
 
 
 async def update_prices() -> Exception | None:
-    error = None
+    exc = None
     try:
         assets_metadata_map, result = await _fetch_prices(
             qs=DjangoSQLAssetMetaDataRepository.filter_assets_eligible_for_update()
@@ -91,18 +85,7 @@ async def update_prices() -> Exception | None:
 
     except Exception as e:
         # TODO: log error
-        error = e
-        print(error)
+        exc = e
+        print(repr(exc))
 
-    return error
-
-
-def update_dollar_conversion_rate(value: Decimal | None = None) -> None:
-    if value is None:
-        try:
-            value = fetch_dollar_to_real_conversion_value()
-        except Exception:
-            # TODO: log error
-            value = Decimal("5.0")
-
-    key_value_backend.set(key="DOLLAR_CONVERSION_RATE", value=value)
+    return exc

@@ -48,7 +48,7 @@ const AssetsTypesMapping = [
   { label: "Ação B3", value: "STOCK" },
   { label: "Ação EUA", value: "STOCK_USA" },
   { label: "Criptoativos", value: "CRYPTO" },
-  { label: "Fundo de Investimento Imobiliário", value: "FII" },
+  { label: "FII", value: "FII" },
 ];
 
 const TransactionsActionsMapping = [

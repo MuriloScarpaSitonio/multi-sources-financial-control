@@ -7,6 +7,8 @@ import {
   Route,
   Redirect,
 } from "react-router-dom";
+import Link from "@material-ui/core/Link";
+import MuiAlert from "@material-ui/lab/Alert";
 
 import { Navbar } from "./components/Navbar";
 import { useHideValues } from "./hooks/useHideValues";
@@ -20,16 +22,23 @@ import { ForgotPasswordDone } from "./pages/ForgotPasswordDone";
 import { ResetPassword } from "./pages/ResetPassword";
 import { Signup } from "./pages/Signup";
 import { SignupDone } from "./pages/SignupDone";
+import { SubscriptionDone } from "./pages/SubscriptionDone";
 import PassiveIncomes from "./pages/PassiveIncomes";
 import Revenues from "./pages/Revenues";
+import Subscription from "./pages/Subscription";
 import Transactions from "./pages/Transactions";
 import User from "./pages/User";
-
+import { stringToBoolean } from "./helpers.js";
 import { AccessTokenStr } from "./consts";
 
 import "./App.css";
 
 const Wrapper = ({ isLoggedIn, ...props }) => {
+  let trialWillEndMessage = localStorage.getItem("user_trial_will_end_message");
+  const [showAlert, setShowAlert] = React.useState(
+    props.component.name !== "Login" && stringToBoolean(trialWillEndMessage)
+  );
+
   const hideValuesToggler = useHideValues();
   return (
     <div>
@@ -41,6 +50,24 @@ const Wrapper = ({ isLoggedIn, ...props }) => {
           <Navbar hideValuesToggler={hideValuesToggler} {...props} />
         )}
         <Container style={{ marginTop: "15px" }}>
+          {showAlert && (
+            <MuiAlert
+              elevation={6}
+              variant="outlined"
+              severity="warning"
+              onClose={() => setShowAlert(false)}
+            >
+              <div>
+                {trialWillEndMessage}
+                {props.component.name !== "User" && (
+                  <span>
+                    Vá até suas <Link href="/me?tab=1">configuraçōes</Link> para
+                    incluir ou alterar seus dados de cobrança
+                  </span>
+                )}
+              </div>
+            </MuiAlert>
+          )}
           <props.component {...props} />
         </Container>
       </div>
@@ -48,21 +75,32 @@ const Wrapper = ({ isLoggedIn, ...props }) => {
   );
 };
 
-const PrivateRoute = ({ component: Component, ...rest }) => {
+const PrivateRoute = ({ component, ...rest }) => {
   const isLoggedIn = Boolean(localStorage.getItem(AccessTokenStr));
+  const isSubscriptionDisabled =
+    localStorage.getItem("user_subscription_status") === "CANCELED";
 
-  return (
-    <Route
-      {...rest}
-      render={(props) =>
-        isLoggedIn ? (
-          <Wrapper {...props} isLoggedIn={isLoggedIn} component={Component} />
-        ) : (
-          <Redirect to={{ pathname: "/", state: { from: props.location } }} />
-        )
+  function getRoute(props, component) {
+    if (isLoggedIn) {
+      if (
+        isSubscriptionDisabled &&
+        !["Subscription", "SubscriptionDone", "User"].includes(component.name)
+      ) {
+        return (
+          <Redirect
+            to={{ pathname: "/subscription", state: { from: props.location } }}
+          />
+        );
+      } else {
+        return <Wrapper {...props} isLoggedIn={true} component={component} />;
       }
-    />
-  );
+    } else {
+      return (
+        <Redirect to={{ pathname: "/", state: { from: props.location } }} />
+      );
+    }
+  }
+  return <Route {...rest} render={(props) => getRoute(props, component)} />;
 };
 
 export default function App() {
@@ -142,7 +180,17 @@ export default function App() {
         <PrivateRoute exact path="/assets/incomes" component={PassiveIncomes} />
       </Switch>
       <Switch>
-        <PrivateRoute exact path="/me" component={User} />
+        <PrivateRoute path="/me" component={User} />
+      </Switch>
+      <Switch>
+        <PrivateRoute exact path="/subscription" component={Subscription} />
+      </Switch>
+      <Switch>
+        <PrivateRoute
+          exact
+          path="/subscription/done"
+          component={SubscriptionDone}
+        />
       </Switch>
     </Router>
   );

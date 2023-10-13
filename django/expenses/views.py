@@ -16,6 +16,7 @@ from rest_framework.status import HTTP_200_OK
 from rest_framework.utils.serializer_helpers import ReturnList
 from rest_framework.viewsets import GenericViewSet
 
+from shared.permissions import SubscriptionEndedPermission
 from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
 
 from .choices import ExpenseReportType
@@ -28,6 +29,7 @@ from .filters import (
 )
 from .managers import ExpenseQueryset, RevenueQueryset
 from .models import Expense, Revenue
+from .permissions import PersonalFinancesModulePermission
 from .serializers import (
     ExpenseIndicatorsSerializer,
     ExpenseSerializer,
@@ -47,7 +49,8 @@ class _PersonalFinanceViewSet(
 ):
     historic_filterset_class: ClassVar[FilterSet]
     indicators_serializer_class: ClassVar[Serializer]
-    ordering_fields = ("created_at",)
+    permission_classes = (SubscriptionEndedPermission, PersonalFinancesModulePermission)
+    ordering_fields = ("created_at", "value")
 
     @action(methods=("GET",), detail=False)
     def historic(self, request: Request) -> Response:
@@ -81,7 +84,6 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
     historic_filterset_class = ExpenseHistoricFilterSet
     serializer_class = ExpenseSerializer
     indicators_serializer_class = ExpenseIndicatorsSerializer
-    ordering_fields = ("created_at",)
 
     def get_queryset(self) -> ExpenseQueryset[Expense]:
         return (

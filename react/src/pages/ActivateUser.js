@@ -28,14 +28,16 @@ export const ActivateUser = (props) => {
   let { uidb64, token } = useParams();
   const history = useHistory();
   const classes = useStyles();
-  if (token !== TOKEN) {
-    // Store the token in the session and redirect to the
-    // URL without the token. This avoids the possibility of leaking the token in the
-    // HTTP Referer header.
-    sessionStorage.setItem(INTERNAL_ACTIVATE_USER_SESSION_TOKEN, token);
-    history.push(history.location.pathname.replace(token, TOKEN));
-  }
+
   useEffect(() => {
+    if (token !== TOKEN) {
+      // Store the token in the session and redirect to the
+      // URL without the token. This avoids the possibility of leaking the token in the
+      // HTTP Referer header.
+      sessionStorage.setItem(INTERNAL_ACTIVATE_USER_SESSION_TOKEN, token);
+      history.push(history.location.pathname.replace(token, TOKEN));
+      return;
+    }
     new AuthenticationApi()
       .activateUser(
         uidb64,
@@ -49,7 +51,6 @@ export const ActivateUser = (props) => {
       .finally(() => setIsLoaded(true));
   }, [uidb64, token, history]);
 
-  console.log(error);
   return (
     <Container component="main" maxWidth="xs">
       <div className={classes.paper}>

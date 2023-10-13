@@ -2,8 +2,8 @@ from decimal import Decimal
 
 from django.db.models import Q
 
+from ..adapters.key_value_store import get_dollar_conversion_rate
 from ..choices import Currencies
-from ..integrations.helpers import get_dollar_conversion_rate
 from ..models import Asset, AssetMetaData
 
 

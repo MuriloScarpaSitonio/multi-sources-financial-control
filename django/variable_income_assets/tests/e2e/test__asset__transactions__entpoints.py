@@ -1,4 +1,7 @@
+from django.utils import timezone
+
 import pytest
+from rest_framework.status import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN
 
 from config.settings.base import BASE_API_URL
 
@@ -115,3 +118,42 @@ def test__list__sanity_check(client, stock_usa_asset):
             }
         ],
     }
+
+
+def test__forbidden__module_not_enabled(user, client, stock_usa_asset):
+    # GIVEN
+    user.is_investments_module_enabled = False
+    user.is_investments_integrations_module_enabled = False
+    user.save()
+
+    # WHEN
+    response = client.get(URL.format(stock_usa_asset.pk))
+
+    # THEN
+    assert response.status_code == HTTP_403_FORBIDDEN
+    assert response.json() == {"detail": "Você não tem acesso ao módulo de investimentos"}
+
+
+def test__forbidden__subscription_ended(client, user, stock_usa_asset):
+    # GIVEN
+    user.subscription_ends_at = timezone.now()
+    user.save()
+
+    # WHEN
+    response = client.get(URL.format(stock_usa_asset.pk))
+
+    # THEN
+    assert response.status_code == HTTP_403_FORBIDDEN
+    assert response.json() == {"detail": "Sua assinatura expirou"}
+
+
+def test__unauthorized__inactive(client, user, stock_usa_asset):
+    # GIVEN
+    user.is_active = False
+    user.save()
+
+    # WHEN
+    response = client.get(URL.format(stock_usa_asset.pk))
+
+    # THEN
+    assert response.status_code == HTTP_401_UNAUTHORIZED

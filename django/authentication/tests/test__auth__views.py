@@ -159,6 +159,7 @@ def test__activate_user(api_client, user, mocker):
     assert user.stripe_customer_id == "cus_217903"
     assert user.stripe_subscription_id == "sub_1N"
     assert user.subscription_ends_at == timezone.now() + timedelta(days=7)
+    assert user.stripe_subscription_updated_at == timezone.now()
 
 
 def test__activate_user__wo_token(api_client, user):

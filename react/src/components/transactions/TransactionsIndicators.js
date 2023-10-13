@@ -20,7 +20,7 @@ const SUCCESS = "rgba(0, 201, 20, 0.5)";
 const DANGER = "rgba(255, 5, 5, 0.5)";
 
 const Indicators = ({ title, indicators, icon, color, secondaryIcon }) => {
-  const hideValues = Boolean(window.localStorage.getItem("hideValues"));
+  const hideValues = Boolean(localStorage.getItem("hideValues"));
 
   const card = (
     <Card>

@@ -25,7 +25,7 @@ const ExtraIndicators = ({
   secondColor,
   secondText,
 }) => {
-  const hideValues = Boolean(window.localStorage.getItem("hideValues"));
+  const hideValues = Boolean(localStorage.getItem("hideValues"));
   return (
     <>
       <Box
@@ -83,7 +83,7 @@ const ExtraIndicators = ({
 };
 
 const Indicators = ({ title, value, icon, color, extraIndicators = <></> }) => {
-  const hideValues = Boolean(window.localStorage.getItem("hideValues"));
+  const hideValues = Boolean(localStorage.getItem("hideValues"));
   return (
     <Card>
       <CardContent>

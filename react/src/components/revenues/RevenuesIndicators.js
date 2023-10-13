@@ -36,7 +36,7 @@ const Indicators = ({ title, indicators, icon, color, secondaryIcon }) => {
   const currentMonth = new Date().getMonth() + 1;
   const isPastRevenue = parseInt(indicatorsMonth) < currentMonth;
   const borderStyle = isPastRevenue ? "1px solid red" : "1px solid white";
-  const hideValues = Boolean(window.localStorage.getItem("hideValues"));
+  const hideValues = Boolean(localStorage.getItem("hideValues"));
 
   return (
     <Card style={{ border: borderStyle, height: 180 }}>

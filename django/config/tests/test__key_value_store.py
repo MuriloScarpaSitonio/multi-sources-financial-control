@@ -2,7 +2,7 @@ from time import monotonic, sleep
 
 import pytest
 
-from variable_income_assets.adapters import RedisBackendWInMemoryCache
+from ..key_value_store import RedisBackendWInMemoryCache
 
 
 @pytest.fixture
@@ -39,9 +39,7 @@ def test__redis_backend__set_memory_cache(redis_backend):
 
 def test__redis_backend__use_memory_cache(redis_backend, mocker):
     # GIVEN
-    redis_get_mocked = mocker.patch(
-        "variable_income_assets.adapters.key_value_store.RedisBackend.get", return_value=1
-    )
+    redis_get_mocked = mocker.patch("config.key_value_store.RedisBackend.get", return_value=1)
     redis_backend.set("test", 1)
 
     # WHEN
@@ -56,9 +54,7 @@ def test__redis_backend__use_memory_cache(redis_backend, mocker):
 
 def test__redis_backend__renew_memory_cache(redis_backend, mocker):
     # GIVEN
-    redis_get_mocked = mocker.patch(
-        "variable_income_assets.adapters.key_value_store.RedisBackend.get", return_value=2
-    )
+    redis_get_mocked = mocker.patch("config.key_value_store.RedisBackend.get", return_value=2)
 
     redis_backend.timeout = 1  # it's the smallest possible value
     redis_backend.set("test", 1)

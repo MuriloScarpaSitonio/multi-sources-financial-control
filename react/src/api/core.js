@@ -6,8 +6,8 @@ class Api {
       this.query = (filters = "") =>
         apiProvider.Query(`${this.resource}?${filters}`);
     }
-    if (methods.get) {
-      this.get = () => apiProvider.get(`${this.resource}/${id}`);
+    if (methods.retrieve) {
+      this.retrieve = () => apiProvider.get(`${this.resource}/${id}`);
     }
     if (methods.post) {
       this.post = (data) => apiProvider.post(this.resource, data);
@@ -29,7 +29,7 @@ class _PersonalFinancesApi extends Api {
     super(
       {
         query: true,
-        get: false,
+        retrieve: false,
         post: true,
         put: true,
         patch: false,
@@ -85,14 +85,37 @@ export class UserApi extends Api {
     super(
       {
         query: false,
-        get: true,
-        post: true,
+        retrieve: true,
+        post: false,
         put: false,
         patch: true,
         delete: false,
       },
       id
     );
+    this.changePassword = (data) =>
+      apiProvider.patch(`${this.resource}/change_password`, data);
+  }
+}
+export class SubscriptionApi extends Api {
+  resource = "subscription";
+  constructor(id = null) {
+    super(
+      {
+        query: false,
+        retrieve: false,
+        post: false,
+        put: false,
+        patch: false,
+        delete: false,
+      },
+      id
+    );
+    this.createPortalSession = () =>
+      apiProvider.post(`${this.resource}/portal_session`);
+    this.createCheckoutSession = (price_id) =>
+      apiProvider.post(`${this.resource}/checkout_session`, { price_id });
+    this.getProducts = () => apiProvider.get(`${this.resource}/products`);
   }
 }
 export class AssetsApi extends Api {
@@ -101,7 +124,7 @@ export class AssetsApi extends Api {
     super(
       {
         query: true,
-        get: false,
+        retrieve: false,
         post: true,
         put: true,
         patch: false,
@@ -133,7 +156,7 @@ export class PassiveIncomesApi extends Api {
     super(
       {
         query: true,
-        get: false,
+        retrieve: false,
         post: true,
         put: true,
         patch: true,
@@ -159,7 +182,7 @@ export class TasksApi extends Api {
     super(
       {
         query: false,
-        get: false,
+        retrieve: false,
         post: false,
         put: false,
         patch: false,
@@ -185,7 +208,7 @@ export class TransactionsApi extends Api {
     super(
       {
         query: true,
-        get: false,
+        retrieve: false,
         post: true,
         put: true,
         patch: true,
@@ -196,10 +219,6 @@ export class TransactionsApi extends Api {
 
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
     this.historic = () => apiProvider.get(`${this.resource}/historic`);
-    this.syncKuCoin = () =>
-      apiProvider.get(`${this.resource}/integrations/kucoin`);
-    this.syncBinance = () =>
-      apiProvider.get(`${this.resource}/integrations/binance`);
   }
 }
 
@@ -208,7 +227,7 @@ export class AssetTransactionsApi extends Api {
     super(
       {
         query: true,
-        get: false,
+        retrieve: false,
         post: false,
         put: false,
         patch: false,
@@ -228,7 +247,7 @@ export class AssetIncomessApi extends Api {
     super(
       {
         query: true,
-        get: false,
+        retrieve: false,
         post: false,
         put: false,
         patch: false,

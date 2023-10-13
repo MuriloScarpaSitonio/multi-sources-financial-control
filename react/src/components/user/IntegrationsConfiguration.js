@@ -14,7 +14,7 @@ import Typography from "@material-ui/core/Typography";
 import SettingsIcon from "@material-ui/icons/Settings";
 
 import { UserApi } from "../../api";
-import { evaluateBooleanFromLocalStorage } from "../../helpers.js";
+import { stringToBoolean } from "../../helpers.js";
 import { FormFeedback } from "../../components/FormFeedback";
 import { BinanceIntegrationConfigurationForm } from "../../forms/BinanceIntegrationConfigurationForm";
 import { KuCoinIntegrationConfigurationForm } from "../../forms/KuCoinIntegrationConfigurationForm";
@@ -135,7 +135,7 @@ const KucoinIntegrationConfiguration = ({ userId }) => {
   const [dialogIsOpened, setDialogIsOpened] = useState(false);
   const [configDialogIsOpened, setConfigDialogIsOpened] = useState(false);
 
-  let value = evaluateBooleanFromLocalStorage(
+  let value = stringToBoolean(
     localStorage.getItem("user_has_kucoin_integration")
   );
   return (
@@ -201,7 +201,7 @@ const BinanceIntegrationConfiguration = ({ userId }) => {
   const [dialogIsOpened, setDialogIsOpened] = useState(false);
   const [configDialogIsOpened, setConfigDialogIsOpened] = useState(false);
 
-  let value = evaluateBooleanFromLocalStorage(
+  let value = stringToBoolean(
     localStorage.getItem("user_has_binance_integration")
   );
   return (

@@ -21,6 +21,7 @@ from authentication.tests.conftest import (
     user_with_kucoin_integration,
 )
 
+from ..adapters.key_value_store import update_dollar_conversion_rate
 from ..choices import (
     AssetObjectives,
     AssetSectors,
@@ -31,7 +32,6 @@ from ..choices import (
     TransactionActions,
 )
 from ..integrations.binance.client import BinanceClient
-from ..integrations.handlers import update_dollar_conversion_rate
 from ..integrations.kucoin.client import KuCoinClient
 from ..management.commands.sync_assets_cqrs import Command as SyncAssetReadModelCommand
 from ..models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
@@ -162,7 +162,7 @@ def fii_transaction(fii_asset):
         price=101,
         asset=fii_asset,
         quantity=50,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -196,7 +196,7 @@ def stock_usa_transaction(stock_usa_asset):
         price=10,
         asset=stock_usa_asset,
         quantity=50,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -209,7 +209,7 @@ def stock_usa_transaction_sell(stock_usa_asset):
         initial_price=10,
         current_currency_conversion_rate=4.67,
         quantity=50,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -240,7 +240,7 @@ def assets_w_incomes(user):
             event_type=PassiveIncomeEventTypes.credited,
             asset=asset,
             current_currency_conversion_rate=1,
-            operation_date=timezone.now().date() - relativedelta(months=i * 2),
+            operation_date=timezone.localdate() - relativedelta(months=i * 2),
         )
 
 
@@ -314,7 +314,7 @@ def transactions(stock_asset):
             price=randint(5, 10),
             asset=stock_asset,
             quantity=100 * i,
-            operation_date=timezone.now().date(),
+            operation_date=timezone.localdate(),
         )
     TransactionFactory(
         action=TransactionActions.sell,
@@ -323,7 +323,7 @@ def transactions(stock_asset):
         quantity=100,
         initial_price=5,
         current_currency_conversion_rate=1,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
     TransactionFactory(
         action=TransactionActions.sell,
@@ -332,7 +332,7 @@ def transactions(stock_asset):
         quantity=50,
         initial_price=5,
         current_currency_conversion_rate=1,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -343,7 +343,7 @@ def crypto_transaction(crypto_asset):
         price=10,
         asset=crypto_asset,
         quantity=50,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -354,7 +354,7 @@ def crypto_brl_transaction(crypto_asset_brl):
         price=5,
         asset=crypto_asset_brl,
         quantity=500,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -365,7 +365,7 @@ def another_stock_asset_transactions(another_stock_asset):
         price=10,
         asset=another_stock_asset,
         quantity=50,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
     TransactionFactory(
         action=TransactionActions.sell,
@@ -374,7 +374,7 @@ def another_stock_asset_transactions(another_stock_asset):
         quantity=50,
         initial_price=10,
         current_currency_conversion_rate=1,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -387,14 +387,14 @@ def passive_incomes(stock_asset):
             event_type=PassiveIncomeEventTypes.credited,
             asset=stock_asset,
             current_currency_conversion_rate=1,
-            operation_date=timezone.now().date() - relativedelta(month=i),
+            operation_date=timezone.localdate() - relativedelta(month=i),
         )
         PassiveIncomeFactory(
             type=PassiveIncomeTypes.dividend,
             amount=randint(100, 500),
             event_type=PassiveIncomeEventTypes.provisioned,
             asset=stock_asset,
-            operation_date=timezone.now().date() + relativedelta(month=i),
+            operation_date=timezone.localdate() + relativedelta(month=i),
         )
 
 
@@ -617,7 +617,7 @@ def buy_transaction(stock_asset):
         price=10,
         asset=stock_asset,
         quantity=50,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -630,7 +630,7 @@ def sell_transaction(stock_asset):
         asset=stock_asset,
         quantity=50,
         initial_price=10,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -642,7 +642,7 @@ def simple_income(stock_asset):
         event_type=PassiveIncomeEventTypes.credited,
         asset=stock_asset,
         current_currency_conversion_rate=1,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -654,7 +654,7 @@ def another_income(stock_usa_asset):
         event_type=PassiveIncomeEventTypes.credited,
         asset=stock_usa_asset,
         current_currency_conversion_rate=4.81,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -689,7 +689,7 @@ def loss_asset_bought_transactions_incomes_profit(
         event_type=PassiveIncomeEventTypes.credited,
         asset=stock_asset,
         current_currency_conversion_rate=1,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -709,7 +709,7 @@ def profit_asset_both_transactions(stock_asset, profit_asset_bought_transactions
         current_currency_conversion_rate=1,
         asset=stock_asset,
         quantity=25,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -723,7 +723,7 @@ def loss_asset_both_transactions(stock_asset, loss_asset_bought_transactions):
         current_currency_conversion_rate=1,
         asset=stock_asset,
         quantity=25,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -744,7 +744,7 @@ def loss_asset_both_transactions_incomes_profit(
         event_type=PassiveIncomeEventTypes.credited,
         asset=stock_asset,
         current_currency_conversion_rate=1,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -757,7 +757,7 @@ def loss_asset_both_transactions_incomes_loss(stock_asset, loss_asset_both_trans
         event_type=PassiveIncomeEventTypes.credited,
         asset=stock_asset,
         current_currency_conversion_rate=1,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -801,7 +801,7 @@ def profit_asset_usa_both_transactions(stock_usa_asset, profit_asset_usa_bought_
         current_currency_conversion_rate=5.1,
         asset=stock_usa_asset,
         quantity=25,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -815,7 +815,7 @@ def loss_asset_usa_both_transactions(stock_usa_asset, loss_asset_usa_bought_tran
         current_currency_conversion_rate=6.6,
         asset=stock_usa_asset,
         quantity=25,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -854,7 +854,7 @@ def indicators_data(
         price=10,
         asset=stock_usa_asset,
         quantity=50,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
     TransactionFactory(
         action=TransactionActions.sell,
@@ -863,7 +863,7 @@ def indicators_data(
         price=20,
         asset=stock_usa_asset,
         quantity=50,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
@@ -891,20 +891,20 @@ def report_data(indicators_data, stock_usa_asset, user):
         price=10,
         asset=asset,
         quantity=50,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
     TransactionFactory(
         action=TransactionActions.buy,
         price=12,
         asset=asset,
         quantity=50,
-        operation_date=timezone.now().date(),
+        operation_date=timezone.localdate(),
     )
 
 
 @pytest.fixture
 def transactions_indicators_data(stock_asset, crypto_transaction):
-    today = timezone.now().date()
+    today = timezone.localdate()
 
     for _ in range(4):
         TransactionFactory(
@@ -947,7 +947,7 @@ def transactions_indicators_data(stock_asset, crypto_transaction):
 
 @pytest.fixture
 def irpf_assets_data(stock_usa_asset):
-    today = timezone.now().date()
+    today = timezone.localdate()
 
     for i in range(4):
         TransactionFactory(
@@ -987,7 +987,7 @@ def irpf_assets_data(stock_usa_asset):
 
 @pytest.fixture
 def irpf_transactions_data(stock_usa_asset):
-    today = timezone.now().date()
+    today = timezone.localdate()
 
     for _ in range(4):
         quantity = randint(100, 1000)

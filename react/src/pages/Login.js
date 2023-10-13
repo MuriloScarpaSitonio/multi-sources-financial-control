@@ -16,6 +16,7 @@ import * as yup from "yup";
 import { AuthenticationApi } from "../api";
 import { AccessTokenStr, RefreshTokenStr } from "../consts";
 import { FormFeedback } from "../components/FormFeedback";
+import { setUserDataToLocalStorage } from "../helpers.js";
 
 const useStyles = makeStyles((theme) => ({
   paper: {
@@ -23,10 +24,6 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-  },
-  avatar: {
-    margin: theme.spacing(1),
-    backgroundColor: theme.palette.secondary.main,
   },
   form: {
     width: "100%", // Fix IE 11 issue.
@@ -38,8 +35,11 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 const schema = yup.object().shape({
-  email: yup.string().email().required(),
-  password: yup.string().min(4).required(),
+  email: yup
+    .string()
+    .email("Insira um email válido")
+    .required("Campo obrigatório"),
+  password: yup.string().min(4).required("Campo obrigatório"),
 });
 
 export const Login = (props) => {
@@ -66,14 +66,16 @@ export const Login = (props) => {
       .then((response) => {
         localStorage.setItem(RefreshTokenStr, response.data.refresh);
         localStorage.setItem(AccessTokenStr, response.data.access);
-        for (const [key, value] of Object.entries(response.data.user)) {
-          localStorage.setItem("user_" + key, value);
-        }
         setAlertInfos({
           message: "Sucesso! Redirecionando...",
           severity: "success",
         });
-        props.history.push("/home");
+        setUserDataToLocalStorage(response.data.user);
+        if (response.data.user.subscription_status === "CANCELED") {
+          props.history.push("/subscription");
+        } else {
+          props.history.push("/home");
+        }
       })
       .catch((error) => {
         setAlertInfos({
@@ -87,12 +89,12 @@ export const Login = (props) => {
         setShowAlert(true);
       });
   };
-  // if (
-  //   localStorage.getItem(AccessTokenStr) &&
-  //   localStorage.getItem(RefreshTokenStr)
-  // ) {
-  //   props.history.push("/home");
-  // }
+  if (
+    localStorage.getItem(AccessTokenStr) &&
+    localStorage.getItem(RefreshTokenStr)
+  ) {
+    props.history.push("/home");
+  }
   return (
     <Container component="main" maxWidth="xs">
       <div className={classes.paper}>
@@ -112,7 +114,6 @@ export const Login = (props) => {
                 required
                 fullWidth
                 label="E-mail"
-                autoFocus
                 error={!!errors.email}
                 helperText={errors.email?.message}
               />

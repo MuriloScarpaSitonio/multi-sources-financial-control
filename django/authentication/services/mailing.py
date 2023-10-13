@@ -56,5 +56,5 @@ def dispatch_trial_will_end_email(user: UserModel) -> None:
     _send_email(
         to=[user.email],
         template_id=settings.BREVO_TEMPLATE_IDS["triall_will_end"],
-        merge_global_data={"url": urljoin(settings.FRONTEND_BASE_URL, "/me")},
+        merge_global_data={"url": urljoin(settings.FRONTEND_BASE_URL, "/me?tab=1")},
     )

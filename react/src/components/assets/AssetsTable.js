@@ -495,7 +495,7 @@ export const AssetsTable = () => {
       label: "Código",
       options: {
         filter: false,
-        sort: false,
+        sort: true,
       },
     },
     {

@@ -70,7 +70,7 @@ function getTabProps(index) {
   };
 }
 
-const TransactionHistoricChartComponent = ({ data, fetchHistoricData }) => {
+const TransactionHistoricChartComponent = ({ data }) => {
   const ONLY_DIFF_TEXT = "Diferença entre compra e venda";
   const BUY_AND_SELL_TEXT = "Compra e venda";
 
@@ -206,7 +206,6 @@ export const TransactionsReports = () => {
         {!isLoaded && <Loader />}
         <TransactionHistoricChartComponent
           data={data}
-          fetchHistoricData={fetchHistoricData}
         />
       </TabPanel>
     </Grid>

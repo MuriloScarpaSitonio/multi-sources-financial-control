@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Self
 from django.db import models
 
 from ...adapters import DjangoSQLAssetMetaDataRepository
+from ...adapters.key_value_store import get_dollar_conversion_rate
 from ...choices import AssetsTotalInvestedReportAggregations, Currencies
 
 if TYPE_CHECKING:
@@ -18,8 +19,6 @@ class _Expressions:
         metadata_repository: AbstractAssetMetaDataRepository,
         dollar_conversion_rate: Decimal | None = None,
     ) -> None:
-        from ...integrations.helpers import get_dollar_conversion_rate
-
         self.dollar_conversion_rate = (
             models.Value(dollar_conversion_rate)
             if dollar_conversion_rate is not None

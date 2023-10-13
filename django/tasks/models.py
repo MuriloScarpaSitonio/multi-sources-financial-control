@@ -48,17 +48,17 @@ class TaskHistory(models.Model):
         await self.asave(update_fields=("started_at", "state", "updated_at"))
 
     async def finish(
-        self, notification_display_text: str = "", error: Exception | None = None
+        self, notification_display_text: str = "", exc: Exception | None = None
     ) -> None:
         update_fields = ["finished_at", "state", "updated_at", "notification_display_text"]
         self.finished_at = timezone.now()
 
-        if error is None:
+        if exc is None:
             self.state = TaskStates.success
             self.notification_display_text = notification_display_text
         else:
             self.state = TaskStates.failure
-            self.error = repr(error)
+            self.error = repr(exc)
             self.notification_display_text = ERROR_DISPLAY_TEXT
             update_fields.append("error")
 

@@ -21,8 +21,8 @@ let privateAxios = axios.create({
 });
 
 const logout = () => {
-  window.localStorage.removeItem(AccessTokenStr);
-  window.localStorage.removeItem(RefreshTokenStr);
+  localStorage.removeItem(AccessTokenStr);
+  localStorage.removeItem(RefreshTokenStr);
   privateAxios.defaults.headers = {};
 };
 

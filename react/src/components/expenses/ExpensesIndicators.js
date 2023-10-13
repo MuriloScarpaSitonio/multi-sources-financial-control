@@ -136,7 +136,7 @@ const Indicators = ({
   setCreateRevenueDialogIsOpened = null,
 }) => {
   const isRevenue = title.includes("RECEITA");
-  const hideValues = Boolean(window.localStorage.getItem("hideValues"));
+  const hideValues = Boolean(localStorage.getItem("hideValues"));
 
   return (
     <Card style={{ border: "1px solid white", height: condensed ? 160 : 180 }}>

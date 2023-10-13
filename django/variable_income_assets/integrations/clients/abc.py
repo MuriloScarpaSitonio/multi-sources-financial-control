@@ -10,11 +10,11 @@ if TYPE_CHECKING:
 
 
 class AbstractTransactionsClient(ABC):
-    def __init__(self, secrets: IntegrationSecret, timeout: int = 30) -> None:
+    def __init__(self, secrets: IntegrationSecret, timeout: int = 300) -> None:
         self._secrets = secrets
         self._session = ClientSession(
             timeout=ClientTimeout(total=timeout),
-            connector=TCPConnector(limit=30, ssl=False, force_close=True),
+            connector=TCPConnector(ssl=False, force_close=True),
         )
         self._session.headers.update(self._get_headers())
 

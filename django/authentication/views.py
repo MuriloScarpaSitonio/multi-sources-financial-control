@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db.models import QuerySet
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 
 from rest_framework.decorators import action
 from rest_framework.mixins import CreateModelMixin, RetrieveModelMixin, UpdateModelMixin
@@ -15,7 +16,6 @@ from rest_framework.status import HTTP_200_OK, HTTP_204_NO_CONTENT
 from rest_framework.viewsets import GenericViewSet
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.views import TokenObtainPairView
-from stripe import Webhook as StripeWebhook
 
 from .auth import UIDB64Authentication
 from .serializers import (
@@ -23,11 +23,10 @@ from .serializers import (
     ChangePasswordSerializer,
     ResetPasswordRequestSerializer,
     ResetPasswordSerializer,
-    StripeSessionSerializer,
+    StripeCheckoutSessionSerializer,
     UserSerializer,
 )
-from .services import activate_user as activate_user_handler
-from .services import mailing, stripe
+from .services import mailing, stripe, subscription
 
 if TYPE_CHECKING:
     from django.core.handlers.asgi import ASGIRequest
@@ -38,7 +37,12 @@ UserModel = get_user_model()
 
 class UserViewSet(GenericViewSet, CreateModelMixin, RetrieveModelMixin, UpdateModelMixin):
     serializer_class = UserSerializer
-    queryset = UserModel.objects.select_related("secrets").all()
+
+    def get_queryset(self) -> QuerySet[UserModel]:
+        if self.request.user.is_authenticated:
+            print(self.action, self.request.method)
+            return UserModel.objects.select_related("secrets").filter(pk=self.request.user.pk)
+        return UserModel.objects.none()  # pragma: no cover -- drf-spectacular
 
     def get_permissions(self) -> list:
         return [] if self.action == "create" else super().get_permissions()
@@ -98,34 +102,41 @@ class AuthViewSet(GenericViewSet):
             data=request.data, context={"user": request.user, "token_expires": False}
         )
         serializer.is_valid(raise_exception=True)
-        activate_user_handler(user=request.user)
+        subscription.activate_user(user=request.user)
         return Response(status=HTTP_204_NO_CONTENT)
 
 
 class SubscriptionViewSet(GenericViewSet):
     @action(methods=("POST",), detail=False)
-    def checkout_session(self, request: Request) -> Response:
-        serializer = StripeSessionSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        session = stripe.create_checkout_session(
-            stripe_customer_id=request.user.stripe_customer_id, price_id=serializer.get_price_id()
-        )
-        return Response({"session_id": session.stripe_id, "url": session.url}, status=HTTP_200_OK)
-
-    @action(methods=("POST",), detail=False)
     def portal_session(self, request: Request) -> Response:
-        session = stripe.create_portal_session(stripe_customer_id=request.user.stripe_customer_id)
+        session = stripe.create_portal_session(customer_id=request.user.stripe_customer_id)
         return Response({"url": session.url}, status=HTTP_200_OK)
 
-    @action(methods=("PATCH",), detail=False)
-    def modify(self, request: Request) -> Response:
-        serializer = StripeSessionSerializer(data=request.data)
+    @action(methods=("POST",), detail=False)
+    def checkout_session(self, request: Request) -> Response:
+        serializer = StripeCheckoutSessionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        stripe.modify_subscription(
-            stripe_subscription_id=request.user.stripe_subscription_id,
-            price_id=serializer.get_price_id(),
+        session = stripe.create_checkout_session(
+            customer_id=request.user.stripe_customer_id,
+            price_id=serializer.validated_data["price_id"],
         )
-        return Response(status=HTTP_200_OK)
+        return Response({"url": session.url}, status=HTTP_200_OK)
+
+    @action(methods=("GET",), detail=False)
+    def products(self, _: Request) -> Response:
+        return Response(
+            {
+                "products": {
+                    p.metadata.app_name: {
+                        "price_id": p.default_price.id,
+                        "description": p.name,
+                        "amount": p.default_price.unit_amount / 100,
+                    }
+                    for p in stripe.list_active_products()
+                }
+            },
+            status=HTTP_200_OK,
+        )
 
 
 class TokenWUserObtainPairView(TokenObtainPairView):
@@ -144,17 +155,13 @@ class TokenWUserObtainPairView(TokenObtainPairView):
 
 
 @csrf_exempt
+@require_POST
 def stripe_webhook(request: WSGIRequest | ASGIRequest) -> HttpResponse:
     try:
-        event = StripeWebhook.construct_event(
-            payload=request.body,
-            sig_header=request.headers.get("Stripe-Signature"),
-            secret=settings.STRIPE_WEBHOOK_SECRET,
-            api_key=settings.STRIPE_SECRET_KEY,
-        )
+        event = stripe.construct_event(request)
     except Exception:
         return HttpResponse(status=400)
 
-    stripe.StripeHandlersRegistry.run(event)
+    stripe.process_event(event)
 
     return HttpResponse(status=200)

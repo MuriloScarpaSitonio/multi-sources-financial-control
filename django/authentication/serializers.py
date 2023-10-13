@@ -1,10 +1,12 @@
-from django.conf import settings
 from django.contrib.auth import get_user_model, password_validation
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.transaction import atomic
+from django.utils import timezone
 
+from dateutil.relativedelta import relativedelta
 from rest_framework import serializers, validators
 
+from .choices import SubscriptionStatus
 from .models import IntegrationSecret
 from .services.token_generator import token_generator
 
@@ -107,6 +109,7 @@ class IntegrationSecretSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     secrets = IntegrationSecretSerializer(required=False, write_only=True)
     password2 = serializers.CharField(required=False, write_only=True, min_length=4)
+    trial_will_end_message = serializers.SerializerMethodField()
 
     class Meta:
         model = UserModel
@@ -120,6 +123,12 @@ class UserSerializer(serializers.ModelSerializer):
             "has_kucoin_integration",
             "has_binance_integration",
             "secrets",
+            "trial_will_end_message",
+            "is_personal_finances_module_enabled",
+            "is_investments_module_enabled",
+            "is_investments_integrations_module_enabled",
+            "subscription_status",
+            "stripe_subscription_updated_at",
         )
         extra_kwargs = {
             "email": {
@@ -131,7 +140,25 @@ class UserSerializer(serializers.ModelSerializer):
                 ]
             },
             "password": {"write_only": True, "required": False},
+            "is_personal_finances_module_enabled": {"read_only": True},
+            "is_investments_module_enabled": {"read_only": True},
+            "is_investments_integrations_module_enabled": {"read_only": True},
+            "subscription_status": {"read_only": True},
+            "stripe_subscription_updated_at": {"read_only": True},
         }
+
+    def get_trial_will_end_message(self, user: UserModel) -> str | None:
+        delta = relativedelta(user.subscription_ends_at, timezone.localtime())
+        if (
+            delta.days <= 3
+            and user.subscription_status == SubscriptionStatus.TRIALING
+            and not user.has_default_payment_method
+        ):
+            return (
+                f"O período de testes termina em {delta.days} dia(s)"
+                if delta.days
+                else f"O período de testes termina em {delta.hours} hora(s)"
+            )
 
     def validate(self, attrs: dict[str, str]) -> dict[str, str]:
         if not self.instance:
@@ -235,8 +262,5 @@ class ResetPasswordRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
 
 
-class StripeSessionSerializer(serializers.Serializer):
-    plan_id = serializers.ChoiceField(choices=tuple(settings.STRIPE_SUBSCRIPTION_TYPE_PRICE_MAP))
-
-    def get_price_id(self) -> str:
-        return settings.STRIPE_SUBSCRIPTION_TYPE_PRICE_MAP[self.validated_data["plan_id"]]
+class StripeCheckoutSessionSerializer(serializers.Serializer):
+    price_id = serializers.CharField()

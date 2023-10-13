@@ -10,23 +10,18 @@ from rest_framework.status import (
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
+    HTTP_401_UNAUTHORIZED,
+    HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
 )
 
-from authentication.tests.conftest import (
-    client,
-    kucoin_client,
-    kucoin_secrets,
-    secrets,
-    user,
-    user_with_kucoin_integration,
-)
 from config.settings.base import BASE_API_URL
 from shared.tests import convert_and_quantitize
 from tasks.models import TaskHistory
-from variable_income_assets.choices import AssetTypes, Currencies, TransactionActions
-from variable_income_assets.integrations.helpers import get_dollar_conversion_rate
-from variable_income_assets.models import Transaction
+
+from ...adapters.key_value_store import get_dollar_conversion_rate
+from ...choices import AssetTypes, Currencies, TransactionActions
+from ...models import Transaction
 
 pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "transactions"
@@ -746,3 +741,42 @@ def test__list__sanity_check(client, buy_transaction):
             }
         ],
     }
+
+
+def test__forbidden__module_not_enabled(user, client):
+    # GIVEN
+    user.is_investments_module_enabled = False
+    user.is_investments_integrations_module_enabled = False
+    user.save()
+
+    # WHEN
+    response = client.get(URL)
+
+    # THEN
+    assert response.status_code == HTTP_403_FORBIDDEN
+    assert response.json() == {"detail": "Você não tem acesso ao módulo de investimentos"}
+
+
+def test__forbidden__subscription_ended(client, user):
+    # GIVEN
+    user.subscription_ends_at = timezone.now()
+    user.save()
+
+    # WHEN
+    response = client.get(URL)
+
+    # THEN
+    assert response.status_code == HTTP_403_FORBIDDEN
+    assert response.json() == {"detail": "Sua assinatura expirou"}
+
+
+def test__unauthorized__inactive(client, user):
+    # GIVEN
+    user.is_active = False
+    user.save()
+
+    # WHEN
+    response = client.get(URL)
+
+    # THEN
+    assert response.status_code == HTTP_401_UNAUTHORIZED

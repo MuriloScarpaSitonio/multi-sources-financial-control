@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import Iterator
 from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from django.conf import settings
 from django.db.transaction import atomic
 from django.utils import timezone
 
@@ -15,17 +14,15 @@ from aiohttp.web_exceptions import HTTPException
 from asgiref.sync import async_to_sync, sync_to_async
 
 from authentication.models import IntegrationSecret
-from config.settings.base import ENV_PRODUCTION
-from tasks.models import TaskHistory
 
-from ..adapters import key_value_backend
+from ..adapters.key_value_store import get_dollar_conversion_rate
 from ..choices import AssetObjectives, AssetSectors, AssetTypes, Currencies
 from ..domain.events import TransactionsCreated
 from ..integrations.clients.abc import AbstractTransactionsClient
 from ..models import Asset
 from ..service_layer.unit_of_work import DjangoUnitOfWork
 from ..tasks import maybe_create_asset_metadata
-from .clients import BrApiClient, QStashClient, TwelveDataClient
+from .clients import BrApiClient, TwelveDataClient
 
 if TYPE_CHECKING:
     from .schemas import TransactionFromIntegration, TransactionPydanticModel
@@ -44,11 +41,6 @@ async def get_crypto_prices(codes: list[str], currency: Currencies):
 async def get_stocks_usa_prices(codes: list[str]):
     async with TwelveDataClient() as c:
         return await c.get_prices(codes=codes)
-
-
-def get_dollar_conversion_rate() -> Decimal:
-    value = key_value_backend.get(key="DOLLAR_CONVERSION_RATE")
-    return value if value is not None else Decimal("5.0")
 
 
 # TODO: fetch API
@@ -104,7 +96,7 @@ class TransactionsIntegrationOrchestrator:
         self.user_id = user_id
 
     async def sync(self) -> tuple[str, Exception | None]:
-        notification_display_text, error = "", None
+        notification_display_text, exc = "", None
         try:
             async with self._client_class(
                 secrets=await IntegrationSecret.objects.aget(user=self.user_id)
@@ -115,11 +107,11 @@ class TransactionsIntegrationOrchestrator:
             notification_display_text = f"{count} transações encontradas"
 
         except Exception as e:
-            error = e
-            if isinstance(error, ClientError | HTTPException | HttpProcessingError):
-                error.__retryable__ = True
+            exc = e
+            if isinstance(exc, ClientError | HTTPException | HttpProcessingError):
+                exc.__retryable__ = True
 
-        return notification_display_text, error
+        return notification_display_text, exc
 
     def _convert_and_validate_data(
         self, data: dict[str, Any]
@@ -181,16 +173,3 @@ class TransactionsIntegrationOrchestrator:
                     message=TransactionsCreated(asset_pk=asset.pk, new_asset=asset.__created__),
                     uow=uow,
                 )
-
-
-async def dispatch(task: Callable[..., Awaitable[Any]], user_id: int) -> str:
-    task_history = await TaskHistory.objects.acreate(name=task.name, created_by_id=user_id)
-    kwargs = {"task_history_id": task_history.id, "user_id": user_id}
-
-    if settings.ENVIRONMENT == ENV_PRODUCTION:
-        async with QStashClient() as client:
-            await client.publish(target_url=task.get_invocation_url(), data=kwargs)
-    else:
-        await task(**kwargs)
-
-    return str(task_history.id)

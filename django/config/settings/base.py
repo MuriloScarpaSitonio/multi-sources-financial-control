@@ -139,7 +139,9 @@ BREVO_TEMPLATE_IDS = {
 }
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": ("authentication.auth.CustomJWTAuthentication",),
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_PAGINATION_CLASS": "shared.pagination.CustomPageNumberPagination",
     "DEFAULT_FILTER_BACKENDS": (
@@ -169,6 +171,8 @@ FERNET_KEY = secret(
 )
 
 TWELVE_DATA_API_KEY = secret("TWELVE_DATA_API_KEY", default="")
+
+BRAPI_API_KEY = secret("BRAPI_API_KEY", default="")
 
 USD_CRYPTO_SYMBOLS = ("USDT", "USDC", "BUSD", "TUSD")
 
@@ -203,12 +207,7 @@ FRONTEND_BASE_URL = secret("FRONTEND_URL", default="http://localhost:3000")
 
 STRIPE_SECRET_KEY = secret("STRIPE_SECRET_KEY", default="")
 STRIPE_PUBLIC_KEY = secret("STRIPE_PUBLIC_KEY", default="")
-STRIPE_SUBSCRIPTION_TYPE_PRICE_MAP = {
-    "PERSONAL_FINANCES_MONTHLY": secret("PERSONAL_FINANCES_MONTHLY", default=""),
-    "PERSONAL_FINANCES_YEARLY": secret("PERSONAL_FINANCES_YEARLY", default=""),
-    "INVESTMENTS_MONTHLY": secret("INVESTMENTS_MONTHLY", default=""),
-    "INVESTMENTS_YEARLY": secret("INVESTMENTS_YEARLY", default=""),
-    "ALL_MONTHLY": secret("ALL_MONTHLY", default=""),
-    "ALL_YEARLY": secret("ALL_YEARLY", default=""),
-}
 STRIPE_WEBHOOK_SECRET = secret("STRIPE_WEBHOOK_SECRET", default="")
+STRIPE_TRIAL_SUBSCRIPTION_PRICE_ID = secret("STRIPE_TRIAL_SUBSCRIPTION_PRICE_ID", default="")
+
+DEFAULT_TRIAL_PERIOD_IN_DAYS = secret("DEFAULT_TRIAL_PERIOD_IN_DAYS", default=7, cast=int)

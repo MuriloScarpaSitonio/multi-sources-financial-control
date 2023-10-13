@@ -37,9 +37,12 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 const schema = yup.object().shape({
-  email: yup.string().email().required(),
-  username: yup.string().required(),
-  password: yup.string().min(4).required(),
+  email: yup
+    .string()
+    .email("Insira um email válido")
+    .required("Campo obrigatório"),
+  username: yup.string().required("Campo obrigatório"),
+  password: yup.string().min(4).required("Campo obrigatório"),
   password2: yup
     .string()
     .min(4)

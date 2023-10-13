@@ -3,6 +3,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from random import randrange
 
 from django.db.models import F
+from django.utils import timezone
 
 import pytest
 from rest_framework.status import (
@@ -10,6 +11,8 @@ from rest_framework.status import (
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
+    HTTP_401_UNAUTHORIZED,
+    HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
 )
 
@@ -543,3 +546,42 @@ def test__delete(client, stock_asset):
         == AssetReadModel.objects.count()
         == 0
     )
+
+
+def test__forbidden__module_not_enabled(user, client):
+    # GIVEN
+    user.is_investments_module_enabled = False
+    user.is_investments_integrations_module_enabled = False
+    user.save()
+
+    # WHEN
+    response = client.get(URL)
+
+    # THEN
+    assert response.status_code == HTTP_403_FORBIDDEN
+    assert response.json() == {"detail": "Você não tem acesso ao módulo de investimentos"}
+
+
+def test__forbidden__subscription_ended(client, user):
+    # GIVEN
+    user.subscription_ends_at = timezone.now()
+    user.save()
+
+    # WHEN
+    response = client.get(URL)
+
+    # THEN
+    assert response.status_code == HTTP_403_FORBIDDEN
+    assert response.json() == {"detail": "Sua assinatura expirou"}
+
+
+def test__unauthorized__inactive(client, user):
+    # GIVEN
+    user.is_active = False
+    user.save()
+
+    # WHEN
+    response = client.get(URL)
+
+    # THEN
+    assert response.status_code == HTTP_401_UNAUTHORIZED

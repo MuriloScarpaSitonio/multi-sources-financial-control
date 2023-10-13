@@ -1,5 +1,5 @@
 from datetime import datetime
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 from statistics import fmean
 from typing import Literal
 
@@ -13,6 +13,8 @@ from rest_framework.status import (
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
+    HTTP_401_UNAUTHORIZED,
+    HTTP_403_FORBIDDEN,
 )
 
 from config.settings.base import BASE_API_URL
@@ -584,3 +586,41 @@ def test__indicators__wo_data(client):
     # THEN
     assert response.status_code == HTTP_200_OK
     assert response.json() == {"total": 0.0, "avg": 0.0, "diff": 0.0, "future": 0.0}
+
+
+def test__forbidden__module_not_enabled(user, client):
+    # GIVEN
+    user.is_personal_finances_module_enabled = False
+    user.save()
+
+    # WHEN
+    response = client.get(URL)
+
+    # THEN
+    assert response.status_code == HTTP_403_FORBIDDEN
+    assert response.json() == {"detail": "Você não tem acesso ao módulo de finanças pessoais"}
+
+
+def test__forbidden__subscription_ended(client, user):
+    # GIVEN
+    user.subscription_ends_at = timezone.now()
+    user.save()
+
+    # WHEN
+    response = client.get(URL)
+
+    # THEN
+    assert response.status_code == HTTP_403_FORBIDDEN
+    assert response.json() == {"detail": "Sua assinatura expirou"}
+
+
+def test__unauthorized__inactive(client, user):
+    # GIVEN
+    user.is_active = False
+    user.save()
+
+    # WHEN
+    response = client.get(URL)
+
+    # THEN
+    assert response.status_code == HTTP_401_UNAUTHORIZED

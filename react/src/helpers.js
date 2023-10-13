@@ -58,6 +58,12 @@ export function getDateDiffString(dateFrom, dateTo) {
   return result;
 }
 
-export function evaluateBooleanFromLocalStorage(value) {
+export function stringToBoolean(value) {
   return value === "true";
+}
+
+export function setUserDataToLocalStorage(data) {
+  for (const [key, value] of Object.entries(data)) {
+    localStorage.setItem("user_" + key, value);
+  }
 }
