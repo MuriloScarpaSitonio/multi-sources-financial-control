@@ -1,8 +1,8 @@
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
-from django.utils.functional import cached_property
 
 from shared.models_utils import serializable_today_function
 
@@ -72,44 +72,40 @@ class Asset(models.Model):
 
     __repr__ = __str__
 
-    @cached_property
-    def avg_price_from_transactions(self) -> Decimal:
-        return self.transactions.avg_price()["avg_price"]
-
-    @cached_property
-    def total_credited_incomes(self) -> Decimal:
-        return self.incomes.credited().sum()["total"]
-
-    @cached_property
-    def adjusted_avg_price_from_transactions(self) -> Decimal:
-        return self.transactions.avg_price(incomes=self.total_credited_incomes)["avg_price"]
-
-    @cached_property
-    def quantity_from_transactions(self) -> Decimal:
-        return self.transactions.get_quantity_balance()["quantity"]
-
-    @property
-    def total_invested_from_transactions(self) -> Decimal:  # pragma: no cover
-        return self.avg_price_from_transactions * self.quantity_from_transactions
-
-    @property
-    def total_adjusted_invested_from_transactions(self) -> Decimal:
-        return self.adjusted_avg_price_from_transactions * self.quantity_from_transactions
-
-    def get_roi(self, percentage: bool = False) -> Decimal:
-        """ROI: Return On Investment"""
-        return self.transactions.roi(incomes=self.total_credited_incomes, percentage=percentage)[
-            "ROI"
-        ]
-
     def to_domain(self) -> AssetDomainModel:
-        # values may be already annotated. if so we don't have to do
-        # extra queries to build the aggregations
+        # values MUST be already annotated!
         return AssetDomainModel(
+            id=self.pk,
             currency=self.currency,
-            quantity_balance=getattr(self, "quantity_balance", self.quantity_from_transactions),
-            avg_price=getattr(self, "avg_price", self.avg_price_from_transactions),
+            quantity_balance=self.quantity_balance,
+            avg_price=self.avg_price,
         )
+
+
+class AssetClosedOperation(models.Model):
+    normalized_total_sold = models.DecimalField(
+        decimal_places=4, max_digits=20, validators=[MinValueValidator(Decimal("0.0001"))]
+    )
+    normalized_total_bought = models.DecimalField(
+        decimal_places=4, max_digits=20, validators=[MinValueValidator(Decimal("0.0001"))]
+    )
+    total_bought = models.DecimalField(
+        decimal_places=4, max_digits=20, validators=[MinValueValidator(Decimal("0.0001"))]
+    )
+    quantity_bought = models.DecimalField(
+        decimal_places=4, max_digits=20, validators=[MinValueValidator(Decimal("0.0001"))]
+    )
+    normalized_credited_incomes = models.DecimalField(
+        decimal_places=2, max_digits=20, default=Decimal
+    )
+    credited_incomes = models.DecimalField(decimal_places=2, max_digits=20, default=Decimal)
+    operation_datetime = models.DateTimeField()
+    asset = models.ForeignKey(to=Asset, on_delete=models.CASCADE, related_name="closed_operations")
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"<AssetClosedOperation ({self.asset} | {self.operation_datetime})>"
+
+    __repr__ = __str__
 
 
 class Transaction(models.Model):
@@ -121,8 +117,6 @@ class Transaction(models.Model):
     )
     operation_date = models.DateField(default=serializable_today_function)
     asset = models.ForeignKey(to=Asset, on_delete=models.CASCADE, related_name="transactions")
-    # only useful for selling transactions, as it's used when calculating the ROI
-    initial_price = models.DecimalField(decimal_places=6, max_digits=13, blank=True, null=True)
     # the conversion rate between `asset.currency` and `Currencies.real` at `operation_date`
     current_currency_conversion_rate = models.DecimalField(
         decimal_places=2, max_digits=8, blank=True, null=True

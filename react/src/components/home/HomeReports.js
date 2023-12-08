@@ -245,7 +245,7 @@ export const HomeReports = ({
     () =>
       isPersonalFinancesModuleEnabled
         ? fetchHistoricData()
-        : fetchRoiReportData({ opened: true, finished: true }),
+        : fetchRoiReportData({ opened: true, closed: true }),
     []
   );
 
@@ -255,7 +255,7 @@ export const HomeReports = ({
         fetchHistoricData();
         break;
       case 1:
-        fetchRoiReportData({ opened: true, finished: true });
+        fetchRoiReportData({ opened: true, closed: true });
         break;
       default:
         break;

@@ -62,7 +62,7 @@ def test__sanity_check(api_client, mocker, url, task_name, data):
 
 
 @pytest.mark.skip("Skip while still in WSGI")
-@pytest.mark.asyncio
+# @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("url", "task_name", "data"),
     (

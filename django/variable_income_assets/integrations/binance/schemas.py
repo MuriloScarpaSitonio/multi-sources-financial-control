@@ -10,7 +10,7 @@ from .enums import TransactionType
 
 class BinanceTransaction(TransactionFromIntegration):
     orderNo: str | None = None
-    orderId: str | int | None = None
+    orderId: str | None = None
 
     cryptoCurrency: str | None = None
     symbol: str | None = None

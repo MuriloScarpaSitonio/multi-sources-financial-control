@@ -61,7 +61,6 @@ class TransactionSerializer(serializers.ModelSerializer):
             "quantity",
             "operation_date",
             "user",
-            "initial_price",
             "current_currency_conversion_rate",
         )
         extra_kwargs = {
@@ -257,20 +256,8 @@ class AssetSerializer(MinimalAssetSerializer):
 class AssetSimulateSerializer(serializers.ModelSerializer):
     roi = serializers.SerializerMethodField(read_only=True)
     roi_percentage = serializers.SerializerMethodField(read_only=True)
-    adjusted_avg_price = serializers.DecimalField(
-        max_digits=10,
-        decimal_places=3,
-        read_only=True,
-        rounding=ROUND_HALF_UP,
-        source="adjusted_avg_price_from_transactions",
-    )
-    total_invested = serializers.DecimalField(
-        max_digits=10,
-        decimal_places=3,
-        read_only=True,
-        rounding=ROUND_HALF_UP,
-        source="total_adjusted_invested_from_transactions",
-    )
+    normalized_total_invested = serializers.SerializerMethodField(read_only=True)
+    adjusted_avg_price = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Asset
@@ -279,14 +266,31 @@ class AssetSimulateSerializer(serializers.ModelSerializer):
             "adjusted_avg_price",
             "roi",
             "roi_percentage",
-            "total_invested",
+            "normalized_total_invested",
         )
 
     def get_roi(self, obj: Asset) -> Decimal:
-        return obj.get_roi()
+        current_price = (
+            obj.current_price_metadata
+            if obj.currency == choices.Currencies.real
+            else obj.current_price_metadata * get_dollar_conversion_rate()
+        )
+        return (current_price * obj.quantity_balance) - (
+            (obj.normalized_avg_price * obj.quantity_balance)
+            - obj.normalized_credited_incomes
+            - obj.normalized_total_sold
+        )
 
     def get_roi_percentage(self, obj: Asset) -> Decimal:
-        return obj.get_roi(percentage=True)
+        return self.get_roi(obj) / obj.normalized_total_bought
+
+    def get_normalized_total_invested(self, obj: Asset) -> Decimal:
+        return obj.normalized_avg_price * obj.quantity_balance
+
+    def get_adjusted_avg_price(self, obj: Asset) -> Decimal:
+        return (
+            (obj.quantity_balance * obj.avg_price) - obj.credited_incomes
+        ) / obj.quantity_balance
 
 
 class AssetTransactionSimulateEndpointSerializer(serializers.Serializer):
@@ -332,7 +336,7 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
     def get_percentage_invested(self, obj: AssetReadModel) -> Decimal:
         try:
             result = obj.normalized_total_invested / self.context["total_invested_agg"]
-        except DecimalException:  # pragma: no cover
+        except (DecimalException, KeyError):
             result = Decimal()
         return result * Decimal("100.0")
 
@@ -345,7 +349,7 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
 
         try:
             result = (value * obj.quantity_balance) / self.context["current_total_agg"]
-        except DecimalException:
+        except (DecimalException, KeyError):
             result = Decimal()
         return result * Decimal("100.0")
 
@@ -360,7 +364,7 @@ class AssetRoidIndicatorsSerializer(serializers.Serializer):
     ROI_opened = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
-    ROI_finished = serializers.DecimalField(
+    ROI_closed = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
 

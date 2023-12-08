@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from rest_framework.request import Request
 
 
-class InventmentsModulePermission(IsAuthenticated):
+class InvestmentsModulePermission(IsAuthenticated):
     message = "Você não tem acesso ao módulo de investimentos"
 
     def has_permission(self, request: Request, _) -> bool:

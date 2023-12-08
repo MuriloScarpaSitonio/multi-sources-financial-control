@@ -13,9 +13,8 @@ from ..choices import (
     PassiveIncomeTypes,
     TransactionActions,
 )
-from .events import Event
+from .events import AssetOperationClosed, Event
 from .exceptions import (
-    CurrencyConversionRateNotNullWhenActionIsBuy,
     CurrencyConversionRateNullOrOneForNonBrlAssets,
     FutureTransactionNotAllowedException,
     NegativeQuantityNotAllowedException,
@@ -31,7 +30,6 @@ class TransactionDTO:
     quantity: Decimal
     price: Decimal
     operation_date: date
-    initial_price: Decimal | None = None
     current_currency_conversion_rate: Decimal | None = None
     external_id: str | None = None
 
@@ -53,10 +51,12 @@ class PassiveIncomeDTO:  # TODO?
 class Asset:
     def __init__(
         self,
+        id: int,
         quantity_balance: Decimal,
         currency: Currencies | None = None,
         avg_price: Decimal | None = None,
     ) -> None:
+        self._id = id
         self.quantity_balance = quantity_balance
         self.currency = currency
         self.avg_price = avg_price
@@ -67,47 +67,44 @@ class Asset:
     def add_transaction(self, transaction_dto: TransactionDTO) -> None:
         if transaction_dto.operation_date > timezone.localdate():
             raise FutureTransactionNotAllowedException
+
+        if self.currency == Currencies.real:
+            transaction_dto.current_currency_conversion_rate = 1
+        else:
+            if transaction_dto.current_currency_conversion_rate in (None, 1):
+                raise CurrencyConversionRateNullOrOneForNonBrlAssets
+
         if transaction_dto.is_sale:
             if transaction_dto.quantity > self.quantity_balance:
                 raise NegativeQuantityNotAllowedException
 
-            if transaction_dto.initial_price is None:
-                transaction_dto.initial_price = self.avg_price
-
-            if self.currency == Currencies.real:
-                transaction_dto.current_currency_conversion_rate = 1
-            else:
-                if transaction_dto.current_currency_conversion_rate in (None, 1):
-                    raise CurrencyConversionRateNullOrOneForNonBrlAssets
-        else:
-            if transaction_dto.current_currency_conversion_rate is not None:
-                raise CurrencyConversionRateNotNullWhenActionIsBuy
+            if transaction_dto.quantity - self.quantity_balance == 0:
+                self.events.append(AssetOperationClosed(asset_pk=self._id))
 
         self._transactions.append(transaction_dto)
 
     def update_transaction(self, dto: TransactionDTO, transaction: Transaction) -> TransactionDTO:
         if dto.operation_date > timezone.localdate():
             raise FutureTransactionNotAllowedException
+
+        if self.currency == Currencies.real:
+            dto.current_currency_conversion_rate = 1
+        else:
+            if dto.current_currency_conversion_rate in (None, 1):
+                raise CurrencyConversionRateNullOrOneForNonBrlAssets
+
         if dto.is_sale:
             if transaction.quantity != dto.quantity and dto.quantity > self.quantity_balance:
-                raise NegativeQuantityNotAllowedException()
+                raise NegativeQuantityNotAllowedException
 
             if transaction.action != dto.action and (
                 self.quantity_balance - (dto.quantity + transaction.quantity) < 0
             ):
-                raise NegativeQuantityNotAllowedException()
+                raise NegativeQuantityNotAllowedException
 
-            if dto.initial_price is None:
-                dto.initial_price = self.avg_price
+            if dto.quantity - self.quantity_balance == 0:
+                self.events.append(AssetOperationClosed(asset_pk=self._id))
 
-            if self.currency == Currencies.real:
-                dto.current_currency_conversion_rate = 1
-            else:
-                if dto.current_currency_conversion_rate in (None, 1):
-                    raise CurrencyConversionRateNullOrOneForNonBrlAssets
-        else:
-            if dto.current_currency_conversion_rate is not None:
-                raise CurrencyConversionRateNotNullWhenActionIsBuy
         self._transactions.append(dto)
         return dto
 

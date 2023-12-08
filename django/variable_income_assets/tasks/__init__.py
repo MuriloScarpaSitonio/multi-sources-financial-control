@@ -1,2 +1,3 @@
+from .asset_closed_operation import create as create_asset_closed_operation
 from .asset_metadata import maybe_create_asset_metadata
 from .cqrs import upsert_asset_read_model

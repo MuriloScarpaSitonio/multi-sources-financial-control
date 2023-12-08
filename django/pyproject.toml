@@ -97,6 +97,7 @@ line-length = 100
 DJANGO_SETTINGS_MODULE = "config.settings.base"
 addopts = "--basetemp=/tmp/pytest"
 env = ["ENVIRONMENT=pytest"]
+filterwarnings = ["ignore::DeprecationWarning:pytest_freezegun.*:"]
 python_files = "test_*.py"
 python_functions = "test_*"
 

@@ -10,7 +10,14 @@ from .choices import (
     PassiveIncomeTypes,
     TransactionActions,
 )
-from .models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
+from .models import (
+    Asset,
+    AssetClosedOperation,
+    AssetMetaData,
+    AssetReadModel,
+    PassiveIncome,
+    Transaction,
+)
 
 
 class _TransactionForm(ModelForm):
@@ -24,7 +31,7 @@ class _TransactionForm(ModelForm):
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
     search_fields = ("asset__code",)
-    list_filter = ("asset__code",)
+    list_filter = ("asset__type", "action", "asset__currency", "asset__code")
     form = _TransactionForm
 
 
@@ -39,7 +46,8 @@ class _PassiveIncomeForm(ModelForm):
 
 @admin.register(PassiveIncome)
 class PassiveIncomeAdmin(admin.ModelAdmin):
-    list_filter = ("asset__code",)
+    search_fields = ("asset__code",)
+    list_filter = ("asset__type", "asset__code")
     form = _PassiveIncomeForm
 
 
@@ -83,3 +91,9 @@ class AssetReadModelAdmin(admin.ModelAdmin):
         "metadata__sector",  # TODO: unable to resolve via repository?
     )
     form = _create_form(AssetMetaData, "type", "currency", "objective")
+
+
+@admin.register(AssetClosedOperation)
+class AssetClosedOperationAdmin(admin.ModelAdmin):
+    search_fields = ("asset__code",)
+    list_filter = ("asset__type",)

@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import asdict
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 from django.db.models import F, OuterRef, Subquery
 from django.db.models.functions import Coalesce
@@ -218,20 +218,22 @@ class DjangoSQLAssetMetaDataRepository(AbstractAssetMetaDataRepository):
         return await AssetMetaData.objects.abulk_update(objs=objs, fields=fields)
 
     @staticmethod
-    def get_current_price_annotation(foreing_key_connection: bool = True) -> F | Coalesce:
+    def get_current_price_annotation(
+        source: Literal["write", "read", "transactions"]
+    ) -> F | Coalesce:
+        if source == "read":
+            return F("metadata__current_price")
+
         from ..models import AssetMetaData
 
-        return (
-            F("metadata__current_price")
-            if foreing_key_connection
-            else Coalesce(
-                Subquery(
-                    AssetMetaData.objects.filter(
-                        code=OuterRef("asset__code"),
-                        type=OuterRef("asset__type"),
-                        currency=OuterRef("asset__currency"),
-                    ).values("current_price")[:1]
-                ),
-                Decimal(),
-            )
+        prefix = "asset__" if source == "transactions" else ""
+        return Coalesce(
+            Subquery(
+                AssetMetaData.objects.filter(
+                    code=OuterRef(f"{prefix}code"),
+                    type=OuterRef(f"{prefix}type"),
+                    currency=OuterRef(f"{prefix}currency"),
+                ).values("current_price")[:1]
+            ),
+            Decimal(),
         )

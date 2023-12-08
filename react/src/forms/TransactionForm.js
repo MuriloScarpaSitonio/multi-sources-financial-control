@@ -70,7 +70,6 @@ const schema = yup.object().shape({
     .number()
     .required("O preço é obrigatório")
     .positive("Apenas números positivos"),
-  initial_price: yup.number().positive("Apenas números positivos").nullable(),
   quantity: yup
     .number()
     .required("A quantidade é obrigatória")
@@ -128,12 +127,8 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
     if (isDirty) {
       setIsLoaded(false);
 
-      if (!isSellTransaction) {
-        delete data.current_currency_conversion_rate;
-      } else {
-        data.current_currency_conversion_rate =
-          data.current_currency_conversion_rate || 1;
-      }
+      data.current_currency_conversion_rate =
+        data.current_currency_conversion_rate || 1;
       new TransactionsApi(initialData.id)
         [method]({
           ...data,
@@ -326,35 +321,6 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
         </FormGroup>
         <FormGroup row style={{ marginTop: "10px" }}>
           <Controller
-            name="initial_price"
-            control={control}
-            defaultValue={initialData.initial_price}
-            render={({ field }) => (
-              <>
-                <TextField
-                  {...field}
-                  label="Preço inicial"
-                  InputProps={{
-                    inputComponent: NumberFormatCustom,
-                    inputProps: {
-                      prefix: assetData?.currency === "BRL" ? "R$ " : "US$ ",
-                    },
-                  }}
-                  style={{
-                    width: "30%",
-                    marginRight: "2%",
-                    display: isSellTransaction ? "" : "none",
-                  }}
-                  error={!!errors.initial_price}
-                  helperText={
-                    errors.initial_price?.message ||
-                    "Se não informado, será usado o preço médio do ativo"
-                  }
-                />
-              </>
-            )}
-          />
-          <Controller
             name="current_currency_conversion_rate"
             control={control}
             defaultValue={initialData.current_currency_conversion_rate}
@@ -371,10 +337,7 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                 }}
                 style={{
                   width: "60%",
-                  display:
-                    isSellTransaction && assetData?.currency !== "BRL"
-                      ? ""
-                      : "none",
+                  display: assetData?.currency !== "BRL" ? "" : "none",
                 }}
                 error={!!errors.current_currency_conversion_rate}
                 helperText={

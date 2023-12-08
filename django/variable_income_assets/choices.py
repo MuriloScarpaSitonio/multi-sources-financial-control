@@ -94,4 +94,4 @@ class AssetsTotalInvestedReportAggregations(DjangoChoices):
 
 class AssetStatus(DjangoChoices):
     opened = ChoiceItem("OPENED", label="Aberto")
-    finished = ChoiceItem("FINISHED", label="Finalizado")
+    closed = ChoiceItem("CLOSED", label="Finalizado")

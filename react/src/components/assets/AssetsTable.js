@@ -675,8 +675,7 @@ export const AssetsTable = () => {
         filter: true,
         filterType: "custom",
         customFilterListOptions: {
-          render: (v) =>
-            `Status: ${v[0] === "FINISHED" ? "Finalizado" : "Aberto"}`,
+          render: (v) => `Status: ${v[0] === "CLOSED" ? "Fechado" : "Aberto"}`,
         },
         filterOptions: {
           names: [],
@@ -698,7 +697,7 @@ export const AssetsTable = () => {
                   label="Aberto"
                 />
                 <FormControlLabel
-                  value="FINISHED"
+                  value="CLOSED"
                   control={<Radio color="default" size="small" />}
                   label="Finalizado"
                 />

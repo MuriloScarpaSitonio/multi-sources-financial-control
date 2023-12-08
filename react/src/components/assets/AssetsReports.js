@@ -196,24 +196,24 @@ const AssetTotalInvestedChartComponent = ({
 export const AssetRoiChartComponent = ({ data, fetchReportData }) => {
   const ALL_REPORT_TEXT = "Tudo";
   const OPENED_REPORT_TEXT = "Abertos";
-  const FINISHED_REPORT_TEXT = "Fechados";
+  const CLOSED_REPORT_TEXT = "Fechados";
 
   const filtersMap = {};
-  filtersMap[ALL_REPORT_TEXT] = { opened: true, finished: true };
+  filtersMap[ALL_REPORT_TEXT] = { opened: true, closed: true };
   filtersMap[OPENED_REPORT_TEXT] = {
     opened: true,
-    finished: false,
+    closed: false,
   };
-  filtersMap[FINISHED_REPORT_TEXT] = {
+  filtersMap[CLOSED_REPORT_TEXT] = {
     opened: false,
-    finished: true,
+    closed: true,
   };
 
   const [anchorEl, setAnchorEl] = useState(null);
   const [buttonText, setButtonText] = useState(ALL_REPORT_TEXT);
   const [menuItems, setMenuItems] = useState([
     OPENED_REPORT_TEXT,
-    FINISHED_REPORT_TEXT,
+    CLOSED_REPORT_TEXT,
   ]);
 
   const handleClick = (event) => setAnchorEl(event.currentTarget);
@@ -383,7 +383,7 @@ export const AssetsReports = () => {
         });
         break;
       case 3:
-        fetchRoiReportData({ opened: true, finished: true });
+        fetchRoiReportData({ opened: true, closed: true });
         break;
       default:
         break;

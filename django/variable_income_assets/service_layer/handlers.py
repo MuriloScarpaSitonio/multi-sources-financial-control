@@ -8,11 +8,15 @@ from tasks.models import TaskHistory
 from ..choices import AssetTypes
 from ..domain import commands, events
 from ..models import Transaction
-from ..tasks import maybe_create_asset_metadata, upsert_asset_read_model
+from ..tasks import (
+    create_asset_closed_operation,
+    maybe_create_asset_metadata,
+    upsert_asset_read_model,
+)
 from .unit_of_work import AbstractUnitOfWork
 
 
-def create_transactions(cmd: commands.CreateTransactions, uow: AbstractUnitOfWork) -> Transaction:
+def create_transactions(cmd: commands.CreateTransactions, uow: AbstractUnitOfWork) -> None:
     with uow:
         for dto in cmd.asset._transactions:
             uow.assets.transactions.add(dto=dto)
@@ -77,7 +81,7 @@ def upsert_read_model(
 # TODO: convert to async
 def check_monthly_selling_transaction_threshold(
     _: events.TransactionsCreated, uow: AbstractUnitOfWork
-):  # pragma: no cover
+) -> None:  # pragma: no cover
     transaction = next(iter(uow.assets.transactions.seen))
     total_sold = next(
         iter(
@@ -103,5 +107,12 @@ def check_monthly_selling_transaction_threshold(
 
 
 # TODO: convert to async
-def maybe_create_metadata(event: events.AssetCreated, _: AbstractUnitOfWork):
+def maybe_create_metadata(event: events.AssetCreated, _: AbstractUnitOfWork) -> None:
     maybe_create_asset_metadata(event.asset_pk)
+
+
+# TODO: convert to async
+def create_asset_operation_closed_record(
+    event: events.AssetOperationClosed, _: AbstractUnitOfWork
+) -> None:
+    create_asset_closed_operation(asset_pk=event.asset_pk)

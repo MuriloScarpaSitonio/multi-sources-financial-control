@@ -37,14 +37,6 @@ class TransactionPydanticModel(BaseModel):
     def create(self, asset: Asset) -> None:
         from .helpers import fetch_currency_conversion_rate
 
-        current_currency_conversion_rate = (
-            fetch_currency_conversion_rate(
-                operation_date=self.operation_date, currency=asset.currency
-            )
-            if self.action.value == TransactionActions.sell
-            else None
-        )
-
         asset_domain = asset.to_domain()
         asset_domain.add_transaction(
             transaction_dto=TransactionDTO(
@@ -53,7 +45,9 @@ class TransactionPydanticModel(BaseModel):
                 quantity=self.quantity,
                 price=self.price,
                 external_id=self.id,
-                current_currency_conversion_rate=current_currency_conversion_rate,
+                current_currency_conversion_rate=fetch_currency_conversion_rate(
+                    operation_date=self.operation_date, currency=asset.currency
+                ),
             )
         )
         messagebus.handle(

@@ -1,2 +1,8 @@
 from .read import AssetReadModel
-from .write import Asset, AssetMetaData, PassiveIncome, Transaction
+from .write import (
+    Asset,
+    AssetClosedOperation,
+    AssetMetaData,
+    PassiveIncome,
+    Transaction,
+)

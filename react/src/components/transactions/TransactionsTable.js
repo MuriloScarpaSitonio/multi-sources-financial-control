@@ -400,14 +400,6 @@ export const TransactionsTable = () => {
       },
     },
     {
-      name: "initial_price",
-      options: {
-        display: false,
-        filter: false,
-        viewColumns: false,
-      },
-    },
-    {
       name: "",
       options: {
         filter: false,
@@ -451,7 +443,6 @@ export const TransactionsTable = () => {
         currency,
         asset_pk,
         current_currency_conversion_rate,
-        initial_price,
       ] = transactionData;
       setTransactionEditData({
         id,
@@ -460,7 +451,6 @@ export const TransactionsTable = () => {
         quantity,
         operation_date,
         currency,
-        initial_price,
         current_currency_conversion_rate,
         asset: {
           pk: asset_pk,

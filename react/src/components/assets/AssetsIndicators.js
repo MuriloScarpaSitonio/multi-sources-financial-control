@@ -122,7 +122,7 @@ export const AssetsIndicators = ({ condensed = false }) => {
     current_total: 0,
     ROI: 0,
     ROI_opened: 0,
-    ROI_finished: 0,
+    ROI_closed: 0,
   });
   const [incomesIndicators, setIncomesIndicators] = useState({
     avg: 0,
@@ -143,13 +143,13 @@ export const AssetsIndicators = ({ condensed = false }) => {
         )}`}
         firstColor={assetsIndicators.ROI_opened > 0 ? SUCCESS : DANGER}
         firstText={"Posições abertas"}
-        secondValue={`R$ ${assetsIndicators.ROI_finished?.toLocaleString(
+        secondValue={`R$ ${assetsIndicators.ROI_closed?.toLocaleString(
           "pt-br",
           {
             minimumFractionDigits: 2,
           } || 0
         )}`}
-        secondColor={assetsIndicators.ROI_finished > 0 ? SUCCESS : DANGER}
+        secondColor={assetsIndicators.ROI_closed > 0 ? SUCCESS : DANGER}
         secondText={"Posições finalizadas"}
       />
     );

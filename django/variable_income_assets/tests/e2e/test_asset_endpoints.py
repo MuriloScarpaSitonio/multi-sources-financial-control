@@ -22,14 +22,16 @@ from shared.tests import convert_and_quantitize
 from ...choices import AssetObjectives, AssetSectors, AssetTypes, Currencies
 from ...models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
 from ..shared import (
-    get_adjusted_avg_price_brute_forte,
     get_avg_price_bute_force,
+    get_current_adjusted_avg_price_brute_forte,
     get_current_price_metadata,
+    get_current_roi_brute_force,
+    get_current_total_bought_brute_force,
     get_current_total_invested_brute_force,
     get_quantity_balance_brute_force,
     get_roi_brute_force,
-    get_total_bought_brute_force,
     get_total_invested_brute_force,
+    get_total_sold_brute_force,
 )
 
 pytestmark = pytest.mark.django_db
@@ -94,10 +96,12 @@ def test__create(client, asset_type, asset_sector, currency, mock_path, mocker):
             currency=currency,
             quantity_balance=0,
             avg_price=0,
-            total_bought=0,
-            credited_incomes=0,
+            normalized_avg_price=0,
+            normalized_total_bought=0,
             normalized_total_sold=0,
+            normalized_closed_roi=0,
             normalized_credited_incomes=0,
+            credited_incomes=0,
             metadata__isnull=False,
         ).count()
         == 1
@@ -293,6 +297,7 @@ def test__update__uppercase_code(client, stock_asset, mocker):
     "another_stock_asset",
     "another_stock_asset_transactions",
     "another_stock_asset_metadata",
+    "another_stock_asset_closed_operation",
     "sync_assets_read_model",
 )
 @pytest.mark.parametrize(
@@ -306,7 +311,7 @@ def test__update__uppercase_code(client, stock_asset, mocker):
         ("type=STOCK_USA", 0),
         ("sector=UTILITIES", 1),
         ("status=OPENED", 1),
-        ("status=FINISHED", 1),
+        ("status=CLOSED", 1),
     ),
 )
 def test__list__filters(client, filter_by, count):
@@ -318,6 +323,60 @@ def test__list__filters(client, filter_by, count):
     # THEN
     assert response.status_code == HTTP_200_OK
     assert response.json()["count"] == count
+
+
+old = {
+    "profit_asset_bought_transactions": {
+        "normalized_roi": 250.0,
+        "roi_percentage": 50.0,
+        "adjusted_avg_price": 10.0,
+    },
+    "loss_asset_bought_transactions": {
+        "normalized_roi": -250.0,
+        "roi_percentage": -50.0,
+        "adjusted_avg_price": 10.0,
+    },
+    "profit_asset_bought_transactions_incomes": {
+        "normalized_roi": 450.0,
+        "roi_percentage": 90.0,
+        "adjusted_avg_price": 6.0,
+    },
+    "loss_asset_bought_transactions_incomes_profit": {
+        "normalized_roi": 150.0,
+        "roi_percentage": 30.0,
+        "adjusted_avg_price": 2.0,
+    },
+    "loss_asset_bought_transactions_incomes_loss": {
+        "normalized_roi": -50.0,
+        "roi_percentage": -10.0,
+        "adjusted_avg_price": 6.0,
+    },
+    "profit_asset_both_transactions": {
+        "normalized_roi": 250.0,
+        "roi_percentage": 50.0,
+        "adjusted_avg_price": 10.0,
+    },
+    "loss_asset_both_transactions": {
+        "normalized_roi": -250.0,
+        "roi_percentage": -50.0,
+        "adjusted_avg_price": 10.0,
+    },
+    "profit_asset_both_transactions_incomes": {
+        "normalized_roi": 450.0,
+        "roi_percentage": 90.0,
+        "adjusted_avg_price": 2.0,
+    },
+    "loss_asset_both_transactions_incomes_profit": {
+        "normalized_roi": 1.0,
+        "roi_percentage": 0.2,
+        "adjusted_avg_price": -0.04,
+    },
+    "loss_asset_both_transactions_incomes_loss": {
+        "normalized_roi": -249.0,
+        "roi_percentage": -49.8,
+        "adjusted_avg_price": 9.96,
+    },
+}
 
 
 @pytest.mark.parametrize(
@@ -333,6 +392,8 @@ def test__list__filters(client, filter_by, count):
         ("profit_asset_both_transactions_incomes", operator.gt),
         ("loss_asset_both_transactions_incomes_profit", operator.gt),
         ("loss_asset_both_transactions_incomes_loss", operator.lt),
+        ("loss_asset_previously_closed_w_profit_loss", operator.lt),
+        ("loss_asset_previously_closed_w_incomes_and_profit_loss", operator.lt),
     ),
 )
 def test__list__aggregations(client, stock_asset, fixture, operation, request):
@@ -340,9 +401,9 @@ def test__list__aggregations(client, stock_asset, fixture, operation, request):
     request.getfixturevalue(fixture)
     request.getfixturevalue("sync_assets_read_model")
 
-    roi = get_roi_brute_force(asset=stock_asset)
-    avg_price = get_adjusted_avg_price_brute_forte(asset=stock_asset)
-    total_bought = get_total_bought_brute_force(asset=stock_asset)
+    roi = get_current_roi_brute_force(asset=stock_asset)
+    avg_price = get_current_adjusted_avg_price_brute_forte(asset=stock_asset)
+    total_bought = get_current_total_bought_brute_force(asset=stock_asset)
 
     # WHEN
     response = client.get(URL)
@@ -372,6 +433,8 @@ def test__list__aggregations(client, stock_asset, fixture, operation, request):
         ("loss_asset_usa_both_transactions", operator.lt),
         ("loss_asset_usa_both_transactions_incomes_profit", operator.gt),
         ("loss_asset_usa_both_transactions_incomes_loss", operator.lt),
+        ("loss_asset_usa_previously_closed_w_profit_loss", operator.lt),
+        ("loss_asset_usa_previously_closed_w_incomes_and_profit_loss", operator.lt),
     ),
 )
 def test__list__aggregations__dollar(client, stock_usa_asset: Asset, fixture, operation, request):
@@ -379,9 +442,9 @@ def test__list__aggregations__dollar(client, stock_usa_asset: Asset, fixture, op
     request.getfixturevalue(fixture)
     request.getfixturevalue("sync_assets_read_model")
 
-    roi = get_roi_brute_force(asset=stock_usa_asset)
-    avg_price = get_adjusted_avg_price_brute_forte(asset=stock_usa_asset, normalize=False)
-    total_bought = get_total_bought_brute_force(asset=stock_usa_asset)
+    roi = get_current_roi_brute_force(asset=stock_usa_asset)
+    avg_price = get_current_adjusted_avg_price_brute_forte(asset=stock_usa_asset, normalize=False)
+    total_bought = get_current_total_bought_brute_force(asset=stock_usa_asset)
 
     # WHEN
     response = client.get(URL)
@@ -480,13 +543,13 @@ def test__list__should_include_asset_wo_transactions(
 
 
 @pytest.mark.usefixtures("indicators_data", "sync_assets_read_model")
-def test_should_get_indicators(client):
+def test__indicators(client):
     # GIVEN
     current_total = sum(
-        get_current_total_invested_brute_force(asset) for asset in Asset.objects.all()
+        get_current_total_invested_brute_force(asset) for asset in Asset.objects.opened()
     )
-    roi_opened = sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.opened())
-    roi_finished = sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.finished())
+    roi_opened = sum(get_current_roi_brute_force(asset=asset) for asset in Asset.objects.opened())
+    roi_closed = sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.closed())
 
     # WHEN
     response = client.get(f"{URL}/indicators")
@@ -495,8 +558,8 @@ def test_should_get_indicators(client):
     assert response.status_code == HTTP_200_OK
     assert response.json()["total"] == convert_and_quantitize(current_total)
     assert response.json()["ROI_opened"] == convert_and_quantitize(roi_opened)
-    assert response.json()["ROI_finished"] == convert_and_quantitize(roi_finished)
-    assert response.json()["ROI"] == convert_and_quantitize(roi_opened + roi_finished)
+    assert response.json()["ROI_closed"] == convert_and_quantitize(roi_closed)
+    assert response.json()["ROI"] == convert_and_quantitize(roi_opened + roi_closed)
 
 
 @pytest.mark.usefixtures(

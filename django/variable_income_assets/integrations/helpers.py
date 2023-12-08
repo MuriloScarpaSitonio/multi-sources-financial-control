@@ -114,7 +114,7 @@ class TransactionsIntegrationOrchestrator:
         return notification_display_text, exc
 
     def _convert_and_validate_data(
-        self, data: dict[str, Any]
+        self, data: list[dict[str, Any]]
     ) -> Iterator[TransactionPydanticModel]:
         for d in data:
             yield self._integration_model_class(**d).as_transaction(by_alias=True)
@@ -158,6 +158,9 @@ class TransactionsIntegrationOrchestrator:
                 current_price=transaction.price,
                 current_price_updated_at=timezone.now(),
             )
+            # annotations are not applied on new records
+            asset.avg_price = 0
+            asset.quantity_balance = 0
         transaction.create(asset=asset)
 
         asset.__created__ = created

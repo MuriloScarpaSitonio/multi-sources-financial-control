@@ -305,7 +305,7 @@ export const PassiveIncomeForm = ({
                 getChoiceByLabel(
                   initialData.event_type,
                   PassiveIncomeEventTypesMapping
-                ) || PassiveIncomeEventTypesMapping[0]
+                ) || PassiveIncomeEventTypesMapping[1]
               }
               render={({ field: { onChange, value } }) => (
                 <>

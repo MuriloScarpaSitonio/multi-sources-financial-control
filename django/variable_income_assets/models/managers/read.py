@@ -7,10 +7,26 @@ from django.db import models
 
 from ...adapters import DjangoSQLAssetMetaDataRepository
 from ...adapters.key_value_store import get_dollar_conversion_rate
-from ...choices import AssetsTotalInvestedReportAggregations, Currencies
+from ...choices import AssetsTotalInvestedReportAggregations, AssetTypes, Currencies
 
 if TYPE_CHECKING:
     from ...adapters.sql import AbstractAssetMetaDataRepository
+
+
+class _Filters:
+    @property
+    def _without_closed_roi(self) -> models.Q:
+        # bug em potencial se um ativo for fechado, mas o roi de fato for zero.
+        # ideal seria persistir o count de transactions ou closed operations
+        return models.Q(normalized_closed_roi=0)
+
+    @property
+    def opened(self) -> models.Q:
+        return models.Q(quantity_balance__gt=0) | self._without_closed_roi
+
+    @property
+    def closed(self) -> models.Q:
+        return models.Q(quantity_balance__lte=0) & ~self._without_closed_roi
 
 
 class _Expressions:
@@ -25,32 +41,34 @@ class _Expressions:
             else models.Value(get_dollar_conversion_rate())
         )
         self.metadata_repository = metadata_repository
+        self.filters = _Filters()
 
     @property
     def normalized_current_total(self) -> models.Case:
         return self.get_dollar_conversion_expression(
-            expression=self.metadata_repository.get_current_price_annotation()
+            expression=self.metadata_repository.get_current_price_annotation(source="read")
             * models.F("quantity_balance")
         )
 
     @property
     def normalized_total_invested(self) -> models.Case:
-        return self.get_dollar_conversion_expression(
-            expression=models.F("avg_price") * models.F("quantity_balance")
-        )
+        return models.F("normalized_avg_price") * models.F("quantity_balance")
 
     @property
-    def normalized_roi(self) -> models.CombinedExpression:
-        current_total = models.F("quantity_balance") * self.get_dollar_conversion_expression(
-            self.metadata_repository.get_current_price_annotation()
-        )
-        total_invested = self.get_dollar_conversion_expression(models.F("avg_price")) * models.F(
-            "quantity_balance"
-        )
-        return current_total - (
-            total_invested
-            - models.F("normalized_credited_incomes")
-            - models.F("normalized_total_sold")
+    def normalized_roi(self) -> models.Case:
+        return models.Case(
+            models.When(
+                models.Q(self.filters.opened),
+                then=(
+                    self.normalized_current_total
+                    - (
+                        models.F("normalized_total_bought")
+                        - models.F("normalized_credited_incomes")
+                        - models.F("normalized_total_sold")
+                    )
+                ),
+            ),
+            default=models.F("normalized_closed_roi"),
         )
 
     def get_dollar_conversion_expression(self, expression: models.Expression) -> models.Case:
@@ -69,10 +87,19 @@ class AssetReadModelQuerySet(models.QuerySet):
         self.expressions = _Expressions(metadata_repository=DjangoSQLAssetMetaDataRepository)
 
     def opened(self) -> Self:
-        return self.filter(models.Q(quantity_balance__gt=0) | models.Q(total_bought=0))
+        return self.filter(self.expressions.filters.opened)
 
-    def finished(self) -> Self:
-        return self.filter(quantity_balance__lte=0, total_bought__gt=0)
+    def closed(self) -> Self:
+        return self.filter(self.expressions.filters.closed)
+
+    def stocks(self) -> Self:  # pragma: no cover
+        return self.filter(type=AssetTypes.stock)
+
+    def stocks_usa(self) -> Self:  # pragma: no cover
+        return self.filter(type=AssetTypes.stock_usa)
+
+    def cryptos(self) -> Self:  # pragma: no cover
+        return self.filter(type=AssetTypes.crypto)
 
     def annotate_normalized_current_total(self) -> Self:
         return self.annotate(normalized_current_total=self.expressions.normalized_current_total)
@@ -88,12 +115,15 @@ class AssetReadModelQuerySet(models.QuerySet):
             self.annotate_normalized_current_total()
             .annotate_normalized_roi()
             .aggregate(
-                ROI=models.Sum("normalized_roi", default=Decimal()),
                 ROI_opened=models.Sum(
-                    "normalized_roi", filter=models.Q(quantity_balance__gt=0), default=Decimal()
+                    "normalized_roi",
+                    filter=models.Q(self.expressions.filters.opened),
+                    default=Decimal(),
                 ),
-                ROI_finished=models.Sum(
-                    "normalized_roi", filter=models.Q(quantity_balance__lte=0), default=Decimal()
+                ROI_closed=models.Sum(
+                    "normalized_roi",
+                    filter=models.Q(quantity_balance__lte=0),
+                    default=Decimal(),
                 ),
                 total=models.Sum("normalized_current_total", default=Decimal()),
             )
@@ -102,17 +132,14 @@ class AssetReadModelQuerySet(models.QuerySet):
     def total_invested_report(self, group_by: str, current: bool) -> Self:
         choice = AssetsTotalInvestedReportAggregations.get_choice(group_by)
         if current:
-            qs = self.alias(normalized_current_total=self.expressions.normalized_current_total)
+            qs = self.alias(normalized_total=self.expressions.normalized_current_total)
         else:
-            qs = self.alias(
-                normalized_current_total=self.expressions.get_dollar_conversion_expression(
-                    expression=models.F("avg_price") * models.F("quantity_balance")
-                )
-            )
+            qs = self.alias(normalized_total=self.expressions.normalized_total_invested)
+
         f = "metadata__sector" if choice.field_name == "sector" else choice.field_name
         qs = (
             qs.values(f)
-            .annotate(total=models.Sum("normalized_current_total"))
+            .annotate(total=models.Sum("normalized_total"))
             .filter(total__gt=0)
             .order_by("-total")
         )
@@ -122,18 +149,26 @@ class AssetReadModelQuerySet(models.QuerySet):
             else qs.annotate(**{choice.field_name: models.F(f)}).values(choice.field_name, "total")
         )
 
-    def roi_report(self, opened: bool = True, finished: bool = True) -> Self:
+    def roi_report(self, opened: bool = True, closed: bool = True) -> Self:
         qs = (
-            self.alias(normalized_roi=self.expressions.normalized_roi)
+            self.alias(
+                normalized_roi=models.Case(
+                    models.When(
+                        self.expressions.filters.opened,
+                        then=self.expressions.normalized_roi,
+                    ),
+                    default=models.F("normalized_closed_roi"),
+                )
+            )
             .values("type")
             .annotate(total=models.Sum("normalized_roi"))
             .order_by("-total")
         )
-        if opened and not finished:
+        if opened and not closed:
             qs = qs.opened()
-        if finished and not opened:
-            qs = qs.finished()
-        if not opened and not finished:
+        if closed and not opened:
+            qs = qs.closed()
+        if not opened and not closed:
             qs = qs.none()
 
         return qs

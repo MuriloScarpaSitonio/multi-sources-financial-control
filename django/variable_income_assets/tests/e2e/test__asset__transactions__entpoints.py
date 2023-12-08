@@ -4,15 +4,23 @@ import pytest
 from rest_framework.status import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN
 
 from config.settings.base import BASE_API_URL
+from shared.tests import convert_and_quantitize
 
+from ...adapters.key_value_store import get_dollar_conversion_rate
 from ...choices import AssetTypes, Currencies, TransactionActions
+from ...models import Transaction
+from ..shared import (
+    get_current_total_bought_brute_force,
+    get_roi_brute_force,
+    get_total_invested_brute_force,
+)
 
 pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "assets/{}/transactions"
 
 
 @pytest.mark.usefixtures("transactions")
-def test_should_simulate_transaction_w_quantity(client, stock_asset, stock_asset_metadata):
+def test__simulate_transaction__w_quantity(client, stock_asset, stock_asset_metadata):
     # GIVEN
     stock_asset_metadata.current_price = 100
     stock_asset_metadata.save()
@@ -30,10 +38,36 @@ def test_should_simulate_transaction_w_quantity(client, stock_asset, stock_asset
     assert response_json["old"]["roi"] < response_json["new"]["roi"]
     assert response_json["old"]["roi_percentage"] > response_json["new"]["roi_percentage"]
     assert response_json["old"]["adjusted_avg_price"] < response_json["new"]["adjusted_avg_price"]
+    assert (
+        response_json["old"]["normalized_total_invested"]
+        < response_json["new"]["normalized_total_invested"]
+    )
+
+
+@pytest.mark.usefixtures("loss_asset_previously_closed_w_profit_loss")
+def test__simulate_transaction__closed_asset(client, stock_asset):
+    # GIVEN
+
+    # WHEN
+    response = client.post(
+        f"{URL.format(stock_asset.pk)}/simulate", data={"price": 10, "total": 5000}
+    )
+    response_json = response.json()
+
+    # THEN
+    assert response.status_code == 200
+
+    assert response_json["old"]["adjusted_avg_price"] > response_json["new"]["adjusted_avg_price"]
+    assert response_json["old"]["roi"] < response_json["new"]["roi"]
+    assert response_json["old"]["roi_percentage"] < response_json["new"]["roi_percentage"]
+    assert (
+        response_json["old"]["normalized_total_invested"]
+        < response_json["new"]["normalized_total_invested"]
+    )
 
 
 @pytest.mark.usefixtures("transactions")
-def test_should_simulate_transaction_w_total(client, stock_asset, stock_asset_metadata):
+def test__simulate_transaction__w_total(client, stock_asset, stock_asset_metadata):
     # GIVEN
     stock_asset_metadata.current_price = 100
     stock_asset_metadata.save()
@@ -51,9 +85,13 @@ def test_should_simulate_transaction_w_total(client, stock_asset, stock_asset_me
     assert response_json["old"]["roi"] < response_json["new"]["roi"]
     assert response_json["old"]["roi_percentage"] > response_json["new"]["roi_percentage"]
     assert response_json["old"]["adjusted_avg_price"] < response_json["new"]["adjusted_avg_price"]
+    assert (
+        response_json["old"]["normalized_total_invested"]
+        < response_json["new"]["normalized_total_invested"]
+    )
 
 
-def test_should_not_simulate_transaction_wo_total_and_quantity(client, stock_asset):
+def test__simulate_transaction__wo_total_and_quantity__error(client, stock_asset):
     # GIVEN
 
     # WHEN
@@ -64,18 +102,34 @@ def test_should_not_simulate_transaction_wo_total_and_quantity(client, stock_ass
     assert response.json() == {"non_field_errors": ["`quantity` or `total` is required"]}
 
 
-@pytest.mark.usefixtures("crypto_transaction")
-def test_should_not_normalize_avg_price_with_currency_when_simulating_transaction(
-    client, crypto_asset
-):
+@pytest.mark.usefixtures("crypto_transaction", "crypto_asset_metadata")
+def test__simulate_transaction__should_not_normalize_avg_price(client, crypto_asset):
     # GIVEN
-    price = 10
+    price, quantity = 10, 100
+    old = {
+        "roi": get_roi_brute_force(crypto_asset),
+        "normalized_total_invested": get_total_invested_brute_force(crypto_asset),
+    }
+    old["roi_percentage"] = old["roi"] / get_current_total_bought_brute_force(crypto_asset)
 
     # WHEN
     response = client.post(
-        f"{URL.format(crypto_asset.pk)}/simulate", data={"price": price, "quantity": 100}
+        f"{URL.format(crypto_asset.pk)}/simulate", data={"price": price, "quantity": quantity}
     )
     response_json = response.json()
+    Transaction.objects.create(
+        asset=crypto_asset,
+        action=TransactionActions.buy,
+        price=price,
+        quantity=quantity,
+        current_currency_conversion_rate=get_dollar_conversion_rate(),
+    )
+
+    new = {
+        "roi": get_roi_brute_force(crypto_asset),
+        "normalized_total_invested": get_total_invested_brute_force(crypto_asset),
+    }
+    new["roi_percentage"] = new["roi"] / get_current_total_bought_brute_force(crypto_asset)
 
     # THEN
     assert response.status_code == 200
@@ -85,6 +139,11 @@ def test_should_not_normalize_avg_price_with_currency_when_simulating_transactio
         == response_json["new"]["adjusted_avg_price"]
         == price
     )
+
+    for k, v in old.items():
+        assert convert_and_quantitize(v) == convert_and_quantitize(response_json["old"][k])
+    for k, v in new.items():
+        assert convert_and_quantitize(v) == convert_and_quantitize(response_json["new"][k])
 
 
 @pytest.mark.usefixtures("transactions", "stock_asset", "stock_usa_transaction")
@@ -107,7 +166,6 @@ def test__list__sanity_check(client, stock_usa_asset):
                 "price": float(transaction.price),
                 "quantity": float(transaction.quantity),
                 "operation_date": transaction.operation_date.strftime("%Y-%m-%d"),
-                "initial_price": transaction.initial_price,
                 "current_currency_conversion_rate": transaction.current_currency_conversion_rate,
                 "asset": {
                     "pk": stock_usa_asset.pk,

@@ -25,6 +25,7 @@ from shared.permissions import SubscriptionEndedPermission
 from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
 
 from . import choices, filters, serializers
+from .adapters.key_value_store import get_dollar_conversion_rate
 from .domain import events
 from .models import Asset, AssetReadModel, PassiveIncome, Transaction
 from .models.managers import (
@@ -33,7 +34,7 @@ from .models.managers import (
     PassiveIncomeQuerySet,
     TransactionQuerySet,
 )
-from .permissions import InventmentsModulePermission
+from .permissions import InvestmentsModulePermission
 from .service_layer import messagebus
 from .service_layer.unit_of_work import DjangoUnitOfWork
 
@@ -48,7 +49,7 @@ if TYPE_CHECKING:  # pragma: no cover
 class AssetViewSet(
     GenericViewSet, ListModelMixin, CreateModelMixin, UpdateModelMixin, DestroyModelMixin
 ):
-    permission_classes = (SubscriptionEndedPermission, InventmentsModulePermission)
+    permission_classes = (SubscriptionEndedPermission, InvestmentsModulePermission)
     filter_backends = (filters.CQRSDjangoFilterBackend, OrderingFilter)
     ordering_fields = ("code", "normalized_total_invested", "normalized_roi", "roi_percentage")
 
@@ -124,7 +125,10 @@ class AssetViewSet(
 
     @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:
-        serializer = serializers.AssetRoidIndicatorsSerializer(self.get_queryset().indicators())
+        data = self.get_queryset().indicators()
+        serializer = serializers.AssetRoidIndicatorsSerializer(
+            {"ROI": data["ROI_opened"] + data["ROI_closed"], **data}
+        )
         return Response(serializer.data, status=HTTP_200_OK)
 
     @staticmethod
@@ -172,7 +176,7 @@ class AssetViewSet(
 
 
 class TransactionViewSet(ModelViewSet):
-    permission_classes = (SubscriptionEndedPermission, InventmentsModulePermission)
+    permission_classes = (SubscriptionEndedPermission, InvestmentsModulePermission)
     serializer_class = serializers.TransactionListSerializer
     filterset_class = filters.TransactionFilterSet
     ordering_fields = ("operation_date", "asset__code")
@@ -225,7 +229,7 @@ class TransactionViewSet(ModelViewSet):
 
 
 class PassiveIncomeViewSet(ModelViewSet):
-    permission_classes = (SubscriptionEndedPermission, InventmentsModulePermission)
+    permission_classes = (SubscriptionEndedPermission, InvestmentsModulePermission)
     serializer_class = serializers.PassiveIncomeSerializer
     filterset_class = filters.PassiveIncomeFilterSet
     ordering_fields = ("operation_date", "amount", "asset__code")
@@ -287,7 +291,7 @@ class PassiveIncomeViewSet(ModelViewSet):
 
     @action(methods=("GET",), detail=False)
     def historic(self, _: Request) -> Response:
-        qs = self.get_queryset().since_a_year_ago()
+        qs = self.get_queryset().credited().since_a_year_ago()
         historic = list(qs.trunc_months().order_by("month"))
         serializer = serializers.PassiveIncomeHistoricSerializer(
             {
@@ -308,7 +312,7 @@ class PassiveIncomeViewSet(ModelViewSet):
 
 
 class AssetTransactionViewSet(GenericViewSet, ListModelMixin):
-    permission_classes = (SubscriptionEndedPermission, InventmentsModulePermission)
+    permission_classes = (SubscriptionEndedPermission, InvestmentsModulePermission)
     serializer_class = serializers.TransactionListSerializer
     filterset_class = filters.TransactionFilterSet
     ordering_fields = ("operation_date", "asset__code")
@@ -326,12 +330,17 @@ class AssetTransactionViewSet(GenericViewSet, ListModelMixin):
     )
     @action(methods=("POST",), detail=False)
     def simulate(self, request: Request, pk: int) -> Response:
-        asset = get_object_or_404(request.user.assets.all(), pk=pk)
+        asset: Asset = get_object_or_404(request.user.assets.annotate_for_simulation(), pk=pk)
         serializer = serializers.TransactionSimulateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.data
 
-        kwargs = {"price": data["price"]}
+        kwargs = {
+            "price": data["price"],
+            "current_currency_conversion_rate": (
+                1 if asset.currency == choices.Currencies.real else get_dollar_conversion_rate()
+            ),
+        }
         if data.get("quantity") is not None:
             kwargs["quantity"] = data["quantity"]
         else:
@@ -340,18 +349,15 @@ class AssetTransactionViewSet(GenericViewSet, ListModelMixin):
         old = serializers.AssetSimulateSerializer(instance=asset).data
         with djtransaction.atomic():
             Transaction.objects.create(asset=asset, action=choices.TransactionActions.buy, **kwargs)
-
-            # clear cached properties
-            del asset.__dict__["adjusted_avg_price_from_transactions"]
-            del asset.__dict__["quantity_from_transactions"]
-
-            new = serializers.AssetSimulateSerializer(instance=asset).data
+            new = serializers.AssetSimulateSerializer(
+                instance=request.user.assets.annotate_for_simulation().all().get(pk=pk)
+            ).data
             djtransaction.set_rollback(True)
         return Response({"old": old, "new": new}, status=HTTP_200_OK)
 
 
 class AssetIncomesiewSet(GenericViewSet, ListModelMixin):
-    permission_classes = (SubscriptionEndedPermission, InventmentsModulePermission)
+    permission_classes = (SubscriptionEndedPermission, InvestmentsModulePermission)
     serializer_class = serializers.PassiveIncomeSerializer
     filterset_class = filters.PassiveIncomeFilterSet
     ordering_fields = ("operation_date", "amount", "asset__code")

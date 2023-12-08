@@ -15,12 +15,12 @@ class Expense(models.Model):
     created_at = models.DateField(default=serializable_today_function)
     source = models.CharField(validators=[ExpenseSource.validator], max_length=20)
     is_fixed = models.BooleanField(default=False)
-    installments_id = models.UUIDField(null=True)
+    installments_id = models.UUIDField(null=True, blank=True)
     installment_number = models.PositiveSmallIntegerField(
-        null=True, validators=[MinValueValidator(1)]
+        null=True, blank=True, validators=[MinValueValidator(1)]
     )
     installments_qty = models.PositiveSmallIntegerField(
-        null=True, validators=[MinValueValidator(2)]
+        null=True, blank=True, validators=[MinValueValidator(2)]
     )
     user = models.ForeignKey(
         to=settings.AUTH_USER_MODEL,

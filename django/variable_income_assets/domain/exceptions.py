@@ -1,4 +1,4 @@
-from ..choices import Currencies, TransactionActions
+from ..choices import Currencies
 
 
 class ValidationError(Exception):
@@ -28,19 +28,10 @@ class ValidationError(Exception):
 
 
 class NegativeQuantityNotAllowedException(ValidationError):
-    default_message = "You can't sell more assets than you own"
+    default_message = "Você não pode vender mais ativos que possui"
 
     def __init__(self) -> None:
         super().__init__(field="action")
-
-
-class CurrencyConversionRateNotNullWhenActionIsBuy(ValidationError):
-    default_message = (
-        f"This value must be ommited when the action of a transaction is {TransactionActions.buy}"
-    )
-
-    def __init__(self) -> None:
-        super().__init__(field="current_currency_conversion_rate")
 
 
 class CurrencyConversionRateNullOrOneForNonBrlAssets(ValidationError):

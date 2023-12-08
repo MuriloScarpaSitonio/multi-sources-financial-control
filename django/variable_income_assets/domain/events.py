@@ -1,12 +1,8 @@
 from dataclasses import dataclass
 
 
-class Event:
-    pass
-
-
 @dataclass
-class _AssetReadModelEvent(Event):
+class Event:
     asset_pk: int
     # do not dispatch the event handler to be executed elsewhere
     # (i.e. to a queue, other system or whatever) but rather execute
@@ -15,34 +11,38 @@ class _AssetReadModelEvent(Event):
 
 
 @dataclass
-class TransactionsCreated(_AssetReadModelEvent):
+class TransactionsCreated(Event):
     new_asset: bool = False
 
 
-class TransactionUpdated(_AssetReadModelEvent):
+class TransactionUpdated(Event):
     pass
 
 
-class TransactionDeleted(_AssetReadModelEvent):
+class TransactionDeleted(Event):
     pass
 
 
 @dataclass
-class PassiveIncomeCreated(_AssetReadModelEvent):
+class PassiveIncomeCreated(Event):
     new_asset: bool = False
 
 
-class PassiveIncomeUpdated(_AssetReadModelEvent):
+class PassiveIncomeUpdated(Event):
     pass
 
 
-class PassiveIncomeDeleted(_AssetReadModelEvent):
+class PassiveIncomeDeleted(Event):
     pass
 
 
-class AssetCreated(_AssetReadModelEvent):
+class AssetCreated(Event):
     pass
 
 
-class AssetUpdated(_AssetReadModelEvent):
+class AssetUpdated(Event):
+    pass
+
+
+class AssetOperationClosed(Event):
     pass

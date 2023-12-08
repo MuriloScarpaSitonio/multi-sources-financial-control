@@ -24,7 +24,9 @@ from ...choices import (
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
 )
-from ...models import PassiveIncome
+from ...models import Asset, PassiveIncome
+from ...models.managers import PassiveIncomeQuerySet
+from ..shared import get_total_credited_incomes_brute_force
 
 pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "incomes"
@@ -492,7 +494,7 @@ def test__indicators(client):
 
 
 @pytest.mark.usefixtures("passive_incomes")
-def test__historic(client):
+def test__historic(client, stock_asset):
     # GIVEN
     today = timezone.now().date()
 
@@ -506,12 +508,15 @@ def test__historic(client):
     for result in response_json["historic"]:
         d = datetime.strptime(result["month"], "%d/%m/%Y").date()
         assert result["total"] == convert_and_quantitize(
-            PassiveIncome.objects.filter(
-                operation_date__month=d.month, operation_date__year=d.year
-            ).sum()["total"]
+            get_total_credited_incomes_brute_force(
+                stock_asset,
+                extra_filters=Q(operation_date__month=d.month, operation_date__year=d.year),
+            )
         )
         if d == today.replace(day=1):  # we don't evaluate the current month on the avg calculation
             continue
+
+    # TODO: also assert avg
 
 
 @pytest.mark.usefixtures(
@@ -531,11 +536,16 @@ def test__assets_aggregation_report(client, filters, django_assert_num_queries):
         assert len(response.json()) == 9
 
     for r in response.json():
-        qs = PassiveIncome.objects.credited().filter(asset__code=r["code"])
+        total = 0
+        asset = Asset.objects.get(code=r["code"])
         if "all" not in filters:
-            qs = qs.since_a_year_ago()
+            total += get_total_credited_incomes_brute_force(
+                asset, extra_filters=PassiveIncomeQuerySet.date_filters.since_a_year_ago
+            )
+        else:
+            total += get_total_credited_incomes_brute_force(asset)
 
-        assert convert_and_quantitize(qs.sum()["total"]) == r["total"]
+        assert convert_and_quantitize(total) == r["total"]
 
 
 def test__forbidden__module_not_enabled(user, client):

@@ -27,6 +27,7 @@ def _print_assets_portfolio(qs: AssetQuerySet[Asset], year: int) -> None:
         start=1,
     ):
         # Preço médio sempre na moeda original e total em reais
+        # TODO: adicionar dolar médio
         currency_symbol = Currencies.get_choice(asset["currency"]).symbol
         results.append(f"{i}. {asset['code']}")
         results.append(f"\tQuantidade: {asset['transactions_balance']}".replace(".", ","))
@@ -126,7 +127,7 @@ def _print_stocks_elegible_for_taxation(user_pk: int, year: int, debug: bool):
 def _print_stocks_usa_elegible_for_taxation(
     user_pk: int, year: int, debug: bool, normalize: bool, dollar_conversion_rate: Decimal
 ):
-    qs = Transaction.objects.using_dollar_as(dollar_conversion_rate).filter(
+    qs = Transaction.objects.filter(
         asset__user_id=user_pk, asset__type=AssetTypes.stock_usa, operation_date__year=year
     )
     results = []
@@ -174,7 +175,7 @@ def _print_cryptos_elegible_for_taxation(
     user_pk: int, year: int, debug: bool, normalize: bool, dollar_conversion_rate: Decimal
 ):
     results = []
-    qs = Transaction.objects.using_dollar_as(dollar_conversion_rate).filter(
+    qs = Transaction.objects.filter(
         asset__user_id=user_pk, asset__type=AssetTypes.crypto, operation_date__year=year
     )
     for infos in (
@@ -322,7 +323,7 @@ def _print_stocks_not_elegible_for_taxation(user_pk: int, year: int, debug: bool
 def _print_stocks_usa_not_elegible_for_taxation(
     user_pk: int, year: int, debug: bool, normalize: bool, dollar_conversion_rate: Decimal
 ):
-    qs = Transaction.objects.using_dollar_as(dollar_conversion_rate).filter(
+    qs = Transaction.objects.filter(
         asset__user_id=user_pk, asset__type=AssetTypes.stock_usa, operation_date__year=year
     )
     loss_section = "seção 'Renda Variável', opção 'Operações Comuns / Day Trade'"
@@ -385,7 +386,7 @@ def _print_stocks_usa_not_elegible_for_taxation(
 def _print_cryptos_not_elegible_for_taxation(
     user_pk: int, year: int, debug: bool, normalize: bool, dollar_conversion_rate: Decimal
 ):
-    qs = Transaction.objects.using_dollar_as(dollar_conversion_rate).filter(
+    qs = Transaction.objects.filter(
         asset__user_id=user_pk, asset__type=AssetTypes.crypto, operation_date__year=year
     )
     loss_section = (
@@ -460,11 +461,7 @@ def print_irpf_infos(
         if dollar_conversion_rate is not None
         else get_dollar_conversion_rate()  # na verdade, buscar a cotação em 31/12 de `year`
     )
-    qs = (
-        Asset.objects.using_dollar_as(dollar_conversion_rate)
-        .filter(user_id=user_pk)
-        .order_by("code")
-    )
+    qs = Asset.objects.filter(user_id=user_pk).order_by("code")
 
     year = year if year is not None else timezone.localtime().year - 1
     _print_assets_portfolio(qs=qs, year=year)

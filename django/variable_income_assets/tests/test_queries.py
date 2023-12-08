@@ -35,9 +35,7 @@ def test__asset__irp_infos(stock_usa_asset):
     # THEN
     assert convert_and_quantitize(
         get_avg_price_bute_force(
-            asset=stock_usa_asset,
-            normalize=False,
-            extra_filters=Q(operation_date__year__lte=year),
+            asset=stock_usa_asset, extra_filters=Q(operation_date__year__lte=year)
         )
     ) == convert_and_quantitize(asset["avg_price"])
     assert convert_and_quantitize(

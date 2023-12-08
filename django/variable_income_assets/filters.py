@@ -54,7 +54,7 @@ class AssetReadFilterSet(filters.FilterSet):
     def filter_status(
         self, queryset: AssetReadModelQuerySet[AssetReadModel], _, value: str
     ) -> AssetReadModelQuerySet[AssetReadModel]:
-        return queryset.opened() if value == AssetStatus.opened else queryset.finished()
+        return queryset.opened() if value == AssetStatus.opened else queryset.closed()
 
 
 class AssetFetchCurrentPriceFilterSet(filters.FilterSet):
@@ -131,16 +131,16 @@ class _AssetRoiReportForm(Form):
             raise ValidationError("Required to define the type of assets of the report")
         return opened
 
-    def clean_finished(self):
-        finished = self.cleaned_data["finished"]
-        if finished is None:
+    def clean_closed(self):
+        closed = self.cleaned_data["closed"]
+        if closed is None:
             raise ValidationError("Required to define the type of assets of the report")
-        return finished
+        return closed
 
 
 class AssetRoiReportFilterSet(filters.FilterSet):
     opened = filters.BooleanFilter(required=True)
-    finished = filters.BooleanFilter(required=True)
+    closed = filters.BooleanFilter(required=True)
 
     class Meta:
         form = _AssetRoiReportForm
@@ -150,7 +150,7 @@ class AssetRoiReportFilterSet(filters.FilterSet):
         if self.is_valid():
             return self.queryset.roi_report(
                 opened=self.form.cleaned_data["opened"],
-                finished=self.form.cleaned_data["finished"],
+                closed=self.form.cleaned_data["closed"],
             )
         raise filters.utils.translate_validation(error_dict=self.errors)
 

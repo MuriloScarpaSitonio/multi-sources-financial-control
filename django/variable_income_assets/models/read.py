@@ -27,8 +27,13 @@ class AssetReadModel(models.Model):
     currency = models.CharField(max_length=6, blank=True, validators=[Currencies.validator])
     quantity_balance = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
     avg_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
-    total_bought = models.DecimalField(decimal_places=4, max_digits=20, default=Decimal())
+    adjusted_avg_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
+    normalized_avg_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
+    normalized_total_bought = models.DecimalField(
+        decimal_places=4, max_digits=20, default=Decimal()
+    )
     normalized_total_sold = models.DecimalField(decimal_places=4, max_digits=20, default=Decimal())
+    normalized_closed_roi = models.DecimalField(decimal_places=4, max_digits=20, default=Decimal())
     credited_incomes = models.DecimalField(decimal_places=4, max_digits=20, default=Decimal())
     normalized_credited_incomes = models.DecimalField(
         decimal_places=4, max_digits=20, default=Decimal()
@@ -51,30 +56,23 @@ class AssetReadModel(models.Model):
 
     @cached_property
     def normalized_roi(self) -> Decimal:
-        if self.currency == Currencies.real:
-            current_price = self.metadata.current_price
-            avg_price = self.avg_price
-        else:
-            dollar_conversion_rate = get_dollar_conversion_rate()
-            current_price = self.metadata.current_price * dollar_conversion_rate
-            avg_price = self.avg_price * dollar_conversion_rate
+        current_price = (
+            self.metadata.current_price
+            if self.currency == Currencies.real
+            else self.metadata.current_price * get_dollar_conversion_rate()
+        )
 
         return (current_price * self.quantity_balance) - (
-            (avg_price * self.quantity_balance)
+            self.normalized_total_bought
             - self.normalized_credited_incomes
             - self.normalized_total_sold
         )
 
     @cached_property
     def roi_percentage(self) -> Decimal:
-        # move to db so ordering can work
-        total_bought = (
-            self.total_bought
-            if self.currency == Currencies.real
-            else self.total_bought * get_dollar_conversion_rate()
-        )
+        # TODO: move to db so ordering can work
         try:
-            return (self.normalized_roi / total_bought) * Decimal("100.0")
+            return (self.normalized_roi / self.normalized_total_bought) * Decimal("100.0")
         except DecimalException:
             return Decimal()
 

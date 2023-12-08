@@ -31,6 +31,7 @@ EVENT_HANDLERS: dict[type[events.Event], list[MessageCallable]] = {
     events.PassiveIncomeDeleted: [handlers.upsert_read_model],
     events.AssetCreated: [handlers.maybe_create_metadata, handlers.upsert_read_model],
     events.AssetUpdated: [handlers.maybe_create_metadata, handlers.upsert_read_model],
+    events.AssetOperationClosed: [handlers.create_asset_operation_closed_record],
 }
 
 COMMAND_HANDLERS: dict[type[commands.Command], MessageCallable] = {
@@ -59,23 +60,43 @@ def handle(message: Message, uow: AbstractUnitOfWork) -> None:
 
 def handle_event(event: events.Event, queue: list[Message], uow: AbstractUnitOfWork) -> None:
     for handler in EVENT_HANDLERS[event.__class__]:
-        _handle_message(handler=handler, message=event, queue=queue, uow=uow)
+        _handle_message(handler=handler, message=event, queue=queue, uow=uow, sync=event.sync)
 
 
 def handle_command(
     command: commands.Command, queue: list[Message], uow: AbstractUnitOfWork
 ) -> None:
     _handle_message(
-        handler=COMMAND_HANDLERS[command.__class__], message=command, queue=queue, uow=uow
+        handler=COMMAND_HANDLERS[command.__class__],
+        message=command,
+        queue=queue,
+        uow=uow,
+        sync=True,
     )
 
 
 def _handle_message(
-    handler: MessageCallable, message: Message, queue: list[Message], uow: AbstractUnitOfWork
+    handler: MessageCallable,
+    message: Message,
+    queue: list[Message],
+    uow: AbstractUnitOfWork,
+    sync: bool,
 ) -> None:
-    handler(message, uow)
+    if sync:
+        handler(message, uow)
+    else:
+        _dispatch_async(handler, message, uow)
     queue.extend(uow.collect_new_events())
     # TODO: log error
+
+
+# TODO: implement queue or whatever
+def _dispatch_async(
+    handler: MessageCallable,
+    message: Message,
+    uow: AbstractUnitOfWork,
+) -> None:
+    handler(message, uow)
 
 
 # endregion: handlers
