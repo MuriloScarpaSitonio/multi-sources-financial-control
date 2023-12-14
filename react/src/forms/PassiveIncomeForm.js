@@ -106,7 +106,7 @@ export const PassiveIncomeForm = ({
   const [alertInfos, setAlertInfos] = useState({});
   let initialEventType =
     getChoiceByLabel(initialData.event_type, PassiveIncomeEventTypesMapping)
-      ?.value || "PROVISIONED";
+      ?.value || "CREDITED";
   const [isCreditedIncome, setIsCreditedIncome] = useState(
     initialEventType === "CREDITED"
   );
@@ -388,7 +388,9 @@ export const PassiveIncomeForm = ({
                 }}
                 style={{
                   display:
-                    isCreditedIncome && assetData?.currency !== "BRL"
+                    isCreditedIncome &&
+                    assetData &&
+                    assetData?.currency !== "BRL"
                       ? ""
                       : "none",
                 }}

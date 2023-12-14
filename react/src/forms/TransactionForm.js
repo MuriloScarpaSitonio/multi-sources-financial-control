@@ -89,9 +89,6 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
   let initialAction =
     getChoiceByLabel(initialData.action, TransactionsActionsMapping)?.value ||
     "BUY";
-  const [isSellTransaction, setIsSellTransaction] = useState(
-    initialAction === "SELL" || false
-  );
   const [alertInfos, setAlertInfos] = useState({});
 
   let api = new AssetsApi();
@@ -223,10 +220,7 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                     value={value}
                     required
                     row
-                    onChange={(_, v) => {
-                      setIsSellTransaction(v === "SELL");
-                      onChange(v);
-                    }}
+                    onChange={(_, v) => onChange(v)}
                   >
                     <FormControlLabel
                       value="BUY"
@@ -337,7 +331,8 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                 }}
                 style={{
                   width: "60%",
-                  display: assetData?.currency !== "BRL" ? "" : "none",
+                  display:
+                    assetData && assetData?.currency !== "BRL" ? "" : "none",
                 }}
                 error={!!errors.current_currency_conversion_rate}
                 helperText={

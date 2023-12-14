@@ -117,7 +117,7 @@ const SimulateTransactionResponseDialog = ({
                   )}%`}
                 </TableCell>
                 <TableCell align="right">
-                  {`R$ ${responseData.old?.total_invested?.toLocaleString(
+                  {`R$ ${responseData.old?.normalized_total_invested?.toLocaleString(
                     "pt-br",
                     {
                       minimumFractionDigits: 2,
@@ -156,7 +156,7 @@ const SimulateTransactionResponseDialog = ({
                   )}%`}
                 </TableCell>
                 <TableCell align="right">
-                  {`R$ ${responseData.new?.total_invested?.toLocaleString(
+                  {`R$ ${responseData.new?.normalized_total_invested?.toLocaleString(
                     "pt-br",
                     {
                       minimumFractionDigits: 2,
