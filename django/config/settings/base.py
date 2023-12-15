@@ -174,6 +174,8 @@ TWELVE_DATA_API_KEY = secret("TWELVE_DATA_API_KEY", default="")
 
 BRAPI_API_KEY = secret("BRAPI_API_KEY", default="")
 
+COIN_MARKET_CAP_API_KEY = secret("COIN_MARKET_CAP_API_KEY", default="")
+
 USD_CRYPTO_SYMBOLS = ("USDT", "USDC", "BUSD", "TUSD")
 
 GDRIVE_BACKUP_DB_FOLDER_ID = secret("GDRIVE_BACKUP_DB_FOLDER_ID", default="")

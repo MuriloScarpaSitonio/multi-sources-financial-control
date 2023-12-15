@@ -22,7 +22,7 @@ from ..integrations.clients.abc import AbstractTransactionsClient
 from ..models import Asset
 from ..service_layer.unit_of_work import DjangoUnitOfWork
 from ..tasks import maybe_create_asset_metadata
-from .clients import BrApiClient, TwelveDataClient
+from .clients import BrApiClient, CoinMarketCapClient, TwelveDataClient
 
 if TYPE_CHECKING:
     from .schemas import TransactionFromIntegration, TransactionPydanticModel
@@ -34,8 +34,8 @@ async def get_b3_prices(codes: list[str]) -> dict[str, float]:
 
 
 async def get_crypto_prices(codes: list[str], currency: Currencies):
-    async with BrApiClient() as c:
-        return await c.get_crypto_prices(codes=codes, currency=currency)
+    async with CoinMarketCapClient() as c:
+        return await c.get_prices(symbols=codes, currency=currency)
 
 
 async def get_stocks_usa_prices(codes: list[str]):
