@@ -164,14 +164,16 @@ def get_roi_brute_force(asset: Asset, normalize: bool = True):
 
 
 def get_current_roi_brute_force(asset: Asset, normalize: bool = True):
-    total_sold = get_total_sold_brute_force(asset=asset, normalize=normalize)
-    total_bought = get_total_bought_brute_force(asset, normalize=normalize)
+    quantity_balance = get_quantity_balance_brute_force(asset=asset)
     closed_total_sold, closed_total_bought = get_closed_operations_totals(
         asset=asset, normalize=normalize
     )
+    if not quantity_balance:
+        return closed_total_sold - closed_total_bought
+    total_sold = get_total_sold_brute_force(asset=asset, normalize=normalize)
+    total_bought = get_total_bought_brute_force(asset, normalize=normalize)
     total_incomes = get_total_credited_incomes_brute_force(asset=asset, normalize=normalize)
     closed_incomes = _get_finsished_credited_incomes_brute_force(asset=asset)
-    quantity_balance = get_quantity_balance_brute_force(asset=asset)
     current_price = get_current_price_metadata(asset)
 
     if normalize and asset.currency == Currencies.dollar:

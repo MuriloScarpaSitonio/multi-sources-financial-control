@@ -64,11 +64,7 @@ class AssetViewSet(
                 user_id=self.request.user.id
             )
             return (
-                (
-                    qs.annotate_normalized_total_invested()
-                    .annotate_normalized_roi()
-                    .order_by("-normalized_total_invested")
-                )
+                qs.annotate_for_serializer().order_by("-normalized_total_invested")
                 if self.action == "list"
                 else qs
             )

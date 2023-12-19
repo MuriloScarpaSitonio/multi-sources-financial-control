@@ -71,6 +71,66 @@ class _Expressions:
             default=models.F("normalized_closed_roi"),
         )
 
+    # TODO: evaluate this query to see if it's worth to add it for closed assets
+    # as will be used quite rarely and might degradate performance
+    # @property
+    # def roi_percentage(self) -> models.Case:
+    #     from ...models import AssetClosedOperation
+
+    #     return models.Case(
+    #         models.When(
+    #             models.Q(self.filters.opened),
+    #             then=(
+    #                 (
+    #                     models.F("normalized_roi")
+    #                     / (
+    #                         models.F("normalized_total_bought")
+    #                         * models.functions.Cast(1.0, models.DecimalField())
+    #                     )
+    #                 )
+    #                 * Decimal("100.0")
+    #             ),
+    #         ),
+    #         default=(
+    #             models.Subquery(
+    #                AssetClosedOperation.objects.filter(asset_id=models.OuterRef("write_model_pk"))
+    #                 .alias(
+    #                     _normalized_roi=(
+    #                        models.F("normalized_total_sold") - models.F("normalized_total_bought")
+    #                     )
+    #                 )
+    #                 .alias(
+    #                     normalized_roi=models.Sum("_normalized_roi"),
+    #                     agg_normalized_total_bought=models.Sum("normalized_total_bought"),
+    #                 )
+    #                 .annotate(
+    #                     roi_percentage=(
+    #                         (
+    #                             models.F("normalized_roi")
+    #                             / (
+    #                                 models.F("agg_normalized_total_bought")
+    #                                 * models.functions.Cast(1.0, models.DecimalField())
+    #                             )
+    #                         )
+    #                         * Decimal("100.0")
+    #                     )
+    #                 )
+    #                 .values("roi_percentage")[:1]
+    #             )
+    #         ),
+    #     )
+
+    @property
+    def roi_percentage(self) -> models.CombinedExpression:
+        return models.functions.Coalesce(
+            models.F("normalized_roi")
+            / (
+                models.F("normalized_total_bought")
+                * models.functions.Cast(1.0, models.DecimalField())
+            ),
+            Decimal(),
+        ) * Decimal("100.0")
+
     def get_dollar_conversion_expression(self, expression: models.Expression) -> models.Case:
         return models.Case(
             models.When(
@@ -109,6 +169,16 @@ class AssetReadModelQuerySet(models.QuerySet):
 
     def annotate_normalized_roi(self) -> Self:
         return self.annotate(normalized_roi=self.expressions.normalized_roi)
+
+    def annotate_roi_percentage(self) -> Self:
+        return self.annotate(roi_percentage=self.expressions.roi_percentage)
+
+    def annotate_for_serializer(self) -> Self:
+        return (
+            self.annotate_normalized_total_invested()
+            .annotate_normalized_roi()
+            .annotate_roi_percentage()
+        )
 
     def indicators(self) -> dict[str, Decimal]:
         return (

@@ -23,6 +23,7 @@ from ...choices import AssetObjectives, AssetSectors, AssetTypes, Currencies
 from ...models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
 from ..shared import (
     get_avg_price_bute_force,
+    get_closed_operations_totals,
     get_current_adjusted_avg_price_brute_forte,
     get_current_price_metadata,
     get_current_roi_brute_force,
@@ -31,7 +32,6 @@ from ..shared import (
     get_quantity_balance_brute_force,
     get_roi_brute_force,
     get_total_invested_brute_force,
-    get_total_sold_brute_force,
 )
 
 pytestmark = pytest.mark.django_db
@@ -325,60 +325,6 @@ def test__list__filters(client, filter_by, count):
     assert response.json()["count"] == count
 
 
-old = {
-    "profit_asset_bought_transactions": {
-        "normalized_roi": 250.0,
-        "roi_percentage": 50.0,
-        "adjusted_avg_price": 10.0,
-    },
-    "loss_asset_bought_transactions": {
-        "normalized_roi": -250.0,
-        "roi_percentage": -50.0,
-        "adjusted_avg_price": 10.0,
-    },
-    "profit_asset_bought_transactions_incomes": {
-        "normalized_roi": 450.0,
-        "roi_percentage": 90.0,
-        "adjusted_avg_price": 6.0,
-    },
-    "loss_asset_bought_transactions_incomes_profit": {
-        "normalized_roi": 150.0,
-        "roi_percentage": 30.0,
-        "adjusted_avg_price": 2.0,
-    },
-    "loss_asset_bought_transactions_incomes_loss": {
-        "normalized_roi": -50.0,
-        "roi_percentage": -10.0,
-        "adjusted_avg_price": 6.0,
-    },
-    "profit_asset_both_transactions": {
-        "normalized_roi": 250.0,
-        "roi_percentage": 50.0,
-        "adjusted_avg_price": 10.0,
-    },
-    "loss_asset_both_transactions": {
-        "normalized_roi": -250.0,
-        "roi_percentage": -50.0,
-        "adjusted_avg_price": 10.0,
-    },
-    "profit_asset_both_transactions_incomes": {
-        "normalized_roi": 450.0,
-        "roi_percentage": 90.0,
-        "adjusted_avg_price": 2.0,
-    },
-    "loss_asset_both_transactions_incomes_profit": {
-        "normalized_roi": 1.0,
-        "roi_percentage": 0.2,
-        "adjusted_avg_price": -0.04,
-    },
-    "loss_asset_both_transactions_incomes_loss": {
-        "normalized_roi": -249.0,
-        "roi_percentage": -49.8,
-        "adjusted_avg_price": 9.96,
-    },
-}
-
-
 @pytest.mark.parametrize(
     "fixture, operation",
     (
@@ -394,6 +340,7 @@ old = {
         ("loss_asset_both_transactions_incomes_loss", operator.lt),
         ("loss_asset_previously_closed_w_profit_loss", operator.lt),
         ("loss_asset_previously_closed_w_incomes_and_profit_loss", operator.lt),
+        # ("profit_asset_closed", operator.gt),
     ),
 )
 def test__list__aggregations(client, stock_asset, fixture, operation, request):
@@ -404,6 +351,8 @@ def test__list__aggregations(client, stock_asset, fixture, operation, request):
     roi = get_current_roi_brute_force(asset=stock_asset)
     avg_price = get_current_adjusted_avg_price_brute_forte(asset=stock_asset)
     total_bought = get_current_total_bought_brute_force(asset=stock_asset)
+    if not total_bought:
+        _, total_bought = get_closed_operations_totals(stock_asset, normalize=True)
 
     # WHEN
     response = client.get(URL)
@@ -414,9 +363,9 @@ def test__list__aggregations(client, stock_asset, fixture, operation, request):
     results = response.json()["results"][0]
     assert convert_and_quantitize(results["normalized_roi"]) == convert_and_quantitize(roi)
     assert operation(roi, 0)
-    assert convert_and_quantitize(results["roi_percentage"]) == convert_and_quantitize(
-        (float(roi) / float(total_bought)) * 100
-    )
+    assert convert_and_quantitize(
+        results["roi_percentage"], decimal_places=3
+    ) == convert_and_quantitize((float(roi) / float(total_bought)) * 100, decimal_places=3)
     assert convert_and_quantitize(results["adjusted_avg_price"]) == convert_and_quantitize(
         avg_price
     )
@@ -455,9 +404,9 @@ def test__list__aggregations__dollar(client, stock_usa_asset: Asset, fixture, op
     results = response.json()["results"][0]
     assert convert_and_quantitize(results["normalized_roi"]) == convert_and_quantitize(roi)
     assert operation(roi, 0)
-    assert convert_and_quantitize(results["roi_percentage"]) == convert_and_quantitize(
-        (float(roi) / float(total_bought)) * 100
-    )
+    assert convert_and_quantitize(
+        results["roi_percentage"], decimal_places=3
+    ) == convert_and_quantitize((float(roi) / float(total_bought)) * 100, decimal_places=3)
     assert convert_and_quantitize(results["adjusted_avg_price"]) == convert_and_quantitize(
         avg_price
     )

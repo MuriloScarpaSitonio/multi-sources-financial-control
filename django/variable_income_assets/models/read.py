@@ -69,14 +69,6 @@ class AssetReadModel(models.Model):
         )
 
     @cached_property
-    def roi_percentage(self) -> Decimal:
-        # TODO: move to db so ordering can work
-        try:
-            return (self.normalized_roi / self.normalized_total_bought) * Decimal("100.0")
-        except DecimalException:
-            return Decimal()
-
-    @cached_property
     def adjusted_avg_price(self) -> Decimal:
         try:
             return (

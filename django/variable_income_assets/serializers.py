@@ -304,6 +304,7 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
     objective = CustomChoiceField(read_only=True, choices=choices.AssetObjectives.choices)
     normalized_total_invested = serializers.DecimalField(decimal_places=4, max_digits=20)
     normalized_roi = serializers.DecimalField(decimal_places=4, max_digits=20)
+    roi_percentage = serializers.DecimalField(decimal_places=3, max_digits=20)
     percentage_invested = serializers.SerializerMethodField(read_only=True)
     current_percentage = serializers.SerializerMethodField(read_only=True)
     current_price = serializers.DecimalField(

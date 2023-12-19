@@ -608,6 +608,7 @@ export const AssetsTable = () => {
       name: "roi_percentage",
       label: "ROI %",
       options: {
+        display: isOpenedAssetsFiltered,
         filter: false,
         sort: true,
         customBodyRender: (v) =>

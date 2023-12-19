@@ -3,7 +3,12 @@ from decimal import Decimal
 from random import choice, randint
 from time import time
 
+from django.utils import timezone
+
 import pytest
+from dateutil.relativedelta import relativedelta
+from factory.django import DjangoModelFactory
+
 from authentication.models import CustomUser
 from authentication.tests.conftest import (
     binance_client,
@@ -16,10 +21,6 @@ from authentication.tests.conftest import (
     user_with_binance_integration,
     user_with_kucoin_integration,
 )
-from dateutil.relativedelta import relativedelta
-from factory.django import DjangoModelFactory
-
-from django.utils import timezone
 
 from ..adapters.key_value_store import update_dollar_conversion_rate
 from ..choices import (
@@ -827,6 +828,12 @@ def loss_asset_previously_closed_w_incomes_and_profit_loss(
 # 21 - ativo aberto, porém previamente fechado com prejuízo + incomes, prejuízo
 # 22 - ativo aberto, porém previamente fechado com prejuízo, lucro
 # 23 - ativo aberto, porém previamente fechado com prejuízo + incomes, lucro
+
+
+# 24 ativo fechado, lucro
+@pytest.fixture
+def profit_asset_closed(stock_asset_closed_operation, stock_asset_metadata):
+    ...
 
 
 # 6.dollar - ativo aberto, apenas transações de compra, lucro
