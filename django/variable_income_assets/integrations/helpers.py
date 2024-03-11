@@ -20,8 +20,8 @@ from ..choices import AssetObjectives, AssetSectors, AssetTypes, Currencies
 from ..domain.events import TransactionsCreated
 from ..integrations.clients.abc import AbstractTransactionsClient
 from ..models import Asset
+from ..service_layer.tasks import maybe_create_asset_metadata
 from ..service_layer.unit_of_work import DjangoUnitOfWork
-from ..tasks import maybe_create_asset_metadata
 from .clients import BrApiClient, CoinMarketCapClient, TwelveDataClient
 
 if TYPE_CHECKING:

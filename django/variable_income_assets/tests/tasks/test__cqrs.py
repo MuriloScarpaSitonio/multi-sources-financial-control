@@ -1,7 +1,7 @@
 import pytest
 
-from ...models import Asset, AssetReadModel
-from ...tasks import upsert_asset_read_model
+from ...models import AssetReadModel
+from ...service_layer.tasks import upsert_asset_read_model
 
 pytestmark = pytest.mark.django_db
 

@@ -1,5 +1,5 @@
-from ..adapters import DjangoSQLAssetMetaDataRepository
-from ..models import Asset, AssetReadModel
+from ...adapters import DjangoSQLAssetMetaDataRepository
+from ...models import Asset, AssetReadModel
 
 
 def upsert_asset_read_model(asset_id: int, is_aggregate_upsert: bool | None = None) -> None:

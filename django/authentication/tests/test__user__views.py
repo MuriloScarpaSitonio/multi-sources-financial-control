@@ -48,6 +48,7 @@ def test__create(api_client, mocker):
     assert not user.is_personal_finances_module_enabled
     assert not user.is_investments_module_enabled
     assert not user.is_investments_integrations_module_enabled
+    assert not user.credit_card_bill_day
     assert user.check_password(data["password"])
     assert m.call_args[1] == {"user": user}
 
@@ -73,7 +74,7 @@ def test__create__do_not_set_readonly_fields(api_client, mocker):
     # THEN
     assert response.status_code == HTTP_201_CREATED
 
-    user = UserModel.objects.get(email="murilo2@gmail.com")
+    user = UserModel.objects.get(email=data["email"])
     assert not user.is_active
     assert not user.is_personal_finances_module_enabled
     assert not user.is_investments_module_enabled
@@ -286,7 +287,7 @@ def test__not_create__by_enforcing_binance_constraint(api_client, secrets_data):
 
 
 @pytest.mark.parametrize("cpf", ("1", "11111111111"))
-def test__raise_error_invalid_cpf(api_client, cpf):
+def test__create__invalid_cpf(api_client, cpf):
     # GIVEN
     data = {
         "username": "murilo2",
@@ -304,7 +305,7 @@ def test__raise_error_invalid_cpf(api_client, cpf):
     assert response.json() == {"secrets": {"cpf": ["CPF inválido"]}}
 
 
-def test__validate_cpf_uniqueness(api_client, user):
+def test__create__validate_cpf_uniqueness(api_client, user):
     # GIVEN
     data = {
         "username": "murilo2",
@@ -320,6 +321,44 @@ def test__validate_cpf_uniqueness(api_client, user):
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {"secrets": {"cpf": ["Um usuário com esse CPF já existe"]}}
+
+
+def test__create__credit_card_bill_day(api_client):
+    # GIVEN
+    data = {
+        "username": "murilo2",
+        "email": "murilo2@gmail.com",
+        "password": "1234",
+        "password2": "1234",
+        "credit_card_bill_day": 5,
+    }
+
+    # WHEN
+    response = api_client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+
+    user = UserModel.objects.get(email=data["email"])
+    assert user.credit_card_bill_day == 5
+
+
+@pytest.mark.parametrize("day", (-1, 0, 32))
+def test__create__credit_card_bill_day__invalid(api_client, day):
+    # GIVEN
+    data = {
+        "username": "murilo2",
+        "email": "murilo2@gmail.com",
+        "password": "1234",
+        "password2": "1234",
+        "credit_card_bill_day": day,
+    }
+
+    # WHEN
+    response = api_client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
 
 
 def test__retrieve(client, user):
@@ -375,6 +414,7 @@ def test__update(client, user):
         "username": "murilo2",
         "email": "murilo2@gmail.com",
         "secrets": {"cpf": "75524399047"},
+        "credit_card_bill_day": 10,
     }
 
     # WHEN
@@ -386,6 +426,7 @@ def test__update(client, user):
     user.refresh_from_db()
     assert response.json()["email"] == user.email
     assert data["secrets"]["cpf"] == user.secrets.cpf
+    assert data["credit_card_bill_day"] == user.credit_card_bill_day
 
 
 @pytest.mark.parametrize(
@@ -416,6 +457,7 @@ def test__partial_update(client, user):
         "is_investments_integrations_module_enabled": False,
         "subscription_ends_at": None,
         "subscription_status": SubscriptionStatus.ACTIVE,
+        "credit_card_bill_day": 4,
     }
 
     # WHEN
@@ -432,6 +474,7 @@ def test__partial_update(client, user):
     assert user.is_investments_integrations_module_enabled
     assert user.subscription_ends_at is not None
     assert user.subscription_status == SubscriptionStatus.TRIALING
+    assert data["credit_card_bill_day"] == user.credit_card_bill_day
 
 
 @pytest.mark.parametrize(

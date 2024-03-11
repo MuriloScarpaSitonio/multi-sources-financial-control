@@ -3,8 +3,12 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING, ClassVar
 
+from django.db.transaction import atomic
+from django.utils import timezone
+
 from djchoices.choices import ChoiceItem
 from rest_framework.decorators import action
+from rest_framework.generics import get_object_or_404
 from rest_framework.mixins import (
     CreateModelMixin,
     DestroyModelMixin,
@@ -14,12 +18,14 @@ from rest_framework.mixins import (
 from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK
 from rest_framework.utils.serializer_helpers import ReturnList
+from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet
 
 from shared.permissions import SubscriptionEndedPermission
 from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
 
 from .choices import ExpenseReportType
+from .domain import commands, events
 from .filters import (
     ExpenseFilterSet,
     ExpenseHistoricFilterSet,
@@ -28,15 +34,18 @@ from .filters import (
     RevenueHistoricFilterSet,
 )
 from .managers import ExpenseQueryset, RevenueQueryset
-from .models import Expense, Revenue
+from .models import BankAccount, Expense, Revenue
 from .permissions import PersonalFinancesModulePermission
 from .serializers import (
+    BankAccountSerializer,
     ExpenseIndicatorsSerializer,
     ExpenseSerializer,
     HistoricResponseSerializer,
     RevenueIndicatorsSerializer,
     RevenueSerializer,
 )
+from .service_layer import messagebus
+from .service_layer.unit_of_work import ExpenseUnitOfWork, RevenueUnitOfWork
 
 if TYPE_CHECKING:
     from django_filters.filterset import FilterSet
@@ -93,10 +102,10 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
         )
 
     def perform_destroy(self, instance: Expense) -> None:
-        if instance.installments_id is None:
-            instance.delete()
-        else:
-            Expense.objects.filter(installments_id=instance.installments_id).delete()
+        messagebus.handle(
+            message=commands.DeleteExpense(expense=instance.to_domain()),
+            uow=ExpenseUnitOfWork(user_id=self.request.user.id),
+        )
 
     @staticmethod
     def _get_report_serializer_class(choice: ChoiceItem) -> type[Serializer]:
@@ -128,3 +137,55 @@ class RevenueViewSet(_PersonalFinanceViewSet):
             if self.request.user.is_authenticated
             else Expense.objects.none()  # pragma: no cover -- drf-spectatular
         )
+
+    @atomic
+    def perform_create(self, serializer: RevenueSerializer) -> None:
+        super().perform_create(serializer)
+
+        if serializer.instance.created_at > timezone.localdate():
+            # TODO: how to increment bank account when a future revenue is created?
+            return
+
+        with RevenueUnitOfWork(user_id=self.request.user.id) as uow:
+            messagebus.handle(
+                message=events.RevenueCreated(value=serializer.instance.value), uow=uow
+            )
+
+    @atomic
+    def perform_update(self, serializer: RevenueSerializer) -> None:
+        prev_value = serializer.instance.value
+        super().perform_update(serializer)
+
+        if serializer.instance.created_at > timezone.localdate():
+            # TODO: how to increment bank account when a future revenue is updated?
+            return
+
+        with RevenueUnitOfWork(user_id=self.request.user.id) as uow:
+            messagebus.handle(
+                message=events.RevenueUpdated(diff=prev_value - serializer.instance.value), uow=uow
+            )
+
+    @atomic
+    def perform_destroy(self, instance: Revenue):
+        super().perform_destroy(instance)
+        with RevenueUnitOfWork(user_id=self.request.user.id) as uow:
+            messagebus.handle(message=events.RevenueDeleted(value=instance.value), uow=uow)
+
+
+class BankAccountView(APIView):
+    permission_classes = (SubscriptionEndedPermission, PersonalFinancesModulePermission)
+
+    def get_object(self) -> BankAccount:
+        return get_object_or_404(BankAccount.objects.all(), user_id=self.request.user.id)
+
+    def get(self, _: Request) -> Response:
+        return Response(
+            data=BankAccountSerializer(instance=self.get_object()).data, status=HTTP_200_OK
+        )
+
+    def put(self, request: Request) -> Response:
+        serializer = BankAccountSerializer(instance=self.get_object(), data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(data=serializer.data, status=HTTP_200_OK)

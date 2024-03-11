@@ -1,20 +1,19 @@
 from __future__ import annotations
 
 from decimal import ROUND_HALF_UP, Decimal
-from typing import TYPE_CHECKING, Any
-from uuid import uuid4
+from typing import Any
 
-from dateutil.relativedelta import relativedelta
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
 
 from shared.serializers_utils import CustomChoiceField
 
 from .choices import ExpenseCategory, ExpenseSource
-from .models import Expense, Revenue
-
-if TYPE_CHECKING:
-    from datetime import date
+from .domain import commands
+from .domain.exceptions import ValidationError as DomainValidationError
+from .domain.models import Expense as ExpenseDomainModel
+from .models import BankAccount, Expense, Revenue
+from .service_layer import messagebus
+from .service_layer.unit_of_work import ExpenseUnitOfWork
 
 
 class ExpenseSerializer(serializers.ModelSerializer):
@@ -38,66 +37,38 @@ class ExpenseSerializer(serializers.ModelSerializer):
             "full_description",
         )
 
-    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
-        installments = attrs.get("installments") or 1
-        if attrs.get("is_fixed", False) and installments > 1:
-            raise ValidationError("Fixed expense with installments is not permitted")
-        return attrs
-
-    def validate_created_at(self, created_at: date) -> date:
-        if (
-            self.instance
-            and self.instance.installment_number is not None
-            and self.instance.installment_number != 1
-            and self.instance.created_at != created_at
-        ):
-            raise ValidationError("You can only update the date of the first installment")
-        return created_at
-
     def create(self, validated_data: dict[str, Any]) -> Expense:
-        installments = validated_data.pop("installments") or 1
-        if installments > 1:
-            validated_data["value"] /= installments
-            created_at = validated_data.pop("created_at")
-            installments_id = uuid4()
-            return Expense.objects.bulk_create(
-                objs=(
-                    Expense(
-                        created_at=created_at + relativedelta(months=i),
-                        installments_id=installments_id,
-                        installments_qty=installments,
-                        installment_number=i + 1,
-                        **validated_data,
-                    )
-                    for i in range(installments)
-                )
-            )[0]
-        return super().create(validated_data)
+        try:
+            user = validated_data.pop("user")
+            expense = ExpenseDomainModel(
+                **validated_data, installments_qty=validated_data.pop("installments") or 1
+            )
+            messagebus.handle(
+                message=commands.CreateExpense(expense=expense),
+                uow=ExpenseUnitOfWork(user_id=user.id),
+            )
+            return expense
+        except DomainValidationError as e:
+            raise serializers.ValidationError(e.detail) from e
 
     def update(self, instance: Expense, validated_data: dict) -> Expense:
-        if instance.installments_id is None:
-            return super().update(instance, validated_data)
-
-        installments_qs = Expense.objects.filter(installments_id=instance.installments_id)
-        validated_data.pop("user")
-        validated_data.pop("installments")
-        if instance.created_at != validated_data["created_at"]:
-            # `releativedelta` does work with django's `F` object so the following does not work
-            # date_fiff = instance.created_at - validated_data["created_at"]
-            # F("created_at") - relativedelta(seconds=int(date_diff.total_seconds()))
-
-            expenses: list[Expense] = []
-            for i, expense in enumerate(installments_qs.order_by("created_at")):
-                expense.created_at = validated_data["created_at"] + relativedelta(months=i)
-                expenses.append(expense)
-
-            Expense.objects.bulk_update(objs=expenses, fields=("created_at",))
-
-        validated_data.pop("created_at")
-        installments_qs.update(**validated_data)
-
-        instance.refresh_from_db()
-        return instance
+        try:
+            validated_data.pop("installments")
+            user = validated_data.pop("user")
+            expense = ExpenseDomainModel(
+                id=instance.pk,
+                installments_id=instance.installments_id,
+                installments_qty=instance.installments_qty or 1,
+                **validated_data,
+            )
+            expense.validate_update(data_instance=instance)
+            messagebus.handle(
+                message=commands.UpdateExpense(expense=expense, data_instance=instance),
+                uow=ExpenseUnitOfWork(user_id=user.id),
+            )
+            return expense
+        except DomainValidationError as e:
+            raise serializers.ValidationError(e.detail) from e
 
 
 class RevenueSerializer(serializers.ModelSerializer):
@@ -155,3 +126,10 @@ class RevenueIndicatorsSerializer(_ExtraBaseSerializer):
 
 class ExpenseIndicatorsSerializer(RevenueIndicatorsSerializer):
     future = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
+
+
+class BankAccountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BankAccount
+        fields = ("amount", "description", "updated_at")
+        extra_kwargs = {"updated_at": {"read_only": True}}

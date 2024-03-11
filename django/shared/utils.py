@@ -1,8 +1,14 @@
+from __future__ import annotations
+
 from copy import deepcopy
 from datetime import date
-from typing import Required, TypedDict
+from enum import Enum
+from typing import TYPE_CHECKING, Required, TypedDict
 
 from dateutil.relativedelta import relativedelta
+
+if TYPE_CHECKING:
+    from djchoices import DjangoChoices
 
 
 class MonthlyHistoricType(TypedDict, total=False):
@@ -36,3 +42,7 @@ def _insert_zeros_in_between(
             )
         diffs += diff_months - 1
     return _historic
+
+
+def choices_to_enum(choices_class: type[DjangoChoices]) -> Enum:
+    return Enum(choices_class.__name__ + "Enum", {choice[1]: choice[0] for choice in choices_class})

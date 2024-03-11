@@ -40,7 +40,6 @@ class UserViewSet(GenericViewSet, CreateModelMixin, RetrieveModelMixin, UpdateMo
 
     def get_queryset(self) -> QuerySet[UserModel]:
         if self.request.user.is_authenticated:
-            print(self.action, self.request.method)
             return UserModel.objects.select_related("secrets").filter(pk=self.request.user.pk)
         return UserModel.objects.none()  # pragma: no cover -- drf-spectacular
 

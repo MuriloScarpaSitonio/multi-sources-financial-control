@@ -523,7 +523,7 @@ def test__historic(client, stock_asset):
     "passive_incomes", "another_income", "assets_w_incomes", "stock_asset", "stock_usa_asset"
 )
 @pytest.mark.parametrize("filters", ("credited=True", "credited=True&all=true"))
-def test__assets_aggregation_report(client, filters, django_assert_num_queries):
+def test__assets_aggregation_report(client, filters):
     # GIVEN
 
     # WHEN

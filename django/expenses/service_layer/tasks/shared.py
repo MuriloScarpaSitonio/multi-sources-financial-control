@@ -1,13 +1,16 @@
-from functools import partial
+from __future__ import annotations
 
-from dateutil.relativedelta import relativedelta
+from typing import TYPE_CHECKING
 
 from django.utils import timezone
 
-from .models import Expense, Revenue
+from dateutil.relativedelta import relativedelta
+
+if TYPE_CHECKING:
+    from ...models import Expense, Revenue
 
 
-def _create_fixed_entities_from_last_month(
+def create_fixed_entities_from_last_month(
     user_id: int, model: Expense | Revenue
 ) -> list[Expense | Revenue]:
     one_month_before = timezone.localdate() - relativedelta(months=1)

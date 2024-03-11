@@ -17,27 +17,18 @@ MessageCallable = Callable[[Any, AbstractUnitOfWork], Any]
 # region: maps
 
 EVENT_HANDLERS: dict[type[events.Event], list[MessageCallable]] = {
-    events.TransactionsCreated: [
-        handlers.upsert_read_model,
-        # handlers.check_monthly_selling_transaction_threshold,
-    ],
-    events.TransactionUpdated: [
-        handlers.upsert_read_model,
-        # handlers.check_monthly_selling_transaction_threshold,
-    ],
-    events.TransactionDeleted: [handlers.upsert_read_model],
-    events.PassiveIncomeCreated: [handlers.upsert_read_model],
-    events.PassiveIncomeUpdated: [handlers.upsert_read_model],
-    events.PassiveIncomeDeleted: [handlers.upsert_read_model],
-    events.AssetCreated: [handlers.maybe_create_metadata, handlers.upsert_read_model],
-    events.AssetUpdated: [handlers.maybe_create_metadata, handlers.upsert_read_model],
-    events.AssetOperationClosed: [handlers.create_asset_operation_closed_record],
+    events.ExpenseCreated: [handlers.maybe_decrement_bank_account],
+    events.ExpenseUpdated: [handlers.maybe_change_bank_account],
+    events.ExpenseDeleted: [handlers.maybe_increment_bank_account],
+    events.RevenueCreated: [handlers.increment_bank_account],
+    events.RevenueUpdated: [handlers.decrement_bank_account],
+    events.RevenueDeleted: [handlers.decrement_bank_account],
 }
 
 COMMAND_HANDLERS: dict[type[commands.Command], MessageCallable] = {
-    commands.CreateTransactions: handlers.create_transactions,
-    commands.UpdateTransaction: handlers.update_transaction,
-    commands.DeleteTransaction: handlers.delete_transaction,
+    commands.CreateExpense: handlers.create_expense,
+    commands.UpdateExpense: handlers.update_expense,
+    commands.DeleteExpense: handlers.delete_expense,
 }
 
 
@@ -60,7 +51,7 @@ def handle(message: Message, uow: AbstractUnitOfWork) -> None:
 
 def handle_event(event: events.Event, queue: list[Message], uow: AbstractUnitOfWork) -> None:
     for handler in EVENT_HANDLERS[event.__class__]:
-        _handle_message(handler=handler, message=event, queue=queue, uow=uow, sync=event.sync)
+        _handle_message(handler=handler, message=event, queue=queue, uow=uow, sync=True)
 
 
 def handle_command(
@@ -91,7 +82,11 @@ def _handle_message(
 
 
 # TODO: implement queue or whatever
-def _dispatch_async(handler: MessageCallable, message: Message, uow: AbstractUnitOfWork) -> None:
+def _dispatch_async(
+    handler: MessageCallable,
+    message: Message,
+    uow: AbstractUnitOfWork,
+) -> None:
     handler(message, uow)
 
 

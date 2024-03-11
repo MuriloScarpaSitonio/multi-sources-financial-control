@@ -48,11 +48,11 @@ class AbstractEntityRepository(ABC):
         self.seen.add(e)
 
     @overload
-    def update(self, dto: TransactionDTO, transaction: Transaction) -> None:
+    def update(self, dto: TransactionDTO, entity: Transaction) -> None:
         ...
 
     @overload
-    def update(self, dto: PassiveIncomeDTO, transaction: PassiveIncome) -> None:
+    def update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> None:
         ...
 
     def update(self, dto: EntityDTO, entity: Entity) -> None:

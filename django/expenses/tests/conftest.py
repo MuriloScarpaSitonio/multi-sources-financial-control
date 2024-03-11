@@ -9,7 +9,7 @@ from factory.django import DjangoModelFactory
 
 from authentication.tests.conftest import client, secrets, user
 from expenses.choices import ExpenseCategory, ExpenseSource
-from expenses.models import Expense, Revenue
+from expenses.models import BankAccount, Expense, Revenue
 
 
 class ExpenseFactory(DjangoModelFactory):
@@ -22,13 +22,23 @@ class RevenueFactory(DjangoModelFactory):
         model = Revenue
 
 
+class BankAccountFactory(DjangoModelFactory):
+    class Meta:
+        model = BankAccount
+
+
 @pytest.fixture
-def expense(user):
+def bank_account(user) -> BankAccount:
+    return BankAccountFactory(amount=10000, description="Nubank", user=user)
+
+
+@pytest.fixture
+def expense(user) -> Expense:
     return ExpenseFactory(
-        value=5,
+        value=50,
         description="Expense",
         category=ExpenseCategory.house,
-        created_at=timezone.now().date(),
+        created_at=timezone.localdate(),
         source=ExpenseSource.credit_card,
         is_fixed=True,
         user=user,
@@ -36,12 +46,12 @@ def expense(user):
 
 
 @pytest.fixture
-def another_expense(user):
+def another_expense(user) -> Expense:
     return ExpenseFactory(
-        value=12,
+        value=120,
         description="Test",
         category=ExpenseCategory.recreation,
-        created_at=timezone.now().date(),
+        created_at=timezone.localdate(),
         source=ExpenseSource.money,
         is_fixed=True,
         user=user,
@@ -50,10 +60,10 @@ def another_expense(user):
 
 @pytest.fixture
 def expenses(user):
-    today = timezone.now().date()
+    today = timezone.localdate()
     for i in range(1, 13):
         ExpenseFactory(
-            value=randint(5, 10),
+            value=randint(50, 100),
             description=f"Expense {i}",
             category=choice(ExpenseCategory.choices)[0],
             created_at=today - relativedelta(months=i),
@@ -65,7 +75,7 @@ def expenses(user):
 
 @pytest.fixture
 def expenses_report_data(expenses, user):
-    today = timezone.now().date()
+    today = timezone.localdate()
     for i in range(1, 7):
         ExpenseFactory(
             value=randint(5, 10),
@@ -102,7 +112,7 @@ def expenses_report_data(expenses, user):
 
 @pytest.fixture
 def expenses2(user):
-    today = timezone.now().date()
+    today = timezone.localdate()
     for i in range(-24, 24):
         ExpenseFactory(
             value=randint(5, 10),
@@ -116,11 +126,10 @@ def expenses2(user):
 
 
 @pytest.fixture
-def expenses_w_installments(user):
-    today = timezone.now().date()
+def expenses_w_installments(user) -> list[Expense]:
+    today = timezone.localdate()
     installments_id, installments_qty = uuid4(), 5
     category = choice(ExpenseCategory.choices)[0]
-    source = choice(ExpenseSource.choices)[0]
     return [
         ExpenseFactory(
             value=200,
@@ -130,7 +139,7 @@ def expenses_w_installments(user):
             installments_qty=installments_qty,
             installment_number=i + 1,
             category=category,
-            source=source,
+            source=ExpenseSource.credit_card,
             user=user,
             is_fixed=False,
         )
@@ -139,8 +148,8 @@ def expenses_w_installments(user):
 
 
 @pytest.fixture
-def revenue(user):
-    today = timezone.now().date()
+def revenue(user) -> Revenue:
+    today = timezone.localdate()
     return RevenueFactory(
         value=3902,
         description="Revenue",
@@ -152,7 +161,7 @@ def revenue(user):
 
 @pytest.fixture
 def revenues(user):
-    today = timezone.now().date()
+    today = timezone.localdate()
     for i in range(1, 13):
         RevenueFactory(
             value=randint(5000, 10000),
@@ -165,7 +174,7 @@ def revenues(user):
 
 @pytest.fixture
 def revenues_historic_data(revenues, user):
-    today = timezone.now().date()
+    today = timezone.localdate()
     for i in range(1, 7):
         RevenueFactory(
             value=randint(5000, 10000),

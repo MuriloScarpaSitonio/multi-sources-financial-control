@@ -1,10 +1,10 @@
+from dateutil.relativedelta import relativedelta
+from rest_framework import serializers, validators
+
 from django.contrib.auth import get_user_model, password_validation
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.transaction import atomic
 from django.utils import timezone
-
-from dateutil.relativedelta import relativedelta
-from rest_framework import serializers, validators
 
 from .choices import SubscriptionStatus
 from .models import IntegrationSecret
@@ -129,6 +129,7 @@ class UserSerializer(serializers.ModelSerializer):
             "is_investments_integrations_module_enabled",
             "subscription_status",
             "stripe_subscription_updated_at",
+            "credit_card_bill_day",
         )
         extra_kwargs = {
             "email": {
@@ -145,6 +146,7 @@ class UserSerializer(serializers.ModelSerializer):
             "is_investments_integrations_module_enabled": {"read_only": True},
             "subscription_status": {"read_only": True},
             "stripe_subscription_updated_at": {"read_only": True},
+            # "credit_card_bill_day": {"write_only": True},
         }
 
     def get_trial_will_end_message(self, user: UserModel) -> str | None:
@@ -241,8 +243,7 @@ class _TokenSerializer(serializers.Serializer):
             raise serializers.ValidationError("Token inválido")
 
 
-class ResetPasswordSerializer(_TokenSerializer, _ResetPasswordSerializer):
-    ...
+class ResetPasswordSerializer(_TokenSerializer, _ResetPasswordSerializer): ...
 
 
 class ChangePasswordSerializer(_ResetPasswordSerializer):
@@ -254,8 +255,7 @@ class ChangePasswordSerializer(_ResetPasswordSerializer):
         return value
 
 
-class ActivateUserSerializer(_TokenSerializer):
-    ...
+class ActivateUserSerializer(_TokenSerializer): ...
 
 
 class ResetPasswordRequestSerializer(serializers.Serializer):

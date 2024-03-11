@@ -2,8 +2,8 @@ from functools import singledispatch
 
 from django.utils import timezone
 
-from ..adapters import DjangoSQLAssetMetaDataRepository
-from ..models import Asset
+from ...adapters import DjangoSQLAssetMetaDataRepository
+from ...models import Asset
 
 
 # TODO: UoW?!
@@ -19,7 +19,7 @@ def _(asset: Asset, **defaults) -> None:
 
 
 def _maybe_create_asset_metadata(asset: Asset, **defaults) -> None:
-    from ..integrations.helpers import fetch_asset_current_price, fetch_asset_sector
+    from ...integrations.helpers import fetch_asset_current_price, fetch_asset_sector
 
     repository = DjangoSQLAssetMetaDataRepository(
         code=asset.code, type=asset.type, currency=asset.currency

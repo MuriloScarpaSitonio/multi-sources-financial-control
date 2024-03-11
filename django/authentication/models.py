@@ -1,4 +1,5 @@
 from django.contrib.auth.models import AbstractUser
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from .choices import SubscriptionStatus
@@ -69,6 +70,9 @@ class CustomUser(AbstractUser):
     is_personal_finances_module_enabled = models.BooleanField(default=False)
     is_investments_module_enabled = models.BooleanField(default=False)
     is_investments_integrations_module_enabled = models.BooleanField(default=False)
+    credit_card_bill_day = models.PositiveSmallIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(31)]
+    )
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]

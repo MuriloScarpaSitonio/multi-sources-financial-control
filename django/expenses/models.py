@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
@@ -5,11 +7,14 @@ from django.db import models
 from shared.models_utils import serializable_today_function
 
 from .choices import ExpenseCategory, ExpenseSource
+from .domain.models import Expense as ExpenseDomainModel
 from .managers import ExpenseQueryset, RevenueQueryset
 
 
 class Expense(models.Model):
-    value = models.DecimalField(decimal_places=2, max_digits=18)
+    value = models.DecimalField(
+        decimal_places=2, max_digits=18, validators=[MinValueValidator(Decimal("0.01"))]
+    )
     description = models.CharField(max_length=300)
     category = models.CharField(validators=[ExpenseCategory.validator], max_length=20)
     created_at = models.DateField(default=serializable_today_function)
@@ -23,9 +28,7 @@ class Expense(models.Model):
         null=True, blank=True, validators=[MinValueValidator(2)]
     )
     user = models.ForeignKey(
-        to=settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="expenses",
+        to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="expenses"
     )
 
     objects = ExpenseQueryset.as_manager()
@@ -71,16 +74,38 @@ class Expense(models.Model):
             description = self.description
         return description
 
+    def to_domain(self, include_installments: bool = True) -> ExpenseDomainModel:
+        return ExpenseDomainModel(
+            id=self.pk,
+            description=self.description,
+            value=self.value,
+            created_at=self.created_at,
+            source=self.source,
+            category=self.category,
+            installments_qty=self.installments_qty or 1,
+            installments_id=self.installments_id,
+            installments=(
+                [
+                    e.to_domain(include_installments=False)  # avoid recursion
+                    for e in self.__class__.objects.filter(
+                        installments_id=self.installments_id
+                    ).exclude(pk=self.pk)
+                ]
+                if self.installments_id and include_installments
+                else []
+            ),
+        )
+
 
 class Revenue(models.Model):
-    value = models.DecimalField(decimal_places=2, max_digits=18)
+    value = models.DecimalField(
+        decimal_places=2, max_digits=18, validators=[MinValueValidator(Decimal("0.01"))]
+    )
     description = models.CharField(max_length=300)
     created_at = models.DateField(default=serializable_today_function)
     is_fixed = models.BooleanField(default=False)
     user = models.ForeignKey(
-        to=settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="revenues",
+        to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="revenues"
     )
 
     objects = RevenueQueryset.as_manager()
@@ -100,3 +125,17 @@ class Revenue(models.Model):
             if self.is_fixed
             else self.description
         )
+
+
+class BankAccount(models.Model):
+    amount = models.DecimalField(decimal_places=2, max_digits=18)
+    description = models.CharField(max_length=300)
+    updated_at = models.DateTimeField(auto_now=True)
+    user = models.OneToOneField(
+        to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="bank_account"
+    )
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"<BankAccount ({self.description})>"
+
+    __repr__ = __str__

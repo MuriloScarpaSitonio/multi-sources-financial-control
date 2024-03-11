@@ -1,11 +1,11 @@
 from datetime import date
 from decimal import Decimal
-from enum import Enum
 
 from django.conf import settings
 
-from djchoices import DjangoChoices
 from pydantic import BaseModel, Field, condecimal
+
+from shared.utils import choices_to_enum
 
 from ..choices import Currencies, TransactionActions
 from ..domain.commands import CreateTransactions
@@ -13,10 +13,6 @@ from ..domain.models import TransactionDTO
 from ..models import Asset, Transaction
 from ..service_layer import messagebus
 from ..service_layer.unit_of_work import DjangoUnitOfWork
-
-
-def choices_to_enum(choices_class: type[DjangoChoices]) -> Enum:
-    return Enum(choices_class.__name__ + "Enum", {choice[1]: choice[0] for choice in choices_class})
 
 
 class TransactionPydanticModel(BaseModel):

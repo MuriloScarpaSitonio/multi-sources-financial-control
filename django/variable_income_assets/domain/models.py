@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 
 from django.utils import timezone
 
+from shared.utils import choices_to_enum
+
 from ..choices import (
     Currencies,
     PassiveIncomeEventTypes,
@@ -26,7 +28,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class TransactionDTO:
-    action: TransactionActions
+    action: choices_to_enum(TransactionActions)
     quantity: Decimal
     price: Decimal
     operation_date: date
@@ -40,8 +42,8 @@ class TransactionDTO:
 
 @dataclass
 class PassiveIncomeDTO:  # TODO?
-    type: PassiveIncomeTypes
-    event_type: PassiveIncomeEventTypes
+    type: choices_to_enum(PassiveIncomeTypes)
+    event_type: choices_to_enum(PassiveIncomeEventTypes)
     quantity: Decimal
     amount: Decimal
     operation_date: date

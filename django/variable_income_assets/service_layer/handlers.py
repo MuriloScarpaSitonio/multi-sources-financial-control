@@ -8,7 +8,7 @@ from tasks.models import TaskHistory
 from ..choices import AssetTypes
 from ..domain import commands, events
 from ..models import Transaction
-from ..tasks import (
+from .tasks import (
     create_asset_closed_operation,
     maybe_create_asset_metadata,
     upsert_asset_read_model,
@@ -47,14 +47,16 @@ def delete_transaction(cmd: commands.DeleteTransaction, uow: AbstractUnitOfWork)
 
 # TODO: convert to async
 def upsert_read_model(
-    event: events.TransactionsCreated
-    | events.TransactionDeleted
-    | events.TransactionUpdated
-    | events.PassiveIncomeCreated
-    | events.PassiveIncomeUpdated
-    | events.PassiveIncomeDeleted
-    | events.AssetCreated
-    | events.AssetUpdated,
+    event: (
+        events.TransactionsCreated
+        | events.TransactionDeleted
+        | events.TransactionUpdated
+        | events.PassiveIncomeCreated
+        | events.PassiveIncomeUpdated
+        | events.PassiveIncomeDeleted
+        | events.AssetCreated
+        | events.AssetUpdated
+    ),
     _: AbstractUnitOfWork,
 ) -> None:
     upsert_asset_read_model(

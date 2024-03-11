@@ -1,9 +1,10 @@
+import operator
 from datetime import datetime
 from decimal import Decimal
 from statistics import fmean
 from typing import Literal
 
-from django.db.models import Avg, Q
+from django.db.models import Avg, Q, Sum
 from django.utils import timezone
 
 import pytest
@@ -20,8 +21,8 @@ from rest_framework.status import (
 from config.settings.base import BASE_API_URL
 from shared.tests import convert_and_quantitize
 
-from ..choices import ExpenseCategory, ExpenseReportType, ExpenseSource
-from ..models import Expense
+from ...choices import ExpenseCategory, ExpenseReportType, ExpenseSource
+from ...models import Expense
 
 pytestmark = pytest.mark.django_db
 
@@ -94,9 +95,9 @@ def test__list__filter_by_date(
         order_by = "-created_at"
     else:
         if filter_date_type == "future":
-            d = str(timezone.now().date() + relativedelta(months=1))
+            d = str(timezone.localdate() + relativedelta(months=1))
         elif filter_date_type == "current":
-            d = str(timezone.now().date())
+            d = str(timezone.localdate())
 
         if filter_field == "start":
             f = f"start_date={d}"
@@ -138,7 +139,7 @@ def test__list__include_date_fixed_expense(client, expense, is_fixed):
 @pytest.mark.usefixtures("expenses_w_installments")
 def test__list__installments(client):
     # GIVEN
-    f = f"start_date={str(timezone.now().date() + relativedelta(months=1))}"
+    f = f"start_date={str(timezone.localdate() + relativedelta(months=1))}"
 
     # WHEN
     response = client.get(f"{URL}?{f}&page_size=100")
@@ -150,8 +151,9 @@ def test__list__installments(client):
         assert r["id"] == int(r["full_description"].split("(")[-1][0])
 
 
-def test__create(client):
+def test__create(client, bank_account):
     # GIVEN
+    previous_bank_account_amount = bank_account.amount
     data = {
         "value": 12.00,
         "description": "Test",
@@ -171,17 +173,40 @@ def test__create(client):
 
     assert Expense.objects.count() == 1
 
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount - data["value"] == bank_account.amount
 
-def test__create__installments(client):
+
+def test__create__future__not_credit_card(client):
     # GIVEN
-    INSTALLMENTS = 3
     data = {
-        "value": 10.00,
+        "value": 12.00,
         "description": "Test",
         "category": ExpenseCategory.house,
-        "created_at": "01/01/2021",
+        "created_at": "01/01/2121",
         "source": ExpenseSource.bank_slip,
-        "installments": INSTALLMENTS,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+
+    assert response.json() == {
+        "created_at__source": "Uma despesa futura só pode ser realizada usando cartão de crédito"
+    }
+
+
+def test__create__future__credit_card(client, bank_account):
+    # GIVEN
+    previous_bank_account_amount = bank_account.amount
+    data = {
+        "value": 12.00,
+        "description": "Test",
+        "category": ExpenseCategory.house,
+        "created_at": "01/01/2121",
+        "source": ExpenseSource.credit_card,
     }
 
     # WHEN
@@ -189,13 +214,39 @@ def test__create__installments(client):
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
-    assert Expense.objects.filter(installments_id__isnull=False).count() == INSTALLMENTS
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+
+def test__create__installments(client, bank_account):
+    # GIVEN
+    previous_bank_account_amount = bank_account.amount
+    installments = 3
+    data = {
+        "value": 12,
+        "description": "Test",
+        "category": ExpenseCategory.house,
+        "created_at": "01/01/2021",
+        "source": ExpenseSource.credit_card,
+        "installments": installments,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+    assert Expense.objects.filter(installments_id__isnull=False).count() == installments
     for i, expense in enumerate(
         Expense.objects.filter(installments_id__isnull=False).order_by("created_at")
     ):
         assert expense.created_at.month == i + 1
-        assert f"({i+1}/{INSTALLMENTS})" in expense.full_description
-        assert round(float(expense.value), 2) == round(data["value"] / INSTALLMENTS, 2)
+        assert f"({i+1}/{installments})" in expense.full_description
+        assert expense.value == data["value"] / installments
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount - (data["value"] / installments) == bank_account.amount
 
 
 def test__create__installments__none(client):
@@ -205,8 +256,28 @@ def test__create__installments__none(client):
         "description": "Test",
         "category": ExpenseCategory.house,
         "created_at": "01/01/2021",
-        "source": ExpenseSource.bank_slip,
+        "source": ExpenseSource.credit_card,
         "installments": None,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+    assert Expense.objects.count() == 1
+
+
+def test__create__installments__none__is_fixed(client):
+    # GIVEN
+    data = {
+        "value": 12.00,
+        "description": "Test",
+        "category": ExpenseCategory.house,
+        "created_at": "01/01/2021",
+        "source": ExpenseSource.credit_card,
+        "installments": None,
+        "is_fixed": True,
     }
 
     # WHEN
@@ -224,7 +295,7 @@ def test__create__installments__gt_1__is_fixed(client):
         "description": "Test",
         "category": ExpenseCategory.house,
         "created_at": "01/01/2021",
-        "source": ExpenseSource.bank_slip,
+        "source": ExpenseSource.credit_card,
         "installments": 2,
         "is_fixed": True,
     }
@@ -234,12 +305,10 @@ def test__create__installments__gt_1__is_fixed(client):
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {
-        "non_field_errors": ["Fixed expense with installments is not permitted"]
-    }
+    assert response.json() == {"installments": "Despesas fixas não podem ser parceladas"}
 
 
-def test__create__installments__none__is_fixed(client):
+def test__create__installments__source_not_credit_card(client):
     # GIVEN
     data = {
         "value": 12.00,
@@ -247,22 +316,44 @@ def test__create__installments__none__is_fixed(client):
         "category": ExpenseCategory.house,
         "created_at": "01/01/2021",
         "source": ExpenseSource.bank_slip,
-        "installments": None,
-        "is_fixed": True,
+        "installments": 2,
     }
 
     # WHEN
     response = client.post(URL, data=data)
 
     # THEN
-    assert response.status_code == HTTP_201_CREATED
-    assert Expense.objects.count() == 1
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"installments": "Despesas parceladas devem ser no cartão de crédito"}
 
 
-def test__update(client, expense):
+@pytest.mark.parametrize("value", (-1, 0))
+def test__create__invalid_value(client, value):
     # GIVEN
     data = {
-        "value": 12.00,
+        "value": value,
+        "description": "Test",
+        "category": ExpenseCategory.house,
+        "created_at": "01/01/2021",
+        "source": ExpenseSource.bank_slip,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"value": ["Ensure this value is greater than or equal to 0.01."]}
+
+
+@pytest.mark.parametrize(
+    ("value", "operation"), ((10, operator.lt), (-10, operator.gt), (0, operator.eq))
+)
+def test__update(client, expense, bank_account, value, operation):
+    # GIVEN
+    previous_bank_account_amount = bank_account.amount
+    data = {
+        "value": expense.value + value,
         "description": "Test",
         "category": ExpenseCategory.house,
         "created_at": "01/01/2021",
@@ -275,19 +366,75 @@ def test__update(client, expense):
     # THEN
     assert response.status_code == HTTP_200_OK
 
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount - value == bank_account.amount
+    assert operation(bank_account.amount - previous_bank_account_amount, 0)
+
     expense.refresh_from_db()
     assert expense.value == Decimal(data["value"])
     assert expense.description == data["description"]
     assert expense.category == data["category"]
     assert expense.created_at == datetime.strptime(data["created_at"], "%d/%m/%Y").date()
     assert expense.source == data["source"]
+    assert not expense.is_fixed
 
 
-def test__update__installments(client, expenses_w_installments):
+def test__update__future__not_credit_card(client, expense):
     # GIVEN
+    data = {
+        "value": 12.00,
+        "description": "Test",
+        "category": ExpenseCategory.house,
+        "created_at": "01/01/2121",
+        "source": ExpenseSource.bank_slip,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{expense.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+
+    assert response.json() == {
+        "created_at__source": "Uma despesa futura só pode ser realizada usando cartão de crédito"
+    }
+
+
+def test__update__future__credit_card(client, expense, bank_account):
+    # GIVEN
+    previous_bank_account_amount = bank_account.amount
+    data = {
+        "value": 12.00,
+        "description": "Test",
+        "category": ExpenseCategory.house,
+        "created_at": "01/01/2121",
+        "source": ExpenseSource.credit_card,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{expense.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+
+@pytest.mark.parametrize(
+    ("value", "operation"), ((10, operator.lt), (-10, operator.gt), (0, operator.eq))
+)
+def test__update__installments__value(
+    client, expenses_w_installments, bank_account, value, operation
+):
+    # GIVEN
+    for e in expenses_w_installments:
+        e.created_at -= relativedelta(months=2)
+        e.save()
+    previous_bank_account_amount = bank_account.amount
     e = expenses_w_installments[0]
     data = {
-        "value": e.value + 10,
+        "value": e.value + value,
         "description": e.description,
         "category": e.category,
         "created_at": e.created_at.strftime("%d/%m/%Y"),
@@ -297,20 +444,75 @@ def test__update__installments(client, expenses_w_installments):
     # WHEN
     response = client.put(f"{URL}/{e.pk}", data=data)
 
+    already_decremented_expenses_count = Expense.objects.filter(
+        installments_id=e.installments_id, created_at__lte=timezone.localdate()
+    ).count()
+
     # THEN
     assert response.status_code == HTTP_200_OK
+
+    bank_account.refresh_from_db()
+    assert (
+        previous_bank_account_amount
+        - (already_decremented_expenses_count * (data["value"] - e.value))
+        == bank_account.amount
+    )
+    assert operation(bank_account.amount - previous_bank_account_amount, 0)
 
     assert Expense.objects.filter(
         installments_id=e.installments_id, value=data["value"]
     ).count() == len(expenses_w_installments)
 
 
-def test__update__installments__created_at(client, expenses_w_installments):
+@pytest.mark.parametrize(
+    ("value", "operation"), ((10, operator.lt), (-10, operator.gt), (0, operator.eq))
+)
+def test__update__installments__value__not_1st_expense(
+    client, expenses_w_installments, bank_account, value, operation
+):
     # GIVEN
+    for e in expenses_w_installments:
+        e.created_at -= relativedelta(months=2)
+        e.save()
+    previous_bank_account_amount = bank_account.amount
+    e = expenses_w_installments[2]
+    data = {
+        "value": e.value + value,
+        "description": e.description,
+        "category": e.category,
+        "created_at": e.created_at.strftime("%d/%m/%Y"),
+        "source": e.source,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{e.pk}", data=data)
+
+    already_decremented_expenses_count = Expense.objects.filter(
+        installments_id=e.installments_id, created_at__lte=timezone.localdate()
+    ).count()
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    bank_account.refresh_from_db()
+    assert (
+        previous_bank_account_amount
+        - (already_decremented_expenses_count * (data["value"] - e.value))
+        == bank_account.amount
+    )
+
+    assert Expense.objects.filter(
+        installments_id=e.installments_id, value=data["value"]
+    ).count() == len(expenses_w_installments)
+
+
+def test__update__installments__created_at_and_value(client, expenses_w_installments, bank_account):
+    # GIVEN
+    previous_bank_account_amount = bank_account.amount
     e = expenses_w_installments[0]
     created_at = datetime(year=2021, month=12, day=3)
     data = {
-        "value": e.value,
+        "value": e.value + 10,
         "description": e.description,
         "category": e.category,
         "created_at": created_at.strftime("%d/%m/%Y"),
@@ -320,8 +522,20 @@ def test__update__installments__created_at(client, expenses_w_installments):
     # WHEN
     response = client.put(f"{URL}/{e.pk}", data=data)
 
+    already_decremented_expenses_count = Expense.objects.filter(
+        installments_id=e.installments_id, created_at__lte=timezone.localdate()
+    ).count()
+
     # THEN
     assert response.status_code == HTTP_200_OK
+
+    bank_account.refresh_from_db()
+    assert (
+        previous_bank_account_amount
+        - (already_decremented_expenses_count * (data["value"] - e.value))
+        == bank_account.amount
+    )
+
     for i, expense in enumerate(
         Expense.objects.filter(installments_id=e.installments_id, value=data["value"]).order_by(
             "created_at"
@@ -348,30 +562,103 @@ def test__update__installments__created_at__not_1st_installment(client, expenses
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {
-        "created_at": ["You can only update the date of the first installment"]
+    assert response.json() == {"created_at": "Você só pode alterar a data da primeira parcela"}
+
+
+def test__update__installments__is_fixed(client, expenses_w_installments):
+    # GIVEN
+    e = expenses_w_installments[2]
+    data = {
+        "value": e.value,
+        "description": e.description,
+        "category": e.category,
+        "created_at": e.created_at.strftime("%d/%m/%Y"),
+        "source": e.source,
+        "is_fixed": True,
     }
 
+    # WHEN
+    response = client.put(f"{URL}/{e.pk}", data=data)
 
-def test__delete(client, expense):
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"installments": "Despesas fixas não podem ser parceladas"}
+
+
+def test__update__installments__source_not_credit_card(client, expenses_w_installments):
     # GIVEN
+    e = expenses_w_installments[4]
+    data = {
+        "value": e.value,
+        "description": e.description,
+        "category": e.category,
+        "created_at": e.created_at.strftime("%d/%m/%Y"),
+        "source": ExpenseSource.bank_slip,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{e.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"installments": "Despesas parceladas devem ser no cartão de crédito"}
+
+
+@pytest.mark.parametrize("value", (-1, 0))
+def test__update__invalid_value(client, expense, value):
+    # GIVEN
+    data = {
+        "value": value,
+        "description": expense.description,
+        "category": expense.category,
+        "created_at": expense.created_at.strftime("%d/%m/%Y"),
+        "source": expense.source,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{expense.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"value": ["Ensure this value is greater than or equal to 0.01."]}
+
+
+def test__delete(client, expense, bank_account):
+    # GIVEN
+    previous_bank_account_amount = bank_account.amount
 
     # WHEN
     response = client.delete(f"{URL}/{expense.pk}")
 
     # THEN
     assert response.status_code == HTTP_204_NO_CONTENT
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount + expense.value == bank_account.amount
+
     assert not Expense.objects.exists()
 
 
-def test__delete__installments(client, expenses_w_installments):
+def test__delete__installments(client, expenses_w_installments, bank_account):
     # GIVEN
+    for e in expenses_w_installments:
+        e.created_at -= relativedelta(months=1)
+        e.save()
+
+    incremented_value = Expense.objects.filter(
+        installments_id=e.installments_id, created_at__lte=timezone.localdate()
+    ).aggregate(total=Sum("value"))["total"]
+    previous_bank_account_amount = bank_account.amount
 
     # WHEN
-    response = client.delete(f"{URL}/{expenses_w_installments[3].pk}")
+    response = client.delete(f"{URL}/{e.pk}")
 
     # THEN
     assert response.status_code == HTTP_204_NO_CONTENT
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount + incremented_value == bank_account.amount
+
     assert not Expense.objects.exists()
 
 
@@ -409,7 +696,7 @@ def test__reports(client, kind, field_name):
     choices_class_map = {"category": ExpenseCategory, "source": ExpenseSource}
     choices_class = choices_class_map.get(field_name)
     qs = Expense.objects.since_a_year_ago()
-    today = timezone.now().date()
+    today = timezone.localdate()
     current_month = {}
     since_a_year_ago = {}
     for e in qs:
@@ -469,7 +756,7 @@ def test__report__all_period(client, kind, field_name):
     choices_class_map = {"category": ExpenseCategory, "source": ExpenseSource}
     choices_class = choices_class_map.get(field_name)
     qs = Expense.objects.current_month_and_past()
-    today = timezone.now().date()
+    today = timezone.localdate()
     current_month = {}
     past = {}
     for e in qs:
@@ -518,7 +805,7 @@ def test__report__all_period(client, kind, field_name):
 )
 def test__historic(client, user, filters, db_filters):
     # GIVEN
-    today = timezone.now().date()
+    today = timezone.localdate()
     qs = Expense.objects.filter(user_id=user.id, **db_filters)
 
     # WHEN
@@ -546,7 +833,7 @@ def test__historic(client, user, filters, db_filters):
 @pytest.mark.usefixtures("expenses_report_data")
 def test__indicators(client, user):
     # GIVEN
-    today = timezone.now().date()
+    today = timezone.localdate()
     qs = Expense.objects.filter(user_id=user.id)
     avg = (
         qs.since_a_year_ago()

@@ -29,6 +29,7 @@ class UserFactory(DjangoModelFactory):
     subscription_ends_at = default_subscription_ends_at
     subscription_status = SubscriptionStatus.TRIALING
     stripe_subscription_updated_at = default_stripe_subscription_updated_at
+    credit_card_bill_day = 5
 
 
 class IntegrationSecretFactory(DjangoModelFactory):

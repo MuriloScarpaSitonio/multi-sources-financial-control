@@ -2,7 +2,7 @@ from datetime import datetime
 
 from django.utils import timezone
 
-from ..models import Asset, AssetClosedOperation, PassiveIncome, Transaction
+from ...models import Asset, AssetClosedOperation, PassiveIncome, Transaction
 from .exceptions import AssetOpenedException
 
 

@@ -7,8 +7,8 @@ import pytest
 
 from ...choices import PassiveIncomeEventTypes, PassiveIncomeTypes, TransactionActions
 from ...models import AssetClosedOperation, Transaction
-from ...tasks import create_asset_closed_operation
-from ...tasks.exceptions import AssetOpenedException
+from ...service_layer.tasks import create_asset_closed_operation
+from ...service_layer.tasks.exceptions import AssetOpenedException
 from ..conftest import PassiveIncomeFactory, TransactionFactory
 from ..shared import (
     get_quantity_bought_brute_force,

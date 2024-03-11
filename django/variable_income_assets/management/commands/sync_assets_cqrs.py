@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
 from variable_income_assets.models import Asset
-from variable_income_assets.tasks import upsert_asset_read_model
+from variable_income_assets.service_layer.tasks import upsert_asset_read_model
 
 if TYPE_CHECKING:  # pragma: no cover
     from django.core.management.base import CommandParser

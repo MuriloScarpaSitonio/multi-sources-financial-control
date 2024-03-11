@@ -1,3 +1,4 @@
+import operator
 from datetime import datetime
 from decimal import Decimal
 
@@ -9,6 +10,7 @@ from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
+    HTTP_400_BAD_REQUEST,
     HTTP_401_UNAUTHORIZED,
     HTTP_403_FORBIDDEN,
 )
@@ -16,7 +18,7 @@ from rest_framework.status import (
 from config.settings.base import BASE_API_URL
 from shared.tests import convert_and_quantitize
 
-from ..models import Revenue
+from ...models import Revenue
 
 pytestmark = pytest.mark.django_db
 
@@ -65,9 +67,10 @@ def test__list__include_date_fixed_revenue(client, revenue, is_fixed):
         assert response.json()["results"][0]["full_description"] == revenue.description
 
 
-def test__create(client):
+def test__create(client, bank_account):
     # GIVEN
     data = {"value": 1200, "description": "Test", "created_at": "01/01/2021"}
+    previous_bank_account_amount = bank_account.amount
 
     # WHEN
     response = client.post(URL, data=data)
@@ -77,16 +80,60 @@ def test__create(client):
 
     assert Revenue.objects.count() == 1
 
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount + data["value"] == bank_account.amount
 
-def test__update(client, revenue):
+
+@pytest.mark.parametrize("value", (-1, 0))
+def test__create__invalid_value(client, value):
     # GIVEN
-    data = {"value": 1200, "description": "Test", "created_at": "01/01/2021", "is_fixed": False}
+    data = {"value": value, "description": "Test", "created_at": "01/01/2021"}
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"value": ["Ensure this value is greater than or equal to 0.01."]}
+
+
+def test__create__future(client, bank_account):
+    # GIVEN
+    data = {"value": 1000, "description": "Test", "created_at": "01/01/2121"}
+    previous_bank_account_amount = bank_account.amount
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+
+@pytest.mark.parametrize(
+    ("value", "operation"), ((1000, operator.gt), (-1000, operator.lt), (0, operator.eq))
+)
+def test__update(client, revenue, bank_account, value, operation):
+    # GIVEN
+    previous_bank_account_amount = bank_account.amount
+    data = {
+        "value": revenue.value + value,
+        "description": "Test",
+        "created_at": "01/01/2021",
+        "is_fixed": False,
+    }
 
     # WHEN
     response = client.put(f"{URL}/{revenue.pk}", data=data)
 
     # THEN
     assert response.status_code == HTTP_200_OK
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount + value == bank_account.amount
+    assert operation(bank_account.amount - previous_bank_account_amount, 0)
 
     revenue.refresh_from_db()
     assert revenue.value == Decimal(data["value"])
@@ -95,8 +142,42 @@ def test__update(client, revenue):
     assert not revenue.is_fixed
 
 
-def test__delete(client, revenue):
+@pytest.mark.parametrize("value", (-1, 0))
+def test__update__invalid_value(client, revenue, value):
     # GIVEN
+    data = {"value": value, "description": "Test", "created_at": "01/01/2021"}
+
+    # WHEN
+    response = client.put(f"{URL}/{revenue.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"value": ["Ensure this value is greater than or equal to 0.01."]}
+
+
+def test__update__future(client, revenue, bank_account):
+    # GIVEN
+    previous_bank_account_amount = bank_account.amount
+    data = {
+        "value": 1222,
+        "description": "Test",
+        "created_at": "01/01/2221",
+        "is_fixed": False,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{revenue.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+
+def test__delete(client, revenue, bank_account):
+    # GIVEN
+    previous_bank_account_amount = bank_account.amount
 
     # WHEN
     response = client.delete(f"{URL}/{revenue.pk}")
@@ -104,6 +185,9 @@ def test__delete(client, revenue):
     # THEN
     assert response.status_code == HTTP_204_NO_CONTENT
     assert not Revenue.objects.exists()
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount - revenue.value == bank_account.amount
 
 
 @pytest.mark.usefixtures("revenues_historic_data")
