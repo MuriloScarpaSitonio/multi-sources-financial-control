@@ -18,6 +18,7 @@ import TrendingUpIcon from "@material-ui/icons/TrendingUp";
 import TrendingDownIcon from "@material-ui/icons/TrendingDown";
 
 import { AssetsApi, PassiveIncomesApi } from "../../api";
+import { apiProvider } from "../../api/methods";
 
 const SUCCESS = "rgba(0, 201, 20, 0.5)";
 const DANGER = "rgba(255, 5, 5, 0.5)";
@@ -130,7 +131,10 @@ export const AssetsIndicators = ({ condensed = false }) => {
     provisioned_future: 0,
     diff_percentage: 0,
   });
+  const [bankAccountAmount, setBankAccountAmount] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  const total = assetsIndicators.total + bankAccountAmount
 
   function getAssetsExtraIndicators() {
     return (
@@ -188,11 +192,12 @@ export const AssetsIndicators = ({ condensed = false }) => {
     let passiveIncomesApi = new PassiveIncomesApi();
 
     axios
-      .all([assetsApi.indicators(), passiveIncomesApi.indicators()])
+      .all([assetsApi.indicators(), passiveIncomesApi.indicators(), apiProvider.get('bank_account')])
       .then(
         axios.spread((...responses) => {
           setAssetsIndicators(responses[0].data);
           setIncomesIndicators(responses[1].data);
+          setBankAccountAmount(responses[2].data.amount)
         })
       )
       //.catch((err) => setError(err))
@@ -229,9 +234,9 @@ export const AssetsIndicators = ({ condensed = false }) => {
             {isLoaded ? (
               <Indicators
                 title={"PATRIMÔNIO TOTAL"}
-                value={assetsIndicators.total}
+                value={total}
                 icon={<AccountBalanceIcon />}
-                color={assetsIndicators.total > 0 ? SUCCESS : DANGER}
+                color={total > 0 ? SUCCESS : DANGER}
               />
             ) : (
               <Skeleton variant="rect" width={340} height={175} />

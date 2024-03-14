@@ -136,6 +136,6 @@ class BankAccount(models.Model):
     )
 
     def __str__(self) -> str:  # pragma: no cover
-        return f"<BankAccount ({self.description})>"
+        return f"<BankAccount ({self.description} | {self.user_id})>"
 
     __repr__ = __str__
