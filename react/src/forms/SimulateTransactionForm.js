@@ -1,27 +1,27 @@
 import { useEffect, useState } from "react";
 
 import { useForm, Controller } from "react-hook-form";
-import NumberFormat from "react-number-format";
+import { NumericFormat } from "react-number-format";
 import * as yup from "yup";
 
-import Autocomplete from "@material-ui/lab/Autocomplete";
-import Button from "@material-ui/core/Button";
-import CircularProgress from "@material-ui/core/CircularProgress";
-import Dialog from "@material-ui/core/Dialog";
-import DialogActions from "@material-ui/core/DialogActions";
-import DialogContent from "@material-ui/core/DialogContent";
-import DialogContentText from "@material-ui/core/DialogContentText";
-import DialogTitle from "@material-ui/core/DialogTitle";
-import FormControl from "@material-ui/core/FormControl";
-import FormHelperText from "@material-ui/core/FormHelperText";
-import FormGroup from "@material-ui/core/FormGroup";
-import Table from "@material-ui/core/Table";
-import TableBody from "@material-ui/core/TableBody";
-import TableCell from "@material-ui/core/TableCell";
-import TableContainer from "@material-ui/core/TableContainer";
-import TableHead from "@material-ui/core/TableHead";
-import TableRow from "@material-ui/core/TableRow";
-import TextField from "@material-ui/core/TextField";
+import Autocomplete from "@mui/lab/Autocomplete";
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import FormControl from "@mui/material/FormControl";
+import FormHelperText from "@mui/material/FormHelperText";
+import FormGroup from "@mui/material/FormGroup";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import TextField from "@mui/material/TextField";
 import { yupResolver } from "@hookform/resolvers/yup";
 
 import { AssetsApi, AssetTransactionsApi } from "../api";
@@ -181,7 +181,7 @@ function NumberFormatCustom(props) {
   const { inputRef, onChange, ...other } = props;
 
   return (
-    <NumberFormat
+    <NumericFormat
       {...other}
       getInputRef={inputRef}
       onValueChange={(values) =>
@@ -195,7 +195,7 @@ function NumberFormatCustom(props) {
       decimalSeparator=","
       decimalScale={8}
       allowNegative={false}
-      isNumericString
+      valueIsNumericString
     />
   );
 }

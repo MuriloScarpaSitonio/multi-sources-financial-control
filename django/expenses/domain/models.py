@@ -78,7 +78,10 @@ class Expense:
         self, action: Literal["create", "update", "delete"]
     ) -> bool:
         today = timezone.localdate()
-        default_condition = self.created_at <= today or self.source != ExpenseSource.credit_card
+        default_condition = self.created_at <= today or self.source not in (
+            ExpenseSource.credit_card,
+            ExpenseSource.money,
+        )
         if action in ("create", "update"):
             return default_condition
         if action == "delete":

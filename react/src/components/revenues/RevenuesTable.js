@@ -3,26 +3,25 @@ import { useState } from "react";
 import MUIDataTable from "mui-datatables";
 
 import DateFnsUtils from "@date-io/date-fns";
-import {
-  MuiPickersUtilsProvider,
-  KeyboardDatePicker,
-} from "@material-ui/pickers";
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import DatePicker from '@mui/lab/DatePicker';
 
-import Button from "@material-ui/core/Button";
-import CircularProgress from "@material-ui/core/CircularProgress";
-import Container from "@material-ui/core/Container";
-import Dialog from "@material-ui/core/Dialog";
-import DialogActions from "@material-ui/core/DialogActions";
-import DialogContent from "@material-ui/core/DialogContent";
-import DialogTitle from "@material-ui/core/DialogTitle";
-import FormGroup from "@material-ui/core/FormGroup";
-import FormLabel from "@material-ui/core/FormLabel";
-import IconButton from "@material-ui/core/IconButton";
-import Tooltip from "@material-ui/core/Tooltip";
 
-import DeleteIcon from "@material-ui/icons/Delete";
-import EditIcon from "@material-ui/icons/Edit";
-import PlusOneIcon from "@material-ui/icons/PlusOne";
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
+import Container from "@mui/material/Container";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import FormGroup from "@mui/material/FormGroup";
+import FormLabel from "@mui/material/FormLabel";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
+
+import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
+import PlusOneIcon from "@mui/icons-material/PlusOne";
 
 import { RevenuesForm } from "../../forms/RevenuesForm";
 import { FormFeedback } from "../FormFeedback";
@@ -291,10 +290,10 @@ export const RevenuesTable = () => {
         filterOptions: {
           names: [],
           display: (filterList, onChange, index, column) => (
-            <MuiPickersUtilsProvider utils={DateFnsUtils}>
+            <LocalizationProvider utils={DateFnsUtils}>
               <FormLabel>Quando</FormLabel>
               <FormGroup row>
-                <KeyboardDatePicker
+                <DatePicker
                   disableToolbar
                   variant="inline"
                   format="dd/MM/yyyy"
@@ -310,7 +309,7 @@ export const RevenuesTable = () => {
                   }}
                   style={{ width: "48%", marginRight: "2%" }}
                 />
-                <KeyboardDatePicker
+                <DatePicker
                   disableToolbar
                   variant="inline"
                   format="dd/MM/yyyy"
@@ -327,7 +326,7 @@ export const RevenuesTable = () => {
                   style={{ width: "48%" }}
                 />
               </FormGroup>
-            </MuiPickersUtilsProvider>
+            </LocalizationProvider>
           ),
         },
       },

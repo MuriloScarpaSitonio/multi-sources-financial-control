@@ -1,28 +1,28 @@
 import { useEffect, useState } from "react";
 
 import axios from "axios";
-import { makeStyles, withStyles } from "@material-ui/core/styles";
-import Avatar from "@material-ui/core/Avatar";
-import Box from "@material-ui/core/Box";
-import Card from "@material-ui/core/Card";
-import CardContent from "@material-ui/core/CardContent";
-import Container from "@material-ui/core/Container";
-import Dialog from "@material-ui/core/Dialog";
-import DialogContent from "@material-ui/core/DialogContent";
-import DialogTitle from "@material-ui/core/DialogTitle";
-import Grid from "@material-ui/core/Grid";
-import IconButton from "@material-ui/core/IconButton";
-import LinearProgress from "@material-ui/core/LinearProgress";
-import Tooltip from "@material-ui/core/Tooltip";
-import Typography from "@material-ui/core/Typography";
+import { makeStyles, withStyles } from "@mui/styles";
+import Avatar from "@mui/material/Avatar";
+import Box from "@mui/material/Box";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Container from "@mui/material/Container";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import Grid from "@mui/material/Grid";
+import IconButton from "@mui/material/IconButton";
+import LinearProgress from "@mui/material/LinearProgress";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
 
-import Skeleton from "@material-ui/lab/Skeleton";
+import Skeleton from "@mui/lab/Skeleton";
 
-import AccountBalanceIcon from "@material-ui/icons/AccountBalance";
-import ArrowDownwardIcon from "@material-ui/icons/ArrowDownward";
-import ArrowUpwardIcon from "@material-ui/icons/ArrowUpward";
-import AddIcon from "@material-ui/icons/Add";
-import MonetizationOnIcon from "@material-ui/icons/MonetizationOn";
+import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import AddIcon from "@mui/icons-material/Add";
+import MonetizationOnIcon from "@mui/icons-material/MonetizationOn";
 
 import { ExpensesApi, RevenuesApi } from "../../api";
 import { RevenuesForm } from "../../forms/RevenuesForm";
@@ -37,8 +37,8 @@ const CustomLinearProgress = withStyles((theme) => ({
     borderRadius: 5,
   },
   colorPrimary: {
-    backgroundColor:
-      theme.palette.grey[theme.palette.type === "light" ? 200 : 700],
+    // backgroundColor:
+    //   theme.palette.grey[theme.palette.type === "light" ? 200 : 700],
   },
 }))(LinearProgress);
 
@@ -54,15 +54,6 @@ const useStyles = makeStyles({
   },
 });
 
-const StyledTooltip = withStyles((theme) => ({
-  tooltip: {
-    backgroundColor: "#f5f5f9",
-    color: "rgba(0, 0, 0, 0.87)",
-    maxWidth: 220,
-    fontSize: theme.typography.pxToRem(12),
-    border: "1px solid #dadde9",
-  },
-}))(Tooltip);
 
 const LinearProgressWithLabel = (props) => {
   const classes = useStyles();

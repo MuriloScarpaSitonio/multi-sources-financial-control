@@ -1,9 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
 
-from django.utils import timezone
-
 import pytest
+from config.settings.base import BASE_API_URL
 from dateutil.relativedelta import relativedelta
 from rest_framework.status import (
     HTTP_200_OK,
@@ -14,10 +13,10 @@ from rest_framework.status import (
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
 )
-
-from config.settings.base import BASE_API_URL
 from shared.tests import convert_and_quantitize
 from tasks.models import TaskHistory
+
+from django.utils import timezone
 
 from ...choices import AssetTypes, Currencies, TransactionActions
 from ...models import AssetClosedOperation, AssetReadModel, Transaction
@@ -45,7 +44,7 @@ def test__create__buy(client, stock_asset, mocker):
 
     # THEN
     assert mocked_task.call_count == 1
-    assert mocked_task.call_args[1] == {"asset_id": stock_asset.pk, "is_aggregate_upsert": True}
+    assert mocked_task.call_args.kwargs == {"asset_id": stock_asset.pk, "is_aggregate_upsert": True}
 
     assert response.status_code == HTTP_201_CREATED
     assert Transaction.objects.filter(current_currency_conversion_rate=1).count() == 1
@@ -264,7 +263,7 @@ def test__update(client, buy_transaction, mocker):
 
     # THEN
     assert mocked_task.call_count == 1
-    assert mocked_task.call_args[1] == {
+    assert mocked_task.call_args.kwargs == {
         "asset_id": buy_transaction.asset_id,
         "is_aggregate_upsert": True,
     }
@@ -513,7 +512,7 @@ def test__delete(client, buy_transaction, mocker):
 
     # THEN
     assert mocked_task.call_count == 1
-    assert mocked_task.call_args[1] == {
+    assert mocked_task.call_args.kwargs == {
         "asset_id": buy_transaction.asset_id,
         "is_aggregate_upsert": True,
     }

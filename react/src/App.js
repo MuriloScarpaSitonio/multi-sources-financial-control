@@ -1,14 +1,14 @@
 import React from "react";
 
-import Container from "@material-ui/core/Container";
+import Container from "@mui/material/Container";
 import {
   BrowserRouter as Router,
-  Switch,
+  Routes,
   Route,
-  Redirect,
+  Navigate,
 } from "react-router-dom";
-import Link from "@material-ui/core/Link";
-import MuiAlert from "@material-ui/lab/Alert";
+import Link from "@mui/material/Link";
+import MuiAlert from "@mui/lab/Alert";
 
 import { Navbar } from "./components/Navbar";
 import { useHideValues } from "./hooks/useHideValues";
@@ -33,11 +33,29 @@ import { AccessTokenStr } from "./consts";
 
 import "./App.css";
 
-const Wrapper = ({ isLoggedIn, ...props }) => {
+const getRoute = ({
+  Component,
+  pathname,
+  isLoggedIn,
+  isSubscriptionCanceled,
+}) => {
+  if (isLoggedIn) {
+    if (
+      isSubscriptionCanceled &&
+      !["Subscription", "SubscriptionDone", "User"].includes(Component.name)
+    ) {
+      return (
+        <Navigate
+          to={{ pathname: "/subscription", state: { from: pathname } }}
+        />
+      );
+    } else return <Wrapper isLoggedIn={true} Component={Component} />
+  } else <Navigate to={{ pathname: "/", state: { from: pathname } }} />
+};
+
+const Wrapper = ({ isLoggedIn, Component }) => {
   let trialWillEndMessage = localStorage.getItem("user_trial_will_end_message");
-  const [showAlert, setShowAlert] = React.useState(
-    props.component.name !== "Login" && stringToBoolean(trialWillEndMessage)
-  );
+  const [showAlert, setShowAlert] = React.useState(stringToBoolean(trialWillEndMessage));
 
   const hideValuesToggler = useHideValues();
   return (
@@ -46,9 +64,7 @@ const Wrapper = ({ isLoggedIn, ...props }) => {
         className="base"
         style={isLoggedIn && { backgroundColor: "whitesmoke" }}
       >
-        {isLoggedIn && (
-          <Navbar hideValuesToggler={hideValuesToggler} {...props} />
-        )}
+        {isLoggedIn && <Navbar hideValuesToggler={hideValuesToggler} />}
         <Container style={{ marginTop: "15px" }}>
           {showAlert && (
             <MuiAlert
@@ -59,7 +75,7 @@ const Wrapper = ({ isLoggedIn, ...props }) => {
             >
               <div>
                 {trialWillEndMessage}
-                {props.component.name !== "User" && (
+                {Component.name !== "User" && (
                   <span>
                     Vá até suas <Link href="/me?tab=1">configuraçōes</Link> para
                     incluir ou alterar seus dados de cobrança
@@ -68,130 +84,125 @@ const Wrapper = ({ isLoggedIn, ...props }) => {
               </div>
             </MuiAlert>
           )}
-          <props.component {...props} />
+          <Component />
         </Container>
       </div>
     </div>
   );
 };
 
-const PrivateRoute = ({ component, ...rest }) => {
+export default function App() {
   const isLoggedIn = Boolean(localStorage.getItem(AccessTokenStr));
-  const isSubscriptionDisabled =
+  const isSubscriptionCanceled =
     localStorage.getItem("user_subscription_status") === "CANCELED";
 
-  function getRoute(props, component) {
-    if (isLoggedIn) {
-      if (
-        isSubscriptionDisabled &&
-        !["Subscription", "SubscriptionDone", "User"].includes(component.name)
-      ) {
-        return (
-          <Redirect
-            to={{ pathname: "/subscription", state: { from: props.location } }}
-          />
-        );
-      } else {
-        return <Wrapper {...props} isLoggedIn={true} component={component} />;
-      }
-    } else {
-      return (
-        <Redirect to={{ pathname: "/", state: { from: props.location } }} />
-      );
-    }
-  }
-  return <Route {...rest} render={(props) => getRoute(props, component)} />;
-};
-
-export default function App() {
   return (
     <Router>
-      <Switch>
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/signup" element={<Wrapper Component={Signup} />} />
         <Route
-          exact
-          path="/"
-          render={(props) => <Wrapper {...props} component={Login} />}
-        />
-      </Switch>
-      <Switch>
-        <Route
-          exact
-          path="/signup"
-          render={(props) => <Wrapper {...props} component={Signup} />}
-        />
-      </Switch>
-      <Switch>
-        <Route
-          exact
           path="/signup/done"
-          render={(props) => <Wrapper {...props} component={SignupDone} />}
+          element={<Wrapper Component={SignupDone} />}
         />
-      </Switch>
-      <Switch>
         <Route
-          exact
           path="/activate/:uidb64/:token"
-          render={(props) => <Wrapper {...props} component={ActivateUser} />}
+          element={<Wrapper Component={ActivateUser} />}
         />
-      </Switch>
-      <Switch>
         <Route
-          exact
           path="/forgot_password"
-          render={(props) => <Wrapper {...props} component={ForgotPassword} />}
+          element={<Wrapper Component={ForgotPassword} />}
         />
-      </Switch>
-      <Switch>
         <Route
-          exact
           path="/forgot_password/done"
-          render={(props) => (
-            <Wrapper {...props} component={ForgotPasswordDone} />
-          )}
+          element={<Wrapper Component={ForgotPasswordDone} />}
         />
-      </Switch>
-      <Switch>
         <Route
-          exact
           path="/reset_password/:uidb64/:token"
-          render={(props) => <Wrapper {...props} component={ResetPassword} />}
+          element={<Wrapper Component={ResetPassword} />}
         />
-      </Switch>
-      <Switch>
-        <PrivateRoute exact path="/home" component={Home} />
-      </Switch>
-      <Switch>
-        <PrivateRoute exact path="/expenses" component={Expenses} />
-      </Switch>
-      <Switch>
-        <PrivateRoute exact path="/assets" component={Assets} />
-      </Switch>
-      <Switch>
-        <PrivateRoute exact path="/revenues" component={Revenues} />
-      </Switch>
-      <Switch>
-        <PrivateRoute
-          exact
+        <Route
+          path="/home"
+          element={getRoute({
+            Component: Home,
+            pathname: "/home",
+            isLoggedIn,
+            isSubscriptionCanceled,
+          })}
+        />
+        <Route
+          path="/expenses"
+          element={getRoute({
+            Component: Expenses,
+            pathname: "/expenses",
+            isLoggedIn,
+            isSubscriptionCanceled,
+          })}
+        />
+        <Route
+          path="/assets"
+          element={getRoute({
+            Component: Assets,
+            pathname: "/assets",
+            isLoggedIn,
+            isSubscriptionCanceled,
+          })}
+        />
+        <Route
+          path="/revenues"
+          element={getRoute({
+            Component: Revenues,
+            pathname: "/revenues",
+            isLoggedIn,
+            isSubscriptionCanceled,
+          })}
+        />
+        <Route
           path="/assets/transactions"
-          component={Transactions}
+          element={getRoute({
+            Component: Transactions,
+            pathname: "/assets/transactions",
+            isLoggedIn,
+            isSubscriptionCanceled,
+          })}
         />
-      </Switch>
-      <Switch>
-        <PrivateRoute exact path="/assets/incomes" component={PassiveIncomes} />
-      </Switch>
-      <Switch>
-        <PrivateRoute path="/me" component={User} />
-      </Switch>
-      <Switch>
-        <PrivateRoute exact path="/subscription" component={Subscription} />
-      </Switch>
-      <Switch>
-        <PrivateRoute
-          exact
+        <Route
+          path="/assets/incomes"
+          element={getRoute({
+            Component: PassiveIncomes,
+            pathname: "/assets/incomes",
+            isLoggedIn,
+            isSubscriptionCanceled,
+          })}
+        />
+        <Route
+          path="/me"
+          element={getRoute({
+            Component: User,
+            pathname: "/home",
+            isLoggedIn,
+            isSubscriptionCanceled,
+          })}
+        />
+        <Route
+          path="/subscription"
+          element={getRoute({
+            Component: Subscription,
+            pathname: "/subscription",
+            isLoggedIn,
+            isSubscriptionCanceled,
+          })}
+        />
+        <Route
           path="/subscription/done"
-          component={SubscriptionDone}
+          element={getRoute({
+            Component: SubscriptionDone,
+            pathname: "/subscription/done",
+            isLoggedIn,
+            isSubscriptionCanceled,
+          })}
         />
-      </Switch>
+      </Routes>
     </Router>
   );
 }

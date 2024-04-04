@@ -1,7 +1,6 @@
 import pytest
-from rest_framework.status import HTTP_200_OK
-
 from config.settings.base import BASE_API_URL
+from rest_framework.status import HTTP_200_OK
 
 pytestmark = pytest.mark.django_db
 
@@ -23,4 +22,4 @@ def test__portal_session(client, stripe_customer_id, mocker):
     # THEN
     assert response.status_code == HTTP_200_OK
     assert response.json() == {"url": "test.com"}
-    assert mocked_session.call_args[1] == {"customer_id": stripe_customer_id}
+    assert mocked_session.call_args.kwargs == {"customer_id": stripe_customer_id}

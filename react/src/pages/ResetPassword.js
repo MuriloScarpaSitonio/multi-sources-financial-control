@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { useHistory, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
-import Button from "@material-ui/core/Button";
-import CircularProgress from "@material-ui/core/CircularProgress";
-import TextField from "@material-ui/core/TextField";
-import Link from "@material-ui/core/Link";
-import Grid from "@material-ui/core/Grid";
-import Typography from "@material-ui/core/Typography";
-import { makeStyles } from "@material-ui/core/styles";
-import Container from "@material-ui/core/Container";
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
+import TextField from "@mui/material/TextField";
+import Link from "@mui/material/Link";
+import Grid from "@mui/material/Grid";
+import Typography from "@mui/material/Typography";
+import { makeStyles } from "@mui/styles";
+import Container from "@mui/material/Container";
 
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -19,17 +19,17 @@ import { FormFeedback } from "../components/FormFeedback";
 
 const useStyles = makeStyles((theme) => ({
   paper: {
-    marginTop: theme.spacing(8),
+    // marginTop: theme.spacing(8),
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
   },
   form: {
     width: "100%", // Fix IE 11 issue.
-    marginTop: theme.spacing(1),
+    // marginTop: theme.spacing(1),
   },
   submit: {
-    margin: theme.spacing(3, 0, 2),
+    // margin: theme.spacing(3, 0, 2),
   },
 }));
 
@@ -44,13 +44,14 @@ const schema = yup.object().shape({
 const TOKEN = "reset-password";
 const INTERNAL_RESET_PASSWORD_SESSION_TOKEN = "_reset_password_token";
 
-export const ResetPassword = (props) => {
+export const ResetPassword = () => {
   const [isLoaded, setIsLoaded] = useState(true);
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
 
   let { uidb64, token } = useParams();
-  const history = useHistory();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
   const classes = useStyles();
 
   if (token !== TOKEN) {
@@ -58,7 +59,7 @@ export const ResetPassword = (props) => {
     // URL without the token. This avoids the possibility of leaking the token in the
     // HTTP Referer header.
     sessionStorage.setItem(INTERNAL_RESET_PASSWORD_SESSION_TOKEN, token);
-    history.push(history.location.pathname.replace(token, TOKEN));
+    navigate(pathname.replace(token, TOKEN), { replace: true });
   }
 
   const {
@@ -84,7 +85,7 @@ export const ResetPassword = (props) => {
           message: "Sucesso! Redirecionando...",
           severity: "success",
         });
-        setTimeout(() => history.push("/"), 1200);
+        setTimeout(() => navigate("/"), 1200);
       })
       .catch((error) => {
         setAlertInfos({

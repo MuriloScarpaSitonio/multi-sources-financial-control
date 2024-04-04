@@ -1,20 +1,18 @@
 import { useState } from "react";
 
 import { useForm, Controller } from "react-hook-form";
-import NumberFormat from "react-number-format";
+import { NumericFormat } from "react-number-format";
 import * as yup from "yup";
 
 import DateFnsUtils from "@date-io/date-fns";
-import {
-  MuiPickersUtilsProvider,
-  KeyboardDatePicker,
-} from "@material-ui/pickers";
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import DatePicker from '@mui/lab/DatePicker';
 
-import Button from "@material-ui/core/Button";
-import CircularProgress from "@material-ui/core/CircularProgress";
-import DialogActions from "@material-ui/core/DialogActions";
-import FormGroup from "@material-ui/core/FormGroup";
-import TextField from "@material-ui/core/TextField";
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
+import DialogActions from "@mui/material/DialogActions";
+import FormGroup from "@mui/material/FormGroup";
+import TextField from "@mui/material/TextField";
 import { yupResolver } from "@hookform/resolvers/yup";
 
 import { RevenuesApi } from "../api";
@@ -24,7 +22,7 @@ function NumberFormatCustom(props) {
   const { inputRef, onChange, ...other } = props;
 
   return (
-    <NumberFormat
+    <NumericFormat
       {...other}
       getInputRef={inputRef}
       onValueChange={(values) =>
@@ -38,7 +36,7 @@ function NumberFormatCustom(props) {
       decimalSeparator=","
       decimalScale={2}
       allowNegative={false}
-      isNumericString
+      valueIsNumericString
       prefix="R$ "
     />
   );
@@ -148,7 +146,7 @@ export const RevenuesForm = ({ initialData, handleClose, reloadTable }) => {
               />
             )}
           />
-          <MuiPickersUtilsProvider utils={DateFnsUtils}>
+          <LocalizationProvider utils={DateFnsUtils}>
             <Controller
               name="created_at"
               control={control}
@@ -159,7 +157,7 @@ export const RevenuesForm = ({ initialData, handleClose, reloadTable }) => {
                   : new Date()
               }
               render={({ field: { onChange, value } }) => (
-                <KeyboardDatePicker
+                <DatePicker
                   onChange={onChange}
                   value={value}
                   label="Quando?"
@@ -177,7 +175,7 @@ export const RevenuesForm = ({ initialData, handleClose, reloadTable }) => {
                 />
               )}
             />
-          </MuiPickersUtilsProvider>
+          </LocalizationProvider>
         </FormGroup>
         <DialogActions>
           <Button onClick={handleClose}>Cancelar</Button>

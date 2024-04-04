@@ -1,17 +1,16 @@
 from datetime import datetime, timezone
 from time import time
 
-from django.db.utils import IntegrityError
-from django.utils.timezone import now
-
 import pytest
+from config.settings.base import BASE_API_URL
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_400_BAD_REQUEST,
     HTTP_405_METHOD_NOT_ALLOWED,
 )
 
-from config.settings.base import BASE_API_URL
+from django.db.utils import IntegrityError
+from django.utils.timezone import now
 
 from ..choices import SubscriptionStatus
 
@@ -206,7 +205,7 @@ def test__webhook__subscription_trial_will_end(api_client, stripe_user, event_fa
     # THEN
     assert response.status_code == HTTP_200_OK
 
-    assert mocked_email_dispatcher.call_args[1] == {"user": stripe_user}
+    assert mocked_email_dispatcher.call_args.kwargs == {"user": stripe_user}
 
 
 def test__webhook__event_not_registered(api_client, event_factory, mocker):

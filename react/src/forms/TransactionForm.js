@@ -1,27 +1,25 @@
 import { useEffect, useState } from "react";
 
 import { useForm, Controller } from "react-hook-form";
-import NumberFormat from "react-number-format";
+import { NumericFormat } from "react-number-format";
 import * as yup from "yup";
 
 import DateFnsUtils from "@date-io/date-fns";
-import {
-  MuiPickersUtilsProvider,
-  KeyboardDatePicker,
-} from "@material-ui/pickers";
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import DatePicker from '@mui/lab/DatePicker';
 
-import Autocomplete from "@material-ui/lab/Autocomplete";
+import Autocomplete from "@mui/lab/Autocomplete";
 
-import Button from "@material-ui/core/Button";
-import CircularProgress from "@material-ui/core/CircularProgress";
-import DialogActions from "@material-ui/core/DialogActions";
-import FormControl from "@material-ui/core/FormControl";
-import FormControlLabel from "@material-ui/core/FormControlLabel";
-import FormGroup from "@material-ui/core/FormGroup";
-import FormHelperText from "@material-ui/core/FormHelperText";
-import Radio from "@material-ui/core/Radio";
-import RadioGroup from "@material-ui/core/RadioGroup";
-import TextField from "@material-ui/core/TextField";
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
+import DialogActions from "@mui/material/DialogActions";
+import FormControl from "@mui/material/FormControl";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import FormGroup from "@mui/material/FormGroup";
+import FormHelperText from "@mui/material/FormHelperText";
+import Radio from "@mui/material/Radio";
+import RadioGroup from "@mui/material/RadioGroup";
+import TextField from "@mui/material/TextField";
 
 import { yupResolver } from "@hookform/resolvers/yup";
 
@@ -34,7 +32,7 @@ function NumberFormatCustom(props) {
   const { inputRef, onChange, ...other } = props;
 
   return (
-    <NumberFormat
+    <NumericFormat
       {...other}
       getInputRef={inputRef}
       onValueChange={(values) =>
@@ -48,7 +46,7 @@ function NumberFormatCustom(props) {
       decimalSeparator=","
       decimalScale={4}
       allowNegative={false}
-      isNumericString
+      valueIsNumericString
     />
   );
 }
@@ -282,7 +280,7 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
               />
             )}
           />
-          <MuiPickersUtilsProvider utils={DateFnsUtils}>
+          <LocalizationProvider utils={DateFnsUtils}>
             <Controller
               name="operation_date"
               control={control}
@@ -293,7 +291,7 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                   : new Date()
               }
               render={({ field: { onChange, value } }) => (
-                <KeyboardDatePicker
+                <DatePicker
                   onChange={onChange}
                   value={value}
                   label="Quando?"
@@ -311,7 +309,7 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                 />
               )}
             />
-          </MuiPickersUtilsProvider>
+          </LocalizationProvider>
         </FormGroup>
         <FormGroup row style={{ marginTop: "10px" }}>
           <Controller
@@ -337,7 +335,7 @@ export const TransactionForm = ({ initialData, handleClose, reloadTable }) => {
                 error={!!errors.current_currency_conversion_rate}
                 helperText={
                   errors.current_currency_conversion_rate?.message ||
-                  `O valor de 1 ${assetData?.currency}, em reais, no dia que a operação de venda foi realizada`
+                  `O valor de 1 ${assetData?.currency}, em reais, no dia que a operação foi realizada`
                 }
               />
             )}

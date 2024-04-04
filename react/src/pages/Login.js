@@ -1,13 +1,14 @@
 import { useState } from "react";
 
-import Button from "@material-ui/core/Button";
-import CircularProgress from "@material-ui/core/CircularProgress";
-import TextField from "@material-ui/core/TextField";
-import Link from "@material-ui/core/Link";
-import Grid from "@material-ui/core/Grid";
-import Typography from "@material-ui/core/Typography";
-import { makeStyles } from "@material-ui/core/styles";
-import Container from "@material-ui/core/Container";
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
+import TextField from "@mui/material/TextField";
+import Link from "@mui/material/Link";
+import Grid from "@mui/material/Grid";
+import Typography from "@mui/material/Typography";
+import { makeStyles } from "@mui/styles";
+import Container from "@mui/material/Container";
+import { useNavigate } from "react-router-dom";
 
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -20,17 +21,17 @@ import { setUserDataToLocalStorage } from "../helpers.js";
 
 const useStyles = makeStyles((theme) => ({
   paper: {
-    marginTop: theme.spacing(8),
+    // marginTop: theme.spacing(8),
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
   },
   form: {
     width: "100%", // Fix IE 11 issue.
-    marginTop: theme.spacing(1),
+    // marginTop: theme.spacing(1),
   },
   submit: {
-    margin: theme.spacing(3, 0, 2),
+    // margin: theme.spacing(3, 0, 2),
   },
 }));
 
@@ -42,12 +43,13 @@ const schema = yup.object().shape({
   password: yup.string().min(4).required("Campo obrigatório"),
 });
 
-export const Login = (props) => {
+export const Login = () => {
   const [isLoaded, setIsLoaded] = useState(true);
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
 
   const classes = useStyles();
+  const navigate = useNavigate();
   const {
     control,
     handleSubmit,
@@ -71,11 +73,9 @@ export const Login = (props) => {
           severity: "success",
         });
         setUserDataToLocalStorage(response.data.user);
-        if (response.data.user.subscription_status === "CANCELED") {
-          props.history.push("/subscription");
-        } else {
-          props.history.push("/home");
-        }
+        if (response.data.user.subscription_status === "CANCELED")
+          navigate("/subscription");
+        else navigate("/home");
       })
       .catch((error) => {
         setAlertInfos({
@@ -89,12 +89,12 @@ export const Login = (props) => {
         setShowAlert(true);
       });
   };
-  if (
-    localStorage.getItem(AccessTokenStr) &&
-    localStorage.getItem(RefreshTokenStr)
-  ) {
-    props.history.push("/home");
-  }
+  // if (
+  //   localStorage.getItem(AccessTokenStr) &&
+  //   localStorage.getItem(RefreshTokenStr)
+  // ) {
+  //   navigate("/home");
+  // }
   return (
     <Container component="main" maxWidth="xs">
       <div className={classes.paper}>

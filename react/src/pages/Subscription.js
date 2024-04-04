@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
 
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
-import Button from "@material-ui/core/Button";
-import CircularProgress from "@material-ui/core/CircularProgress";
-import FormGroup from "@material-ui/core/FormGroup";
-import FormControlLabel from "@material-ui/core/FormControlLabel";
-import Grid from "@material-ui/core/Grid";
-import Switch from "@material-ui/core/Switch";
-import Typography from "@material-ui/core/Typography";
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
+import FormGroup from "@mui/material/FormGroup";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Grid from "@mui/material/Grid";
+import Switch from "@mui/material/Switch";
+import Typography from "@mui/material/Typography";
 
 import { SubscriptionApi } from "../api";
 
@@ -51,18 +51,18 @@ export default function Subscription() {
     },
   });
 
-  const history = useHistory();
+  const navigate = useNavigate();
   const api = new SubscriptionApi();
 
   useEffect(() => {
     if (localStorage.getItem("user_subscription_status") !== "CANCELED") {
-      history.goBack();
+      navigate(-1);
     }
     api
       .getProducts()
       .then((response) => setProducts(response.data.products))
       .finally(() => setIsPriceLoaded(true));
-  }, [history]);
+  }, []);
 
   const handleSubmit = () => {
     setIsLoaded(false);

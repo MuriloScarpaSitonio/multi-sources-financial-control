@@ -1,10 +1,10 @@
 import { useState } from "react";
 
-import Button from "@material-ui/core/Button";
-import CircularProgress from "@material-ui/core/CircularProgress";
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
 
-import FormGroup from "@material-ui/core/FormGroup";
-import TextField from "@material-ui/core/TextField";
+import FormGroup from "@mui/material/FormGroup";
+import TextField from "@mui/material/TextField";
 
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";

@@ -1,10 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
 
-from django.db.models import Avg, Q
-from django.utils import timezone
-
 import pytest
+from config.settings.base import BASE_API_URL
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -14,9 +12,10 @@ from rest_framework.status import (
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
 )
-
-from config.settings.base import BASE_API_URL
 from shared.tests import convert_and_quantitize
+
+from django.db.models import Avg, Q
+from django.utils import timezone
 
 from ...choices import (
     AssetTypes,
@@ -62,7 +61,7 @@ def test__create__stock(client, data, stock_asset, mocker):
 
     # THEN
     assert mocked_task.call_count == 1
-    assert mocked_task.call_args[1] == {"asset_id": stock_asset.pk, "is_aggregate_upsert": True}
+    assert mocked_task.call_args.kwargs == {"asset_id": stock_asset.pk, "is_aggregate_upsert": True}
 
     assert response.status_code == HTTP_201_CREATED
     assert PassiveIncome.objects.filter(current_currency_conversion_rate=1).count() == 1
@@ -88,7 +87,10 @@ def test__create__stock_usa(client, stock_usa_asset, mocker):
 
     # THEN
     assert mocked_task.call_count == 1
-    assert mocked_task.call_args[1] == {"asset_id": stock_usa_asset.pk, "is_aggregate_upsert": True}
+    assert mocked_task.call_args.kwargs == {
+        "asset_id": stock_usa_asset.pk,
+        "is_aggregate_upsert": True,
+    }
 
     assert response.status_code == HTTP_201_CREATED
 
@@ -215,7 +217,7 @@ def test__update(client, simple_income, mocker):
 
     # THEN
     assert mocked_task.call_count == 1
-    assert mocked_task.call_args[1] == {
+    assert mocked_task.call_args.kwargs == {
         "asset_id": simple_income.asset_id,
         "is_aggregate_upsert": True,
     }
@@ -241,7 +243,7 @@ def test__update__w_asset_pk(client, simple_income, mocker):
 
     # THEN
     assert mocked_task.call_count == 1
-    assert mocked_task.call_args[1] == {
+    assert mocked_task.call_args.kwargs == {
         "asset_id": simple_income.asset_id,
         "is_aggregate_upsert": True,
     }
@@ -441,7 +443,7 @@ def test__delete(client, simple_income, mocker):
 
     # THEN
     assert mocked_task.call_count == 1
-    assert mocked_task.call_args[1] == {
+    assert mocked_task.call_args.kwargs == {
         "asset_id": simple_income.asset_id,
         "is_aggregate_upsert": True,
     }

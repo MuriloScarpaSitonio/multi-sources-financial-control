@@ -1,6 +1,6 @@
-import CircularProgress from "@material-ui/core/CircularProgress";
-import Container from "@material-ui/core/Container";
-import { styled } from "@material-ui/core/styles";
+import CircularProgress from "@mui/material/CircularProgress";
+import Container from "@mui/material/Container";
+import { styled } from "@mui/styles";
 
 const LoaderWrapper = styled(Container)({
   position: "absolute",

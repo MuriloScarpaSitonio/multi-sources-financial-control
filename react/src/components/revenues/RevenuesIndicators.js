@@ -1,35 +1,23 @@
 import { useEffect, useState } from "react";
 
-import { withStyles } from "@material-ui/core/styles";
-import Avatar from "@material-ui/core/Avatar";
-import Box from "@material-ui/core/Box";
-import Card from "@material-ui/core/Card";
-import CardContent from "@material-ui/core/CardContent";
-import Container from "@material-ui/core/Container";
-import Grid from "@material-ui/core/Grid";
-import Tooltip from "@material-ui/core/Tooltip";
-import Typography from "@material-ui/core/Typography";
+import Avatar from "@mui/material/Avatar";
+import Box from "@mui/material/Box";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Container from "@mui/material/Container";
+import Grid from "@mui/material/Grid";
+import Typography from "@mui/material/Typography";
 
-import Skeleton from "@material-ui/lab/Skeleton";
+import Skeleton from "@mui/lab/Skeleton";
 
-import AccountBalanceIcon from "@material-ui/icons/AccountBalance";
-import ArrowDownwardIcon from "@material-ui/icons/ArrowDownward";
-import ArrowUpwardIcon from "@material-ui/icons/ArrowUpward";
+import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 
 import { RevenuesApi } from "../../api";
 
 const SUCCESS = "rgba(0, 201, 20, 0.5)";
 const DANGER = "rgba(255, 5, 5, 0.5)";
-
-const StyledTooltip = withStyles((theme) => ({
-  tooltip: {
-    backgroundColor: "#f5f5f9",
-    color: "rgba(0, 0, 0, 0.87)",
-    maxWidth: 220,
-    fontSize: theme.typography.pxToRem(12),
-    border: "1px solid #dadde9",
-  },
-}))(Tooltip);
 
 const Indicators = ({ title, indicators, icon, color, secondaryIcon }) => {
   const indicatorsMonth = indicators.month;

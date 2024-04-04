@@ -2,25 +2,25 @@ import { useState } from "react";
 
 import MUIDataTable from "mui-datatables";
 
-import Container from "@material-ui/core/Container";
-import Dialog from "@material-ui/core/Dialog";
-import DialogContent from "@material-ui/core/DialogContent";
-import DialogTitle from "@material-ui/core/DialogTitle";
-import FormControl from "@material-ui/core/FormControl";
-import FormControlLabel from "@material-ui/core/FormControlLabel";
-import FormLabel from "@material-ui/core/FormLabel";
-import IconButton from "@material-ui/core/IconButton";
-import Paper from "@material-ui/core/Paper";
-import Radio from "@material-ui/core/Radio";
-import RadioGroup from "@material-ui/core/RadioGroup";
-import TableCell from "@material-ui/core/TableCell";
-import TableRow from "@material-ui/core/TableRow";
-import Tooltip from "@material-ui/core/Tooltip";
-import Tab from "@material-ui/core/Tab";
-import Tabs from "@material-ui/core/Tabs";
+import Container from "@mui/material/Container";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import FormControl from "@mui/material/FormControl";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import FormLabel from "@mui/material/FormLabel";
+import IconButton from "@mui/material/IconButton";
+import Paper from "@mui/material/Paper";
+import Radio from "@mui/material/Radio";
+import RadioGroup from "@mui/material/RadioGroup";
+import TableCell from "@mui/material/TableCell";
+import TableRow from "@mui/material/TableRow";
+import Tooltip from "@mui/material/Tooltip";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
 
-import MergeTypeIcon from "@material-ui/icons/MergeType";
-import PlusOneIcon from "@material-ui/icons/PlusOne";
+import MergeTypeIcon from "@mui/icons-material/MergeType";
+import PlusOneIcon from "@mui/icons-material/PlusOne";
 
 import { AssetsApi, AssetIncomessApi, AssetTransactionsApi } from "../../api";
 import { SimulateTransactionForm } from "../../forms/SimulateTransactionForm";

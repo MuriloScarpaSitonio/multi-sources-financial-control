@@ -2,16 +2,15 @@ from datetime import timedelta
 from time import sleep
 from uuid import uuid4
 
-from django.utils import timezone
-
 import pytest
+from config.settings.base import BASE_API_URL
 from rest_framework.status import (
     HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
     HTTP_403_FORBIDDEN,
 )
 
-from config.settings.base import BASE_API_URL
+from django.utils import timezone
 
 from ..services.token_generator import generate_token_secrets
 
@@ -31,7 +30,7 @@ def test__forgot_password(api_client, user, mocker):
 
     # THEN
     assert response.status_code == HTTP_204_NO_CONTENT
-    assert m.call_args[1] == {"user": user}
+    assert m.call_args.kwargs == {"user": user}
 
 
 def test__forgot_password_email__not_found(api_client, mocker):
@@ -44,7 +43,7 @@ def test__forgot_password_email__not_found(api_client, mocker):
 
     # THEN
     assert response.status_code == HTTP_204_NO_CONTENT
-    assert m.call_args[1] == data
+    assert m.call_args.kwargs == data
 
 
 def test__reset_password(api_client, user):
