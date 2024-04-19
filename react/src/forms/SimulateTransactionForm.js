@@ -44,13 +44,13 @@ const SimulateTransactionResponseDialog = ({
       <DialogContent>
         {formData.quantity ? (
           <DialogContentText>{`${formData.quantity?.toLocaleString(
-            "pt-br"
+            "pt-br",
           )} ativos por ${formData.currency} ${formData.price?.toLocaleString(
             "pt-br",
             {
               minimumFractionDigits: 2,
               maximumFractionDigits: 4,
-            }
+            },
           )} (${formData.currency} ${(
             formData.price * formData.quantity
           )?.toLocaleString("pt-br", {
@@ -68,7 +68,7 @@ const SimulateTransactionResponseDialog = ({
             {
               minimumFractionDigits: 2,
               maximumFractionDigits: 4,
-            }
+            },
           )}  (${(formData.total / formData.price)?.toLocaleString("pt-br", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 4,
@@ -99,7 +99,7 @@ const SimulateTransactionResponseDialog = ({
                     {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 4,
-                    }
+                    },
                   )}`}
                 </TableCell>
                 <TableCell align="right">
@@ -113,7 +113,7 @@ const SimulateTransactionResponseDialog = ({
                     "pt-br",
                     {
                       minimumFractionDigits: 2,
-                    }
+                    },
                   )}%`}
                 </TableCell>
                 <TableCell align="right">
@@ -122,7 +122,7 @@ const SimulateTransactionResponseDialog = ({
                     {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
-                    }
+                    },
                   )}`}
                 </TableCell>
               </TableRow>
@@ -138,7 +138,7 @@ const SimulateTransactionResponseDialog = ({
                     {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 4,
-                    }
+                    },
                   )}`}
                 </TableCell>
                 <TableCell align="right">
@@ -152,7 +152,7 @@ const SimulateTransactionResponseDialog = ({
                     "pt-br",
                     {
                       minimumFractionDigits: 2,
-                    }
+                    },
                   )}%`}
                 </TableCell>
                 <TableCell align="right">
@@ -161,7 +161,7 @@ const SimulateTransactionResponseDialog = ({
                     {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
-                    }
+                    },
                   )}`}
                 </TableCell>
               </TableRow>
@@ -215,23 +215,23 @@ const schema = yup.object().shape(
       .required("O preço é obrigatório")
       .positive("Apenas números positivos"),
     quantity: yup.number().when("total", {
-      is: (total) => !total,
-      then: yup
-        .number()
-        .required("Se 'Total' não for inserido, 'Quantidade' é obrigatório")
-        .positive("Apenas números positivos"),
-      otherwise: yup.number().positive("Apenas números positivos"),
+      to: (total) => !total,
+      then: (schema) =>
+        schema
+          .required("Se 'Total' não for inserido, 'Quantidade' é obrigatório")
+          .positive("Apenas números positivos"),
+      otherwise: (schema) => schema.positive("Apenas números positivos"),
     }),
     total: yup.number().when("quantity", {
-      is: (quantity) => !quantity,
-      then: yup
-        .number()
-        .required("Se 'Quantidade' não for inserido, 'Total' é obrigatório")
-        .positive("Apenas números positivos"),
-      otherwise: yup.number().positive("Apenas números positivos"),
+      to: (quantity) => !quantity,
+      then: (schema) =>
+        schema
+          .required("Se 'Quantidade' não for inserido, 'Total' é obrigatório")
+          .positive("Apenas números positivos"),
+      otherwise: (schema) => schema.positive("Apenas números positivos"),
     }),
   },
-  [["total", "quantity"]]
+  [["total", "quantity"]],
 );
 
 export const SimulateTransactionForm = ({ handleClose }) => {
@@ -242,7 +242,7 @@ export const SimulateTransactionForm = ({ handleClose }) => {
   const [formData, setFormData] = useState({});
 
   useEffect(
-    () =>
+    () => {
       new AssetsApi().getMinimalData().then((response) => {
         setCodes(
           response.data.map((asset) => ({
@@ -253,11 +253,12 @@ export const SimulateTransactionForm = ({ handleClose }) => {
                 ? "R$"
                 : "$"
               : "",
-          }))
+          })),
         );
-      }),
+      });
+    },
     // .catch((error) => {})
-    []
+    [],
   );
 
   const {

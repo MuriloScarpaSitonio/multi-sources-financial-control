@@ -58,7 +58,7 @@ const Notifications = () => {
   const classes = useStyles();
 
   const [data, isLoaded, hasMore] = api.infiniteScroll(
-    new URLSearchParams({ page_size: 10, page: page }).toString()
+    new URLSearchParams({ page_size: 10, page: page }).toString(),
   );
 
   const lastTaskRef = useCallback(
@@ -72,7 +72,7 @@ const Notifications = () => {
       });
       if (node) observer.current.observe(node);
     },
-    [isLoaded, hasMore]
+    [isLoaded, hasMore],
   );
 
   const bulkUpdateNotifiedAt = (tasks) => {
@@ -293,7 +293,7 @@ const FinancesMenu = () => {
   );
 };
 
-const UserMenu = ({navigate}) => {
+const UserMenu = ({ navigate }) => {
   const [anchorEl, setAnchorEl] = useState(null);
 
   const open = Boolean(anchorEl);
@@ -347,7 +347,7 @@ const UserMenu = ({navigate}) => {
           <MenuItem
             onClick={() => {
               logout();
-              navigate("/home");
+              navigate("/");
             }}
           >
             <ListItemIcon>
@@ -363,15 +363,15 @@ const UserMenu = ({navigate}) => {
 
 export const Navbar = ({ hideValuesToggler }) => {
   const [hideValues, setHideValues] = useState(
-    Boolean(localStorage.getItem("hideValues"))
+    Boolean(localStorage.getItem("hideValues")),
   );
   const navigate = useNavigate();
 
   const isPersonalFinancesModuleEnabled = stringToBoolean(
-    localStorage.getItem("user_is_personal_finances_module_enabled")
+    localStorage.getItem("user_is_personal_finances_module_enabled"),
   );
   const isInvestmentsModuleEnabled = stringToBoolean(
-    localStorage.getItem("user_is_investments_module_enabled")
+    localStorage.getItem("user_is_investments_module_enabled"),
   );
   const isSubscriptionCancelled =
     localStorage.getItem("user_subscription_status") === "CANCELED";

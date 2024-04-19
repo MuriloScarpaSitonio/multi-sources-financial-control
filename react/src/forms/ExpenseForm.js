@@ -1,13 +1,13 @@
 import { useState } from "react";
 
+import { ptBR } from "date-fns/locale/pt-BR";
 import { useForm, Controller } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
 import * as yup from "yup";
 
-import DateFnsUtils from "@date-io/date-fns";
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-
-import DatePicker from '@mui/lab/DatePicker';
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFnsV3";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 
 import Autocomplete from "@mui/lab/Autocomplete";
 import Button from "@mui/material/Button";
@@ -94,7 +94,7 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
   const [isFixedExpense, setIsFixedExpense] = useState(
-    initialData.isFixed || false
+    initialData.isFixed || false,
   );
 
   const {
@@ -191,7 +191,10 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
               />
             )}
           />
-          <LocalizationProvider utils={DateFnsUtils}>
+          <LocalizationProvider
+            dateAdapter={AdapterDateFns}
+            adapterLocale={ptBR}
+          >
             <Controller
               name="created_at"
               control={control}
@@ -258,7 +261,7 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
               control={control}
               defaultValue={getChoiceByLabel(
                 initialData.category,
-                ExpensesCategoriesMapping
+                ExpensesCategoriesMapping,
               )}
               render={({ field: { onChange, value } }) => (
                 <>
@@ -299,7 +302,7 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
               control={control}
               defaultValue={getChoiceByLabel(
                 initialData.source,
-                ExpensesSourcesMapping
+                ExpensesSourcesMapping,
               )}
               render={({ field: { onChange, value } }) => (
                 <>

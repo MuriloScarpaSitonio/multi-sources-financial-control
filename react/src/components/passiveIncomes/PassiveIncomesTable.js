@@ -1,10 +1,10 @@
 import { useState } from "react";
 
+import { ptBR } from "date-fns/locale/pt-BR";
 import MUIDataTable from "mui-datatables";
-import DateFnsUtils from "@date-io/date-fns";
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-
-import DatePicker from '@mui/lab/DatePicker';
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFnsV3";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -157,7 +157,7 @@ export const PassiveIncomesTable = () => {
     });
 
     Object.entries(multipleChoiceFilters).forEach(([key, value]) =>
-      value.map((v) => _filters.append(key, v))
+      value.map((v) => _filters.append(key, v)),
     );
     return _filters.toString();
   }
@@ -222,7 +222,7 @@ export const PassiveIncomesTable = () => {
             ...PassiveIncomeEventTypesMapping,
             ...PassiveIncomeTypesMapping,
             ...AssetsTypesMapping,
-          ]).value
+          ]).value,
       );
       setFilters({ ...filters, [_column]: _filters, page: 1 });
     },
@@ -352,7 +352,10 @@ export const PassiveIncomesTable = () => {
         filterOptions: {
           names: [],
           display: (filterList, onChange, index, column) => (
-            <LocalizationProvider utils={DateFnsUtils}>
+            <LocalizationProvider
+              dateAdapter={AdapterDateFns}
+              adapterLocale={ptBR}
+            >
               <FormLabel>Quando</FormLabel>
               <FormGroup row>
                 <DatePicker

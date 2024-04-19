@@ -57,6 +57,7 @@ async def _fetch_prices(
     for i, result in enumerate(results):  # order is guaranteed
         if isinstance(result, Exception):
             # TODO: log error
+            print("here2")
             print(repr(result))
             continue
         prices.append({"prices": result, **task_metadata[i]})
@@ -70,7 +71,6 @@ async def update_prices() -> Exception | None:
         assets_metadata_map, result = await _fetch_prices(
             qs=DjangoSQLAssetMetaDataRepository.filter_assets_eligible_for_update()
         )
-
         for data in result:
             for code, price in data["prices"].items():
                 asset_metadata = assets_metadata_map[

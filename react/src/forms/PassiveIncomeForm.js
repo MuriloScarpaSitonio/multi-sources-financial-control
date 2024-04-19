@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 
+import { ptBR } from "date-fns/locale/pt-BR";
 import { useForm, Controller } from "react-hook-form";
 import { NumericFormat } from "react-number-format";
 import * as yup from "yup";
 
-import DateFnsUtils from "@date-io/date-fns";
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import DatePicker from '@mui/lab/DatePicker';
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFnsV3";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import Autocomplete from "@mui/lab/Autocomplete";
 
 import Button from "@mui/material/Button";
@@ -76,7 +77,7 @@ const schema = yup.object().shape({
         .required("O tipo de evento é obrigatório")
         .matches(
           /(PROVISIONED|CREDITED)/,
-          "Apenas 'creditado' e 'provisionado' são tipos de eventos válidos"
+          "Apenas 'creditado' e 'provisionado' são tipos de eventos válidos",
         ),
     })
     .required("O tipo de evento é obrigatório")
@@ -105,22 +106,23 @@ export const PassiveIncomeForm = ({
     getChoiceByLabel(initialData.event_type, PassiveIncomeEventTypesMapping)
       ?.value || "CREDITED";
   const [isCreditedIncome, setIsCreditedIncome] = useState(
-    initialEventType === "CREDITED"
+    initialEventType === "CREDITED",
   );
 
   useEffect(
-    () =>
+    () => {
       new AssetsApi().getMinimalData().then((response) => {
         setCodes(
           response.data.map((asset) => ({
             label: asset.code,
             value: asset.pk,
             currency: asset.currency,
-          }))
+          })),
         );
-      }),
+      });
+    },
     // .catch((error) => {})
-    []
+    [],
   );
 
   const {
@@ -301,7 +303,7 @@ export const PassiveIncomeForm = ({
               defaultValue={
                 getChoiceByLabel(
                   initialData.event_type,
-                  PassiveIncomeEventTypesMapping
+                  PassiveIncomeEventTypesMapping,
                 ) || PassiveIncomeEventTypesMapping[1]
               }
               render={({ field: { onChange, value } }) => (
@@ -336,7 +338,10 @@ export const PassiveIncomeForm = ({
               )}
             />
           </FormControl>
-          <LocalizationProvider utils={DateFnsUtils}>
+          <LocalizationProvider
+            dateAdapter={AdapterDateFns}
+            adapterLocale={ptBR}
+          >
             <Controller
               name="operation_date"
               control={control}

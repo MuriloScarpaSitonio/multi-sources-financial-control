@@ -1,11 +1,10 @@
 import { useState } from "react";
 
+import { ptBR } from "date-fns/locale/pt-BR";
 import MUIDataTable from "mui-datatables";
-
-import DateFnsUtils from "@date-io/date-fns";
-
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import DatePicker from '@mui/lab/DatePicker';
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFnsV3";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -121,7 +120,7 @@ export const ExpensesTable = () => {
   const [pageSize, setPageSize] = useState(5);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(
-    new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    new Date(now.getFullYear(), now.getMonth() + 1, 0),
   );
   const [filters, setFilters] = useState({
     page: 1,
@@ -156,7 +155,7 @@ export const ExpensesTable = () => {
     });
 
     Object.entries(multipleChoiceFilters).forEach(([key, value]) =>
-      value.map((v) => _filters.append(key, v))
+      value.map((v) => _filters.append(key, v)),
     );
 
     return _filters.toString();
@@ -243,7 +242,7 @@ export const ExpensesTable = () => {
           : [...ExpensesCategoriesMapping, ...ExpensesSourcesMapping];
 
       let _filters = filterList[changedColumnIndex].map(
-        (f) => getChoiceByLabel(f, mapping).value
+        (f) => getChoiceByLabel(f, mapping).value,
       );
       setFilters({ ...filters, [column]: _filters, page: 1 });
     },
@@ -328,7 +327,10 @@ export const ExpensesTable = () => {
         filterOptions: {
           names: [],
           display: (filterList, onChange, index, column) => (
-            <LocalizationProvider utils={DateFnsUtils}>
+            <LocalizationProvider
+              dateAdapter={AdapterDateFns}
+              adapterLocale={ptBR}
+            >
               <FormLabel>Quando</FormLabel>
               <FormGroup row>
                 <DatePicker
