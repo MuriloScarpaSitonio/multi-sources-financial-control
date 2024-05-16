@@ -1,5 +1,5 @@
-import { useState } from "react";
-
+import { FunctionComponent, useState } from "react";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import Button, { buttonClasses } from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Link from "@mui/material/Link";
@@ -31,7 +31,7 @@ import loginSvg from "./assets/login.svg";
 const schema = yup.object().shape({
   email: yup
     .string()
-    .email("Insira um email válido")
+    .email("Formato de e-mail inválido")
     .required("Campo obrigatório"),
   password: yup.string().required("Campo obrigatório"),
 });
@@ -47,7 +47,7 @@ const theme = createTheme({
     MuiTypography: {
       styleOverrides: {
         root: {
-          color: COLORS.neutral1000,
+          color: COLORS.neutral0,
         },
       },
     },
@@ -58,7 +58,7 @@ const theme = createTheme({
           [`&.${buttonClasses.outlined}.${buttonClasses.colorSuccess}`]: {
             borderRadius: "5px",
             border: `2px solid ${COLORS.brand}`,
-            color: COLORS.neutral1000,
+            color: COLORS.neutral0,
             textTransform: "none",
             padding: "12px",
             "&:hover": {
@@ -80,9 +80,9 @@ const theme = createTheme({
     MuiDivider: {
       styleOverrides: {
         root: {
-          color: COLORS.neutral1000,
+          color: COLORS.neutral0,
           "&::before, &::after": {
-            backgroundColor: COLORS.neutral1000,
+            backgroundColor: COLORS.neutral0,
           },
         },
       },
@@ -93,9 +93,9 @@ const theme = createTheme({
           borderRadius: "5px",
           border: `2px solid ${COLORS.brand}`,
           input: {
-            color: COLORS.neutral700,
+            color: COLORS.neutral300,
             "&::placeholder": {
-              color: COLORS.neutral700,
+              color: COLORS.neutral300,
             },
           },
           "&:hover": {
@@ -123,10 +123,12 @@ const theme = createTheme({
           [`&.${outlinedInputClasses.focused}.${outlinedInputClasses.error}`]: {
             borderRadius: "5px",
             border: `2px solid ${COLORS.danger200}`,
+            background: COLORS.neutral700,
           },
           [`&.${outlinedInputClasses.focused}`]: {
             borderRadius: "5px",
             border: `2px solid ${COLORS.brand}`,
+            background: COLORS.neutral700,
           },
         },
       },
@@ -134,20 +136,48 @@ const theme = createTheme({
     MuiFormHelperText: {
       styleOverrides: {
         root: {
-          color: COLORS.neutral700,
+          color: COLORS.neutral300,
         },
       },
     },
   },
 });
 
-export const Login = () => {
+const SocialButtons: FunctionComponent<{
+  isUpBigScreen: boolean;
+  isDownSmallScreen: boolean;
+}> = ({ isUpBigScreen, isDownSmallScreen }) => (
+  <Stack
+    direction={isDownSmallScreen ? "column" : "row"}
+    justifyContent="space-between"
+    spacing={2}
+  >
+    <Button
+      startIcon={<GoogleColoredIcon />}
+      variant="outlined"
+      color="success"
+      fullWidth={isUpBigScreen}
+    >
+      Entre com Google
+    </Button>
+    <Button
+      startIcon={<FacebookColoredIcon />}
+      variant="outlined"
+      color="success"
+      fullWidth={isUpBigScreen}
+    >
+      Entre com Facebook
+    </Button>
+  </Stack>
+);
+
+const LoginForm = () => {
   const [showPassword, setShowPassword] = useState<boolean>(false);
 
   const {
     control,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitSuccessful },
   } = useForm({
     resolver: yupResolver(schema),
     defaultValues: {
@@ -155,7 +185,7 @@ export const Login = () => {
       password: "",
     },
     mode: "onSubmit",
-    // reValidateMode: "onSubmit",
+    reValidateMode: "onSubmit",
   });
 
   const navigate = useNavigate();
@@ -177,123 +207,166 @@ export const Login = () => {
   });
 
   return (
+    <form>
+      <Stack spacing={2}>
+        <Controller
+          name="email"
+          control={control}
+          render={({ field }) => (
+            <>
+              <OutlinedInput
+                {...field}
+                required
+                placeholder="E-mail"
+                error={!!errors.email || (isApiError && isSubmitSuccessful)}
+              />
+              {!!errors.email && (
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <InfoOutlinedIcon style={{ color: COLORS.danger200 }} />
+                  <FormHelperText>{errors.email?.message}</FormHelperText>
+                </Stack>
+              )}
+            </>
+          )}
+        />
+        <Controller
+          name="password"
+          control={control}
+          render={({ field }) => (
+            <>
+              <OutlinedInput
+                {...field}
+                required
+                placeholder="Senha"
+                error={!!errors.password || isApiError}
+                type={showPassword ? "text" : "password"}
+                endAdornment={
+                  <InputAdornment position="end">
+                    <IconButton
+                      sx={{
+                        color: COLORS.neutral300,
+                        "&:hover": { color: COLORS.neutral0 },
+                      }}
+                      onClick={() => {
+                        setShowPassword((show) => !show);
+                      }}
+                      onMouseDown={(e) => e.preventDefault()}
+                      edge="end"
+                    >
+                      {showPassword ? (
+                        <VisibilityOffOutlinedIcon />
+                      ) : (
+                        <VisibilityOutlinedIcon />
+                      )}
+                    </IconButton>
+                  </InputAdornment>
+                }
+              />
+              {!!errors.password && (
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <InfoOutlinedIcon style={{ color: COLORS.danger200 }} />
+                  <FormHelperText>{errors.password?.message}</FormHelperText>
+                </Stack>
+              )}
+              {!errors.password && isApiError && (
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <InfoOutlinedIcon style={{ color: COLORS.danger200 }} />
+                  <FormHelperText>E-mail ou senha inválidos</FormHelperText>
+                </Stack>
+              )}
+            </>
+          )}
+        />
+        <Button
+          color="success"
+          variant="contained"
+          size="large"
+          fullWidth
+          type="submit"
+          onClick={handleSubmit((data) => mutate(data as any))}
+        >
+          {!isPending ? (
+            "Entrar"
+          ) : (
+            <CircularProgress size={26} color="inherit" />
+          )}
+        </Button>
+      </Stack>
+    </form>
+  );
+};
+
+const ImageAndTexts = () => (
+  <Stack sx={{ width: "50%" }}>
+    {/* <Stack sx={{ padding: "36px 96px" }}>
+            <img src={loginSvg} alt="login" width={556} height={556} /> */}
+    <Stack sx={{ padding: "12px 96px" }} textAlign="center" alignItems="center">
+      <img src={loginSvg} alt="login" width={400} height={400} />
+      <Stack spacing={4}>
+        <Typography
+          style={{
+            fontWeight: 800,
+            fontSize: 22,
+            color: COLORS.neutral900,
+          }}
+        >
+          Realize suas análises de forma fácil e segura.
+        </Typography>
+        <Typography
+          style={{
+            fontWeight: 400,
+            fontSize: 16,
+            color: COLORS.neutral500,
+          }}
+        >
+          Mantenha suas informações em segurança e com monitoramento fácil.{" "}
+          <Typography
+            display="inline"
+            style={{
+              fontWeight: 400,
+              fontSize: 16,
+              color: COLORS.brand500,
+            }}
+          >
+            Junte-se a nós hoje mesmo
+          </Typography>{" "}
+          e assuma o controle do seu futuro financeiro!
+        </Typography>
+      </Stack>
+    </Stack>
+  </Stack>
+);
+
+export const Login = () => {
+  const isUpBigScreen = useMediaQuery(theme.breakpoints.up("xl"));
+  const isDownMediumScreen = useMediaQuery(theme.breakpoints.down("md"));
+  const isDownSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
+
+  return (
     <ThemeProvider theme={theme}>
-      <Stack direction="row" sx={{ height: "100%" }}>
-        <Stack sx={{ background: COLORS.neutral900, width: "50%" }}>
-          {/* <Stack sx={{ padding: "192px 144px" }} spacing={4}> */}
-          <Stack sx={{ padding: "48px 144px" }} spacing={4}>
+      <Stack direction="row" sx={{ height: "100vh" }}>
+        <Stack
+          sx={{
+            background: COLORS.neutral900,
+            width: isDownMediumScreen ? "100%" : "50%",
+          }}
+        >
+          <Stack
+            sx={{ padding: !isDownSmallScreen ? "48px 144px" : "24px" }}
+            spacing={4}
+          >
             <Typography
               align="center"
               style={{ fontWeight: 800, fontSize: 24 }}
             >
               Entre na sua conta para manter o controle do seu dinheiro.
             </Typography>
-            <Stack direction="row" justifyContent="space-between" spacing={2}>
-              <Button
-                startIcon={<GoogleColoredIcon />}
-                variant="outlined"
-                color="success"
-              >
-                Entre com Google
-              </Button>
-              <Button
-                startIcon={<FacebookColoredIcon />}
-                variant="outlined"
-                color="success"
-              >
-                Entre com Facebook
-              </Button>
-            </Stack>
+            <SocialButtons
+              isUpBigScreen={isUpBigScreen}
+              isDownSmallScreen={isDownSmallScreen}
+            />
             <Divider>ou com email</Divider>
-            <form>
-              <Stack spacing={2}>
-                <Controller
-                  name="email"
-                  control={control}
-                  render={({ field }) => (
-                    <>
-                      <OutlinedInput
-                        {...field}
-                        required
-                        placeholder="E-mail"
-                        error={!!errors.email || isApiError}
-                      />
-                      {!!errors.email && (
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <InfoOutlinedIcon
-                            style={{ color: COLORS.danger200 }}
-                          />
-                          <FormHelperText>
-                            {errors.email?.message}
-                          </FormHelperText>
-                        </Stack>
-                      )}
-                    </>
-                  )}
-                />
-                <Controller
-                  name="password"
-                  control={control}
-                  render={({ field }) => (
-                    <>
-                      <OutlinedInput
-                        {...field}
-                        required
-                        placeholder="Senha"
-                        error={isApiError}
-                        type={showPassword ? "text" : "password"}
-                        endAdornment={
-                          <InputAdornment position="end">
-                            <IconButton
-                              sx={{
-                                color: COLORS.neutral700,
-                                "&:hover": { color: COLORS.neutral0 },
-                              }}
-                              onClick={() => {
-                                setShowPassword((show) => !show);
-                              }}
-                              onMouseDown={(e) => e.preventDefault()}
-                              edge="end"
-                            >
-                              {showPassword ? (
-                                <VisibilityOffOutlinedIcon />
-                              ) : (
-                                <VisibilityOutlinedIcon />
-                              )}
-                            </IconButton>
-                          </InputAdornment>
-                        }
-                      />
-
-                      {isApiError && (
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <InfoOutlinedIcon
-                            style={{ color: COLORS.danger200 }}
-                          />
-                          <FormHelperText>
-                            E-mail ou senha inválidos
-                          </FormHelperText>
-                        </Stack>
-                      )}
-                    </>
-                  )}
-                />
-                <Button
-                  color="success"
-                  variant="contained"
-                  size="large"
-                  fullWidth
-                  type="submit"
-                  onClick={handleSubmit((data) => mutate(data as any))}
-                >
-                  {!isPending ? (
-                    "Entrar"
-                  ) : (
-                    <CircularProgress size={26} color="inherit" />
-                  )}
-                </Button>
-              </Stack>
-            </form>
+            <LoginForm />
             <Stack spacing={2}>
               <Typography
                 align="center"
@@ -301,7 +374,7 @@ export const Login = () => {
                   fontWeight: 700,
                   fontSize: 16,
                   textDecoration: "underline",
-                  color: COLORS.neutral700,
+                  color: COLORS.neutral300,
                 }}
               >
                 <Link color="inherit" href="/forgot_password">
@@ -314,7 +387,7 @@ export const Login = () => {
                   fontWeight: 700,
                   fontSize: 16,
                   // textDecoration: "underline",
-                  color: COLORS.neutral700,
+                  color: COLORS.neutral300,
                 }}
               >
                 Não tem uma conta? Faça seu{" "}
@@ -325,53 +398,7 @@ export const Login = () => {
             </Stack>
           </Stack>
         </Stack>
-        <Stack sx={{ width: "50%" }}>
-          {/* <Stack sx={{ padding: "36px 96px" }}>
-            <img src={loginSvg} alt="login" width={556} height={556} /> */}
-          <Stack sx={{ padding: "12px 96px" }}>
-            <img
-              src={loginSvg}
-              alt="login"
-              style={{ marginLeft: 36 }}
-              width={400}
-              height={400}
-            />
-            <Stack spacing={4}>
-              <Typography
-                align="center"
-                style={{
-                  fontWeight: 800,
-                  fontSize: 22,
-                  color: COLORS.neutral900,
-                }}
-              >
-                Realize suas análises de forma fácil e segura.
-              </Typography>
-              <Typography
-                align="center"
-                style={{
-                  fontWeight: 400,
-                  fontSize: 16,
-                  color: COLORS.neutral300,
-                }}
-              >
-                Mantenha suas informações em segurança e com monitoramento
-                fácil.{" "}
-                <Typography
-                  display="inline"
-                  style={{
-                    fontWeight: 400,
-                    fontSize: 16,
-                    color: COLORS.brand500,
-                  }}
-                >
-                  Junte-se a nós hoje mesmo
-                </Typography>{" "}
-                e assuma o controle do seu futuro financeiro!
-              </Typography>
-            </Stack>
-          </Stack>
-        </Stack>
+        {!isDownMediumScreen && <ImageAndTexts />}
       </Stack>
     </ThemeProvider>
   );

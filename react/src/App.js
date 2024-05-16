@@ -6,6 +6,7 @@ import {
   Routes,
   Route,
   Navigate,
+  useNavigate,
 } from "react-router-dom";
 import Link from "@mui/material/Link";
 import MuiAlert from "@mui/lab/Alert";
@@ -34,10 +35,31 @@ import { AccessTokenStr } from "./consts";
 
 const queryClient = new QueryClient();
 
+const useLocalStorageBooleanValues = () => ({
+  isLoggedIn: Boolean(localStorage.getItem(AccessTokenStr)),
+  isSubscriptionCanceled:
+    localStorage.getItem("user_subscription_status") === "CANCELED",
+});
+
+const PublicRoute = ({ children, path }) => {
+  const { isLoggedIn, isSubscriptionCanceled } = useLocalStorageBooleanValues();
+  const navigate = useNavigate();
+
+  if (isLoggedIn) {
+    if (
+      isSubscriptionCanceled &&
+      !["Subscription", "SubscriptionDone", "User"].includes(children.name)
+    ) {
+      return (
+        <Navigate to={{ pathname: "/subscription", state: { from: path } }} />
+      );
+    } else return navigate(-1);
+  } else return children;
+};
+
 const PrivateRoute = ({ children, path }) => {
-  const isLoggedIn = Boolean(localStorage.getItem(AccessTokenStr));
-  const isSubscriptionCanceled =
-    localStorage.getItem("user_subscription_status") === "CANCELED";
+  const { isLoggedIn, isSubscriptionCanceled } = useLocalStorageBooleanValues();
+
   if (isLoggedIn) {
     if (
       isSubscriptionCanceled &&
@@ -91,32 +113,65 @@ const Wrapper = ({ children, isLoggedIn }) => {
 };
 
 export default function App() {
-  const isLoggedIn = Boolean(localStorage.getItem(AccessTokenStr));
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
         <Routes>
-          <Route path="/" element={<Login />} />
-          <Route path="/signup" element={<Wrapper Component={Signup} />} />
+          <Route
+            path="/"
+            element={
+              <PublicRoute path="/">
+                <Login />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <PublicRoute path="/signup">
+                <Signup />
+              </PublicRoute>
+            }
+          />
           <Route
             path="/signup/done"
-            element={<Wrapper Component={SignupDone} />}
+            element={
+              <PublicRoute path="/signup/done">
+                <SignupDone />
+              </PublicRoute>
+            }
           />
           <Route
             path="/activate/:uidb64/:token"
-            element={<Wrapper Component={ActivateUser} />}
+            element={
+              <PublicRoute path="/activate/:uidb64/:token">
+                <ActivateUser />
+              </PublicRoute>
+            }
           />
           <Route
             path="/forgot_password"
-            element={<Wrapper Component={ForgotPassword} />}
+            element={
+              <PublicRoute path="/forgot_password">
+                <ForgotPassword />
+              </PublicRoute>
+            }
           />
           <Route
             path="/forgot_password/done"
-            element={<Wrapper Component={ForgotPasswordDone} />}
+            element={
+              <PublicRoute path="/forgot_password/done">
+                <ForgotPasswordDone />
+              </PublicRoute>
+            }
           />
           <Route
             path="/reset_password/:uidb64/:token"
-            element={<Wrapper Component={ResetPassword} />}
+            element={
+              <PublicRoute path="/reset_password/:uidb64/:token">
+                <ResetPassword />
+              </PublicRoute>
+            }
           />
           <Route
             path="/home"

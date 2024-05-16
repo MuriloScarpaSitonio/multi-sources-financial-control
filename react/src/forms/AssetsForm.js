@@ -126,7 +126,7 @@ export const AssetsForm = ({ initialData, onClose, onSuccess }) => {
 
   let initialType = getChoiceByLabel(
     initialData.type,
-    AssetsTypesMapping
+    AssetsTypesMapping,
   )?.value;
   const [isCrypto, setIsCrypto] = useState(initialType === "CRYPTO" || false);
 
@@ -213,7 +213,7 @@ export const AssetsForm = ({ initialData, onClose, onSuccess }) => {
               control={control}
               defaultValue={getChoiceByLabel(
                 initialData.objective,
-                AssetsObjectivesMapping
+                AssetsObjectivesMapping,
               )}
               render={({ field: { onChange, value } }) => (
                 <>
@@ -255,7 +255,7 @@ export const AssetsForm = ({ initialData, onClose, onSuccess }) => {
               control={control}
               defaultValue={getChoiceByLabel(
                 initialData.type,
-                AssetsTypesMapping
+                AssetsTypesMapping,
               )}
               render={({ field: { onChange, value } }) => (
                 <>

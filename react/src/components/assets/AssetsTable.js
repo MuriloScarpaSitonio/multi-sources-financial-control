@@ -84,7 +84,7 @@ const TransactionsTable = ({ code, assetId }) => {
   }
 
   const [data, isLoaded] = new AssetTransactionsApi(assetId).query(
-    getAdjustedFilters()
+    getAdjustedFilters(),
   );
   return (
     <>
@@ -185,7 +185,7 @@ const PassiveIncomeTable = ({ code, assetId }) => {
   }
 
   const [data, isLoaded] = new AssetIncomessApi(assetId).query(
-    getAdjustedFilters()
+    getAdjustedFilters(),
   );
   return (
     <>
@@ -307,7 +307,7 @@ export const AssetsTable = () => {
     });
 
     Object.entries(multipleChoiceFilters).forEach(([key, value]) =>
-      value.map((v) => _filters.append(key, v))
+      value.map((v) => _filters.append(key, v)),
     );
 
     return _filters.toString();
@@ -371,7 +371,7 @@ export const AssetsTable = () => {
             ...AssetsObjectivesMapping,
             ...AssetsSectorsMapping,
             ...AssetsTypesMapping,
-          ]).value
+          ]).value,
       );
       setFilters({ ...filters, [column]: _filters, page: 1 });
     },
@@ -379,8 +379,8 @@ export const AssetsTable = () => {
     expandableRowsHeader: false,
     expandableRowsOnClick: true,
     renderExpandableRow: (rowData) => {
-      const colSpan = rowData.length + 1;
-      let currency = rowData[colSpan - 2];
+      const colSpan = rowData.length;
+      const currency = rowData[colSpan - 2];
       const [id, _, objective, code, type] = rowData;
 
       return (
@@ -547,7 +547,7 @@ export const AssetsTable = () => {
             <Tooltip
               key={v}
               title={`Atualizado pela última vez às ${new Date(
-                tableMeta.rowData[7]
+                tableMeta.rowData[7],
               ).toLocaleString("pt-br")}`}
             >
               <p>{`${currencySymbol} ${v?.toLocaleString("pt-br", {
