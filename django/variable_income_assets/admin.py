@@ -96,4 +96,4 @@ class AssetReadModelAdmin(admin.ModelAdmin):
 @admin.register(AssetClosedOperation)
 class AssetClosedOperationAdmin(admin.ModelAdmin):
     search_fields = ("asset__code",)
-    list_filter = ("asset__type",)
+    list_filter = ("asset__type", "asset__code")

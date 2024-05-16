@@ -1,8 +1,6 @@
-from functools import partial
+from django.utils import timezone
 
 from dateutil.relativedelta import relativedelta
-
-from django.utils import timezone
 
 from .models import Expense, Revenue
 

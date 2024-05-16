@@ -33,7 +33,11 @@ class CoinMarketCapClient:
             params={"convert": currency},
         )
         response.raise_for_status()
-        result = await response.json()
-        return {
-            symbol: data[0]["quote"][currency]["price"] for symbol, data in result["data"].items()
-        }
+        response_json = await response.json()
+        result = {}
+        for symbol, data in response_json["data"].items():
+            try:
+                result[symbol] = data[0]["quote"][currency]["price"]
+            except IndexError:
+                continue
+        return result

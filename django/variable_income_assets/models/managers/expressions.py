@@ -58,14 +58,6 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
         )
 
     @property
-    def closed_operations_normalized_total_bought(self) -> Sum:
-        return self.sum(
-            F(f"{self._inverse_prefix}closed_operations__normalized_total_bought"),
-            distinct=True,
-            cast=False,
-        )
-
-    @property
     def closed_operations_total_bought(self) -> Sum:
         return self.sum(
             F(f"{self._inverse_prefix}closed_operations__total_bought"),
@@ -106,6 +98,15 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
     @property
     def current_normalized_total_sold(self) -> CombinedExpression:
         return self.normalized_total_sold - self.closed_operations_normalized_total_sold
+
+    def get_closed_operations_normalized_total_bought(self, extra_filters: Q | None = None) -> Sum:
+        extra_filters = extra_filters if extra_filters is not None else Q()
+        return self.sum(
+            F(f"{self._inverse_prefix}closed_operations__normalized_total_bought"),
+            distinct=True,
+            cast=False,
+            filter=extra_filters,
+        )
 
     def get_total_bought(self, extra_filters: Q | None = None) -> CombinedExpression:
         extra_filters = extra_filters if extra_filters is not None else Q()
@@ -166,7 +167,7 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
         extra_filters = extra_filters if extra_filters is not None else Q()
         return (
             self.get_normalized_total_bought(extra_filters)
-            - self.closed_operations_normalized_total_bought
+            - self.get_closed_operations_normalized_total_bought()
         )
 
     def get_current_avg_price(self, extra_filters: Q | None = None) -> Coalesce:

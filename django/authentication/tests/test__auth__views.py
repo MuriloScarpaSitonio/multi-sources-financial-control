@@ -2,15 +2,16 @@ from datetime import timedelta
 from time import sleep
 from uuid import uuid4
 
+from django.utils import timezone
+
 import pytest
-from config.settings.base import BASE_API_URL
 from rest_framework.status import (
     HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
     HTTP_403_FORBIDDEN,
 )
 
-from django.utils import timezone
+from config.settings.base import BASE_API_URL
 
 from ..services.token_generator import generate_token_secrets
 

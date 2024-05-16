@@ -1,8 +1,10 @@
 from datetime import datetime
 from decimal import Decimal
 
+from django.db.models import Avg, Q
+from django.utils import timezone
+
 import pytest
-from config.settings.base import BASE_API_URL
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -12,10 +14,9 @@ from rest_framework.status import (
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
 )
-from shared.tests import convert_and_quantitize
 
-from django.db.models import Avg, Q
-from django.utils import timezone
+from config.settings.base import BASE_API_URL
+from shared.tests import convert_and_quantitize
 
 from ...choices import (
     AssetTypes,

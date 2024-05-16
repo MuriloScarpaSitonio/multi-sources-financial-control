@@ -1,7 +1,9 @@
 from datetime import timedelta
 
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+
 import pytest
-from config.settings.base import BASE_API_URL
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -11,8 +13,7 @@ from rest_framework.status import (
     HTTP_404_NOT_FOUND,
 )
 
-from django.contrib.auth import get_user_model
-from django.utils import timezone
+from config.settings.base import BASE_API_URL
 
 from ..choices import SubscriptionStatus
 from ..models import IntegrationSecret

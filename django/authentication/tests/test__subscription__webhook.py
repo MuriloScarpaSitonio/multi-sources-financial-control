@@ -1,16 +1,17 @@
 from datetime import datetime, timezone
 from time import time
 
+from django.db.utils import IntegrityError
+from django.utils.timezone import now
+
 import pytest
-from config.settings.base import BASE_API_URL
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_400_BAD_REQUEST,
     HTTP_405_METHOD_NOT_ALLOWED,
 )
 
-from django.db.utils import IntegrityError
-from django.utils.timezone import now
+from config.settings.base import BASE_API_URL
 
 from ..choices import SubscriptionStatus
 

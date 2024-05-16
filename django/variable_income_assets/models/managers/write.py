@@ -15,6 +15,7 @@ from django.db.models import (
     Subquery,
     Sum,
     Value,
+    When,
 )
 from django.db.models.functions import Cast, Coalesce, Concat, TruncMonth
 
@@ -47,18 +48,18 @@ class AssetQuerySet(QuerySet):
     def _transactions_count_alias(self) -> Self:
         return self.alias(transactions_count=Count("transactions"))
 
-    def _annotate_quantity_balance(self) -> Self:
+    def annotate_quantity_balance(self) -> Self:
         return self.annotate(quantity_balance=self.expressions.get_quantity_balance()).order_by()
 
     def opened(self) -> Self:
         return (
             self._transactions_count_alias()
-            ._annotate_quantity_balance()
+            .annotate_quantity_balance()
             .filter(Q(transactions_count=0) | Q(quantity_balance__gt=0))
         )
 
     def closed(self) -> Self:
-        return self._annotate_quantity_balance().filter(quantity_balance__lte=0)
+        return self.annotate_quantity_balance().filter(quantity_balance__lte=0)
 
     def stocks(self) -> Self:  # pragma: no cover
         return self.filter(type=AssetTypes.stock)
@@ -148,15 +149,33 @@ class AssetQuerySet(QuerySet):
             ),
         )
 
+    def annotate_for_domain(self) -> Self:
+        return self.annotate_quantity_balance().annotate_current_avg_price()
+
     def annotate_read_fields(self) -> Self:
         return (
-            self._annotate_quantity_balance()
-            .annotate_current_avg_price()
+            self.annotate_for_domain()
             .annotate_current_normalized_avg_price()
             .annotate_normalized_total_bought()
             .annotate_current_normalized_total_sold()
             .annotate_normalized_closed_roi()
             .annotate_current_credited_incomes()
+        )
+
+    def annotate_for_simulation(self) -> Self:
+        from ...adapters import DjangoSQLAssetMetaDataRepository
+
+        return (
+            self.annotate_for_domain()
+            .annotate_current_normalized_avg_price()
+            .annotate_normalized_total_bought()
+            .annotate_current_normalized_total_sold()
+            .annotate_current_credited_incomes()
+            .annotate(
+                current_price_metadata=DjangoSQLAssetMetaDataRepository.get_current_price_annotation(
+                    source="write"
+                )
+            )
         )
 
     def annotate_irpf_infos(self, year: int) -> Self:
@@ -166,7 +185,15 @@ class AssetQuerySet(QuerySet):
         ).annotate(
             transactions_balance=self.expressions.get_quantity_balance(extra_filters),
             avg_price=self.expressions.get_avg_price(extra_filters),
-            total_invested=F("normalized_avg_price") * F("transactions_balance"),
+            total_invested=Case(
+                When(
+                    Q(closed_operations__isnull=True),
+                    then=F("normalized_avg_price") * F("transactions_balance"),
+                ),
+                default=self.expressions.get_closed_operations_normalized_total_bought(
+                    extra_filters=Q(closed_operations__operation_datetime__year=year + 1)
+                ),
+            ),
         )
 
     def annotate_credited_incomes_at_given_year(
@@ -182,29 +209,6 @@ class AssetQuerySet(QuerySet):
                 Decimal(),
             )
         )
-
-    def annotate_for_domain(self) -> Self:
-        return self._annotate_quantity_balance().annotate_current_avg_price()
-
-    def annotate_for_simulation(self) -> Self:
-        from ...adapters import DjangoSQLAssetMetaDataRepository
-
-        return (
-            self._annotate_quantity_balance()
-            .annotate_current_avg_price()
-            .annotate_current_normalized_avg_price()
-            .annotate_normalized_total_bought()
-            .annotate_current_normalized_total_sold()
-            .annotate_current_credited_incomes()
-            .annotate(
-                current_price_metadata=DjangoSQLAssetMetaDataRepository.get_current_price_annotation(
-                    source="write"
-                )
-            )
-        )
-
-    def annotate_for_script(self):
-        return self._annotate_quantity_balance().annotate_current_avg_price()
 
 
 class TransactionQuerySet(QuerySet):
@@ -222,16 +226,6 @@ class TransactionQuerySet(QuerySet):
 
     def since_a_year_ago(self) -> Self:
         return self.filter(self.date_filters.since_a_year_ago)
-
-    def annotate_raw_roi(self, normalize: bool = True) -> Self:
-        expression = (F("price") - F("initial_price")) * F("quantity")
-        return self.annotate(
-            roi=(
-                self.expressions.get_dollar_conversion_expression(expression=expression)
-                if normalize
-                else expression
-            )
-        )
 
     def _annotate_totals(self) -> Self:
         return self.annotate(
@@ -304,6 +298,15 @@ class TransactionQuerySet(QuerySet):
             normalized_total_bought=self.expressions.get_normalized_total_bought(),
             total_bought=self.expressions.get_total_bought(),
             quantity_bought=self.expressions.get_quantity_bought(),
+        )
+
+    def annotate_normalized_roi(self) -> Self:
+        return self.alias(avg_price=self.expressions.get_current_normalized_avg_price()).annotate(
+            roi=(
+                (F("price") - F("avg_price"))
+                * F("quantity")
+                * F("current_currency_conversion_rate")
+            )
         )
 
 

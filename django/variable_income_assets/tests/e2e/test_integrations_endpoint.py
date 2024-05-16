@@ -1,11 +1,12 @@
 import pytest
-from authentication.tests.conftest import api_client
-from config.settings.base import BASE_API_URL
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_403_FORBIDDEN,
     HTTP_405_METHOD_NOT_ALLOWED,
 )
+
+from authentication.tests.conftest import api_client
+from config.settings.base import BASE_API_URL
 
 
 @pytest.mark.parametrize(

@@ -4,7 +4,8 @@ from decimal import Decimal
 from .models import Expense
 
 
-class Event: ...
+class Event:
+    ...
 
 
 @dataclass
@@ -12,7 +13,8 @@ class ExpenseEvent(Event):
     expense: Expense
 
 
-class ExpenseCreated(ExpenseEvent): ...
+class ExpenseCreated(ExpenseEvent):
+    ...
 
 
 @dataclass
@@ -20,7 +22,8 @@ class ExpenseUpdated(ExpenseEvent):
     previous_value: Decimal
 
 
-class ExpenseDeleted(ExpenseEvent): ...
+class ExpenseDeleted(ExpenseEvent):
+    ...
 
 
 @dataclass
@@ -38,4 +41,5 @@ class RevenueDeleted(Event):
     value: Decimal
 
 
-class BankAccountNegative(Event): ...
+class BankAccountNegative(Event):
+    ...

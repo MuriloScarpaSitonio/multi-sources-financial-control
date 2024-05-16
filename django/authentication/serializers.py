@@ -1,10 +1,10 @@
-from dateutil.relativedelta import relativedelta
-from rest_framework import serializers, validators
-
 from django.contrib.auth import get_user_model, password_validation
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.transaction import atomic
 from django.utils import timezone
+
+from dateutil.relativedelta import relativedelta
+from rest_framework import serializers, validators
 
 from .choices import SubscriptionStatus
 from .models import IntegrationSecret
@@ -243,7 +243,8 @@ class _TokenSerializer(serializers.Serializer):
             raise serializers.ValidationError("Token inválido")
 
 
-class ResetPasswordSerializer(_TokenSerializer, _ResetPasswordSerializer): ...
+class ResetPasswordSerializer(_TokenSerializer, _ResetPasswordSerializer):
+    ...
 
 
 class ChangePasswordSerializer(_ResetPasswordSerializer):
@@ -255,7 +256,8 @@ class ChangePasswordSerializer(_ResetPasswordSerializer):
         return value
 
 
-class ActivateUserSerializer(_TokenSerializer): ...
+class ActivateUserSerializer(_TokenSerializer):
+    ...
 
 
 class ResetPasswordRequestSerializer(serializers.Serializer):
