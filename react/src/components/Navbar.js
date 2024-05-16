@@ -1,34 +1,35 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import AppBar from "@material-ui/core/AppBar";
-import Badge from "@material-ui/core/Badge";
-import Box from "@material-ui/core/Box";
-import Button from "@material-ui/core/Button";
-import IconButton from "@material-ui/core/IconButton";
-import Link from "@material-ui/core/Link";
-import ListItemIcon from "@material-ui/core/ListItemIcon";
-import ListItemText from "@material-ui/core/ListItemText";
-import Menu from "@material-ui/core/Menu";
-import MenuItem from "@material-ui/core/MenuItem";
-import MenuList from "@material-ui/core/MenuList";
-import { makeStyles } from "@material-ui/core/styles";
-import Toolbar from "@material-ui/core/Toolbar";
-import Tooltip from "@material-ui/core/Tooltip";
+import AppBar from "@mui/material/AppBar";
+import Badge from "@mui/material/Badge";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import Link from "@mui/material/Link";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import MenuList from "@mui/material/MenuList";
+import { makeStyles } from "@mui/styles";
+import Toolbar from "@mui/material/Toolbar";
+import Tooltip from "@mui/material/Tooltip";
 
-import AccountBalanceIcon from "@material-ui/icons/AccountBalance";
-import AccountCircle from "@material-ui/icons/AccountCircle";
-import AssessmentIcon from "@material-ui/icons/Assessment";
-import ExpandMore from "@material-ui/icons/ExpandMore";
-import ExpandLess from "@material-ui/icons/ExpandLess";
-import ExitToAppIcon from "@material-ui/icons/ExitToApp";
-import MonetizationOnIcon from "@material-ui/icons/MonetizationOn";
-import NotificationsIcon from "@material-ui/icons/Notifications";
-import PersonIcon from "@material-ui/icons/Person";
-import ReceiptIcon from "@material-ui/icons/Receipt";
-import TimelineIcon from "@material-ui/icons/Timeline";
-import VisibilityIcon from "@material-ui/icons/Visibility";
-import VisibilityOffIcon from "@material-ui/icons/VisibilityOff";
-import HomeIcon from "@material-ui/icons/Home";
+import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
+import AccountCircle from "@mui/icons-material/AccountCircle";
+import AssessmentIcon from "@mui/icons-material/Assessment";
+import ExpandMore from "@mui/icons-material/ExpandMore";
+import ExpandLess from "@mui/icons-material/ExpandLess";
+import ExitToAppIcon from "@mui/icons-material/ExitToApp";
+import MonetizationOnIcon from "@mui/icons-material/MonetizationOn";
+import NotificationsIcon from "@mui/icons-material/Notifications";
+import PersonIcon from "@mui/icons-material/Person";
+import ReceiptIcon from "@mui/icons-material/Receipt";
+import TimelineIcon from "@mui/icons-material/Timeline";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import HomeIcon from "@mui/icons-material/Home";
+import { useNavigate } from "react-router-dom";
 
 import { TasksApi } from "../api";
 import { logout } from "../api/instances";
@@ -57,7 +58,7 @@ const Notifications = () => {
   const classes = useStyles();
 
   const [data, isLoaded, hasMore] = api.infiniteScroll(
-    new URLSearchParams({ page_size: 10, page: page }).toString()
+    new URLSearchParams({ page_size: 10, page: page }).toString(),
   );
 
   const lastTaskRef = useCallback(
@@ -71,7 +72,7 @@ const Notifications = () => {
       });
       if (node) observer.current.observe(node);
     },
-    [isLoaded, hasMore]
+    [isLoaded, hasMore],
   );
 
   const bulkUpdateNotifiedAt = (tasks) => {
@@ -292,7 +293,7 @@ const FinancesMenu = () => {
   );
 };
 
-const UserMenu = ({ ...props }) => {
+const UserMenu = ({ navigate }) => {
   const [anchorEl, setAnchorEl] = useState(null);
 
   const open = Boolean(anchorEl);
@@ -346,7 +347,7 @@ const UserMenu = ({ ...props }) => {
           <MenuItem
             onClick={() => {
               logout();
-              props.history.push("/home");
+              navigate("/");
             }}
           >
             <ListItemIcon>
@@ -360,16 +361,17 @@ const UserMenu = ({ ...props }) => {
   );
 };
 
-export const Navbar = ({ hideValuesToggler, ...props }) => {
+export const Navbar = ({ hideValuesToggler }) => {
   const [hideValues, setHideValues] = useState(
-    Boolean(localStorage.getItem("hideValues"))
+    Boolean(localStorage.getItem("hideValues")),
   );
+  const navigate = useNavigate();
 
   const isPersonalFinancesModuleEnabled = stringToBoolean(
-    localStorage.getItem("user_is_personal_finances_module_enabled")
+    localStorage.getItem("user_is_personal_finances_module_enabled"),
   );
   const isInvestmentsModuleEnabled = stringToBoolean(
-    localStorage.getItem("user_is_investments_module_enabled")
+    localStorage.getItem("user_is_investments_module_enabled"),
   );
   const isSubscriptionCancelled =
     localStorage.getItem("user_subscription_status") === "CANCELED";
@@ -385,7 +387,7 @@ export const Navbar = ({ hideValuesToggler, ...props }) => {
             <IconButton
               size="large"
               color="black"
-              onClick={() => props.history.push("/home")}
+              onClick={() => navigate("/home")}
             >
               <HomeIcon />
             </IconButton>
@@ -407,7 +409,7 @@ export const Navbar = ({ hideValuesToggler, ...props }) => {
         </Box>
         <Box sx={{ flexGrow: 1, textAlign: "end" }}>
           {!isSubscriptionCancelled && <Notifications />}
-          <UserMenu {...props} />
+          <UserMenu navigate={navigate} />
         </Box>
       </Toolbar>
     </AppBar>

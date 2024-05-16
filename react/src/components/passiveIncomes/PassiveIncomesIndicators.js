@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 
-import Avatar from "@material-ui/core/Avatar";
-import Box from "@material-ui/core/Box";
-import Card from "@material-ui/core/Card";
-import CardContent from "@material-ui/core/CardContent";
-import Container from "@material-ui/core/Container";
-import Grid from "@material-ui/core/Grid";
-import Typography from "@material-ui/core/Typography";
+import Avatar from "@mui/material/Avatar";
+import Box from "@mui/material/Box";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Container from "@mui/material/Container";
+import Grid from "@mui/material/Grid";
+import Typography from "@mui/material/Typography";
 
-import Skeleton from "@material-ui/lab/Skeleton";
+import Skeleton from "@mui/lab/Skeleton";
 
-import AttachMoneyIcon from "@material-ui/icons/AttachMoney";
+import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 
 import { PassiveIncomesApi } from "../../api";
 

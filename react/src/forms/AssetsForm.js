@@ -3,17 +3,17 @@ import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import * as yup from "yup";
 
-import Autocomplete from "@material-ui/lab/Autocomplete";
-import Button from "@material-ui/core/Button";
-import CircularProgress from "@material-ui/core/CircularProgress";
-import Dialog from "@material-ui/core/Dialog";
-import DialogActions from "@material-ui/core/DialogActions";
-import DialogContent from "@material-ui/core/DialogContent";
-import DialogTitle from "@material-ui/core/DialogTitle";
-import FormControl from "@material-ui/core/FormControl";
-import FormGroup from "@material-ui/core/FormGroup";
-import FormHelperText from "@material-ui/core/FormHelperText";
-import TextField from "@material-ui/core/TextField";
+import Autocomplete from "@mui/lab/Autocomplete";
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import FormControl from "@mui/material/FormControl";
+import FormGroup from "@mui/material/FormGroup";
+import FormHelperText from "@mui/material/FormHelperText";
+import TextField from "@mui/material/TextField";
 import { yupResolver } from "@hookform/resolvers/yup";
 
 import {
@@ -126,7 +126,7 @@ export const AssetsForm = ({ initialData, onClose, onSuccess }) => {
 
   let initialType = getChoiceByLabel(
     initialData.type,
-    AssetsTypesMapping
+    AssetsTypesMapping,
   )?.value;
   const [isCrypto, setIsCrypto] = useState(initialType === "CRYPTO" || false);
 
@@ -213,7 +213,7 @@ export const AssetsForm = ({ initialData, onClose, onSuccess }) => {
               control={control}
               defaultValue={getChoiceByLabel(
                 initialData.objective,
-                AssetsObjectivesMapping
+                AssetsObjectivesMapping,
               )}
               render={({ field: { onChange, value } }) => (
                 <>
@@ -255,7 +255,7 @@ export const AssetsForm = ({ initialData, onClose, onSuccess }) => {
               control={control}
               defaultValue={getChoiceByLabel(
                 initialData.type,
-                AssetsTypesMapping
+                AssetsTypesMapping,
               )}
               render={({ field: { onChange, value } }) => (
                 <>

@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
-import { useHistory, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
-import Typography from "@material-ui/core/Typography";
-import Link from "@material-ui/core/Link";
-import { makeStyles } from "@material-ui/core/styles";
-import Container from "@material-ui/core/Container";
+import Typography from "@mui/material/Typography";
+import Link from "@mui/material/Link";
+import { makeStyles } from "@mui/styles";
+import Container from "@mui/material/Container";
 
 import { AuthenticationApi } from "../api";
 import { Loader } from "../components/Loaders";
 
 const useStyles = makeStyles((theme) => ({
   paper: {
-    marginTop: theme.spacing(8),
+    // marginTop: theme.spacing(8),
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -21,12 +21,13 @@ const useStyles = makeStyles((theme) => ({
 const TOKEN = "activate-user";
 const INTERNAL_ACTIVATE_USER_SESSION_TOKEN = "_activate_user_token";
 
-export const ActivateUser = (props) => {
+export const ActivateUser = () => {
   const [error, setError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
   let { uidb64, token } = useParams();
-  const history = useHistory();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
   const classes = useStyles();
 
   useEffect(() => {
@@ -35,7 +36,7 @@ export const ActivateUser = (props) => {
       // URL without the token. This avoids the possibility of leaking the token in the
       // HTTP Referer header.
       sessionStorage.setItem(INTERNAL_ACTIVATE_USER_SESSION_TOKEN, token);
-      history.push(history.location.pathname.replace(token, TOKEN));
+      navigate(pathname.replace(token, TOKEN), { replace: true });
       return;
     }
     new AuthenticationApi()
@@ -45,11 +46,11 @@ export const ActivateUser = (props) => {
       )
       .then(() => {
         sessionStorage.removeItem(INTERNAL_ACTIVATE_USER_SESSION_TOKEN);
-        setTimeout(() => history.push("/"), 1200);
+        setTimeout(() => navigate("/"), 1200);
       })
       .catch(() => setError(true))
       .finally(() => setIsLoaded(true));
-  }, [uidb64, token, history]);
+  }, [uidb64, token, navigate, pathname]);
 
   return (
     <Container component="main" maxWidth="xs">

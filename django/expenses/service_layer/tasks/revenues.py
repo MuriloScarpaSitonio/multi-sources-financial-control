@@ -16,4 +16,5 @@ def create_fixed_revenues_from_last_month(user_id: int):
             continue
 
         with RevenueUnitOfWork(user_id=user_id) as uow:
+            # uow.bank_account.increment(value=revenue.value)
             messagebus.handle(message=RevenueCreated(value=revenue.value), uow=uow)

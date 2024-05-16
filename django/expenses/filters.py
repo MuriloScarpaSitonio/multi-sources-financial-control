@@ -10,7 +10,6 @@ class _PersonalFinanceFilterSet(filters.FilterSet):
     description = filters.CharFilter(lookup_expr="icontains")
 
     class Meta:
-        model = Expense
         fields = ("is_fixed",)
 
     @property

@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { useHistory, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
-import Box from "@material-ui/core/Box";
-import Grid from "@material-ui/core/Grid";
-import Tab from "@material-ui/core/Tab";
-import Tabs from "@material-ui/core/Tabs";
-import Typography from "@material-ui/core/Typography";
+import Box from "@mui/material/Box";
+import Grid from "@mui/material/Grid";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
+import Typography from "@mui/material/Typography";
 
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles } from "@mui/styles";
 
 import { IntegrationsConfiguration } from "../components/user/IntegrationsConfiguration";
 import { ManageStripe } from "../components/user/ManageStripe";
@@ -17,7 +17,7 @@ import { stringToBoolean, setUserDataToLocalStorage } from "../helpers.js";
 
 const useStyles = makeStyles((theme) => ({
   tabs: {
-    borderRight: `1px solid ${theme.palette.divider}`,
+    // borderRight: `1px solid ${theme.palette.divider}`,
   },
 }));
 
@@ -60,7 +60,7 @@ export default function User() {
   const [tabValue, setTabValue] = useState(
     parseInt(queryParams.get("tab")) || 0
   );
-  const history = useHistory();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (queryParams.get("refresh")) {
@@ -72,7 +72,7 @@ export default function User() {
           setUserDataToLocalStorage(response.data);
         })
         .finally(() =>
-          history.push(history.replace({ search: queryParams.toString() }))
+        navigate('.', { search: queryParams.toString() })
         );
     }
   });

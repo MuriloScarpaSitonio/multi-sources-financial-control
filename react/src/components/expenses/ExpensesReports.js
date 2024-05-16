@@ -13,23 +13,23 @@ import {
   YAxis,
 } from "recharts";
 
-import ArrowDropDownIcon from "@material-ui/icons/ArrowDropDown";
-import Box from "@material-ui/core/Box";
-import Button from "@material-ui/core/Button";
-import Card from "@material-ui/core/Card";
-import CardHeader from "@material-ui/core/CardHeader";
-import Divider from "@material-ui/core/Divider";
-import CardContent from "@material-ui/core/CardContent";
-import Grid from "@material-ui/core/Grid";
-import Menu from "@material-ui/core/Menu";
-import MenuItem from "@material-ui/core/MenuItem";
-import Tab from "@material-ui/core/Tab";
-import Tabs from "@material-ui/core/Tabs";
-import Typography from "@material-ui/core/Typography";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Card from "@mui/material/Card";
+import CardHeader from "@mui/material/CardHeader";
+import Divider from "@mui/material/Divider";
+import CardContent from "@mui/material/CardContent";
+import Grid from "@mui/material/Grid";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
+import Typography from "@mui/material/Typography";
 
 import { Loader } from "../Loaders";
 import { ExpensesApi } from "../../api";
-import { makeStyles } from "@material-ui/core/styles";
+import { makeStyles } from "@mui/styles";
 
 const chartWidth = 950;
 const chartHeight = 300;
@@ -43,7 +43,7 @@ const useStyles = makeStyles((theme) => ({
     display: "flex",
   },
   tabs: {
-    borderRight: `1px solid ${theme.palette.divider}`,
+    // borderRight: `1px solid ${theme.palette.divider}`,
   },
 }));
 

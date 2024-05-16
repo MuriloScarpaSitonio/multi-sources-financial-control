@@ -1,28 +1,27 @@
 import { useState } from "react";
 
+import { ptBR } from "date-fns/locale/pt-BR";
 import { useForm, Controller } from "react-hook-form";
-import NumberFormat from "react-number-format";
+import { NumericFormat } from "react-number-format";
 import * as yup from "yup";
 
-import DateFnsUtils from "@date-io/date-fns";
-import {
-  MuiPickersUtilsProvider,
-  KeyboardDatePicker,
-} from "@material-ui/pickers";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFnsV3";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 
-import Autocomplete from "@material-ui/lab/Autocomplete";
-import Button from "@material-ui/core/Button";
-import CircularProgress from "@material-ui/core/CircularProgress";
-import DialogActions from "@material-ui/core/DialogActions";
-import FormControl from "@material-ui/core/FormControl";
-import FormGroup from "@material-ui/core/FormGroup";
-import FormHelperText from "@material-ui/core/FormHelperText";
-import FormLabel from "@material-ui/core/FormLabel";
-import Grid from "@material-ui/core/Grid";
-import Switch from "@material-ui/core/Switch";
-import TextField from "@material-ui/core/TextField";
-import Tooltip from "@material-ui/core/Tooltip";
-import Typography from "@material-ui/core/Typography";
+import Autocomplete from "@mui/lab/Autocomplete";
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
+import DialogActions from "@mui/material/DialogActions";
+import FormControl from "@mui/material/FormControl";
+import FormGroup from "@mui/material/FormGroup";
+import FormHelperText from "@mui/material/FormHelperText";
+import FormLabel from "@mui/material/FormLabel";
+import Grid from "@mui/material/Grid";
+import Switch from "@mui/material/Switch";
+import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
 import { yupResolver } from "@hookform/resolvers/yup";
 
 import {
@@ -37,7 +36,7 @@ function NumberFormatCustom(props) {
   const { inputRef, onChange, ...other } = props;
 
   return (
-    <NumberFormat
+    <NumericFormat
       {...other}
       getInputRef={inputRef}
       onValueChange={(values) =>
@@ -51,7 +50,7 @@ function NumberFormatCustom(props) {
       decimalSeparator=","
       decimalScale={2}
       allowNegative={false}
-      isNumericString
+      valueIsNumericString
       prefix="R$ "
     />
   );
@@ -95,7 +94,7 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
   const [showAlert, setShowAlert] = useState(false);
   const [alertInfos, setAlertInfos] = useState({});
   const [isFixedExpense, setIsFixedExpense] = useState(
-    initialData.isFixed || false
+    initialData.isFixed || false,
   );
 
   const {
@@ -192,7 +191,10 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
               />
             )}
           />
-          <MuiPickersUtilsProvider utils={DateFnsUtils}>
+          <LocalizationProvider
+            dateAdapter={AdapterDateFns}
+            adapterLocale={ptBR}
+          >
             <Controller
               name="created_at"
               control={control}
@@ -203,7 +205,7 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
                     new Date()
               }
               render={({ field: { onChange, value } }) => (
-                <KeyboardDatePicker
+                <DatePicker
                   onChange={onChange}
                   value={value}
                   label="Quando?"
@@ -221,7 +223,7 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
                 />
               )}
             />
-          </MuiPickersUtilsProvider>
+          </LocalizationProvider>
           <FormControl required style={{ width: "30%", marginLeft: "6%" }}>
             <Typography component="div">
               <FormLabel style={{ marginLeft: "28%" }}>Fixo?</FormLabel>
@@ -259,7 +261,7 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
               control={control}
               defaultValue={getChoiceByLabel(
                 initialData.category,
-                ExpensesCategoriesMapping
+                ExpensesCategoriesMapping,
               )}
               render={({ field: { onChange, value } }) => (
                 <>
@@ -300,7 +302,7 @@ export const ExpenseForm = ({ initialData, handleClose, reloadTable }) => {
               control={control}
               defaultValue={getChoiceByLabel(
                 initialData.source,
-                ExpensesSourcesMapping
+                ExpensesSourcesMapping,
               )}
               render={({ field: { onChange, value } }) => (
                 <>

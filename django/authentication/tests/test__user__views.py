@@ -1,9 +1,7 @@
 from datetime import timedelta
 
-from django.contrib.auth import get_user_model
-from django.utils import timezone
-
 import pytest
+from config.settings.base import BASE_API_URL
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -13,7 +11,8 @@ from rest_framework.status import (
     HTTP_404_NOT_FOUND,
 )
 
-from config.settings.base import BASE_API_URL
+from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from ..choices import SubscriptionStatus
 from ..models import IntegrationSecret
@@ -50,7 +49,7 @@ def test__create(api_client, mocker):
     assert not user.is_investments_integrations_module_enabled
     assert not user.credit_card_bill_day
     assert user.check_password(data["password"])
-    assert m.call_args[1] == {"user": user}
+    assert m.call_args.kwargs == {"user": user}
 
 
 def test__create__do_not_set_readonly_fields(api_client, mocker):
@@ -385,6 +384,7 @@ def test__retrieve(client, user):
         "stripe_subscription_updated_at": timezone.localtime(
             default_stripe_subscription_updated_at
         ).isoformat(),
+        "credit_card_bill_day": 5,
     }
 
 

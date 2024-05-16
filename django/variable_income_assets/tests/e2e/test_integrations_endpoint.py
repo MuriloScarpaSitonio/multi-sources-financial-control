@@ -1,12 +1,11 @@
 import pytest
+from authentication.tests.conftest import api_client
+from config.settings.base import BASE_API_URL
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_403_FORBIDDEN,
     HTTP_405_METHOD_NOT_ALLOWED,
 )
-
-from authentication.tests.conftest import api_client
-from config.settings.base import BASE_API_URL
 
 
 @pytest.mark.parametrize(
@@ -58,7 +57,7 @@ def test__sanity_check(api_client, mocker, url, task_name, data):
 
     # THEN
     assert response.status_code == HTTP_200_OK
-    assert mocked_task.call_args[1] == data
+    assert mocked_task.call_args.kwargs == data
 
 
 @pytest.mark.skip("Skip while still in WSGI")
@@ -85,4 +84,4 @@ async def test__sanity_check__asgi(async_client, mocker, url, task_name, data):
 
     # THEN
     assert response.status_code == HTTP_200_OK
-    assert mocked_task.call_args[1] == data
+    assert mocked_task.call_args.kwargs == data

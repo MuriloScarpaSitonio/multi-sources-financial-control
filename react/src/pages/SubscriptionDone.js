@@ -1,19 +1,19 @@
 import { useState, useEffect } from "react";
 
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
-import { makeStyles } from "@material-ui/core/styles";
-import CircularProgress from "@material-ui/core/CircularProgress";
-import Container from "@material-ui/core/Container";
-import Link from "@material-ui/core/Link";
-import Typography from "@material-ui/core/Typography";
+import { makeStyles } from "@mui/styles";
+import CircularProgress from "@mui/material/CircularProgress";
+import Container from "@mui/material/Container";
+import Link from "@mui/material/Link";
+import Typography from "@mui/material/Typography";
 
 import { UserApi } from "../api";
 import { setUserDataToLocalStorage } from "../helpers.js";
 
 const useStyles = makeStyles((theme) => ({
   paper: {
-    marginTop: theme.spacing(8),
+    // marginTop: theme.spacing(8),
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -28,7 +28,7 @@ export const SubscriptionDone = () => {
     localStorage.getItem("user_stripe_subscription_updated_at")
   );
   const classes = useStyles();
-  const history = useHistory();
+  const navigate = useNavigate();
   const api = new UserApi(localStorage.getItem("user_id"));
 
   useEffect(() => {
@@ -46,9 +46,9 @@ export const SubscriptionDone = () => {
 
     const interval = setInterval(() => checkUserStatus(), 10 * 1000); // 10 seconds
     return () => clearTimeout(interval);
-  }, [history]);
+  }, []);
 
-  if (subscriptionDataWasUpdated) setTimeout(() => history.push("/"), 1000);
+  if (subscriptionDataWasUpdated) setTimeout(() => navigate("/"), 1000);
   return (
     <Container component="main" maxWidth="xs">
       <div className={classes.paper}>

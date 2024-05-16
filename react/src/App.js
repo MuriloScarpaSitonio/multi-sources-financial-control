@@ -1,14 +1,16 @@
 import React from "react";
 
-import Container from "@material-ui/core/Container";
+import Container from "@mui/material/Container";
 import {
   BrowserRouter as Router,
-  Switch,
+  Routes,
   Route,
-  Redirect,
+  Navigate,
+  useNavigate,
 } from "react-router-dom";
-import Link from "@material-ui/core/Link";
-import MuiAlert from "@material-ui/lab/Alert";
+import Link from "@mui/material/Link";
+import MuiAlert from "@mui/lab/Alert";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { Navbar } from "./components/Navbar";
 import { useHideValues } from "./hooks/useHideValues";
@@ -31,12 +33,49 @@ import User from "./pages/User";
 import { stringToBoolean } from "./helpers.js";
 import { AccessTokenStr } from "./consts";
 
-import "./App.css";
+const queryClient = new QueryClient();
 
-const Wrapper = ({ isLoggedIn, ...props }) => {
+const useLocalStorageBooleanValues = () => ({
+  isLoggedIn: Boolean(localStorage.getItem(AccessTokenStr)),
+  isSubscriptionCanceled:
+    localStorage.getItem("user_subscription_status") === "CANCELED",
+});
+
+const PublicRoute = ({ children, path }) => {
+  const { isLoggedIn, isSubscriptionCanceled } = useLocalStorageBooleanValues();
+  const navigate = useNavigate();
+
+  if (isLoggedIn) {
+    if (
+      isSubscriptionCanceled &&
+      !["Subscription", "SubscriptionDone", "User"].includes(children.name)
+    ) {
+      return (
+        <Navigate to={{ pathname: "/subscription", state: { from: path } }} />
+      );
+    } else return navigate(-1);
+  } else return children;
+};
+
+const PrivateRoute = ({ children, path }) => {
+  const { isLoggedIn, isSubscriptionCanceled } = useLocalStorageBooleanValues();
+
+  if (isLoggedIn) {
+    if (
+      isSubscriptionCanceled &&
+      !["Subscription", "SubscriptionDone", "User"].includes(children.name)
+    ) {
+      return (
+        <Navigate to={{ pathname: "/subscription", state: { from: path } }} />
+      );
+    } else return <Wrapper isLoggedIn={true}>{children}</Wrapper>;
+  } else return <Navigate to={{ pathname: "/", state: { from: path } }} />;
+};
+
+const Wrapper = ({ children, isLoggedIn }) => {
   let trialWillEndMessage = localStorage.getItem("user_trial_will_end_message");
   const [showAlert, setShowAlert] = React.useState(
-    props.component.name !== "Login" && stringToBoolean(trialWillEndMessage)
+    stringToBoolean(trialWillEndMessage),
   );
 
   const hideValuesToggler = useHideValues();
@@ -46,9 +85,7 @@ const Wrapper = ({ isLoggedIn, ...props }) => {
         className="base"
         style={isLoggedIn && { backgroundColor: "whitesmoke" }}
       >
-        {isLoggedIn && (
-          <Navbar hideValuesToggler={hideValuesToggler} {...props} />
-        )}
+        {isLoggedIn && <Navbar hideValuesToggler={hideValuesToggler} />}
         <Container style={{ marginTop: "15px" }}>
           {showAlert && (
             <MuiAlert
@@ -59,7 +96,7 @@ const Wrapper = ({ isLoggedIn, ...props }) => {
             >
               <div>
                 {trialWillEndMessage}
-                {props.component.name !== "User" && (
+                {children.name !== "User" && (
                   <span>
                     Vá até suas <Link href="/me?tab=1">configuraçōes</Link> para
                     incluir ou alterar seus dados de cobrança
@@ -68,130 +105,148 @@ const Wrapper = ({ isLoggedIn, ...props }) => {
               </div>
             </MuiAlert>
           )}
-          <props.component {...props} />
+          {children}
         </Container>
       </div>
     </div>
   );
 };
 
-const PrivateRoute = ({ component, ...rest }) => {
-  const isLoggedIn = Boolean(localStorage.getItem(AccessTokenStr));
-  const isSubscriptionDisabled =
-    localStorage.getItem("user_subscription_status") === "CANCELED";
-
-  function getRoute(props, component) {
-    if (isLoggedIn) {
-      if (
-        isSubscriptionDisabled &&
-        !["Subscription", "SubscriptionDone", "User"].includes(component.name)
-      ) {
-        return (
-          <Redirect
-            to={{ pathname: "/subscription", state: { from: props.location } }}
-          />
-        );
-      } else {
-        return <Wrapper {...props} isLoggedIn={true} component={component} />;
-      }
-    } else {
-      return (
-        <Redirect to={{ pathname: "/", state: { from: props.location } }} />
-      );
-    }
-  }
-  return <Route {...rest} render={(props) => getRoute(props, component)} />;
-};
-
 export default function App() {
   return (
-    <Router>
-      <Switch>
-        <Route
-          exact
-          path="/"
-          render={(props) => <Wrapper {...props} component={Login} />}
-        />
-      </Switch>
-      <Switch>
-        <Route
-          exact
-          path="/signup"
-          render={(props) => <Wrapper {...props} component={Signup} />}
-        />
-      </Switch>
-      <Switch>
-        <Route
-          exact
-          path="/signup/done"
-          render={(props) => <Wrapper {...props} component={SignupDone} />}
-        />
-      </Switch>
-      <Switch>
-        <Route
-          exact
-          path="/activate/:uidb64/:token"
-          render={(props) => <Wrapper {...props} component={ActivateUser} />}
-        />
-      </Switch>
-      <Switch>
-        <Route
-          exact
-          path="/forgot_password"
-          render={(props) => <Wrapper {...props} component={ForgotPassword} />}
-        />
-      </Switch>
-      <Switch>
-        <Route
-          exact
-          path="/forgot_password/done"
-          render={(props) => (
-            <Wrapper {...props} component={ForgotPasswordDone} />
-          )}
-        />
-      </Switch>
-      <Switch>
-        <Route
-          exact
-          path="/reset_password/:uidb64/:token"
-          render={(props) => <Wrapper {...props} component={ResetPassword} />}
-        />
-      </Switch>
-      <Switch>
-        <PrivateRoute exact path="/home" component={Home} />
-      </Switch>
-      <Switch>
-        <PrivateRoute exact path="/expenses" component={Expenses} />
-      </Switch>
-      <Switch>
-        <PrivateRoute exact path="/assets" component={Assets} />
-      </Switch>
-      <Switch>
-        <PrivateRoute exact path="/revenues" component={Revenues} />
-      </Switch>
-      <Switch>
-        <PrivateRoute
-          exact
-          path="/assets/transactions"
-          component={Transactions}
-        />
-      </Switch>
-      <Switch>
-        <PrivateRoute exact path="/assets/incomes" component={PassiveIncomes} />
-      </Switch>
-      <Switch>
-        <PrivateRoute path="/me" component={User} />
-      </Switch>
-      <Switch>
-        <PrivateRoute exact path="/subscription" component={Subscription} />
-      </Switch>
-      <Switch>
-        <PrivateRoute
-          exact
-          path="/subscription/done"
-          component={SubscriptionDone}
-        />
-      </Switch>
-    </Router>
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <PublicRoute path="/">
+                <Login />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <PublicRoute path="/signup">
+                <Signup />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/signup/done"
+            element={
+              <PublicRoute path="/signup/done">
+                <SignupDone />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/activate/:uidb64/:token"
+            element={
+              <PublicRoute path="/activate/:uidb64/:token">
+                <ActivateUser />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/forgot_password"
+            element={
+              <PublicRoute path="/forgot_password">
+                <ForgotPassword />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/forgot_password/done"
+            element={
+              <PublicRoute path="/forgot_password/done">
+                <ForgotPasswordDone />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/reset_password/:uidb64/:token"
+            element={
+              <PublicRoute path="/reset_password/:uidb64/:token">
+                <ResetPassword />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/home"
+            element={
+              <PrivateRoute path="/home">
+                <Home />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/expenses"
+            element={
+              <PrivateRoute path="/expenses">
+                <Expenses />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/revenues"
+            element={
+              <PrivateRoute path="/revenues">
+                <Revenues />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/assets"
+            element={
+              <PrivateRoute path="/assets">
+                <Assets />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/assets/transactions"
+            element={
+              <PrivateRoute path="/assets/transactions">
+                <Transactions />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/assets/incomes"
+            element={
+              <PrivateRoute path="/assets/incomes">
+                <PassiveIncomes />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/me"
+            element={
+              <PrivateRoute path="/me">
+                <User />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/subscription"
+            element={
+              <PrivateRoute path="/subscription">
+                <Subscription />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/subscription/done"
+            element={
+              <PrivateRoute path="/subscription/done">
+                <SubscriptionDone />
+              </PrivateRoute>
+            }
+          />
+        </Routes>
+      </Router>
+    </QueryClientProvider>
   );
 }

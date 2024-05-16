@@ -18,7 +18,7 @@ const put = async (url, data) => privateAxios.put(url, data);
 
 const Delete = async (url) => privateAxios.delete(url);
 
-const login = (data) => publicAxios.post("token", data);
+export const login = (data) => publicAxios.post("token", data);
 
 const signup = (data) => publicAxios.post("users", data);
 
