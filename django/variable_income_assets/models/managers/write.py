@@ -15,7 +15,6 @@ from django.db.models import (
     Subquery,
     Sum,
     Value,
-    When,
 )
 from django.db.models.functions import Cast, Coalesce, Concat, TruncMonth
 
@@ -76,13 +75,6 @@ class AssetQuerySet(QuerySet):
     def annotate_current_normalized_avg_price(self) -> Self:
         return self.annotate(
             normalized_avg_price=self.expressions.get_current_normalized_avg_price()
-        )
-
-    def t(self):
-        return self.annotate_current_avg_price().annotate(
-            total_bought=self.expressions.get_total_bought(),
-            qty_bought=self.expressions.get_quantity_bought(),
-            closed_operations_total_bought=self.expressions.closed_operations_total_bought,
         )
 
     def annotate_normalized_total_bought(self) -> Self:
@@ -179,21 +171,26 @@ class AssetQuerySet(QuerySet):
         )
 
     def annotate_irpf_infos(self, year: int) -> Self:
-        extra_filters = Q(transactions__operation_date__year__lte=year)
+        from datetime import date
+
+        from ..write import AssetClosedOperation
+
+        extra_filters = Q(
+            transactions__operation_date__year__lte=year,
+            transactions__operation_date__gt=F("newest_closed_operation"),
+        )
+        subquery = (
+            AssetClosedOperation.objects.filter(asset_id=OuterRef("pk"))
+            .order_by("-operation_datetime")
+            .values("operation_datetime")
+        )
         return self.alias(
-            normalized_avg_price=self.expressions.get_current_normalized_avg_price(extra_filters)
+            newest_closed_operation=Coalesce(Subquery(subquery[:1]), Value(date.min)),
+            normalized_avg_price=self.expressions.get_current_normalized_avg_price(extra_filters),
         ).annotate(
             transactions_balance=self.expressions.get_quantity_balance(extra_filters),
             avg_price=self.expressions.get_avg_price(extra_filters),
-            total_invested=Case(
-                When(
-                    Q(closed_operations__isnull=True),
-                    then=F("normalized_avg_price") * F("transactions_balance"),
-                ),
-                default=self.expressions.get_closed_operations_normalized_total_bought(
-                    extra_filters=Q(closed_operations__operation_datetime__year=year + 1)
-                ),
-            ),
+            total_invested=F("normalized_avg_price") * F("transactions_balance"),
         )
 
     def annotate_credited_incomes_at_given_year(

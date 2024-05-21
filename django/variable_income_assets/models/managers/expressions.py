@@ -151,23 +151,44 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
         )
 
     def get_current_normalized_avg_price(self, extra_filters: Q | None = None) -> Coalesce:
-        extra_filters = extra_filters if extra_filters is not None else Q()
+        _extra_filters = extra_filters if extra_filters is not None else Q()
+        quantity = (
+            (self.get_quantity_bought(_extra_filters) - self.closed_operations_quantity_bought)
+            # sem filtros extras devemos com certeza diminuir as operações finalizadas,
+            # uma vez que estamos considerando todas as transações.
+            # com filtros extras, nao temos como garantir que os valores agregados das
+            # operações finalizadas estarão incluídos no aggregation, logo, retirá-los
+            # pode introduzir erros.
+            # assume-se, então, que se passarmos filtros, cuidaremos para incluir ou
+            # nao as transações desejadas.
+            # EXEMPLO: cáclulo do IRPF
+            if extra_filters is None
+            else self.get_quantity_bought(_extra_filters)
+        )
         return Coalesce(
-            self.get_normalized_current_total_bought(extra_filters=extra_filters)
-            / (
-                self.get_quantity_bought(extra_filters=extra_filters)
-                - self.closed_operations_quantity_bought
-            ),
+            self.get_normalized_current_total_bought(_extra_filters) / quantity,
             Decimal(),
         )
 
     def get_normalized_current_total_bought(
         self, extra_filters: Q | None = None
     ) -> CombinedExpression:
-        extra_filters = extra_filters if extra_filters is not None else Q()
+        _extra_filters = extra_filters if extra_filters is not None else Q()
         return (
-            self.get_normalized_total_bought(extra_filters)
-            - self.get_closed_operations_normalized_total_bought()
+            (
+                self.get_normalized_total_bought(_extra_filters)
+                - self.get_closed_operations_normalized_total_bought()
+            )
+            if extra_filters is None
+            # sem filtros extras devemos com certeza diminuir as operações finalizadas,
+            # uma vez que estamos considerando todas as transações.
+            # com filtros extras, nao temos como garantir que os valores agregados das
+            # operações finalizadas estarão incluídos no aggregation, logo, retirá-los
+            # pode introduzir erros.
+            # assume-se, então, que se passarmos filtros, cuidaremos para incluir ou
+            # nao as transações desejadas.
+            # EXEMPLO: cáclulo do IRPF
+            else self.get_normalized_total_bought(_extra_filters)
         )
 
     def get_current_avg_price(self, extra_filters: Q | None = None) -> Coalesce:
