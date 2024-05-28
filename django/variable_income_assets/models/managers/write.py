@@ -15,6 +15,7 @@ from django.db.models import (
     Subquery,
     Sum,
     Value,
+    When,
 )
 from django.db.models.functions import Cast, Coalesce, Concat, TruncMonth
 
@@ -298,12 +299,28 @@ class TransactionQuerySet(QuerySet):
         )
 
     def annotate_normalized_roi(self) -> Self:
-        return self.alias(avg_price=self.expressions.get_current_normalized_avg_price()).annotate(
-            roi=(
-                (F("price") - F("avg_price"))
-                * F("quantity")
-                * F("current_currency_conversion_rate")
+        from ..write import AssetClosedOperation
+
+        subquery = (
+            AssetClosedOperation.objects.filter(asset_id=OuterRef("asset__pk"))
+            .annotate(
+                roi=(
+                    F("normalized_total_sold")
+                    - (F("normalized_total_bought") - F("normalized_credited_incomes"))
+                )
             )
+            .values("roi")
+        )
+        return self.alias(
+            avg_price=self.expressions.get_current_normalized_avg_price(),
+        ).annotate(
+            closed_roi=Coalesce(Subquery(subquery[:1]), Decimal()),
+            roi=Case(
+                When(avg_price=0, then=F("closed_roi") / F("quantity")),
+                default=(F("price") - F("avg_price"))
+                * F("quantity")
+                * F("current_currency_conversion_rate"),
+            ),
         )
 
 
@@ -433,3 +450,8 @@ class PassiveIncomeQuerySet(QuerySet):
                 "amount", filter=Q(event_type=PassiveIncomeEventTypes.credited), default=Decimal()
             ),
         )
+
+
+class AssetClosedOperationQuerySet(QuerySet):
+    def annotate_roi(self) -> Self:
+        return self.annotate(roi=F("normalized_total_sold") - F("normalized_total_bought"))

@@ -1,2 +1,7 @@
 from .read import AssetReadModelQuerySet
-from .write import AssetQuerySet, PassiveIncomeQuerySet, TransactionQuerySet
+from .write import (
+    AssetClosedOperationQuerySet,
+    AssetQuerySet,
+    PassiveIncomeQuerySet,
+    TransactionQuerySet,
+)

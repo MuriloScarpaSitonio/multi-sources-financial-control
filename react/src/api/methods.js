@@ -20,12 +20,12 @@ const Delete = async (url) => privateAxios.delete(url);
 
 export const login = (data) => publicAxios.post("token", data);
 
-const signup = (data) => publicAxios.post("users", data);
+export const signup = (data) => publicAxios.post("users", data);
 
 const activateUser = (uidb64, token) =>
   publicAxios.post(`auth/activate_user/${uidb64}`, { token });
 
-const forgotPassword = (email) =>
+export const forgotPassword = (email) =>
   publicAxios.post("auth/forgot_password", { email });
 
 const resetPassword = (uidb64, data) =>

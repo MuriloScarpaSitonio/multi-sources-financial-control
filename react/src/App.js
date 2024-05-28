@@ -18,12 +18,8 @@ import { ActivateUser } from "./pages/ActivateUser";
 import Assets from "./pages/Assets";
 import Expenses from "./pages/Expenses";
 import Home from "./pages/Home";
-import { Login } from "./pages/Login";
-import { ForgotPassword } from "./pages/ForgotPassword";
-import { ForgotPasswordDone } from "./pages/ForgotPasswordDone";
+import { Login, ForgotPassword, Signup } from "./pages/public";
 import { ResetPassword } from "./pages/ResetPassword";
-import { Signup } from "./pages/Signup";
-import { SignupDone } from "./pages/SignupDone";
 import { SubscriptionDone } from "./pages/SubscriptionDone";
 import PassiveIncomes from "./pages/PassiveIncomes";
 import Revenues from "./pages/Revenues";
@@ -68,7 +64,7 @@ const PrivateRoute = ({ children, path }) => {
       return (
         <Navigate to={{ pathname: "/subscription", state: { from: path } }} />
       );
-    } else return <Wrapper isLoggedIn={true}>{children}</Wrapper>;
+    } else return <Wrapper isLoggedIn>{children}</Wrapper>;
   } else return <Navigate to={{ pathname: "/", state: { from: path } }} />;
 };
 
@@ -134,14 +130,6 @@ export default function App() {
             }
           />
           <Route
-            path="/signup/done"
-            element={
-              <PublicRoute path="/signup/done">
-                <SignupDone />
-              </PublicRoute>
-            }
-          />
-          <Route
             path="/activate/:uidb64/:token"
             element={
               <PublicRoute path="/activate/:uidb64/:token">
@@ -154,14 +142,6 @@ export default function App() {
             element={
               <PublicRoute path="/forgot_password">
                 <ForgotPassword />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/forgot_password/done"
-            element={
-              <PublicRoute path="/forgot_password/done">
-                <ForgotPasswordDone />
               </PublicRoute>
             }
           />

@@ -16,7 +16,12 @@ from ..choices import (
     TransactionActions,
 )
 from ..domain.models import Asset as AssetDomainModel
-from .managers import AssetQuerySet, PassiveIncomeQuerySet, TransactionQuerySet
+from .managers import (
+    AssetClosedOperationQuerySet,
+    AssetQuerySet,
+    PassiveIncomeQuerySet,
+    TransactionQuerySet,
+)
 
 
 class AssetMetaData(models.Model):
@@ -101,6 +106,8 @@ class AssetClosedOperation(models.Model):
     credited_incomes = models.DecimalField(decimal_places=2, max_digits=20, default=Decimal)
     operation_datetime = models.DateTimeField()
     asset = models.ForeignKey(to=Asset, on_delete=models.CASCADE, related_name="closed_operations")
+
+    objects = AssetClosedOperationQuerySet.as_manager()
 
     def __str__(self) -> str:  # pragma: no cover
         return f"<AssetClosedOperation ({self.asset} | {self.operation_datetime})>"

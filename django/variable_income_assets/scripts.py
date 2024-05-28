@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from .adapters.key_value_store import get_dollar_conversion_rate
 from .choices import AssetTypes, Currencies, PassiveIncomeTypes, TransactionActions
-from .models import Asset, Transaction
+from .models import Asset, AssetClosedOperation, Transaction
 from .service_layer.tasks import upsert_asset_read_model
 
 if TYPE_CHECKING:
@@ -22,6 +22,22 @@ if TYPE_CHECKING:
 
 locale.setlocale(locale.LC_ALL, "pt_br")
 UserModel = get_user_model()
+
+
+def _get_closed_roi(month: int, year: int, asset_id: int) -> Decimal:
+    try:
+        return (
+            AssetClosedOperation.objects.filter(
+                asset_id=asset_id,
+                operation_datetime__month=month,
+                operation_datetime__year=year,
+            )
+            .annotate_roi()
+            .values("roi")
+            .get()
+        )["roi"]
+    except AssetClosedOperation.DoesNotExist:
+        return Decimal()
 
 
 def _print_assets_portfolio(qs: AssetQuerySet[Asset], year: int) -> None:
@@ -100,19 +116,16 @@ def _print_stocks_elegible_for_taxation(user_pk: int, year: int, debug: bool):
         month = infos["month"].month
         results.append(f"\t\t{month:02d}/{year}: R$ {infos['total_sold']:n}")
         roi = Decimal()
-        for t in (
+        for t in set(
             qs.annotate(asset_code=F("asset__code"))
             .filter(operation_date__month=month, action=TransactionActions.sell)
-            .annotate_normalized_roi()
-            .only("quantity", "price")
             .order_by("asset_code")
+            .values_list("asset_code", "asset_id", named=True)
         ):
+            _roi = _get_closed_roi(asset_id=t.asset_id, month=month, year=year)
             if debug > 1:
-                results.append(
-                    f"\t\t\t{t.quantity} {t.asset_code} por R$ {t.price:n} "
-                    f"-> roi = R$ {t.roi:n}"
-                )
-            roi += t.roi
+                results.append(f"\t\t\t{t.asset_code} -> roi = R$ {_roi:n}")
+            roi += _roi
 
         if debug > 1:
             results.append("")
@@ -145,20 +158,17 @@ def _print_stocks_usa_elegible_for_taxation(
         month = infos["month"].month
         results.append(f"\t\t{month:02d}/{year}: R$ {infos['total_sold']:n}")
         roi = Decimal()
-        for t in (
+        for t in set(
             qs.annotate(asset_code=F("asset__code"))
             .filter(operation_date__month=month, action=TransactionActions.sell)
-            .annotate_normalized_roi()
-            .only("quantity", "price")
             .order_by("asset_code")
+            .values_list("asset_code", "asset_id", named=True)
         ):
+            _roi = _get_closed_roi(asset_id=t.asset_id, month=month, year=year)
             currency_symbol = "R$" if normalize else "$"
             if debug > 1:
-                results.append(
-                    f"\t\t\t{t.quantity} {t.asset_code} por {currency_symbol} {t.price:n} "
-                    f"-> roi = {currency_symbol} {t.roi:n}"
-                )
-            roi += t.roi
+                results.append(f"\t\t\t{t.asset_code} -> roi = {currency_symbol} {_roi:n}")
+            roi += _roi
 
         if debug > 1:
             results.append("")
@@ -191,20 +201,17 @@ def _print_cryptos_elegible_for_taxation(
         month = infos["month"].month
         results.append(f"\t\t{month:02d}/{year}: R$ {infos['total_sold']:n}")
         roi = Decimal()
-        for t in (
+        for t in set(
             qs.annotate(asset_code=F("asset__code"))
             .filter(operation_date__month=month, action=TransactionActions.sell)
-            .annotate_normalized_roi()
-            .only("quantity", "price")
             .order_by("asset_code")
+            .values_list("asset_code", "asset_id", named=True)
         ):
+            _roi = _get_closed_roi(asset_id=t.asset_id, month=month, year=year)
             currency_symbol = "R$" if normalize else "$"
             if debug > 1:
-                results.append(
-                    f"\t\t\t{t.quantity} {t.asset_code} por {currency_symbol} {t.price:n} "
-                    f"-> roi = {currency_symbol} {t.roi:n}"
-                )
-            roi += t.roi
+                results.append(f"\t\t\t{t.asset_code} -> roi = {currency_symbol} {_roi:n}")
+            roi += _roi
 
         if debug > 1:
             results.append("")
@@ -235,19 +242,16 @@ def _print_fiis_elegible_for_taxation(user_pk: int, year: int, debug: bool):
         month = infos["month"].month
         results.append(f"\t\t{month:02d}/{year}: R$ {infos['total_sold']}")
         roi = Decimal()
-        for t in (
+        for t in set(
             qs.annotate(asset_code=F("asset__code"))
             .filter(operation_date__month=month, action=TransactionActions.sell)
-            .annotate_normalized_roi()
-            .only("quantity", "price")
             .order_by("asset_code")
+            .values_list("asset_code", "asset_id", named=True)
         ):
+            _roi = _get_closed_roi(asset_id=t.asset_id, month=month, year=year)
             if debug > 1:
-                results.append(
-                    f"\t\t\t{t.quantity} {t.asset_code} por R$ {t.price:n} "
-                    f"-> roi = R$ {t.roi:n}"
-                )
-            roi += t.roi
+                results.append(f"\t\t\t{t.asset_code} -> roi = R$ {_roi:n}")
+            roi += _roi
 
         if debug > 1:
             results.append("")
@@ -288,22 +292,25 @@ def _print_stocks_not_elegible_for_taxation(user_pk: int, year: int, debug: bool
         month = infos["month"].month
         results.append(f"\t\t{month:02d}/{year}: R$ {infos['total_sold']}")
         asset_losses = Decimal()
-        for t in (
+        for t in set(
             qs.annotate(asset_code=F("asset__code"))
             .filter(operation_date__month=month, action=TransactionActions.sell)
-            .annotate_normalized_roi()
-            .only("quantity", "price")
             .order_by("asset_code")
+            .values_list("asset_code", "asset_id", named=True)
         ):
-            if debug > 1:
-                results.append(
-                    f"\t\t\t{t.quantity} {t.asset_code} por R$ {t.price:n} "
-                    f"-> roi = R$ {t.roi:n}"
-                )
-            if t.roi > 0:
-                profits += t.roi
+            roi = _get_closed_roi(asset_id=t.asset_id, month=month, year=year)
+            if roi > 0:
+                profits += roi
+                if debug > 1:
+                    results.append(f"\t\t\t{t.asset_code} -> roi = R$ {roi:n}")
+            elif roi == 0:
+                if debug > 1:
+                    results.append(
+                        f"\t\t\t{t.asset_code}: Nao encontramos uma operação de fechamento "
+                        "para o ativo. Por favor, verifique!"
+                    )
             else:
-                asset_losses += t.roi
+                asset_losses += roi
 
         if debug > 1:
             results.append("")
@@ -349,23 +356,28 @@ def _print_stocks_usa_not_elegible_for_taxation(
         month = infos["month"].month
         results.append(f"\t\t{month:02d}/{year}: R$ {infos['total_sold']}")
         asset_losses = Decimal()
-        for t in (
+        for t in set(
             qs.annotate(asset_code=F("asset__code"))
             .filter(operation_date__month=month, action=TransactionActions.sell)
-            .annotate_normalized_roi()
-            .only("quantity", "price")
             .order_by("asset_code")
+            .values_list("asset_code", "asset_id", named=True)
         ):
             currency_symbol = "R$" if normalize else "$"
+            roi = _get_closed_roi(asset_id=t.asset_id, month=month, year=year)
             if debug > 1:
-                results.append(
-                    f"\t\t\t{t.quantity} {t.asset_code} por {currency_symbol} {t.price:n} "
-                    f"-> roi = {currency_symbol} {t.roi:n}"
-                )
-            if t.roi > 0:
-                profits += t.roi
+                results.append(f"\t\t\t{t.asset_code} -> roi = {currency_symbol} {roi:n}")
+            if roi > 0:
+                profits += roi
+                if debug > 1:
+                    results.append(f"\t\t\t{t.asset_code} -> roi = {currency_symbol} {roi:n}")
+            elif roi == 0:
+                if debug > 1:
+                    results.append(
+                        f"\t\t\t{t.asset_code}: Nao encontramos uma operação de fechamento "
+                        "para o ativo. Por favor, verifique!"
+                    )
             else:
-                asset_losses += t.roi
+                asset_losses += roi
 
         if debug > 1:
             results.append("")
@@ -414,23 +426,26 @@ def _print_cryptos_not_elegible_for_taxation(
         month = infos["month"].month
         results.append(f"\t\t{month:02d}/{year}: R$ {infos['total_sold']}")
         asset_losses = Decimal()
-        for t in (
+        for t in set(
             qs.annotate(asset_code=F("asset__code"))
             .filter(operation_date__month=month, action=TransactionActions.sell)
-            .annotate_normalized_roi()
-            .only("quantity", "price")
             .order_by("asset_code")
+            .values_list("asset_code", "asset_id", named=True)
         ):
             currency_symbol = "R$" if normalize else "$"
-            if debug > 1:
-                results.append(
-                    f"\t\t\t{t.quantity} {t.asset_code} por {currency_symbol} {t.price:n} "
-                    f"-> roi = {currency_symbol} {t.roi:n}"
-                )
-            if t.roi > 0:
-                profits += t.roi
+            roi = _get_closed_roi(asset_id=t.asset_id, month=month, year=year)
+            if roi > 0:
+                profits += roi
+                if debug > 1:
+                    results.append(f"\t\t\t{t.asset_code} -> roi = {currency_symbol} {roi:n}")
+            elif roi == 0:
+                if debug > 1:
+                    results.append(
+                        f"\t\t\t{t.asset_code}: Nao encontramos uma operação de fechamento "
+                        "para o ativo. Por favor, verifique!"
+                    )
             else:
-                asset_losses += t.roi
+                asset_losses += roi
 
         if debug > 1:
             results.append("")
