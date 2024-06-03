@@ -71,7 +71,7 @@ export const RevenuesForm = ({ initialData, handleClose, reloadTable }) => {
   const isCreateForm = Object.keys(initialData).length === 0;
   const onSubmit = (data) => {
     let api = new RevenuesApi(initialData.id);
-    const method = isCreateForm ? "post" : "patch";
+    const method = isCreateForm ? "post" : "put";
     const actionVerb = isCreateForm ? "criada" : "editada";
     if (isDirty) {
       setIsLoaded(false);

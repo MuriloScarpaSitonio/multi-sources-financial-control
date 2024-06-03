@@ -182,6 +182,7 @@ class AssetQuerySet(QuerySet):
         )
         subquery = (
             AssetClosedOperation.objects.filter(asset_id=OuterRef("pk"))
+            .exclude(operation_datetime__year=year + 1)
             .order_by("-operation_datetime")
             .values("operation_datetime")
         )

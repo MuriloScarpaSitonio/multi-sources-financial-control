@@ -124,7 +124,7 @@ const ForgotPassword = () => {
 
   return (
     <ThemeProvider theme={theme}>
-      <Stack direction="row" sx={{ height: "100%" }} alignItems="stretch">
+      <Stack direction="row">
         <CallToActionSection
           title={!isSuccess ? "Esqueci minha senha" : ""}
           footer={

@@ -76,34 +76,29 @@ const Wrapper = ({ children, isLoggedIn }) => {
 
   const hideValuesToggler = useHideValues();
   return (
-    <div>
-      <div
-        className="base"
-        style={isLoggedIn && { backgroundColor: "whitesmoke" }}
-      >
-        {isLoggedIn && <Navbar hideValuesToggler={hideValuesToggler} />}
-        <Container style={{ marginTop: "15px" }}>
-          {showAlert && (
-            <MuiAlert
-              elevation={6}
-              variant="outlined"
-              severity="warning"
-              onClose={() => setShowAlert(false)}
-            >
-              <div>
-                {trialWillEndMessage}
-                {children.name !== "User" && (
-                  <span>
-                    Vá até suas <Link href="/me?tab=1">configuraçōes</Link> para
-                    incluir ou alterar seus dados de cobrança
-                  </span>
-                )}
-              </div>
-            </MuiAlert>
-          )}
-          {children}
-        </Container>
-      </div>
+    <div style={isLoggedIn && { backgroundColor: "whitesmoke" }}>
+      {isLoggedIn && <Navbar hideValuesToggler={hideValuesToggler} />}
+      <Container style={{ marginTop: "15px" }}>
+        {showAlert && (
+          <MuiAlert
+            elevation={6}
+            variant="outlined"
+            severity="warning"
+            onClose={() => setShowAlert(false)}
+          >
+            <div>
+              {trialWillEndMessage}
+              {children.name !== "User" && (
+                <span>
+                  Vá até suas <Link href="/me?tab=1">configuraçōes</Link> para
+                  incluir ou alterar seus dados de cobrança
+                </span>
+              )}
+            </div>
+          </MuiAlert>
+        )}
+        {children}
+      </Container>
     </div>
   );
 };
