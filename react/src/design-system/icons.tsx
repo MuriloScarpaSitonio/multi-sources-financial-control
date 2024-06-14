@@ -1,4 +1,4 @@
-import SvgIcon from "@mui/material/SvgIcon";
+import SvgIcon, { SvgIconProps } from "@mui/material/SvgIcon";
 
 export const GoogleColoredIcon = () => (
   <SvgIcon>
@@ -125,6 +125,30 @@ export const LogoIcon = () => (
           />
         </filter>
       </defs>
+    </svg>
+  </SvgIcon>
+);
+
+export const InvestmentUpIcon = (props: SvgIconProps) => (
+  <SvgIcon {...props}>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+    >
+      <path
+        d="M5.09198 16.49L7.90504 12.7015C8.15309 12.3674 8.58209 12.2218 8.98223 12.336L13.0354 13.4921C13.4229 13.6027 13.8389 13.4698 14.0906 13.1551L18.1782 8.04388M18.1782 8.04388L14.2127 8.44608M18.1782 8.04388L18.9713 11.2615"
+        stroke="#7DF7A1"
+        stroke-width="2"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M22.5834 11.6637C22.5834 17.7012 17.7605 22.5774 11.8334 22.5774C5.90627 22.5774 1.08337 17.7012 1.08337 11.6637C1.08337 5.6262 5.90627 0.75 11.8334 0.75C17.7605 0.75 22.5834 5.6262 22.5834 11.6637Z"
+        stroke="#7DF7A1"
+        stroke-width="1.5"
+      />
     </svg>
   </SvgIcon>
 );

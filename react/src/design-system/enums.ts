@@ -12,8 +12,10 @@ export enum Colors {
   brand900 = "brand.900",
   brand950 = "brand.950",
   neutral0 = "neutral.0",
+  neutral200 = "neutral.200",
   neutral300 = "neutral.300",
   neutral500 = "neutral.500",
+  neutral600 = "neutral.600",
   neutral700 = "neutral.700",
   neutral900 = "neutral.900",
   danger100 = "danger.100",
@@ -28,6 +30,7 @@ export enum FontWeights {
 }
 
 export enum FontSizes {
+  EXTRA_SMALL,
   SMALL,
   REGULAR,
   MEDIUM,

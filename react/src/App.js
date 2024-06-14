@@ -19,6 +19,7 @@ import Assets from "./pages/Assets";
 import Expenses from "./pages/Expenses";
 import Home from "./pages/Home";
 import { Login, ForgotPassword, Signup } from "./pages/public";
+import { Assets as AssetsV2, Wrapper as WrapperV2 } from "./pages/private";
 import { ResetPassword } from "./pages/ResetPassword";
 import { SubscriptionDone } from "./pages/SubscriptionDone";
 import PassiveIncomes from "./pages/PassiveIncomes";
@@ -53,7 +54,7 @@ const PublicRoute = ({ children, path }) => {
   } else return children;
 };
 
-const PrivateRoute = ({ children, path }) => {
+const PrivateRoute = ({ children, path, v2 }) => {
   const { isLoggedIn, isSubscriptionCanceled } = useLocalStorageBooleanValues();
 
   if (isLoggedIn) {
@@ -64,7 +65,12 @@ const PrivateRoute = ({ children, path }) => {
       return (
         <Navigate to={{ pathname: "/subscription", state: { from: path } }} />
       );
-    } else return <Wrapper isLoggedIn>{children}</Wrapper>;
+    } else
+      return v2 ? (
+        <WrapperV2>{children}</WrapperV2>
+      ) : (
+        <Wrapper isLoggedIn>{children}</Wrapper>
+      );
   } else return <Navigate to={{ pathname: "/", state: { from: path } }} />;
 };
 
@@ -177,6 +183,14 @@ export default function App() {
             element={
               <PrivateRoute path="/assets">
                 <Assets />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/v2/assets"
+            element={
+              <PrivateRoute path="/v2/assets" v2>
+                <AssetsV2 />
               </PrivateRoute>
             }
           />

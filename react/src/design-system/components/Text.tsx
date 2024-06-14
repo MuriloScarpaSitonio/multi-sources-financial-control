@@ -24,7 +24,7 @@ const Text = ({
 }) => (
   <Typography
     {...props}
-    style={{
+    sx={{
       ...extraStyle,
       fontWeight: getFontWeight(weight),
       fontSize: getFontSize(size),

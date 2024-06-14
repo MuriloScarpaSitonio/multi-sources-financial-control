@@ -8,7 +8,7 @@ const Query = (url) => useQuery(privateAxios, url);
 
 const QueryWithInfiteScroll = (url) => useInfiniteScroll(privateAxios, url);
 
-const get = (url) => privateAxios.get(url);
+const get = (url, config) => privateAxios.get(url, config);
 
 const post = async (url, data = {}) => privateAxios.post(url, data);
 

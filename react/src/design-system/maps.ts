@@ -14,8 +14,10 @@ export const COLORS = {
   [enums.Colors.brand900]: "#124227",
   [enums.Colors.brand950]: "#092515",
   [enums.Colors.neutral0]: "#fff",
+  [enums.Colors.neutral200]: "#d9d9d9",
   [enums.Colors.neutral300]: "#adadb1",
   [enums.Colors.neutral500]: "#6c6c70",
+  [enums.Colors.neutral600]: "#2a2c33",
   [enums.Colors.neutral700]: "#33353e",
   [enums.Colors.neutral900]: "#1d1e23",
   [enums.Colors.danger100]: "#eda3a4",
@@ -31,6 +33,7 @@ export const FONT_WEIGHTS = {
 };
 
 export const FONT_SIZES = {
+  [enums.FontSizes.EXTRA_SMALL]: 12,
   [enums.FontSizes.SMALL]: 16,
   [enums.FontSizes.REGULAR]: 22,
   [enums.FontSizes.MEDIUM]: 24,

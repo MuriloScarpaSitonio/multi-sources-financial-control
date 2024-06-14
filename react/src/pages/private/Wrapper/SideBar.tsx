@@ -14,11 +14,11 @@ import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import MonetizationOnOutlinedIcon from "@mui/icons-material/MonetizationOnOutlined";
 import ReceiptOutlinedIcon from "@mui/icons-material/ReceiptOutlined";
-import TimelineOutlinedIcon from "@mui/icons-material/TimelineOutlined";
+import ShowChartOutlinedIcon from "@mui/icons-material/ShowChartOutlined";
 
 import { getColor } from "../../../design-system/utils";
+import { LogoIcon } from "../../../design-system/icons";
 import { Colors } from "../../../design-system/enums";
-import { LogoIcon } from "../../public/layout";
 
 const drawerWidth = 240;
 
@@ -120,7 +120,7 @@ const InvestmentsMenu = () => {
             href="/assets/transactions"
           >
             <ListItemIcon sx={{ color: iconColor, minWidth: 32 }}>
-              <TimelineOutlinedIcon />
+              <ShowChartOutlinedIcon />
             </ListItemIcon>
             <ListItemText
               primary="Transações"

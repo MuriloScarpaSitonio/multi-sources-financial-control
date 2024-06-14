@@ -6,10 +6,13 @@ import Link from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
 import useMediaQuery from "@mui/material/useMediaQuery";
 
-import { FacebookColoredIcon, GoogleColoredIcon } from "./layout";
 import { theme } from "./styles";
 import { Text } from "../../design-system/components";
 import * as enums from "../../design-system/enums";
+import {
+  FacebookColoredIcon,
+  GoogleColoredIcon,
+} from "../../design-system/icons";
 import { getColor } from "../../design-system/utils";
 
 export const ImageAndTexts = ({ image }: { image: string }) => (
