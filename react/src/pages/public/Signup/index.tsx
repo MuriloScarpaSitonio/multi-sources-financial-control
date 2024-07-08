@@ -15,12 +15,12 @@ import { Controller } from "react-hook-form";
 import * as yup from "yup";
 
 import { signup } from "../../../api/methods";
+import useFormPlus from "../../../hooks/useFormPlus";
 import { FormFeedbackError, Text } from "../../../design-system/components";
 import * as enums from "../../../design-system/enums";
 import { getColor } from "../../../design-system/utils";
 import otherSvg from "../assets/other.svg";
 import { CallToActionSection, ImageAndTexts } from "../components";
-import { useFormPlus } from "../hooks";
 import { theme } from "../styles";
 
 const schema = yup.object().shape({

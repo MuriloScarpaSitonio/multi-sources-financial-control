@@ -5,7 +5,7 @@ import TotalInvestedReports from "./TotalInvestedReports";
 
 export default function Reports() {
   return (
-    <Grid container spacing={4} sx={{ width: "100%", mt: 2 }}>
+    <Grid container spacing={4} maxWidth="xl">
       <Grid item xs={6}>
         <RoiReports />
       </Grid>

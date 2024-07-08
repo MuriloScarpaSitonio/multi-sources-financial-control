@@ -95,7 +95,12 @@ export const ReportCard = ({
 }) => {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   return (
-    <Card sx={{ backgroundColor: getColor(Colors.neutral900) }}>
+    <Card
+      sx={{
+        backgroundColor: getColor(Colors.neutral900),
+        borderRadius: 6, // 24px
+      }}
+    >
       <CardHeader
         action={
           <ReportCardMenu
@@ -196,10 +201,6 @@ export const BarChart = ({
       <YAxis
         type="category"
         dataKey={dataKey}
-        tickFormatter={(name) => {
-          const { display } = AssetOptionsProperties[name];
-          return display ?? name;
-        }}
         tickLine={false}
         stroke={getColor(Colors.neutral0)}
       />

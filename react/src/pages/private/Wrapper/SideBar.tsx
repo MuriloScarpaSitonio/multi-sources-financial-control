@@ -20,7 +20,7 @@ import { getColor } from "../../../design-system/utils";
 import { LogoIcon } from "../../../design-system/icons";
 import { Colors } from "../../../design-system/enums";
 
-const drawerWidth = 240;
+const drawerWidth = 200;
 
 const FinancesMenus = () => {
   const [open, setOpen] = useState<boolean>(true);

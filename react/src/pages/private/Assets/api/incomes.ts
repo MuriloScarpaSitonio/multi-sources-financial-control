@@ -1,4 +1,4 @@
-import { apiProvider } from "./methods";
+import { apiProvider } from "../../../../api/methods";
 
 const RESOURCE = "incomes";
 

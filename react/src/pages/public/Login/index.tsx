@@ -158,7 +158,7 @@ const Login = () => {
 
   return (
     <ThemeProvider theme={theme}>
-      <Stack direction="row">
+      <Stack direction="row" sx={{ height: "100%" }}>
         <CallToActionSection
           title="Entre na sua conta para manter o controle do seu dinheiro."
           showButtons

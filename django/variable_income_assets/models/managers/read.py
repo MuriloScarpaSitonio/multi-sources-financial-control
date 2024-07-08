@@ -7,7 +7,7 @@ from django.db import models
 
 from ...adapters import DjangoSQLAssetMetaDataRepository
 from ...adapters.key_value_store import get_dollar_conversion_rate
-from ...choices import AssetsTotalInvestedReportAggregations, AssetTypes, Currencies
+from ...choices import AssetTypes, Currencies
 
 if TYPE_CHECKING:
     from ...adapters.sql import AbstractAssetMetaDataRepository
@@ -200,13 +200,12 @@ class AssetReadModelQuerySet(models.QuerySet):
         )
 
     def total_invested_report(self, group_by: str, current: bool) -> Self:
-        choice = AssetsTotalInvestedReportAggregations.get_choice(group_by)
         if current:
             qs = self.alias(normalized_total=self.expressions.normalized_current_total)
         else:
             qs = self.alias(normalized_total=self.expressions.normalized_total_invested)
 
-        f = "metadata__sector" if choice.field_name == "sector" else choice.field_name
+        f = "metadata__sector" if group_by == "sector" else group_by
         qs = (
             qs.values(f)
             .annotate(total=models.Sum("normalized_total"))
@@ -215,8 +214,8 @@ class AssetReadModelQuerySet(models.QuerySet):
         )
         return (
             qs
-            if f == choice.field_name
-            else qs.annotate(**{choice.field_name: models.F(f)}).values(choice.field_name, "total")
+            if f == group_by
+            else qs.annotate(**{group_by: models.F(f)}).values(group_by, "total")
         )
 
     def roi_report(self, opened: bool = True, closed: bool = True) -> Self:

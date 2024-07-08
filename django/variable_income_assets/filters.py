@@ -37,14 +37,7 @@ class AssetFilterSet(filters.FilterSet):
         exclude = ("user",)
 
 
-class AssetReadFilterSet(filters.FilterSet):
-    code = filters.CharFilter(lookup_expr="icontains")
-    objective = filters.MultipleChoiceFilter(choices=AssetObjectives.choices)
-    type = filters.MultipleChoiceFilter(choices=AssetTypes.choices)
-    sector = filters.MultipleChoiceFilter(
-        choices=AssetSectors.choices,
-        field_name="metadata__sector",  # TODO: unable to resolve via repository?
-    )
+class AssetReadStatusFilterSet(filters.FilterSet):
     status = filters.ChoiceFilter(choices=AssetStatus.choices, method="filter_status")
 
     class Meta:
@@ -55,6 +48,16 @@ class AssetReadFilterSet(filters.FilterSet):
         self, queryset: AssetReadModelQuerySet[AssetReadModel], _, value: str
     ) -> AssetReadModelQuerySet[AssetReadModel]:
         return queryset.opened() if value == AssetStatus.opened else queryset.closed()
+
+
+class AssetReadFilterSet(AssetReadStatusFilterSet):
+    code = filters.CharFilter(lookup_expr="icontains")
+    objective = filters.MultipleChoiceFilter(choices=AssetObjectives.choices)
+    type = filters.MultipleChoiceFilter(choices=AssetTypes.choices)
+    sector = filters.MultipleChoiceFilter(
+        choices=AssetSectors.choices,
+        field_name="metadata__sector",  # TODO: unable to resolve via repository?
+    )
 
 
 class AssetFetchCurrentPriceFilterSet(filters.FilterSet):

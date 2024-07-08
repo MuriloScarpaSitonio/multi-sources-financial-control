@@ -159,12 +159,12 @@ class AssetViewSet(
         return Response(serializer.data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
-    def minimal_data(self, _: Request) -> Response:
+    def minimal_data(self, request: Request) -> Response:
         # TODO: change `list` endpoint to support `fields` kwarg on serializer and set the return
         # values by doing `/assets?fields=code,currency`
+        filterset = filters.AssetReadStatusFilterSet(data=request.GET, queryset=self.get_queryset())
         return Response(
-            data=self.get_queryset()
-            .annotate(pk=F("write_model_pk"))
+            data=filterset.qs.annotate(pk=F("write_model_pk"))
             .values("code", "currency", "pk")
             .order_by("code"),
             status=HTTP_200_OK,
@@ -271,9 +271,11 @@ class PassiveIncomeViewSet(ModelViewSet):
             .first()
         )
         qs = self.get_queryset().indicators(
-            fixed_avg_denominator=(timezone.localdate() - first_transaction_date).days > 365
-            if first_transaction_date is not None
-            else False
+            fixed_avg_denominator=(
+                (timezone.localdate() - first_transaction_date).days > 365
+                if first_transaction_date is not None
+                else False
+            )
         )
         percentage = (
             ((qs["current_credited"] / qs["avg"]) - Decimal("1.0")) * Decimal("100.0")
@@ -346,7 +348,7 @@ class AssetTransactionViewSet(GenericViewSet, ListModelMixin):
         with djtransaction.atomic():
             Transaction.objects.create(asset=asset, action=choices.TransactionActions.buy, **kwargs)
             new = serializers.AssetSimulateSerializer(
-                instance=request.user.assets.annotate_for_simulation().all().get(pk=pk)
+                instance=request.user.assets.annotate_for_simulation().get(pk=pk)
             ).data
             djtransaction.set_rollback(True)
         return Response({"old": old, "new": new}, status=HTTP_200_OK)

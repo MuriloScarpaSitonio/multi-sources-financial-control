@@ -2,10 +2,8 @@ import operator
 from decimal import ROUND_HALF_UP, Decimal
 from random import randrange
 
-from django.db.models import F
-from django.utils import timezone
-
 import pytest
+from config.settings.base import BASE_API_URL
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -15,9 +13,10 @@ from rest_framework.status import (
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
 )
-
-from config.settings.base import BASE_API_URL
 from shared.tests import convert_and_quantitize
+
+from django.db.models import F
+from django.utils import timezone
 
 from ...choices import AssetObjectives, AssetSectors, AssetTypes, Currencies
 from ...models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
@@ -511,6 +510,7 @@ def test__indicators(client):
     assert response.json()["ROI"] == convert_and_quantitize(roi_opened + roi_closed)
 
 
+@pytest.mark.parametrize("filters", ("", "status=OPENED", "status=CLOSED"))
 @pytest.mark.usefixtures(
     "transactions",
     "crypto_transaction",
@@ -525,19 +525,20 @@ def test__indicators(client):
     "another_crypto_asset",  # no transactions
     "fii_asset",  # no transactions
 )
-def test__minimal_data_endpoint(client):
+def test__minimal_data_endpoint(client, filters):
     # GIVEN
+    qs = AssetReadModel.objects.annotate(pk=F("write_model_pk"))
+    if "OPENED" in filters:
+        qs = qs.opened()
+    if "CLOSED" in filters:
+        qs = qs.closed()
 
     # WHEN
-    response = client.get(f"{URL}/minimal_data")
+    response = client.get(f"{URL}/minimal_data?{filters}")
 
     # THEN
     assert response.status_code == 200
-    assert response.json() == list(
-        AssetReadModel.objects.annotate(pk=F("write_model_pk"))
-        .values("code", "currency", "pk")
-        .order_by("code")
-    )
+    assert response.json() == list(qs.values("code", "currency", "pk").order_by("code"))
 
 
 @pytest.mark.usefixtures(

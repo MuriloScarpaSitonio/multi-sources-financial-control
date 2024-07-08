@@ -20,11 +20,11 @@ URL = f"/{BASE_API_URL}" + "assets"
 @pytest.mark.usefixtures("report_data", "sync_assets_read_model")
 @pytest.mark.parametrize(
     "group_by, choices_class",
-    (("TYPE", AssetTypes), ("SECTOR", AssetSectors), ("OBJECTIVE", AssetObjectives)),
+    (("type", AssetTypes), ("sector", AssetSectors), ("objective", AssetObjectives)),
 )
 def test__total_invested_report(client, group_by, choices_class):
     # GIVEN
-    field = "metadata__sector" if group_by == "SECTOR" else group_by.lower()
+    field = "metadata__sector" if group_by == "sector" else group_by
     totals = {
         v: sum(
             get_total_invested_brute_force(Asset.objects.get(pk=asset.write_model_pk))
@@ -43,19 +43,19 @@ def test__total_invested_report(client, group_by, choices_class):
 
     for result in response.json():
         for choice, label in choices_class.choices:
-            if label == result[group_by.lower()]:
+            if label == result[group_by]:
                 assert convert_and_quantitize(totals[choice]) == result["total"]
 
 
 @pytest.mark.usefixtures("report_data", "sync_assets_read_model")
 @pytest.mark.parametrize(
     "group_by, choices_class",
-    (("TYPE", AssetTypes), ("SECTOR", AssetSectors), ("OBJECTIVE", AssetObjectives)),
+    (("type", AssetTypes), ("sector", AssetSectors), ("objective", AssetObjectives)),
 )
 def test__total_invested_report__percentage(client, group_by, choices_class):
     # GIVEN
     total_invested = sum(get_total_invested_brute_force(asset) for asset in Asset.objects.all())
-    field = "metadata__sector" if group_by == "SECTOR" else group_by.lower()
+    field = "metadata__sector" if group_by == "sector" else group_by
     totals = {
         v: sum(
             get_total_invested_brute_force(Asset.objects.get(pk=asset.write_model_pk))
@@ -74,7 +74,7 @@ def test__total_invested_report__percentage(client, group_by, choices_class):
 
     for result in response.json():
         for choice, label in choices_class.choices:
-            if label == result[group_by.lower()]:
+            if label == result[group_by]:
                 assert float(
                     convert_to_percentage_and_quantitize(value=totals[choice], total=total_invested)
                 ) == convert_and_quantitize(result["total"])
@@ -83,11 +83,11 @@ def test__total_invested_report__percentage(client, group_by, choices_class):
 @pytest.mark.usefixtures("report_data", "sync_assets_read_model")
 @pytest.mark.parametrize(
     "group_by, choices_class",
-    (("TYPE", AssetTypes), ("SECTOR", AssetSectors), ("OBJECTIVE", AssetObjectives)),
+    (("type", AssetTypes), ("sector", AssetSectors), ("objective", AssetObjectives)),
 )
 def test__current_total_invested_report(client, group_by, choices_class):
     # GIVEN
-    field = "metadata__sector" if group_by == "SECTOR" else group_by.lower()
+    field = "metadata__sector" if group_by == "sector" else group_by
     totals = {
         v: sum(
             get_current_total_invested_brute_force(Asset.objects.get(pk=asset.write_model_pk))
@@ -106,21 +106,21 @@ def test__current_total_invested_report(client, group_by, choices_class):
 
     for result in response.json():
         for choice, label in choices_class.choices:
-            if label == result[group_by.lower()]:
+            if label == result[group_by]:
                 assert convert_and_quantitize(totals[choice]) == result["total"]
 
 
 @pytest.mark.usefixtures("report_data", "sync_assets_read_model")
 @pytest.mark.parametrize(
     "group_by, choices_class",
-    (("TYPE", AssetTypes), ("SECTOR", AssetSectors), ("OBJECTIVE", AssetObjectives)),
+    (("type", AssetTypes), ("sector", AssetSectors), ("objective", AssetObjectives)),
 )
 def test__current_total_invested_report__percentage(client, group_by, choices_class):
     # GIVEN
     current_total = sum(
         get_current_total_invested_brute_force(asset) for asset in Asset.objects.all()
     )
-    field = "metadata__sector" if group_by == "SECTOR" else group_by.lower()
+    field = "metadata__sector" if group_by == "sector" else group_by
     totals = {
         v: sum(
             get_current_total_invested_brute_force(Asset.objects.get(pk=asset.write_model_pk))
@@ -138,7 +138,7 @@ def test__current_total_invested_report__percentage(client, group_by, choices_cl
     assert response.status_code == HTTP_200_OK
     for result in response.json():
         for choice, label in choices_class.choices:
-            if label == result[group_by.lower()]:
+            if label == result[group_by]:
                 assert (
                     float(
                         convert_to_percentage_and_quantitize(

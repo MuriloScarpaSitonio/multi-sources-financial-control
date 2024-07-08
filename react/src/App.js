@@ -30,7 +30,15 @@ import User from "./pages/User";
 import { stringToBoolean } from "./helpers.js";
 import { AccessTokenStr } from "./consts";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: Infinity,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const useLocalStorageBooleanValues = () => ({
   isLoggedIn: Boolean(localStorage.getItem(AccessTokenStr)),

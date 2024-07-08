@@ -10,27 +10,31 @@ export const useFormPlus = ({
   defaultValues,
   onSuccess = () => {},
   onError = () => {},
+  context,
 }: {
-  mutationFn: MutationFunction;
+  mutationFn: MutationFunction<any, any>;
   schema: AnyObjectSchema;
   defaultValues: Record<string, any>;
-  onSuccess: (data: unknown, variable: unknown, context: unknown) => void;
+  onSuccess?: (data: unknown, variable: unknown, context: unknown) => void;
   onError?: (error: unknown) => void;
+  context?: object;
 }) => {
   const [apiErrors, setApiErrors] = useState<Record<string, string>>({});
 
   const {
     control,
     handleSubmit,
-    formState: { errors },
+    getValues,
+    reset,
+    formState: { errors, isDirty },
+    watch,
   } = useForm({
     resolver: yupResolver(schema),
-    defaultValues: defaultValues,
+    defaultValues,
     mode: "onSubmit",
     reValidateMode: "onSubmit",
+    context,
   });
-
-  console.log(schema);
   const { mutate, isPending } = useMutation({
     mutationFn,
     onSuccess,
@@ -58,15 +62,26 @@ export const useFormPlus = ({
     [errors, apiErrors],
   );
   const getFieldHasError = useCallback(
-    (fieldName: string) => !!errors[fieldName] || !!apiErrors[fieldName],
+    (fieldName: string): boolean =>
+      !!errors[fieldName] || !!apiErrors[fieldName],
     [errors, apiErrors],
   );
   const getErrorMessage = useCallback(
-    (fieldName: string): string =>
-      (errors[fieldName]?.message || apiErrors[fieldName]) as string,
+    (fieldName: string): string => {
+      const [name, propName] = fieldName.split(".");
+      const fieldError = errors[name];
+      const error =
+        fieldError && propName
+          ? (fieldError as { [propName: string]: { message: string } })[
+              propName
+            ]
+          : fieldError;
+      return (error?.message || apiErrors[fieldName]) as string;
+    },
     [errors, apiErrors],
   );
 
+  console.log(errors);
   return {
     control,
     handleSubmit,
@@ -75,5 +90,11 @@ export const useFormPlus = ({
     isFieldInvalid,
     getFieldHasError,
     getErrorMessage,
+    isDirty,
+    getValues,
+    reset,
+    watch,
   };
 };
+
+export default useFormPlus;

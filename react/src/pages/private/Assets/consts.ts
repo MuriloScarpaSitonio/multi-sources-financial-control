@@ -1,18 +1,23 @@
-export const AssetsTypesMapping = {
-  "Ação B3": { value: "STOCK", color: "#cc6cc8", display: "Ação BR" },
+export const AssetsTypesMapping: Record<
+  string,
+  { value: string; color: string; display?: string }
+> = {
+  "Ação BR": { value: "STOCK", color: "#cc6cc8" },
   "Ação EUA": { value: "STOCK_USA", color: "#906ccc" },
-  Criptoativos: { value: "CRYPTO", color: "#ccc86c", display: "Cripto" },
-  "Fundo de Investimento Imobiliário": {
-    value: "FII",
-    color: "#6cccc6",
-    display: "FII",
-  },
+  Cripto: { value: "CRYPTO", color: "#ccc86c" },
+  FII: { value: "FII", color: "#6cccc6" },
 };
 
 export const AssetsObjectivesMapping = {
   Crescimento: { value: "GROWTH", color: "#cc6cc8" },
   Dividendo: { value: "DIVIDEND", color: "#ccc86c" },
   Desconhecido: { value: "UNKNOWN", color: "#d9d3c5" },
+};
+
+export const AssetsObjectivesValueToLabelMapping = {
+  GROWTH: "Crescimento",
+  DIVIDEND: "Dividendo",
+  UNKNOWN: "Desconhecido",
 };
 
 export const AssetsSectorsMapping = {
@@ -36,3 +41,24 @@ export const AssetOptionsProperties: {
   ...AssetsObjectivesMapping,
   ...AssetsSectorsMapping,
 };
+
+export enum AssetCurrencies {
+  BRL = "BRL",
+  USD = "USD",
+}
+
+export const AssetCurrencyMap = {
+  [AssetCurrencies.BRL]: { label: "Real", symbol: "R$" },
+  [AssetCurrencies.USD]: { label: "Dólar", symbol: "US$" },
+};
+
+export const AssetsIncomeTypesMapping = {
+  Rendimento: { value: "INCOME", color: "#cc6cc8" },
+  Dividendo: { value: "DIVIDEND", color: "#ccc86c" },
+  "Juros sobre capital próprios": { value: "JCP", color: "#d9d3c5" },
+};
+
+export enum AssetIncomeEventTypes {
+  CREDITED = "CREDITED",
+  PROVISIONED = "PROVISIONED",
+}

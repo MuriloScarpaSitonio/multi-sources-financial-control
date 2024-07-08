@@ -354,9 +354,9 @@ export const AssetsReports = () => {
       fetchTotalInvestedReportData({
         percentage: true,
         current: false,
-        group_by: "TYPE",
+        group_by: "type",
       }),
-    []
+    [],
   );
 
   const handleTabsChange = (event, newValue) => {
@@ -365,21 +365,21 @@ export const AssetsReports = () => {
         fetchTotalInvestedReportData({
           percentage: true,
           current: false,
-          group_by: "TYPE",
+          group_by: "type",
         });
         break;
       case 1:
         fetchTotalInvestedReportData({
           percentage: true,
           current: false,
-          group_by: "OBJECTIVE",
+          group_by: "objective",
         });
         break;
       case 2:
         fetchTotalInvestedReportData({
           percentage: true,
           current: false,
-          group_by: "SECTOR",
+          group_by: "sector",
         });
         break;
       case 3:

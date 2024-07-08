@@ -30,7 +30,7 @@ export const ImageAndTexts = ({ image }: { image: string }) => (
         <Text
           weight={enums.FontWeights.LIGHT}
           size={enums.FontSizes.SMALL}
-          color={enums.Colors.neutral500}
+          color={enums.Colors.neutral400}
         >
           Mantenha suas informações em segurança e com monitoramento fácil.{" "}
           <Text

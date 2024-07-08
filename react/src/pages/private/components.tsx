@@ -73,7 +73,7 @@ export const Indicator = ({
         background: getColor(enums.Colors.neutral900),
         py: 2,
         px: 5,
-        height: "100px",
+        height: 140,
       }}
       spacing={1}
     >

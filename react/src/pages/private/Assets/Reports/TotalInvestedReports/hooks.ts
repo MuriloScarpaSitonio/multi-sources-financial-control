@@ -1,6 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getTotalInvestedReport } from "../../../../../api/assets";
+import { getTotalInvestedReport } from "../../api";
+
+const QUERY_KEY = "assets-reports-total-invested";
 
 export const useTotalInvestedReports = (params: {
   percentage: boolean;
@@ -8,13 +10,22 @@ export const useTotalInvestedReports = (params: {
   group_by: "type" | "sector" | "objective";
 }) =>
   useQuery({
-    queryKey: ["assets-reports-total-invested", params],
-    queryFn: () =>
-      getTotalInvestedReport({
-        ...params,
-        group_by: params.group_by.toUpperCase(),
-      }),
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    queryKey: [QUERY_KEY, params],
+    queryFn: () => getTotalInvestedReport(params),
   });
+
+export const useInvalidateTotalInvestedReportsQueries = () => {
+  const queryClient = useQueryClient();
+
+  const invalidate = async ({
+    group_by,
+  }: {
+    group_by?: "type" | "sector" | "objective";
+  }) => {
+    await queryClient.invalidateQueries({
+      queryKey: [QUERY_KEY, ...(group_by ? [{ group_by }] : [])],
+    });
+  };
+
+  return { invalidate };
+};

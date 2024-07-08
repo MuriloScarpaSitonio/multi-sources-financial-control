@@ -16,7 +16,7 @@ class Currencies(DjangoChoices):
 class AssetTypes(DjangoChoices):
     stock = ChoiceItem(
         "STOCK",
-        label="Ação B3",
+        label="Ação BR",
         monthly_sell_threshold=settings.STOCKS_MONTHLY_SELL_EXEMPTION_THRESHOLD,
         valid_currencies=(Currencies.real,),
     )
@@ -28,13 +28,13 @@ class AssetTypes(DjangoChoices):
     )
     crypto = ChoiceItem(
         "CRYPTO",
-        label="Criptoativos",
+        label="Cripto",
         monthly_sell_threshold=settings.CRYPTOS_MONTHLY_SELL_EXEMPTION_THRESHOLD,
         valid_currencies=(Currencies.real, Currencies.dollar),
     )
     fii = ChoiceItem(
         "FII",
-        label="Fundo de Investimento Imobiliário",
+        label="FII",
         monthly_sell_threshold=settings.FII_MONTHLY_SELL_EXEMPTION_THRESHOLD,
         valid_currencies=(Currencies.real,),
     )
@@ -73,21 +73,18 @@ class PassiveIncomeEventTypes(DjangoChoices):
 
 class AssetsTotalInvestedReportAggregations(DjangoChoices):
     type = ChoiceItem(
-        "TYPE",
+        "type",
         label="Tipo",
-        field_name="type",
         serializer_name="AssetTypeReportSerializer",
     )
     sector = ChoiceItem(
-        "SECTOR",
+        "sector",
         label="Categoria",
-        field_name="sector",
         serializer_name="AssetTotalInvestedBySectorReportSerializer",
     )
     objective = ChoiceItem(
-        "OBJECTIVE",
+        "objective",
         label="Fonte",
-        field_name="objective",
         serializer_name="AssetTotalInvestedByObjectiveReportSerializer",
     )
 

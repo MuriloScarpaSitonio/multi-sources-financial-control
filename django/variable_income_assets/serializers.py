@@ -282,7 +282,7 @@ class AssetSimulateSerializer(serializers.ModelSerializer):
         )
 
     def get_roi_percentage(self, obj: Asset) -> Decimal:
-        return self.get_roi(obj) / obj.normalized_total_bought
+        return (self.get_roi(obj) / obj.normalized_total_bought) * Decimal("100.00")
 
     def get_normalized_total_invested(self, obj: Asset) -> Decimal:
         return obj.normalized_avg_price * obj.quantity_balance
@@ -381,7 +381,7 @@ class PassiveIncomesIndicatorsSerializer(serializers.Serializer):
         max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
     diff_percentage = serializers.DecimalField(
-        max_digits=5, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
 
 

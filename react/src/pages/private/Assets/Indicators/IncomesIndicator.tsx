@@ -1,16 +1,11 @@
 import MonetizationOnOutlinedIcon from "@mui/icons-material/MonetizationOnOutlined";
 
-import { useQuery } from "@tanstack/react-query";
-
 import { Indicator } from "../../components";
-import { getIndicators } from "../../../../api/incomes";
 import PercentageChangeSecondaryIndicator from "./PercentageChangeSecondaryIndicator";
+import { useIncomesIndicators } from "./hooks";
 
 const IncomesIndicator = () => {
-  const { data, isPending, isError } = useQuery({
-    queryKey: ["incomes-indicators"],
-    queryFn: getIndicators,
-  });
+  const { data, isPending, isError } = useIncomesIndicators();
   const variant = data && data.diff_percentage > 0 ? "success" : "danger";
 
   return (

@@ -1,4 +1,6 @@
 import SvgIcon, { SvgIconProps } from "@mui/material/SvgIcon";
+import { getColor } from "./utils";
+import { Colors } from "./enums";
 
 export const GoogleColoredIcon = () => (
   <SvgIcon>
@@ -148,6 +150,29 @@ export const InvestmentUpIcon = (props: SvgIconProps) => (
         d="M22.5834 11.6637C22.5834 17.7012 17.7605 22.5774 11.8334 22.5774C5.90627 22.5774 1.08337 17.7012 1.08337 11.6637C1.08337 5.6262 5.90627 0.75 11.8334 0.75C17.7605 0.75 22.5834 5.6262 22.5834 11.6637Z"
         stroke="#7DF7A1"
         stroke-width="1.5"
+      />
+    </svg>
+  </SvgIcon>
+);
+
+export const StatusDot = ({ variant }: { variant: "success" | "danger" }) => (
+  <SvgIcon fontSize="inherit">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="10"
+      height="10"
+      viewBox="0 0 10 10"
+      fill="none"
+    >
+      <circle
+        cx="5"
+        cy="5"
+        r="5"
+        fill={
+          variant === "success"
+            ? getColor(Colors.brand)
+            : getColor(Colors.danger200)
+        }
       />
     </svg>
   </SvgIcon>

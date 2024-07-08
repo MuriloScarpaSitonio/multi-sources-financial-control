@@ -103,7 +103,6 @@ const renderCustomizedLabel = ({
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
-  const { display } = AssetOptionsProperties[name];
   return (
     <>
       <text
@@ -113,7 +112,7 @@ const renderCustomizedLabel = ({
         textAnchor={x > cx ? "start" : "end"}
         dominantBaseline="central"
       >
-        {display ?? name}
+        {name}
       </text>
       <text
         x={x}
@@ -177,7 +176,20 @@ const PieChart = ({
       height={CHART_HEIGHT}
       margin={{ right: 100 }}
     >
-      {!hasFewOptions && <Legend />}
+      {!hasFewOptions && (
+        <Legend
+          payload={data?.map((item) => {
+            const label = (item as TotalInvestAggregateBySectorDataItem)[
+              groupBy
+            ] as keyof typeof AssetOptionsProperties;
+            const { display, color } = AssetOptionsProperties[label];
+            return {
+              value: display ?? label,
+              color,
+            };
+          })}
+        />
+      )}
       <Pie
         data={data}
         dataKey="total"

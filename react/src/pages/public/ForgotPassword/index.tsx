@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import useMediaQuery from "@mui/material/useMediaQuery";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -10,13 +12,12 @@ import { Controller } from "react-hook-form";
 import * as yup from "yup";
 
 import { forgotPassword } from "../../../api/methods";
+import useFormPlus from "../../../hooks/useFormPlus";
 import { FormFeedbackError, Text } from "../../../design-system/components";
 import * as enums from "../../../design-system/enums";
 import otherSvg from "../assets/other.svg";
 import { CallToActionSection, ImageAndTexts } from "../components";
 import { theme } from "../styles";
-import { useState } from "react";
-import { useFormPlus } from "../hooks";
 
 const schema = yup.object().shape({
   email: yup
