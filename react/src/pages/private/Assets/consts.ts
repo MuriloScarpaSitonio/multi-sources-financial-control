@@ -1,6 +1,6 @@
 export const AssetsTypesMapping: Record<
   string,
-  { value: string; color: string; display?: string }
+  { value: string; color: string }
 > = {
   "Ação BR": { value: "STOCK", color: "#cc6cc8" },
   "Ação EUA": { value: "STOCK_USA", color: "#906ccc" },
@@ -28,14 +28,14 @@ export const AssetsSectorsMapping = {
   Financeiro: { value: "FINANCIALS", color: "#e6837c" },
   "Materiais básicos": { value: "MATERIALS", color: "#729e81" },
   Saúde: { value: "HEALTH CARE", color: "#d9a648" },
-  "Petróleo, gás e biocombustíveis": { value: "RAW ENERGY", color: "#818deb" },
+  "Petróleo e derivados": { value: "RAW ENERGY", color: "#818deb" },
   Tecnologia: { value: "TECH", color: "#c9b671" },
   "Utilidade pública": { value: "UTILITIES", color: "#d984cc" },
   Desconhecido: { value: "UNKNOWN", color: "#d9d3c5" },
 };
 
 export const AssetOptionsProperties: {
-  [key: string]: { value: string; color: string; display?: string };
+  [key: string]: { value: string; color: string };
 } = {
   ...AssetsTypesMapping,
   ...AssetsObjectivesMapping,

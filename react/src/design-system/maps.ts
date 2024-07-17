@@ -19,6 +19,7 @@ export const COLORS = {
   [enums.Colors.neutral400]: "#6c6c70",
   [enums.Colors.neutral600]: "#2a2c33",
   [enums.Colors.neutral700]: "#33353e",
+  [enums.Colors.neutral800]: "#201F25",
   [enums.Colors.neutral900]: "#1d1e23",
   [enums.Colors.danger100]: "#eda3a4",
   [enums.Colors.danger200]: "#e5696a",

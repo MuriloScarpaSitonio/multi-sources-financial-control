@@ -25,9 +25,10 @@ import {
   AssetObjectives,
   AssetTypeAutoComplete,
 } from "../../forms/components";
-import { useInvalidateTotalInvestedReportsQueries } from "../../Reports/TotalInvestedReports/hooks";
+import { useInvalidateAssetsReportsQueries } from "../../Reports/AssetAggregationReports/hooks";
 import { ASSETS_QUERY_KEY } from "../consts";
 import DeleteAssetDialog from "./DeleteAssetDialog";
+import { GroupBy, Kinds } from "../../Reports/types";
 
 type AssetData = Omit<Asset, "type" | "objective"> & {
   type: { value: string; label: string };
@@ -83,14 +84,20 @@ const AssetsForm = ({ asset }: { asset: Asset }) => {
   });
 
   const queryClient = useQueryClient();
-  const { invalidate: invalidateTotalInvestedReportsQueries } =
-    useInvalidateTotalInvestedReportsQueries();
+  const { invalidate: invalidateAssetsReportsQueries } =
+    useInvalidateAssetsReportsQueries();
 
   const maybeInvalidateRelatedReportsQueries = async (data: AssetData) => {
     if (data.objective !== parsedValues.objective)
-      await invalidateTotalInvestedReportsQueries({ group_by: "objective" });
+      await invalidateAssetsReportsQueries({
+        kind: Kinds.TOTAL_INVESTED,
+        group_by: GroupBy.OBJECTIVE,
+      });
     if (data.type.value !== parsedValues.type.value)
-      await invalidateTotalInvestedReportsQueries({ group_by: "type" });
+      await invalidateAssetsReportsQueries({
+        kind: Kinds.TOTAL_INVESTED,
+        group_by: GroupBy.TYPE,
+      });
   };
 
   const updateCachedData = (data: AssetData) => {

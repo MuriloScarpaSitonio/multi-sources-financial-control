@@ -306,7 +306,6 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
     normalized_roi = serializers.DecimalField(decimal_places=4, max_digits=20)
     roi_percentage = serializers.DecimalField(decimal_places=3, max_digits=20)
     percentage_invested = serializers.SerializerMethodField(read_only=True)
-    current_percentage = serializers.SerializerMethodField(read_only=True)
     current_price = serializers.DecimalField(
         max_digits=13, decimal_places=6, read_only=True, source="metadata.current_price"
     )
@@ -331,7 +330,6 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
             "normalized_total_invested",
             "currency",
             "percentage_invested",
-            "current_percentage",
         )
 
     def get_percentage_invested(self, obj: AssetReadModel) -> Decimal:
@@ -341,26 +339,10 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
             result = Decimal()
         return result * Decimal("100.0")
 
-    def get_current_percentage(self, obj: AssetReadModel) -> Decimal:
-        value = (
-            (obj.metadata.current_price or Decimal())
-            if obj.currency == choices.Currencies.real
-            else (obj.metadata.current_price or Decimal()) * get_dollar_conversion_rate()
-        )
-
-        try:
-            result = (value * obj.quantity_balance) / self.context["current_total_agg"]
-        except (DecimalException, KeyError):
-            result = Decimal()
-        return result * Decimal("100.0")
-
 
 class AssetRoidIndicatorsSerializer(serializers.Serializer):
     total = serializers.DecimalField(
         max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
-    )
-    ROI = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
     ROI_opened = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP

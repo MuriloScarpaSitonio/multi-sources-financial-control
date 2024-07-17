@@ -10,9 +10,10 @@ import django_filters as filters
 
 from .choices import (
     AssetObjectives,
+    AssetReportsKinds,
     AssetSectors,
+    AssetsReportsAggregations,
     AssetStatus,
-    AssetsTotalInvestedReportAggregations,
     AssetTypes,
 )
 from .models import Asset, AssetReadModel, PassiveIncome, Transaction
@@ -80,41 +81,72 @@ class AssetFetchCurrentPriceFilterSet(filters.FilterSet):
         raise filters.utils.translate_validation(error_dict=self.errors)
 
 
-class _AssetTotalInvestedReportForm(Form):
-    def clean_percentage(self):
-        percentage = self.cleaned_data["percentage"]
-        if percentage is None:
-            raise ValidationError("Required to define the type of report")
-        return percentage
+class _AssetReportsForm(Form):
+    def clean_opened(self):
+        opened = self.cleaned_data["opened"]
+        if opened is None and AssetReportsKinds.roi == self.cleaned_data["kind"]:
+            raise ValidationError("Obrigatório para relatórios ROI")
+        return opened
+
+    def clean_closed(self):
+        closed = self.cleaned_data["closed"]
+        if closed is None and AssetReportsKinds.roi == self.cleaned_data["kind"]:
+            raise ValidationError("Obrigatório para relatórios ROI")
+        return closed
 
     def clean_current(self):
         current = self.cleaned_data["current"]
-        if current is None:
-            raise ValidationError("Required to define the type of report")
+        if current is None and AssetReportsKinds.total_invested == self.cleaned_data["kind"]:
+            raise ValidationError("Obrigatório para relatórios de total investido")
         return current
 
+    def clean_percentage(self):
+        percentage = self.cleaned_data["percentage"]
+        if percentage is None and AssetReportsKinds.total_invested == self.cleaned_data["kind"]:
+            raise ValidationError("Obrigatório para relatórios de total investido")
+        return percentage
 
-class AssetTotalInvestedReportFilterSet(filters.FilterSet):
-    percentage = filters.BooleanFilter(required=True)
-    current = filters.BooleanFilter(required=True)
-    group_by = filters.ChoiceFilter(
-        choices=AssetsTotalInvestedReportAggregations.choices, required=True
-    )
+
+class AssetReportsFilterSet(filters.FilterSet):
+    kind = filters.ChoiceFilter(choices=AssetReportsKinds.choices, required=True)
+    opened = filters.BooleanFilter(required=False)
+    closed = filters.BooleanFilter(required=False)
+    current = filters.BooleanFilter(required=False)
+    percentage = filters.BooleanFilter(required=False)
+    group_by = filters.ChoiceFilter(choices=AssetsReportsAggregations.choices, required=True)
+
+    queryset: AssetReadModelQuerySet
 
     class Meta:
-        form = _AssetTotalInvestedReportForm
+        form = _AssetReportsForm
+
+    @property
+    def _roi_qs(self) -> AssetReadModelQuerySet:
+        return self.queryset.roi_report(
+            opened=self.form.cleaned_data["opened"],
+            closed=self.form.cleaned_data["closed"],
+            group_by=self.form.cleaned_data["group_by"],
+        )
+
+    @property
+    def _total_invested_qs(self) -> AssetReadModelQuerySet:
+        return self.queryset.total_invested_report(
+            group_by=self.form.cleaned_data["group_by"],
+            current=self.form.cleaned_data["current"],
+        )
 
     @property
     def qs(self):
         if self.is_valid():
-            current = self.form.cleaned_data["current"]
-            _qs = self.queryset.total_invested_report(
-                group_by=self.form.cleaned_data["group_by"], current=current
-            )
-            if self.form.cleaned_data["percentage"]:
-                # there's 4 results max in `_qs` so it's better to aggregate at python level
-                # instead of doing another query
-                _qs = list(_qs)
+            if self.form.cleaned_data["kind"] == AssetReportsKinds.roi:
+                return self._roi_qs
+
+            if not self.form.cleaned_data["percentage"]:
+                return self._total_invested_qs
+            else:
+                # as it's an aggregation, there's not too much entries in `_qs` so it's better to
+                # aggregate at python level instead of doing another query
+                _qs = list(self._total_invested_qs)
                 total_agg = sum(r["total"] for r in _qs)
                 return [
                     {
@@ -123,38 +155,6 @@ class AssetTotalInvestedReportFilterSet(filters.FilterSet):
                     }
                     for result in _qs
                 ]
-            return _qs
-        raise filters.utils.translate_validation(error_dict=self.errors)
-
-
-class _AssetRoiReportForm(Form):
-    def clean_opened(self):
-        opened = self.cleaned_data["opened"]
-        if opened is None:
-            raise ValidationError("Required to define the type of assets of the report")
-        return opened
-
-    def clean_closed(self):
-        closed = self.cleaned_data["closed"]
-        if closed is None:
-            raise ValidationError("Required to define the type of assets of the report")
-        return closed
-
-
-class AssetRoiReportFilterSet(filters.FilterSet):
-    opened = filters.BooleanFilter(required=True)
-    closed = filters.BooleanFilter(required=True)
-
-    class Meta:
-        form = _AssetRoiReportForm
-
-    @property
-    def qs(self):
-        if self.is_valid():
-            return self.queryset.roi_report(
-                opened=self.form.cleaned_data["opened"],
-                closed=self.form.cleaned_data["closed"],
-            )
         raise filters.utils.translate_validation(error_dict=self.errors)
 
 

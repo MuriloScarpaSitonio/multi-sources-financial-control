@@ -80,7 +80,7 @@ const Indicators = () => {
       <Grid item xs={4}>
         <Indicator
           title="ROI (Lucro/Prejuízo)"
-          value={data?.ROI}
+          value={(data?.ROI_opened ?? 0) + (data?.ROI_closed ?? 0)}
           secondaryIndicator={
             <RoiSecondaryIndicator
               value={data?.ROI_opened}

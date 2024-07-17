@@ -10,6 +10,7 @@ import {
 } from "./models";
 import { ApiListResponse } from "./types";
 import { AssetCurrencies } from "../consts";
+import { GroupBy, Kinds } from "../Reports/types";
 
 const RESOURCE = "assets";
 
@@ -20,25 +21,18 @@ export const getIndicators = async (): Promise<{
   total: number;
 }> => (await apiProvider.get(`${RESOURCE}/indicators`)).data;
 
-export async function getTotalInvestedReport(params: {
-  percentage: boolean;
-  current: boolean;
-  group_by: "type" | "sector" | "objective";
+export const getReports = async (params: {
+  opened?: boolean;
+  closed?: boolean;
+  percentage?: boolean;
+  current?: boolean;
+  group_by: GroupBy;
+  kind: Kinds;
 }): Promise<
   { total: number; type?: string; sector?: string; objective?: string }[]
-> {
-  return (
-    await apiProvider.get(`${RESOURCE}/total_invested_report`, {
-      params,
-    })
-  ).data;
-}
-
-export const getRoiReport = async (
-  params: { opened?: boolean; closed?: boolean } = {},
-): Promise<{ total: number; type: string }[]> =>
+> =>
   (
-    await apiProvider.get(`${RESOURCE}/roi_report`, {
+    await apiProvider.get(`${RESOURCE}/reports`, {
       params,
     })
   ).data;

@@ -121,7 +121,6 @@ const Indicators = ({ title, value, icon, color, extraIndicators = <></> }) => {
 export const AssetsIndicators = ({ condensed = false }) => {
   const [assetsIndicators, setAssetsIndicators] = useState({
     current_total: 0,
-    ROI: 0,
     ROI_opened: 0,
     ROI_closed: 0,
   });
@@ -134,7 +133,8 @@ export const AssetsIndicators = ({ condensed = false }) => {
   const [bankAccountAmount, setBankAccountAmount] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  const total = assetsIndicators.total + bankAccountAmount
+  const total = assetsIndicators.total + bankAccountAmount;
+  const roi = assetsIndicators.ROI_opened + assetsIndicators.ROI_closed;
 
   function getAssetsExtraIndicators() {
     return (
@@ -143,7 +143,7 @@ export const AssetsIndicators = ({ condensed = false }) => {
           "pt-br",
           {
             minimumFractionDigits: 2,
-          } || 0
+          } || 0,
         )}`}
         firstColor={assetsIndicators.ROI_opened > 0 ? SUCCESS : DANGER}
         firstText={"Posições abertas"}
@@ -151,7 +151,7 @@ export const AssetsIndicators = ({ condensed = false }) => {
           "pt-br",
           {
             minimumFractionDigits: 2,
-          } || 0
+          } || 0,
         )}`}
         secondColor={assetsIndicators.ROI_closed > 0 ? SUCCESS : DANGER}
         secondText={"Posições finalizadas"}
@@ -166,7 +166,7 @@ export const AssetsIndicators = ({ condensed = false }) => {
           "pt-br",
           {
             minimumFractionDigits: 2,
-          } || 0
+          } || 0,
         )}`}
         firstColor={incomesIndicators.provisioned_future ? SUCCESS : null}
         firstText={"Provisionados"}
@@ -180,7 +180,7 @@ export const AssetsIndicators = ({ condensed = false }) => {
           "pt-br",
           {
             minimumFractionDigits: 2,
-          } || 0
+          } || 0,
         )})`}
       />
     );
@@ -192,13 +192,17 @@ export const AssetsIndicators = ({ condensed = false }) => {
     let passiveIncomesApi = new PassiveIncomesApi();
 
     axios
-      .all([assetsApi.indicators(), passiveIncomesApi.indicators(), apiProvider.get('bank_account')])
+      .all([
+        assetsApi.indicators(),
+        passiveIncomesApi.indicators(),
+        apiProvider.get("bank_account"),
+      ])
       .then(
         axios.spread((...responses) => {
           setAssetsIndicators(responses[0].data);
           setIncomesIndicators(responses[1].data);
-          setBankAccountAmount(responses[2].data.amount)
-        })
+          setBankAccountAmount(responses[2].data.amount);
+        }),
       )
       //.catch((err) => setError(err))
       .finally(() => setIsLoaded(true));
@@ -211,11 +215,9 @@ export const AssetsIndicators = ({ condensed = false }) => {
       {isLoaded ? (
         <Indicators
           title={"ROI (Lucro/Prejuízo)"}
-          value={assetsIndicators.ROI}
-          icon={
-            assetsIndicators.ROI > 0 ? <TrendingUpIcon /> : <TrendingDownIcon />
-          }
-          color={assetsIndicators.ROI > 0 ? SUCCESS : DANGER}
+          value={roi}
+          icon={roi > 0 ? <TrendingUpIcon /> : <TrendingDownIcon />}
+          color={roi > 0 ? SUCCESS : DANGER}
           extraIndicators={!condensed ? getAssetsExtraIndicators() : <></>}
         />
       ) : (

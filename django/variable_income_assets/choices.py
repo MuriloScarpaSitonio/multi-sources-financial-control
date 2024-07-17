@@ -47,7 +47,7 @@ class AssetSectors(DjangoChoices):
     essential_consumption = ChoiceItem("CONSUMER STAPLES", label="Consumo cíclico")
     finance = ChoiceItem("FINANCIALS", label="Financeiro")
     materials = ChoiceItem("MATERIALS", label="Materiais básicos")
-    raw_energy = ChoiceItem("RAW ENERGY", label="Petróleo, gás e biocombustíveis")
+    raw_energy = ChoiceItem("RAW ENERGY", label="Petróleo e derivados")
     health = ChoiceItem("HEALTH CARE", label="Saúde")
     tech = ChoiceItem("TECH", label="Tecnologia")
     utilities = ChoiceItem("UTILITIES", label="Utilidade pública")
@@ -71,22 +71,27 @@ class PassiveIncomeEventTypes(DjangoChoices):
     credited = ChoiceItem("CREDITED", label="Creditado")
 
 
-class AssetsTotalInvestedReportAggregations(DjangoChoices):
+class AssetsReportsAggregations(DjangoChoices):
     type = ChoiceItem(
         "type",
-        label="Tipo",
+        label="Categoria",
         serializer_name="AssetTypeReportSerializer",
     )
     sector = ChoiceItem(
         "sector",
-        label="Categoria",
+        label="Setor",
         serializer_name="AssetTotalInvestedBySectorReportSerializer",
     )
     objective = ChoiceItem(
         "objective",
-        label="Fonte",
+        label="Objetivo",
         serializer_name="AssetTotalInvestedByObjectiveReportSerializer",
     )
+
+
+class AssetReportsKinds(DjangoChoices):
+    total_invested = ChoiceItem("total_invested", label="Total investido")
+    roi = ChoiceItem("roi", label="ROI")
 
 
 class AssetStatus(DjangoChoices):

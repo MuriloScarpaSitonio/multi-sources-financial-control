@@ -110,7 +110,7 @@ def test__simulate_transaction__should_not_normalize_avg_price(client, crypto_as
         "roi": get_roi_brute_force(crypto_asset),
         "normalized_total_invested": get_total_invested_brute_force(crypto_asset),
     }
-    old["roi_percentage"] = old["roi"] / get_current_total_bought_brute_force(crypto_asset)
+    old["roi_percentage"] = (old["roi"] / get_current_total_bought_brute_force(crypto_asset)) * 100
 
     # WHEN
     response = client.post(
@@ -129,7 +129,7 @@ def test__simulate_transaction__should_not_normalize_avg_price(client, crypto_as
         "roi": get_roi_brute_force(crypto_asset),
         "normalized_total_invested": get_total_invested_brute_force(crypto_asset),
     }
-    new["roi_percentage"] = new["roi"] / get_current_total_bought_brute_force(crypto_asset)
+    new["roi_percentage"] = (new["roi"] / get_current_total_bought_brute_force(crypto_asset)) * 100
 
     # THEN
     assert response.status_code == 200

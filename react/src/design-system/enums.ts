@@ -17,6 +17,7 @@ export enum Colors {
   neutral400 = "neutral.400",
   neutral600 = "neutral.600",
   neutral700 = "neutral.700",
+  neutral800 = "neutral.800",
   neutral900 = "neutral.900",
   danger100 = "danger.100",
   danger200 = "danger.200",

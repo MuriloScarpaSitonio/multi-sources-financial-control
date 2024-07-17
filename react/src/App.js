@@ -15,11 +15,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Navbar } from "./components/Navbar";
 import { useHideValues } from "./hooks/useHideValues";
 import { ActivateUser } from "./pages/ActivateUser";
-import Assets from "./pages/Assets";
 import Expenses from "./pages/Expenses";
 import Home from "./pages/Home";
 import { Login, ForgotPassword, Signup } from "./pages/public";
-import { Assets as AssetsV2, Wrapper as WrapperV2 } from "./pages/private";
+import { Assets, Wrapper as WrapperV2 } from "./pages/private";
 import { ResetPassword } from "./pages/ResetPassword";
 import { SubscriptionDone } from "./pages/SubscriptionDone";
 import PassiveIncomes from "./pages/PassiveIncomes";
@@ -189,16 +188,8 @@ export default function App() {
           <Route
             path="/assets"
             element={
-              <PrivateRoute path="/assets">
+              <PrivateRoute path="/assets" v2>
                 <Assets />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/v2/assets"
-            element={
-              <PrivateRoute path="/v2/assets" v2>
-                <AssetsV2 />
               </PrivateRoute>
             }
           />

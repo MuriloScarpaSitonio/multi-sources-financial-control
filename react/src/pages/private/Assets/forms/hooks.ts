@@ -17,7 +17,7 @@ export const useInvalidateAssetsMinimalDataQueries = () => {
 
   const invalidate = async (params?: Params) => {
     await queryClient.invalidateQueries({
-      queryKey: [QUERY_KEY, params],
+      queryKey: [QUERY_KEY, ...(params ? [params] : [])],
     });
   };
 

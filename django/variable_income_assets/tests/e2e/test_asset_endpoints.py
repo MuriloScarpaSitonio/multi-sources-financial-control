@@ -2,8 +2,10 @@ import operator
 from decimal import ROUND_HALF_UP, Decimal
 from random import randrange
 
+from django.db.models import F
+from django.utils import timezone
+
 import pytest
-from config.settings.base import BASE_API_URL
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -13,10 +15,9 @@ from rest_framework.status import (
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
 )
-from shared.tests import convert_and_quantitize
 
-from django.db.models import F
-from django.utils import timezone
+from config.settings.base import BASE_API_URL
+from shared.tests import convert_and_quantitize
 
 from ...choices import AssetObjectives, AssetSectors, AssetTypes, Currencies
 from ...models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
@@ -417,9 +418,6 @@ def test_list_assets_aggregate_data(client):
     total_invested_brute_force = sum(
         get_total_invested_brute_force(asset) for asset in Asset.objects.all()
     )
-    current_total_brute_force = sum(
-        get_current_total_invested_brute_force(asset) for asset in Asset.objects.all()
-    )
 
     # WHEN
     response = client.get(f"{URL}?status=OPENED")
@@ -433,11 +431,6 @@ def test_list_assets_aggregate_data(client):
             (total_invested / total_invested_brute_force) * Decimal("100.0")
         ).quantize(Decimal(".1"), rounding=ROUND_HALF_UP)
 
-        current_invested = get_current_price_metadata(asset, normalize=True) * qty
-        current_percentage = (
-            (current_invested / current_total_brute_force) * Decimal("100.0")
-        ).quantize(Decimal(".1"), rounding=ROUND_HALF_UP)
-
         assert convert_and_quantitize(
             result["normalized_total_invested"]
         ) == convert_and_quantitize(total_invested)
@@ -447,17 +440,6 @@ def test_list_assets_aggregate_data(client):
             )
             == percentage_invested
         )
-        assert (
-            Decimal(str(result["current_percentage"])).quantize(
-                Decimal(".1"), rounding=ROUND_HALF_UP
-            )
-            == current_percentage
-        )
-        if result["normalized_roi"] < 0:
-            assert result["percentage_invested"] > result["current_percentage"]
-
-        elif result["normalized_roi"] > 0:
-            assert result["percentage_invested"] < result["current_percentage"]
 
 
 def test__list__should_include_asset_wo_transactions(
@@ -507,7 +489,6 @@ def test__indicators(client):
     assert response.json()["total"] == convert_and_quantitize(current_total)
     assert response.json()["ROI_opened"] == convert_and_quantitize(roi_opened)
     assert response.json()["ROI_closed"] == convert_and_quantitize(roi_closed)
-    assert response.json()["ROI"] == convert_and_quantitize(roi_opened + roi_closed)
 
 
 @pytest.mark.parametrize("filters", ("", "status=OPENED", "status=CLOSED"))

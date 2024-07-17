@@ -31,8 +31,7 @@ import {
 } from "../../../consts";
 import { createAsset, createTransaction } from "../../../api";
 import { getCurrencyFromType } from "../utils";
-import { useInvalidateTotalInvestedReportsQueries } from "../../../Reports/TotalInvestedReports/hooks";
-import { useInvalidateRoiReportsQueries } from "../../../Reports/RoiReports/hooks";
+import { useInvalidateAssetsReportsQueries } from "../../../Reports/AssetAggregationReports/hooks";
 import { useInvalidateAssetsIndicatorsQueries } from "../../../Indicators/hooks";
 import { useInvalidateAssetsMinimalDataQueries } from "../../../forms/hooks";
 import {
@@ -170,10 +169,8 @@ const NewTransactionForm = ({
   };
 
   const queryClient = useQueryClient();
-  const { invalidate: invalidateTotalInvestedReportsQueries } =
-    useInvalidateTotalInvestedReportsQueries();
-  const { invalidate: invalidateRoiReportsQueries } =
-    useInvalidateRoiReportsQueries();
+  const { invalidate: invalidateAssetsReportsQueries } =
+    useInvalidateAssetsReportsQueries();
   const { invalidate: invalidateAssetsIndicatorsQueries } =
     useInvalidateAssetsIndicatorsQueries();
   const { invalidate: invalidateAssetsMinimalDataQueries } =
@@ -202,18 +199,17 @@ const NewTransactionForm = ({
       : defaultValues,
     context: { isCrypto },
     onSuccess: async () => {
-      await invalidateTotalInvestedReportsQueries({});
-      await invalidateRoiReportsQueries({ opened: true });
+      await invalidateAssetsReportsQueries();
       await invalidateAssetsIndicatorsQueries();
       enqueueSnackbar("Transação criada com sucesso", {
         variant: "success",
       });
+      await queryClient.invalidateQueries({
+        queryKey: [ASSETS_QUERY_KEY],
+      });
       if (newCode) {
         setNewCode("");
         await invalidateAssetsMinimalDataQueries();
-        await queryClient.invalidateQueries({
-          queryKey: [ASSETS_QUERY_KEY],
-        });
       }
       reset();
     },

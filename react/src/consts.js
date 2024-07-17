@@ -38,7 +38,7 @@ const AssetsSectorsMapping = [
   { label: "Financeiro", value: "FINANCIALS" },
   { label: "Materiais básicos", value: "MATERIALS" },
   { label: "Saúde", value: "HEALTH CARE" },
-  { label: "Petróleo, gás e biocombustíveis", value: "RAW ENERGY" },
+  { label: "Petróleo e derivados", value: "RAW ENERGY" },
   { label: "Tecnologia", value: "TECH" },
   { label: "Utilidade pública", value: "UTILITIES" },
   { label: "Desconhecido", value: "UNKNOWN" },

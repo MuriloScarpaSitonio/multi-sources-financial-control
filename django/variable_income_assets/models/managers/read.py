@@ -7,7 +7,7 @@ from django.db import models
 
 from ...adapters import DjangoSQLAssetMetaDataRepository
 from ...adapters.key_value_store import get_dollar_conversion_rate
-from ...choices import AssetTypes, Currencies
+from ...choices import AssetsReportsAggregations, AssetTypes, Currencies
 
 if TYPE_CHECKING:
     from ...adapters.sql import AbstractAssetMetaDataRepository
@@ -199,13 +199,13 @@ class AssetReadModelQuerySet(models.QuerySet):
             )
         )
 
-    def total_invested_report(self, group_by: str, current: bool) -> Self:
+    def total_invested_report(self, group_by: AssetsReportsAggregations, current: bool) -> Self:
         if current:
             qs = self.alias(normalized_total=self.expressions.normalized_current_total)
         else:
             qs = self.alias(normalized_total=self.expressions.normalized_total_invested)
 
-        f = "metadata__sector" if group_by == "sector" else group_by
+        f = "metadata__sector" if group_by == AssetsReportsAggregations.sector else group_by
         qs = (
             qs.values(f)
             .annotate(total=models.Sum("normalized_total"))
@@ -218,7 +218,13 @@ class AssetReadModelQuerySet(models.QuerySet):
             else qs.annotate(**{group_by: models.F(f)}).values(group_by, "total")
         )
 
-    def roi_report(self, opened: bool = True, closed: bool = True) -> Self:
+    def roi_report(
+        self,
+        opened: bool = True,
+        closed: bool = True,
+        group_by: AssetsReportsAggregations = AssetsReportsAggregations.type,
+    ) -> Self:
+        f = "metadata__sector" if group_by == AssetsReportsAggregations.sector else group_by
         qs = (
             self.alias(
                 normalized_roi=models.Case(
@@ -229,7 +235,7 @@ class AssetReadModelQuerySet(models.QuerySet):
                     default=models.F("normalized_closed_roi"),
                 )
             )
-            .values("type")
+            .values(f)
             .annotate(total=models.Sum("normalized_roi"))
             .order_by("-total")
         )
@@ -240,4 +246,8 @@ class AssetReadModelQuerySet(models.QuerySet):
         if not opened and not closed:
             qs = qs.none()
 
-        return qs
+        return (
+            qs
+            if f == group_by
+            else qs.annotate(**{group_by: models.F(f)}).values(group_by, "total")
+        )

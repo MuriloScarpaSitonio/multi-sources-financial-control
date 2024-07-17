@@ -8,6 +8,7 @@ import RadioGroup from "@mui/material/RadioGroup";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { enqueueSnackbar } from "notistack";
 import { Controller } from "react-hook-form";
 import * as yup from "yup";
@@ -24,7 +25,7 @@ import {
   AssetsIncomeTypesMapping,
 } from "../../../consts";
 import { createIncome } from "../../../api";
-import { useInvalidateRoiReportsQueries } from "../../../Reports/RoiReports/hooks";
+import { useInvalidateAssetsReportsQueries } from "../../../Reports/AssetAggregationReports/hooks";
 import {
   useInvalidateAssetsIndicatorsQueries,
   useInvalidateIncomesIndicatorsQueries,
@@ -34,6 +35,8 @@ import {
   DateInput,
   PriceWithCurrencyInput,
 } from "../../../forms/components";
+import { ASSETS_QUERY_KEY } from "../../consts";
+import { Kinds } from "../../../Reports/types";
 
 const schema = yup.object().shape({
   asset: yup
@@ -110,10 +113,11 @@ const NewIncomeForm = ({
     amount: "",
   };
 
+  const queryClient = useQueryClient();
   const { invalidate: invalidateIncomesIndicatorsQueries } =
     useInvalidateIncomesIndicatorsQueries();
-  const { invalidate: invalidateRoiReportsQueries } =
-    useInvalidateRoiReportsQueries();
+  const { invalidate: invalidateAssetsReportsQueries } =
+    useInvalidateAssetsReportsQueries();
   const { invalidate: invalidateAssetsIndicatorsQueries } =
     useInvalidateAssetsIndicatorsQueries();
 
@@ -136,10 +140,13 @@ const NewIncomeForm = ({
         (variables as yup.Asserts<typeof schema>).event_type ===
         AssetIncomeEventTypes.CREDITED
       ) {
-        await invalidateRoiReportsQueries({ opened: true });
+        await invalidateAssetsReportsQueries({ kind: Kinds.ROI, opened: true });
         await invalidateAssetsIndicatorsQueries();
         await invalidateIncomesIndicatorsQueries();
       }
+      await queryClient.invalidateQueries({
+        queryKey: [ASSETS_QUERY_KEY],
+      });
       enqueueSnackbar("Rendimento criado com sucesso", {
         variant: "success",
       });
