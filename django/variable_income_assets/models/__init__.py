@@ -1,4 +1,4 @@
-from .read import AssetReadModel
+from .read import AssetReadModel, AssetsTotalInvestedSnapshot
 from .write import (
     Asset,
     AssetClosedOperation,

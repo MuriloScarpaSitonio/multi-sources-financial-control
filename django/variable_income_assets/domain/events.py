@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from datetime import date
+from decimal import Decimal
 
 
 @dataclass
@@ -8,6 +10,8 @@ class Event:
     # (i.e. to a queue, other system or whatever) but rather execute
     # the logic in the same process/thread
     sync: bool = False
+    operation_date: date | None = None
+    quantity_diff: Decimal | None = None
 
 
 @dataclass

@@ -22,7 +22,9 @@ from ..integrations.clients.abc import AbstractTransactionsClient
 from ..models import Asset
 from ..service_layer.tasks import maybe_create_asset_metadata
 from ..service_layer.unit_of_work import DjangoUnitOfWork
+from .binance.client import BinanceClient
 from .clients import BrApiClient, CoinMarketCapClient, TwelveDataClient
+from .kucoin.client import KuCoinClient
 
 if TYPE_CHECKING:
     from .schemas import TransactionFromIntegration, TransactionPydanticModel
@@ -69,6 +71,41 @@ def fetch_asset_current_price(code: str, asset_type: AssetTypes, currency: Curre
     except Exception:
         # TODO: log error
         return Decimal()
+
+
+async def get_b3_close_prices(codes: list[str], operation_date: date) -> dict[str, float]:
+    async with BrApiClient() as c:
+        # return await c.get_b3_prices(codes=codes)
+        raise NotImplementedError
+
+
+async def get_crypto_close_prices(codes: list[str], currency: Currencies, operation_date: date):
+    if currency == Currencies.dollar:
+        async with KuCoinClient() as c:
+            return await c.get_close_prices(symbols=codes, operation_date=operation_date)
+    async with BinanceClient() as c:
+        return await c.get_close_prices(symbols=codes, operation_date=operation_date)
+
+
+async def get_stocks_usa_close_prices(codes: list[str], operation_date: date):
+    async with TwelveDataClient() as c:
+        return await c.get_close_prices(symbols=codes, operation_date=operation_date)
+
+
+def fetch_asset_close_price(
+    code: str, asset_type: AssetTypes, currency: Currencies, operation_date: date
+) -> Decimal:
+    kwargs = {"codes": (code,), "operation_date": operation_date}
+    if asset_type in (AssetTypes.stock, AssetTypes.fii):
+        coro = get_b3_close_prices
+    elif asset_type == AssetTypes.stock_usa:
+        coro = get_stocks_usa_close_prices
+    elif asset_type == AssetTypes.crypto:
+        coro = get_crypto_close_prices
+        kwargs["currency"] = currency
+
+    result = async_to_sync(coro)(**kwargs)
+    return Decimal(result[code])
 
 
 # TODO: fetch API

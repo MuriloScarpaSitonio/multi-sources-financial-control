@@ -2,9 +2,6 @@ import operator
 from decimal import ROUND_HALF_UP, Decimal
 from random import randrange
 
-from django.db.models import F
-from django.utils import timezone
-
 import pytest
 from rest_framework.status import (
     HTTP_200_OK,
@@ -17,6 +14,8 @@ from rest_framework.status import (
 )
 
 from config.settings.base import BASE_API_URL
+from django.db.models import F
+from django.utils import timezone
 from shared.tests import convert_and_quantitize
 
 from ...choices import AssetObjectives, AssetSectors, AssetTypes, Currencies
@@ -25,7 +24,6 @@ from ..shared import (
     get_avg_price_bute_force,
     get_closed_operations_totals,
     get_current_adjusted_avg_price_brute_forte,
-    get_current_price_metadata,
     get_current_roi_brute_force,
     get_current_total_bought_brute_force,
     get_current_total_invested_brute_force,
@@ -82,7 +80,13 @@ def test__create(client, asset_type, asset_sector, currency, mock_path, mocker):
 
     # WHEN
     response = client.post(
-        URL, data={"type": asset_type, "objective": objective, "currency": currency, "code": code}
+        URL,
+        data={
+            "type": asset_type,
+            "objective": objective,
+            "currency": currency,
+            "code": code,
+        },
     )
 
     # THEN
@@ -247,7 +251,11 @@ def test__update(client, crypto_asset):
 
 def test__update__asset_does_not_belong_to_user(kucoin_client, stock_asset):
     # GIVEN
-    data = {"type": stock_asset.type, "objective": AssetObjectives.growth, "code": stock_asset.code}
+    data = {
+        "type": stock_asset.type,
+        "objective": AssetObjectives.growth,
+        "code": stock_asset.code,
+    }
 
     # WHEN
     response = kucoin_client.put(f"{URL}/{stock_asset.pk}", data=data)
@@ -473,7 +481,7 @@ def test__list__should_include_asset_wo_transactions(
 
 
 @pytest.mark.usefixtures("indicators_data", "sync_assets_read_model")
-def test__indicators(client):
+def test__indicators__wo_snapshot(client):
     # GIVEN
     current_total = sum(
         get_current_total_invested_brute_force(asset) for asset in Asset.objects.opened()
@@ -486,6 +494,28 @@ def test__indicators(client):
 
     # THEN
     assert response.status_code == HTTP_200_OK
+    assert response.json()["total_diff_percentage"] > 0
+    assert response.json()["total"] == convert_and_quantitize(current_total)
+    assert response.json()["ROI_opened"] == convert_and_quantitize(roi_opened)
+    assert response.json()["ROI_closed"] == convert_and_quantitize(roi_closed)
+
+
+@pytest.mark.usefixtures("indicators_data", "sync_assets_read_model")
+def test__indicators__w_snapshot(client, assets_total_invested_snapshot_factory):
+    # GIVEN
+    current_total = sum(
+        get_current_total_invested_brute_force(asset) for asset in Asset.objects.opened()
+    )
+    roi_opened = sum(get_current_roi_brute_force(asset=asset) for asset in Asset.objects.opened())
+    roi_closed = sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.closed())
+    assets_total_invested_snapshot_factory(total=current_total + 1000)
+
+    # WHEN
+    response = client.get(f"{URL}/indicators")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert response.json()["total_diff_percentage"] < 0
     assert response.json()["total"] == convert_and_quantitize(current_total)
     assert response.json()["ROI_opened"] == convert_and_quantitize(roi_opened)
     assert response.json()["ROI_closed"] == convert_and_quantitize(roi_closed)

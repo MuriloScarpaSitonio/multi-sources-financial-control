@@ -13,12 +13,12 @@ from ..domain.models import Asset as AssetDomainModel
 from ..domain.models import PassiveIncomeDTO, TransactionDTO
 
 if TYPE_CHECKING:
-    from datetime import datetime
+    from datetime import date, datetime
 
     from django.db.models import QuerySet
 
     from ..choices import AssetSectors, AssetTypes, Currencies
-    from ..models import AssetMetaData, PassiveIncome, Transaction
+    from ..models import AssetMetaData, AssetsTotalInvestedSnapshot, PassiveIncome, Transaction
 
     Entity = Transaction | PassiveIncome
     EntityDTO = TransactionDTO | PassiveIncomeDTO
@@ -31,13 +31,11 @@ class AbstractEntityRepository(ABC):
 
     @overload
     @abstractmethod
-    def _add(self, dto: TransactionDTO) -> Transaction:
-        ...
+    def _add(self, dto: TransactionDTO) -> Transaction: ...
 
     @overload
     @abstractmethod
-    def _add(self, dto: PassiveIncomeDTO) -> PassiveIncome:
-        ...
+    def _add(self, dto: PassiveIncomeDTO) -> PassiveIncome: ...
 
     @abstractmethod
     def _add(self, dto: EntityDTO) -> Entity:
@@ -48,12 +46,10 @@ class AbstractEntityRepository(ABC):
         self.seen.add(e)
 
     @overload
-    def update(self, dto: TransactionDTO, entity: Transaction) -> None:
-        ...
+    def update(self, dto: TransactionDTO, entity: Transaction) -> None: ...
 
     @overload
-    def update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> None:
-        ...
+    def update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> None: ...
 
     def update(self, dto: EntityDTO, entity: Entity) -> None:
         e = self._update(dto=dto, entity=entity)
@@ -61,13 +57,11 @@ class AbstractEntityRepository(ABC):
 
     @overload
     @abstractmethod
-    def _update(self, dto: TransactionDTO, entity: Transaction) -> Transaction:
-        ...
+    def _update(self, dto: TransactionDTO, entity: Transaction) -> Transaction: ...
 
     @overload
     @abstractmethod
-    def _update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> Transaction:
-        ...
+    def _update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> Transaction: ...
 
     @abstractmethod
     def _update(self, dto: EntityDTO, entity: Entity) -> Entity:
@@ -237,3 +231,24 @@ class DjangoSQLAssetMetaDataRepository(AbstractAssetMetaDataRepository):
             ),
             Decimal(),
         )
+
+
+class AbstractAssetTotalInvestedSnapshotRepository(ABC):
+    @abstractmethod
+    def update_one(self, user_id: int, operation_date: date, total: Decimal) -> Any:
+        raise NotImplementedError
+
+    @abstractmethod
+    def exists(self) -> bool:
+        raise NotImplementedError
+
+
+class DjangoSQLAssetTotalInvestedSnapshotRepository(AbstractAssetTotalInvestedSnapshotRepository):
+    def update_total_from_diff(
+        self, user_id: int, operation_date: date, total_change: Decimal
+    ) -> int:
+        from ..models import AssetsTotalInvestedSnapshot
+
+        return AssetsTotalInvestedSnapshot.objects.filter(
+            user_id=user_id, operation_date=operation_date
+        ).update(total=F("total") + total_change)

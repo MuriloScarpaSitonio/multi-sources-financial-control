@@ -99,7 +99,7 @@ const TopToolBar = ({
           <OutlinedInput
             size="small"
             fullWidth
-            placeholder="Procurar"
+            placeholder="Pesquisar"
             onChange={(e) => {
               setTimeout(() => {
                 setSearch(e.target.value);
@@ -122,7 +122,7 @@ const TopToolBar = ({
                 border: "none",
               },
               "&.MuiOutlinedInput-root .MuiOutlinedInput-input::placeholder": {
-                color: getColor(Colors.neutral200),
+                color: getColor(Colors.neutral0),
               },
             }}
           />

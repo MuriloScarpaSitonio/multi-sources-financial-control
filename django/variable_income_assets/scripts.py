@@ -532,7 +532,7 @@ def update_assets_metadata_current_price() -> None:
 
     from .integrations.handlers import update_prices
 
-    async_to_sync(update_prices)()
+    return async_to_sync(update_prices)()
 
 
 def sync_all_kucoin_transactions() -> None:

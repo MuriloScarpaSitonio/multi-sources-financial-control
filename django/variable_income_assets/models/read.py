@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from decimal import Decimal, DecimalException
 
+from django.conf import settings
 from django.db import models
 from django.utils.functional import cached_property
+
+from shared.models_utils import serializable_today_function
 
 from ..adapters.key_value_store import get_dollar_conversion_rate
 from ..choices import AssetObjectives, AssetTypes, Currencies
@@ -76,3 +79,20 @@ class AssetReadModel(models.Model):
             ) / self.quantity_balance
         except DecimalException:
             return Decimal()
+
+
+class AssetsTotalInvestedSnapshot(models.Model):
+    user = models.ForeignKey(
+        to=settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="asset_total_invested_snapshots",
+    )
+    operation_date = models.DateField(default=serializable_today_function)
+    total = models.DecimalField(decimal_places=4, max_digits=20)
+
+    def __str__(self) -> str:  # pragma: no cover
+        return (
+            f"<AssetsTotalInvestedSnapshot ({self.user_id} | {self.operation_date} | {self.total})>"
+        )
+
+    __repr__ = __str__

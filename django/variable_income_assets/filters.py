@@ -16,7 +16,13 @@ from .choices import (
     AssetStatus,
     AssetTypes,
 )
-from .models import Asset, AssetReadModel, PassiveIncome, Transaction
+from .models import (
+    Asset,
+    AssetReadModel,
+    AssetsTotalInvestedSnapshot,
+    PassiveIncome,
+    Transaction,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from django.db.models import QuerySet
@@ -203,3 +209,14 @@ class PassiveIncomeAssetsAgreggationReportFilterSet(filters.FilterSet):
                 provisioned=self.form.cleaned_data["provisioned"],
             )
         raise filters.utils.translate_validation(error_dict=self.errors)
+
+
+class AssetsTotalInvestedSnapshotFilterSet(filters.FilterSet):
+    start_date = filters.DateFilter(field_name="operation_date", lookup_expr="gte")
+    end_date = filters.DateFilter(
+        field_name="operation_date", lookup_expr="lte", input_formats=["%d/%m/%Y"]
+    )
+
+    class Meta:
+        model = AssetsTotalInvestedSnapshot
+        fields = ()

@@ -7,7 +7,6 @@ from shared.tests import convert_and_quantitize, convert_to_percentage_and_quant
 from ...choices import AssetObjectives, AssetSectors, AssetTypes
 from ...models import Asset, AssetReadModel
 from ...tests.shared import (
-    get_current_roi_brute_force,
     get_current_total_invested_brute_force,
     get_roi_brute_force,
     get_total_invested_brute_force,

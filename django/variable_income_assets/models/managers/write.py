@@ -25,6 +25,8 @@ from ...choices import AssetTypes, PassiveIncomeEventTypes
 from .expressions import GenericQuerySetExpressions
 
 if TYPE_CHECKING:  # pragma: no cover
+    from datetime import date
+
     from django.db.models.expressions import CombinedExpression
 
 
@@ -193,6 +195,14 @@ class AssetQuerySet(QuerySet):
             transactions_balance=self.expressions.get_quantity_balance(extra_filters),
             avg_price=self.expressions.get_avg_price(extra_filters),
             total_invested=F("normalized_avg_price") * F("transactions_balance"),
+        )
+
+    def filter_opened_after(self, operation_date: date) -> Self:
+        extra_filters = Q(transactions__operation_date__gte=operation_date)
+        return (
+            self.filter(extra_filters)
+            .annotate(transactions_balance=self.expressions.get_quantity_balance(extra_filters))
+            .filter(transactions_balance__gt=0)
         )
 
     def annotate_credited_incomes_at_given_year(

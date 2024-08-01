@@ -15,6 +15,7 @@ from .models import (
     AssetClosedOperation,
     AssetMetaData,
     AssetReadModel,
+    AssetsTotalInvestedSnapshot,
     PassiveIncome,
     Transaction,
 )
@@ -97,3 +98,8 @@ class AssetReadModelAdmin(admin.ModelAdmin):
 class AssetClosedOperationAdmin(admin.ModelAdmin):
     search_fields = ("asset__code",)
     list_filter = ("asset__type", "asset__code")
+
+
+@admin.register(AssetsTotalInvestedSnapshot)
+class AssetsTotalInvestedSnapshotAdmin(admin.ModelAdmin):
+    list_filter = ("operation_date",)

@@ -25,7 +25,7 @@ import {
   AssetsIncomeTypesMapping,
 } from "../../../consts";
 import { createIncome } from "../../../api";
-import { useInvalidateAssetsReportsQueries } from "../../../Reports/AssetAggregationReports/hooks";
+import { useInvalidateAssetsReportsQueries } from "../../../Reports/hooks";
 import {
   useInvalidateAssetsIndicatorsQueries,
   useInvalidateIncomesIndicatorsQueries,

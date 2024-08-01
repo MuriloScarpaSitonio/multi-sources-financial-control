@@ -1,6 +1,9 @@
+from datetime import date
 from uuid import uuid4
 
 from django.utils import timezone
+
+from dateutil.relativedelta import relativedelta
 
 from tasks.choices import TaskStates
 from tasks.models import TaskHistory
@@ -11,6 +14,7 @@ from ..models import Transaction
 from .tasks import (
     create_asset_closed_operation,
     maybe_create_asset_metadata,
+    update_total_invested_snapshot_from_diff,
     upsert_asset_read_model,
 )
 from .unit_of_work import AbstractUnitOfWork
@@ -22,7 +26,13 @@ def create_transactions(cmd: commands.CreateTransactions, uow: AbstractUnitOfWor
             uow.assets.transactions.add(dto=dto)
 
         if cmd.dispatch_event:
-            cmd.asset.events.append(events.TransactionsCreated(asset_pk=uow.asset_pk))
+            cmd.asset.events.append(
+                events.TransactionsCreated(
+                    asset_pk=uow.asset_pk,
+                    operation_date=dto.operation_date,
+                    quantity_diff=dto.quantity,
+                )
+            )
 
         uow.assets.seen.add(cmd.asset)
         uow.commit()
@@ -30,8 +40,15 @@ def create_transactions(cmd: commands.CreateTransactions, uow: AbstractUnitOfWor
 
 def update_transaction(cmd: commands.UpdateTransaction, uow: AbstractUnitOfWork) -> Transaction:
     with uow:
-        uow.assets.transactions.update(dto=cmd.asset._transactions[0], entity=cmd.transaction)
-        cmd.asset.events.append(events.TransactionUpdated(asset_pk=uow.asset_pk))
+        dto = cmd.asset._transactions[0]
+        uow.assets.transactions.update(dto=dto, entity=cmd.transaction)
+        cmd.asset.events.append(
+            events.TransactionUpdated(
+                asset_pk=uow.asset_pk,
+                operation_date=dto.operation_date,
+                quantity_diff=dto.quantity - cmd.transaction.quantity,
+            )
+        )
         uow.assets.seen.add(cmd.asset)
         uow.commit()
     return cmd.transaction
@@ -40,7 +57,13 @@ def update_transaction(cmd: commands.UpdateTransaction, uow: AbstractUnitOfWork)
 def delete_transaction(cmd: commands.DeleteTransaction, uow: AbstractUnitOfWork) -> None:
     with uow:
         uow.assets.transactions.delete(entity=cmd.transaction)
-        cmd.asset.events.append(events.TransactionDeleted(asset_pk=uow.asset_pk))
+        cmd.asset.events.append(
+            events.TransactionDeleted(
+                asset_pk=uow.asset_pk,
+                operation_date=cmd.transaction.operation_date,
+                quantity_diff=-cmd.transaction.quantity,
+            )
+        )
         uow.assets.seen.add(cmd.asset)
         uow.commit()
 
@@ -118,3 +141,20 @@ def create_asset_operation_closed_record(
     event: events.AssetOperationClosed, _: AbstractUnitOfWork
 ) -> None:
     create_asset_closed_operation(asset_pk=event.asset_pk)
+
+
+# TODO: convert to async
+def maybe_update_snapshot(
+    event: events.TransactionsCreated | events.TransactionUpdated | events.TransactionDeleted,
+    _: AbstractUnitOfWork,
+):
+
+    first_day_of_month = timezone.localdate() - relativedelta(day=1)
+    if event.operation_date.month != first_day_of_month.month:
+        if isinstance(event, events.TransactionUpdated) and not event.quantity_diff:
+            return
+        update_total_invested_snapshot_from_diff(
+            asset_pk=event.asset_pk,
+            snapshot_operation_date=date(event.operation_date.year, event.operation_date.month, 1),
+            quantity_diff=event.quantity_diff,
+        )

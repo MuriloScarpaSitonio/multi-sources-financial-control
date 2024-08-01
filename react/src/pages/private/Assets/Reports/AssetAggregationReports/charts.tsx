@@ -26,7 +26,7 @@ import { Colors, getColor } from "../../../../../design-system";
 import { AssetOptionsProperties } from "../../consts";
 import { GroupBy } from "../types";
 
-const CHART_WIDTH = 1200;
+const CHART_WIDTH = 700;
 const CHART_HEIGHT = 300;
 const BAR_CHART_SIZE = 40;
 const ADEQUATE_NUMBER_OF_BARS = 5;

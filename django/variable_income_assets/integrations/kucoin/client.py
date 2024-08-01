@@ -1,13 +1,21 @@
+from __future__ import annotations
+
+import asyncio
 from base64 import b64encode
+from datetime import timedelta
+from decimal import Decimal
 from hashlib import sha256
 from hmac import new as hmac_new
-from time import time
-from typing import TypedDict
+from time import mktime, time
+from typing import TYPE_CHECKING, TypedDict
 from urllib.parse import urlencode
 
 from aiohttp import ClientResponse
 
 from ..clients.abc import AbstractTransactionsClient
+
+if TYPE_CHECKING:
+    from datetime import date
 
 # region: types
 
@@ -103,3 +111,46 @@ class KuCoinClient(AbstractTransactionsClient):
         response = await self._get(path="orders", params={"tradeType": trade_type, "pageSize": 500})
         result = await response.json()
         return result["data"]["items"]
+
+    async def get_close_prices(
+        self, symbols: list[str], operation_date: date
+    ) -> dict[str, Decimal]:
+        if not symbols:
+            return
+
+        start_time = mktime(operation_date.timetuple())
+        end_time = mktime((operation_date + timedelta(days=1)).timetuple())
+
+        async def _get(symbol):
+            """
+            [
+                [
+                    "1545904980", //Start time of the candle cycle
+                    "0.058", //opening price
+                    "0.049", //closing price
+                    "0.058", //highest price
+                    "0.049", //lowest price
+                    "0.018", //Transaction volume
+                    "0.000945" //Transaction amount
+                ],
+            ]
+            """
+            response = await self._get(
+                path="klines",
+                params={
+                    "symbol": symbol,
+                    "type": "1day",
+                    "startAt": start_time,
+                    "endAt": end_time,
+                },
+            )
+            response.raise_for_status()
+            return await response.json()
+
+        tasks = asyncio.gather(*(_get(symbol) for symbol in symbols), return_exceptions=True)
+
+        return {
+            symbols[idx]: Decimal(result[0][2])  # order is guaranteed
+            for idx, result in await enumerate(tasks)
+            if not isinstance(result, Exception)
+        }

@@ -13,6 +13,12 @@ class CustomUserManager(UserManager):
             is_personal_finances_module_enabled=True, subscription_status=SubscriptionStatus.ACTIVE
         )
 
+    def filter_investments_module_active(self):
+        return self.filter(
+            is_investments_module_enabled=True,
+            subscription_status__in=(SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING),
+        )
+
     def filter_investments_integrations_active(self) -> Self:
         return self.filter(
             is_investments_integrations_module_enabled=True,

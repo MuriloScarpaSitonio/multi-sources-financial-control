@@ -6,7 +6,7 @@ from shared.routers import NestedDefaultRouter
 
 from .integrations import qstash_views
 from .views import (
-    AssetIncomesiewSet,
+    AssetIncomesViewSet,
     AssetTransactionViewSet,
     AssetViewSet,
     PassiveIncomeViewSet,
@@ -26,7 +26,7 @@ assets_incomes_router = NestedDefaultRouter(
     parent_router=assets_router, trailing_slash=False, parent_prefix="assets"
 )
 assets_incomes_router.register(
-    prefix="incomes", viewset=AssetIncomesiewSet, basename="assets_incomes"
+    prefix="incomes", viewset=AssetIncomesViewSet, basename="assets_incomes"
 )
 
 transactions_router = DefaultRouter(trailing_slash=False)
@@ -36,6 +36,7 @@ transactions_router.register(
 
 incomes_router = DefaultRouter(trailing_slash=False)
 incomes_router.register(prefix="incomes", viewset=PassiveIncomeViewSet, basename="incomes")
+
 
 urlpatterns = (
     assets_router.urls

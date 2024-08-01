@@ -21,6 +21,7 @@ class Command(BaseCommand):  # pragma: no cover
 
     def handle(self, **options):
         for asset_pk in Asset.objects.filter(
-            user_id__in=options["user_ids"] or UserModel.objects.values_list("pk", flat=True)
+            user_id__in=options["user_ids"]
+            or UserModel.objects.filter_investments_module_active().values_list("pk", flat=True)
         ).values_list("pk", flat=True):
             upsert_asset_read_model(asset_id=asset_pk)

@@ -13,7 +13,13 @@ from .domain import commands
 from .domain.exceptions import ValidationError as DomainValidationError
 from .domain.models import Asset as AssetDomainModel
 from .domain.models import TransactionDTO
-from .models import Asset, AssetReadModel, PassiveIncome, Transaction
+from .models import (
+    Asset,
+    AssetReadModel,
+    AssetsTotalInvestedSnapshot,
+    PassiveIncome,
+    Transaction,
+)
 from .service_layer import messagebus
 from .service_layer.unit_of_work import DjangoUnitOfWork
 
@@ -41,7 +47,7 @@ class MinimalAssetSerializer(serializers.ModelSerializer):
 class TransactionSimulateSerializer(serializers.Serializer):
     price = serializers.DecimalField(decimal_places=8, max_digits=15)
     quantity = serializers.DecimalField(decimal_places=8, max_digits=15, required=False)
-    total = serializers.DecimalField(decimal_places=8, max_digits=15, required=False)
+    total = serializers.DecimalField(decimal_places=8, max_digits=20, required=False)
 
     def validate(self, attrs):
         if attrs.get("quantity") is None and attrs.get("total") is None:
@@ -99,7 +105,7 @@ class TransactionListSerializer(TransactionSerializer):
 
     def update(self, instance: Transaction, validated_data: dict) -> Transaction:
         try:
-            validated_data.pop("user")
+            user = validated_data.pop("user")
             validated_data.pop("asset_pk", None)
 
             asset_domain: AssetDomainModel = (
@@ -342,25 +348,28 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
 
 class AssetRoidIndicatorsSerializer(serializers.Serializer):
     total = serializers.DecimalField(
+        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+    )
+    total_diff_percentage = serializers.DecimalField(
         max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
     ROI_opened = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
     ROI_closed = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
 
 
 class PassiveIncomesIndicatorsSerializer(serializers.Serializer):
     avg = serializers.DecimalField(
-        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
     current_credited = serializers.DecimalField(
-        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
     provisioned_future = serializers.DecimalField(
-        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
     diff_percentage = serializers.DecimalField(
         max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
@@ -369,13 +378,13 @@ class PassiveIncomesIndicatorsSerializer(serializers.Serializer):
 
 class TransactionsIndicatorsSerializer(serializers.Serializer):
     avg = serializers.DecimalField(
-        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
     current_bought = serializers.DecimalField(
-        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
     current_sold = serializers.DecimalField(
-        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
     diff_percentage = serializers.DecimalField(
         max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
@@ -385,25 +394,25 @@ class TransactionsIndicatorsSerializer(serializers.Serializer):
 class _TransactionHistoricSerializer(serializers.Serializer):
     month = serializers.DateField(format="%d/%m/%Y")
     total_bought = serializers.DecimalField(
-        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
     total_sold = serializers.DecimalField(
-        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
     diff = serializers.DecimalField(
-        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
 
 
 class TransactionHistoricSerializer(serializers.Serializer):
     historic = _TransactionHistoricSerializer(many=True)
     avg = serializers.DecimalField(
-        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
 
 
 class _AssetReportSerializer(serializers.Serializer):
-    total = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
+    total = serializers.DecimalField(max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP)
 
 
 class AssetTypeReportSerializer(_AssetReportSerializer):
@@ -419,17 +428,24 @@ class AssetTotalInvestedByObjectiveReportSerializer(_AssetReportSerializer):
 
 
 class _PassiveIncomeHistoricSerializer(serializers.Serializer):
-    total = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
+    total = serializers.DecimalField(max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP)
     month = serializers.DateField(format="%d/%m/%Y")
 
 
 class PassiveIncomeHistoricSerializer(serializers.Serializer):
     historic = _PassiveIncomeHistoricSerializer(many=True)
     avg = serializers.DecimalField(
-        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
 
 
 class PassiveIncomeAssetsAggregationSerializer(serializers.Serializer):
     code = serializers.CharField()
-    total = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
+    total = serializers.DecimalField(max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP)
+
+
+class AssetsTotalInvestedSnapshotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AssetsTotalInvestedSnapshot
+        fields = ("operation_date", "total")
+        fields = ("operation_date", "total")

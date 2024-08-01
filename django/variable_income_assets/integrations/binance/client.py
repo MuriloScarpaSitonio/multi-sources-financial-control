@@ -1,7 +1,12 @@
+from __future__ import annotations
+
 import asyncio
+from datetime import timedelta
+from decimal import Decimal
 from hashlib import sha256
 from hmac import new as hmac_new
-from time import time
+from time import mktime, time
+from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 from aiohttp import ClientResponse
@@ -16,6 +21,9 @@ from .types import (
     SymbolOrder,
     SymbolOrderResponse,
 )
+
+if TYPE_CHECKING:
+    from datetime import date
 
 
 class BinanceClient(AbstractTransactionsClient):
@@ -32,7 +40,7 @@ class BinanceClient(AbstractTransactionsClient):
             "timeout": str(self._session.timeout.total),
         }
 
-    async def __aenter__(self) -> "BinanceClient":
+    async def __aenter__(self) -> BinanceClient:
         return self
 
     async def __aexit__(self, *_, **__) -> None:
@@ -46,10 +54,8 @@ class BinanceClient(AbstractTransactionsClient):
     @classmethod
     def _create_url(cls, path: str, is_margin_api: bool) -> str:
         api_version = cls.API_MARGIN_VERSION if is_margin_api else cls.API_VERSION
-        return "{}/{}".format(
-            cls.API_URL.format(api_version),
-            cls._create_path(path=path, api_version=api_version, is_margin_api=is_margin_api),
-        )
+        path = cls._create_path(path=path, api_version=api_version, is_margin_api=is_margin_api)
+        return f"{cls.API_URL.format(api_version)}/{path}"
 
     def _generate_signature(self, params: dict[str, str]) -> str:
         return hmac_new(
@@ -163,3 +169,51 @@ class BinanceClient(AbstractTransactionsClient):
             if not isinstance(result, Exception)
             for order in result
         ]
+
+    async def get_close_prices(
+        self, symbols: list[str], operation_date: date
+    ) -> dict[str, Decimal]:
+        if not symbols:
+            return
+
+        start_time = mktime(operation_date.timetuple()) * 1000
+        end_time = mktime((operation_date + timedelta(days=1)).timetuple()) * 1000
+
+        async def _get(symbol):
+            """
+            [
+                [
+                    1499040000000,      // Kline open time
+                    "0.01634790",       // Open price
+                    "0.80000000",       // High price
+                    "0.01575800",       // Low price
+                    "0.01577100",       // Close price
+                    "148976.11427815",  // Volume
+                    1499644799999,      // Kline Close time
+                    "2434.19055334",    // Quote asset volume
+                    308,                // Number of trades
+                    "1756.87402397",    // Taker buy base asset volume
+                    "28.46694368",      // Taker buy quote asset volume
+                    "0"                 // Unused field, ignore.
+                ]
+            ]
+            """
+            response = await self._get(
+                path="klines",
+                params={
+                    "symbol": symbol,
+                    "interval": "1d",
+                    "startTime": start_time,
+                    "endTime": end_time,
+                },
+            )
+            response.raise_for_status()
+            return await response.json()
+
+        tasks = asyncio.gather(*(_get(symbol) for symbol in symbols), return_exceptions=True)
+
+        return {
+            symbols[idx]: Decimal(result[0][4])  # order is guaranteed
+            for idx, result in await enumerate(tasks)
+            if not isinstance(result, Exception)
+        }

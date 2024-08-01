@@ -19,6 +19,7 @@ export const getIndicators = async (): Promise<{
   ROI_closed: number;
   ROI_opened: number;
   total: number;
+  total_diff_percentage: number;
 }> => (await apiProvider.get(`${RESOURCE}/indicators`)).data;
 
 export const getReports = async (params: {
@@ -146,3 +147,16 @@ export const createIncome = async (data: {
 
 export const deleteAsset = async (id: number) =>
   (await apiProvider.Delete(`${RESOURCE}/${id}`)).data;
+
+export const getTotalInvestedHistory = async (params?: {
+  start_date?: Date;
+  end_date?: Date;
+}): Promise<{ total: number; operation_date: string }[]> =>
+  (
+    await apiProvider.get(`${RESOURCE}/total_invested_history`, {
+      params: {
+        start_date: params?.start_date?.toLocaleDateString("pt-br"),
+        end_date: params?.end_date?.toLocaleDateString("pt-br"),
+      },
+    })
+  ).data;

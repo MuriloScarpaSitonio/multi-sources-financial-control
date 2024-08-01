@@ -31,7 +31,7 @@ import {
 } from "../../../consts";
 import { createAsset, createTransaction } from "../../../api";
 import { getCurrencyFromType } from "../utils";
-import { useInvalidateAssetsReportsQueries } from "../../../Reports/AssetAggregationReports/hooks";
+import { useInvalidateAssetsReportsQueries } from "../../../Reports/hooks";
 import { useInvalidateAssetsIndicatorsQueries } from "../../../Indicators/hooks";
 import { useInvalidateAssetsMinimalDataQueries } from "../../../forms/hooks";
 import {

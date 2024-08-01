@@ -27,7 +27,13 @@ from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
 from . import choices, filters, serializers
 from .adapters.key_value_store import get_dollar_conversion_rate
 from .domain import events
-from .models import Asset, AssetReadModel, PassiveIncome, Transaction
+from .models import (
+    Asset,
+    AssetReadModel,
+    AssetsTotalInvestedSnapshot,
+    PassiveIncome,
+    Transaction,
+)
 from .models.managers import (
     AssetQuerySet,
     AssetReadModelQuerySet,
@@ -118,7 +124,20 @@ class AssetViewSet(
 
     @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:
-        serializer = serializers.AssetRoidIndicatorsSerializer(self.get_queryset().indicators())
+        qs = self.get_queryset().indicators()
+        last_snapshot = dict(
+            AssetsTotalInvestedSnapshot.objects.filter(user_id=self.request.user.id)
+            .order_by("-operation_date")
+            .values("total")
+            .first()
+            or {}
+        )
+        total_diff_percentage = (
+            ((qs["total"]) / last_snapshot.get("total", 1)) - Decimal("1.0")
+        ) * Decimal("100.0")
+        serializer = serializers.AssetRoidIndicatorsSerializer(
+            {**qs, "total_diff_percentage": total_diff_percentage}
+        )
         return Response(serializer.data, status=HTTP_200_OK)
 
     @staticmethod
@@ -126,7 +145,7 @@ class AssetViewSet(
         module = __import__("variable_income_assets.serializers", fromlist=[choice.serializer_name])
         return getattr(module, choice.serializer_name)
 
-    def _get_report_data(self, filterset: filters.AssetTotalInvestedReportFilterSet) -> ReturnList:
+    def _get_report_data(self, filterset: FilterSet) -> ReturnList:
         qs = filterset.qs
         choice = choices.AssetsReportsAggregations.get_choice(value=filterset.form.data["group_by"])
         Serializer = self._get_report_serializer_class(choice=choice)
@@ -137,6 +156,17 @@ class AssetViewSet(
     def reports(self, request: Request) -> Response:
         filterset = filters.AssetReportsFilterSet(data=request.GET, queryset=self.get_queryset())
         return Response(self._get_report_data(filterset=filterset), status=HTTP_200_OK)
+
+    @action(methods=("GET",), detail=False)
+    def total_invested_history(self, request: Request) -> Response:
+        filterset = filters.AssetsTotalInvestedSnapshotFilterSet(
+            data=request.GET,
+            queryset=AssetsTotalInvestedSnapshot.objects.filter(user_id=request.user.id).order_by(
+                "operation_date"
+            ),
+        )
+        serializer = serializers.AssetsTotalInvestedSnapshotSerializer(filterset.qs, many=True)
+        return Response(serializer.data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
     def minimal_data(self, request: Request) -> Response:
@@ -334,7 +364,7 @@ class AssetTransactionViewSet(GenericViewSet, ListModelMixin):
         return Response({"old": old, "new": new}, status=HTTP_200_OK)
 
 
-class AssetIncomesiewSet(GenericViewSet, ListModelMixin):
+class AssetIncomesViewSet(GenericViewSet, ListModelMixin):
     permission_classes = (SubscriptionEndedPermission, InvestmentsModulePermission)
     serializer_class = serializers.PassiveIncomeSerializer
     filterset_class = filters.PassiveIncomeFilterSet

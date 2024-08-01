@@ -25,7 +25,7 @@ import {
   AssetObjectives,
   AssetTypeAutoComplete,
 } from "../../forms/components";
-import { useInvalidateAssetsReportsQueries } from "../../Reports/AssetAggregationReports/hooks";
+import { useInvalidateAssetsReportsQueries } from "../../Reports/hooks";
 import { ASSETS_QUERY_KEY } from "../consts";
 import DeleteAssetDialog from "./DeleteAssetDialog";
 import { GroupBy, Kinds } from "../../Reports/types";

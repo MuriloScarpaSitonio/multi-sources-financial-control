@@ -10,7 +10,7 @@ def get_dollar_conversion_rate() -> Decimal:
     return value if value is not None else Decimal("5.0")
 
 
-def update_dollar_conversion_rate(value: Decimal | None = None) -> None:
+def update_dollar_conversion_rate(value: Decimal | None = None) -> Decimal:
     from ..integrations.helpers import fetch_dollar_to_real_conversion_value
 
     if value is None:
@@ -21,3 +21,5 @@ def update_dollar_conversion_rate(value: Decimal | None = None) -> None:
             value = Decimal("5.0")
 
     key_value_backend.set(key=DOLLAR_CONVERSION_RATE_KEY, value=value)
+
+    return value

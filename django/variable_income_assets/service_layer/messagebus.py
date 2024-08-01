@@ -19,13 +19,18 @@ MessageCallable = Callable[[Any, AbstractUnitOfWork], Any]
 EVENT_HANDLERS: dict[type[events.Event], list[MessageCallable]] = {
     events.TransactionsCreated: [
         handlers.upsert_read_model,
+        # handlers.maybe_update_snapshot,
         # handlers.check_monthly_selling_transaction_threshold,
     ],
     events.TransactionUpdated: [
         handlers.upsert_read_model,
+        # handlers.maybe_update_snapshot,
         # handlers.check_monthly_selling_transaction_threshold,
     ],
-    events.TransactionDeleted: [handlers.upsert_read_model],
+    events.TransactionDeleted: [
+        handlers.upsert_read_model,
+        # handlers.maybe_update_snapshot,
+    ],
     events.PassiveIncomeCreated: [handlers.upsert_read_model],
     events.PassiveIncomeUpdated: [handlers.upsert_read_model],
     events.PassiveIncomeDeleted: [handlers.upsert_read_model],

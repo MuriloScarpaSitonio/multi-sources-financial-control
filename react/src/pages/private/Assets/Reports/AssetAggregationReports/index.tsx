@@ -105,7 +105,7 @@ const RoiContent = ({
               disabled={!closed}
             />
           }
-          label="Inclur ativos abertos"
+          label="Ativos abertos"
         />
         <FormControlLabel
           control={
@@ -115,7 +115,7 @@ const RoiContent = ({
               disabled={!opened}
             />
           }
-          label="Incluir ativos fechados"
+          label="Ativos fechados"
         />
       </Stack>
       <HorizontalPositiveNegativeBarChart data={data} groupBy={groupBy} />
@@ -226,8 +226,8 @@ const AssetAggregationReports = () => {
         centered
         sx={{
           backgroundColor: getColor(Colors.neutral700),
-          borderTopLeftRadius: 6, // 24px
-          borderTopRightRadius: 6,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
         }}
         TabIndicatorProps={{
           sx: { background: getColor(Colors.neutral0), height: "1.5px" },

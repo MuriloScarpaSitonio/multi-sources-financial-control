@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+from functools import partial
 from random import choice, randint
 from time import time
 
@@ -40,6 +41,7 @@ from ..models import (
     AssetClosedOperation,
     AssetMetaData,
     AssetReadModel,
+    AssetsTotalInvestedSnapshot,
     PassiveIncome,
     Transaction,
 )
@@ -79,6 +81,13 @@ class PassiveIncomeFactory(DjangoModelFactory):
 
     class Meta:
         model = PassiveIncome
+
+
+class AssetsTotalInvestedSnapshotFactory(DjangoModelFactory):
+    operation_date = timezone.localdate()
+
+    class Meta:
+        model = AssetsTotalInvestedSnapshot
 
 
 @pytest.fixture(autouse=True)
@@ -832,14 +841,12 @@ def loss_asset_previously_closed_w_incomes_and_profit_loss(
 
 # 24 ativo fechado, lucro
 @pytest.fixture
-def profit_asset_closed(stock_asset_closed_operation, stock_asset_metadata):
-    ...
+def profit_asset_closed(stock_asset_closed_operation, stock_asset_metadata): ...
 
 
 # 6.dollar - ativo aberto, apenas transações de compra, lucro
 @pytest.fixture
-def profit_asset_usa_bought_transactions(stock_usa_asset_metadata, stock_usa_transaction):
-    ...
+def profit_asset_usa_bought_transactions(stock_usa_asset_metadata, stock_usa_transaction): ...
 
 
 # 7.dollar - ativo aberto, apenas transações de compra, prejuízo
@@ -853,8 +860,7 @@ def loss_asset_usa_bought_transactions(stock_usa_asset_metadata, stock_usa_trans
 @pytest.fixture
 def loss_asset_usa_bought_transactions_incomes_profit(
     loss_asset_usa_bought_transactions, another_income
-):
-    ...
+): ...
 
 
 # 10.dollar - ativo aberto, apenas transações de compra, prejuízo + incomes = prejuízo
@@ -894,8 +900,7 @@ def loss_asset_usa_both_transactions(stock_usa_asset, loss_asset_usa_bought_tran
 @pytest.fixture
 def loss_asset_usa_both_transactions_incomes_profit(
     loss_asset_usa_both_transactions, another_income
-):
-    ...
+): ...
 
 
 # 15.dollar - ativo aberto, transações de compra e venda, prejuízo + incomes = prejuízo
@@ -1097,3 +1102,8 @@ def irpf_transactions_data(stock_usa_asset):
             current_currency_conversion_rate=4.99,
             operation_date=today,
         )
+
+
+@pytest.fixture
+def assets_total_invested_snapshot_factory(user):
+    return partial(AssetsTotalInvestedSnapshotFactory, user=user)

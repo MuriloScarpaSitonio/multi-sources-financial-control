@@ -180,6 +180,11 @@ class AssetReadModelQuerySet(models.QuerySet):
             .annotate_roi_percentage()
         )
 
+    def aggregate_normalized_current_total(self) -> dict[str, Decimal]:
+        return self.annotate_normalized_current_total().aggregate(
+            total=models.Sum("normalized_current_total", default=Decimal())
+        )
+
     def indicators(self) -> dict[str, Decimal]:
         return (
             self.annotate_normalized_current_total()

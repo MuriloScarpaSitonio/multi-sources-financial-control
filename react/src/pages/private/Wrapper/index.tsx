@@ -197,6 +197,7 @@ const Wrapper = ({ children }: { children: ReactNodeConstructor }) => {
             flex: 1,
             mt: 11, // navbar height + 3
             ml: 27, // sidebar width + 4
+            mr: 8,
             // height: "100%",
           }}
         >

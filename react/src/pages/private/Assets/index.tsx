@@ -9,7 +9,7 @@ const Assets = () => (
   <Stack spacing={2}>
     <Indicators />
     <Reports />
-    <Grid container spacing={4} maxWidth="xl">
+    <Grid container spacing={4}>
       <Grid item xs={12}>
         <Table />
       </Grid>

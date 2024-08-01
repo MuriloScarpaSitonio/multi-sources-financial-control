@@ -57,7 +57,6 @@ async def _fetch_prices(
     for i, result in enumerate(results):  # order is guaranteed
         if isinstance(result, Exception):
             # TODO: log error
-            print("here2")
             print(repr(result))
             continue
         prices.append({"prices": result, **task_metadata[i]})

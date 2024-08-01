@@ -59,15 +59,21 @@ const Indicators = () => {
   const { data, isPending, isError } = useAssetsIndicators();
 
   return (
-    <Grid container spacing={4} maxWidth="xl">
+    <Grid container spacing={4}>
       <Grid item xs={4}>
         <Indicator
           title="Patrimônio"
           value={data?.total}
           secondaryIndicator={
             <PercentageChangeSecondaryIndicator
-              value={3.5}
-              variant="success"
+              value={data?.total_diff_percentage}
+              variant={
+                // this is essentially the diff between total and the last entry
+                // of useAssetsTotalInvestedHistory
+                // TODO: consider calculating this in the FE to avoid hitting
+                // the DB twice
+                data && data.total_diff_percentage > 0 ? "success" : "danger"
+              }
               isLoading={isPending}
             />
           }

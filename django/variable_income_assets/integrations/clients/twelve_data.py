@@ -1,6 +1,15 @@
+from __future__ import annotations
+
+import asyncio
+from decimal import Decimal
+from typing import TYPE_CHECKING
+
 from django.conf import settings
 
 from aiohttp import ClientResponse, ClientSession, ClientTimeout, TCPConnector
+
+if TYPE_CHECKING:
+    from datetime import date
 
 
 class TwelveDataClient:
@@ -12,7 +21,7 @@ class TwelveDataClient:
             connector=TCPConnector(ssl=False, force_close=True),
         )
 
-    async def __aenter__(self) -> "TwelveDataClient":
+    async def __aenter__(self) -> TwelveDataClient:
         return self
 
     async def __aexit__(self, *_, **__) -> None:
@@ -40,3 +49,35 @@ class TwelveDataClient:
             if len(result) == 1
             else {k: v["price"] for k, v in result.items()}
         )
+
+    async def get_close_prices(
+        self, symbols: list[str], operation_date: date
+    ) -> dict[str, Decimal]:
+        if not symbols:
+            return
+
+        async def _get(symbol):
+            """
+            {
+                "symbol": "AAPL",
+                "exchange": "NASDAQ",
+                "mic_code": "XNAS",
+                "currency": "USD",
+                "datetime": "2021-09-16",
+                "close": "148.79"
+            }
+            """
+            response = await self._get(
+                path="eod",
+                params={"symbol": symbol, "date": operation_date.isoformat()},
+            )
+            response.raise_for_status()
+            return await response.json()
+
+        tasks = asyncio.gather(*(_get(symbol) for symbol in symbols), return_exceptions=True)
+
+        return {
+            symbols[idx]: Decimal(result["close"])  # order is guaranteed
+            for idx, result in await enumerate(tasks)
+            if not isinstance(result, Exception)
+        }
