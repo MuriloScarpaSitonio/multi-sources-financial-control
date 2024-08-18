@@ -35,7 +35,9 @@ export const FONT_WEIGHTS = {
 
 export const FONT_SIZES = {
   [enums.FontSizes.EXTRA_SMALL]: 12,
+  [enums.FontSizes.SEMI_SMALL]: 14,
   [enums.FontSizes.SMALL]: 16,
+  [enums.FontSizes.SEMI_REGULAR]: 18,
   [enums.FontSizes.REGULAR]: 22,
   [enums.FontSizes.MEDIUM]: 24,
   [enums.FontSizes.SEMI_LARGE]: 32,

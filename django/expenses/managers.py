@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Literal, Self
 
 from django.db.models import CharField, Count, DecimalField, Q, QuerySet, Sum
 from django.db.models.functions import Cast, Coalesce, Concat, TruncMonth
@@ -45,6 +45,9 @@ class _PersonalFinancialQuerySet(QuerySet):
     def current_month_and_past(self) -> Self:
         return self.filter(self.filters.current_month_and_past)
 
+    def current_month(self) -> Self:
+        return self.filter(self.filters.current)
+
     def future(self) -> Self:
         return self.filter(self.filters.future)
 
@@ -64,12 +67,21 @@ class _PersonalFinancialQuerySet(QuerySet):
 
 
 class ExpenseQueryset(_PersonalFinancialQuerySet):
-    def report(self, kind: str) -> Self:
-        """
-        Args:
-            of (str): The type of report. For valid choices check ExpenseReportType.choices
-        """
-        choice = ExpenseReportType.get_choice(value=kind)
+    def percentage_report(
+        self,
+        group_by: str,
+        period: Literal["since_a_year_ago", "current_month", "current_month_and_past"],
+    ) -> Self:
+        choice = ExpenseReportType.get_choice(value=group_by)
+        return (
+            self.values(choice.field_name)
+            .annotate(total=Sum("value", filter=getattr(self.filters, period), default=Decimal()))
+            .filter(total__gt=0)
+            .order_by("-total")
+        )
+
+    def avg_comparasion_report(self, group_by: str) -> Self:
+        choice = ExpenseReportType.get_choice(value=group_by)
         return (
             self.values(choice.field_name)
             .annotate(

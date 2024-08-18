@@ -19,7 +19,7 @@ from rest_framework.status import (
 )
 
 from config.settings.base import BASE_API_URL
-from shared.tests import convert_and_quantitize
+from shared.tests import convert_and_quantitize, convert_to_percentage_and_quantitize
 
 from ...choices import ExpenseCategory, ExpenseReportType, ExpenseSource
 from ...models import Expense
@@ -660,138 +660,6 @@ def test__delete__installments(client, expenses_w_installments, bank_account):
     assert previous_bank_account_amount + incremented_value == bank_account.amount
 
     assert not Expense.objects.exists()
-
-
-def test__report__wo_kind(client):
-    # GIVEN
-
-    # WHEN
-    response = client.get(f"{URL}/report")
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"kind": ["This field is required."]}
-
-
-def test__report__invalid_kind(client):
-    # GIVEN
-
-    # WHEN
-    response = client.get(f"{URL}/report?kind=wrong")
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {
-        "kind": ["Select a valid choice. wrong is not one of the available choices."]
-    }
-
-
-@pytest.mark.usefixtures("expenses_report_data")
-@pytest.mark.parametrize(
-    "kind, field_name",
-    [(value, ExpenseReportType.get_choice(value).field_name) for value in ExpenseReportType.values],
-)
-def test__reports(client, kind, field_name):
-    # GIVEN
-    choices_class_map = {"category": ExpenseCategory, "source": ExpenseSource}
-    choices_class = choices_class_map.get(field_name)
-    qs = Expense.objects.since_a_year_ago()
-    today = timezone.localdate()
-    current_month = {}
-    since_a_year_ago = {}
-    for e in qs:
-        f = (
-            choices_class.get_choice(getattr(e, field_name)).label
-            if choices_class is not None
-            else field_name
-        )
-        if e.created_at.month == today.month and e.created_at.year == today.year:
-            current_month.setdefault(f, []).append(e.value)
-        else:
-            since_a_year_ago.setdefault(f, []).append(e.value)
-    result_brute_force = [
-        {
-            "total": sum(current_month.get(k)) if current_month.get(k) is not None else 0,
-            "avg": convert_and_quantitize(fmean(v)),
-            field_name: k,
-        }
-        for k, v in since_a_year_ago.items()
-    ]
-
-    # WHEN
-    response = client.get(f"{URL}/report?kind={kind}")
-
-    # THEN
-    for result in response.json():
-        for brute_force in result_brute_force:
-            if result[field_name] == brute_force[field_name]:
-                assert convert_and_quantitize(result["total"]) == convert_and_quantitize(
-                    brute_force["total"]
-                )
-                assert convert_and_quantitize(result["avg"]) == convert_and_quantitize(
-                    brute_force["avg"]
-                )
-    assert response.status_code == HTTP_200_OK
-
-
-@pytest.mark.parametrize("kind", list(ExpenseReportType.values))
-def test__report__wo_data(client, kind):
-    # GIVEN
-
-    # WHEN
-    response = client.get(f"{URL}/report?kind={kind}")
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-    assert response.json() == []
-
-
-@pytest.mark.usefixtures("expenses_report_data")
-@pytest.mark.parametrize(
-    "kind, field_name",
-    [(value, ExpenseReportType.get_choice(value).field_name) for value in ExpenseReportType.values],
-)
-def test__report__all_period(client, kind, field_name):
-    # GIVEN
-    choices_class_map = {"category": ExpenseCategory, "source": ExpenseSource}
-    choices_class = choices_class_map.get(field_name)
-    qs = Expense.objects.current_month_and_past()
-    today = timezone.localdate()
-    current_month = {}
-    past = {}
-    for e in qs:
-        f = (
-            choices_class.get_choice(getattr(e, field_name)).label
-            if choices_class is not None
-            else field_name
-        )
-        if e.created_at.month == today.month and e.created_at.year == today.year:
-            current_month.setdefault(f, []).append(e.value)
-        else:
-            past.setdefault(f, []).append(e.value)
-    result_brute_force = [
-        {
-            "total": sum(current_month.get(k)) if current_month.get(k) is not None else 0,
-            "avg": convert_and_quantitize(fmean(v)),
-            field_name: k,
-        }
-        for k, v in past.items()
-    ]
-
-    # WHEN
-    response = client.get(f"{URL}/report?kind={kind}&all=true")
-
-    # THEN
-    for result in response.json():
-        for brute_force in result_brute_force:
-            if result[field_name] == brute_force[field_name]:
-                assert convert_and_quantitize(result["total"]) == convert_and_quantitize(
-                    brute_force["total"]
-                )
-                assert convert_and_quantitize(result["avg"]) == convert_and_quantitize(
-                    brute_force["avg"]
-                )
-    assert response.status_code == HTTP_200_OK
 
 
 @pytest.mark.usefixtures("expenses_report_data")

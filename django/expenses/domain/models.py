@@ -63,7 +63,11 @@ class Expense:
                 raise FixedExpensesWithInstallmentsNotAllowedException()
             if self.source != ExpenseSource.credit_card:
                 raise ExpensesWithInstallmentsMustBeCreditedCardException()
-        if self.created_at > timezone.localdate() and self.source != ExpenseSource.credit_card:
+        if (
+            not self.is_fixed
+            and self.created_at > timezone.localdate()
+            and self.source != ExpenseSource.credit_card
+        ):
             raise FutureExpenseMustBeCreditCardException()
 
     def validate_update(self, data_instance: ExpenseDataModel) -> None:

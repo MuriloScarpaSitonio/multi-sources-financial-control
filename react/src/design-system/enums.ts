@@ -37,4 +37,6 @@ export enum FontSizes {
   MEDIUM,
   SEMI_LARGE,
   LARGE,
+  SEMI_SMALL,
+  SEMI_REGULAR,
 }

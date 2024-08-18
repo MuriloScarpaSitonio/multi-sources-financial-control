@@ -79,7 +79,8 @@ class BrApiClient:
         ):
             if isinstance(price, Exception):
                 # TODO: log error
-                print(repr(price))
+                print(code, repr(price))
+                continue
             result[code] = price
         return result
 

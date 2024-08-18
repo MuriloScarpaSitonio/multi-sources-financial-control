@@ -26,19 +26,19 @@ class ExpenseSource(DjangoChoices):
 
 class ExpenseReportType(DjangoChoices):
     type = ChoiceItem(
-        "TYPE",
+        "type",
         label="Tipo",
         field_name="is_fixed",
         serializer_name="ExpenseReportTypeSerializer",
     )
     category = ChoiceItem(
-        "CATEGORY",
+        "category",
         label="Categoria",
         field_name="category",
         serializer_name="ExpenseReportCategorySerializer",
     )
     source = ChoiceItem(
-        "SOURCE",
+        "source",
         label="Fonte",
         field_name="source",
         serializer_name="ExpenseReportSourceSerializer",

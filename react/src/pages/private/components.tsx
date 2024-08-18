@@ -74,6 +74,7 @@ export const Indicator = ({
         py: 2,
         px: 5,
         height: 140,
+        borderRadius: 3,
       }}
       spacing={1}
     >

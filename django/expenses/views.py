@@ -27,9 +27,10 @@ from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
 from .choices import ExpenseReportType
 from .domain import commands, events
 from .filters import (
+    ExpenseAvgComparasionReportFilterSet,
     ExpenseFilterSet,
     ExpenseHistoricFilterSet,
-    ExpenseReportFilterSet,
+    ExpensePercentageReportFilterSet,
     RevenueFilterSet,
     RevenueHistoricFilterSet,
 )
@@ -112,16 +113,23 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
         module = __import__("expenses.serializers", fromlist=[choice.serializer_name])
         return getattr(module, choice.serializer_name)
 
-    def _get_report_data(self, filterset: ExpenseReportFilterSet) -> ReturnList:
+    def _get_report_data(self, filterset: ExpenseAvgComparasionReportFilterSet) -> ReturnList:
         qs = filterset.qs
-        choice = ExpenseReportType.get_choice(value=filterset.form.cleaned_data["kind"])
+        choice = ExpenseReportType.get_choice(value=filterset.form.cleaned_data["group_by"])
         Serializer = self._get_report_serializer_class(choice=choice)
         serializer = Serializer(qs, many=True)
         return serializer.data
 
     @action(methods=("GET",), detail=False)
-    def report(self, request: Request) -> Response:
-        filterset = ExpenseReportFilterSet(data=request.GET, queryset=self.get_queryset())
+    def avg_comparasion_report(self, request: Request) -> Response:
+        filterset = ExpenseAvgComparasionReportFilterSet(
+            data=request.GET, queryset=self.get_queryset()
+        )
+        return Response(self._get_report_data(filterset=filterset), status=HTTP_200_OK)
+
+    @action(methods=("GET",), detail=False)
+    def percentage_report(self, request: Request) -> Response:
+        filterset = ExpensePercentageReportFilterSet(data=request.GET, queryset=self.get_queryset())
         return Response(self._get_report_data(filterset=filterset), status=HTTP_200_OK)
 
 

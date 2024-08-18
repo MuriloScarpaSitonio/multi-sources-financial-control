@@ -292,6 +292,8 @@ export const PieChart = ({
         }
         labelLine={false}
         stroke="none"
+        paddingAngle={2}
+        minAngle={2}
       >
         {data?.map((item) => {
           const label = item[groupBy] as keyof typeof AssetOptionsProperties;

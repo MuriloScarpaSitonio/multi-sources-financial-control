@@ -35,12 +35,12 @@ class _PersonalFinancesApi extends Api {
         patch: false,
         delete: true,
       },
-      id
+      id,
     );
 
     this.historic = (filters) =>
       apiProvider.get(
-        `${this.resource}/historic?${new URLSearchParams(filters).toString()}`
+        `${this.resource}/historic?${new URLSearchParams(filters).toString()}`,
       );
 
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
@@ -54,9 +54,9 @@ export class ExpensesApi extends _PersonalFinancesApi {
 
     this.report = (kind, filters) => {
       return apiProvider.get(
-        `${this.resource}/report?kind=${kind}&${new URLSearchParams(
-          filters
-        ).toString()}`
+        `${this.resource}/avg_comparasion_report?group_by=${kind}&${new URLSearchParams(
+          filters,
+        ).toString()}`,
       );
     };
   }
@@ -91,7 +91,7 @@ export class UserApi extends Api {
         patch: true,
         delete: false,
       },
-      id
+      id,
     );
     this.changePassword = (data) =>
       apiProvider.patch(`${this.resource}/change_password`, data);
@@ -109,7 +109,7 @@ export class SubscriptionApi extends Api {
         patch: false,
         delete: false,
       },
-      id
+      id,
     );
     this.createPortalSession = () =>
       apiProvider.post(`${this.resource}/portal_session`);
@@ -130,7 +130,7 @@ export class AssetsApi extends Api {
         patch: false,
         delete: true,
       },
-      id
+      id,
     );
 
     this.getMinimalData = () =>
@@ -139,12 +139,12 @@ export class AssetsApi extends Api {
     this.totalInvestedReport = (filters = {}) =>
       apiProvider.get(
         `${this.resource}/total_invested_report?${new URLSearchParams(
-          filters
-        ).toString()}`
+          filters,
+        ).toString()}`,
       );
     this.roiReport = (filters = {}) =>
       apiProvider.get(
-        `${this.resource}/roi_report?${new URLSearchParams(filters).toString()}`
+        `${this.resource}/roi_report?${new URLSearchParams(filters).toString()}`,
       );
     this.syncAll = () => apiProvider.get(`${this.resource}/sync_all`);
   }
@@ -162,7 +162,7 @@ export class PassiveIncomesApi extends Api {
         patch: true,
         delete: true,
       },
-      id
+      id,
     );
 
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
@@ -170,8 +170,8 @@ export class PassiveIncomesApi extends Api {
     this.assetsAggregationReport = (filters) =>
       apiProvider.get(
         `${this.resource}/assets_aggregation_report?${new URLSearchParams(
-          filters
-        ).toString()}`
+          filters,
+        ).toString()}`,
       );
   }
 }
@@ -188,14 +188,14 @@ export class TasksApi extends Api {
         patch: false,
         delete: false,
       },
-      id
+      id,
     );
 
     this.infiniteScroll = (filters = "") =>
       apiProvider.QueryWithInfiteScroll(`${this.resource}?${filters}`);
     this.count = (filters) =>
       apiProvider.get(
-        `${this.resource}/count?${new URLSearchParams(filters).toString()}`
+        `${this.resource}/count?${new URLSearchParams(filters).toString()}`,
       );
     this.bulkUpdateNotifiedAt = (ids) =>
       apiProvider.post(`${this.resource}/bulk_update_notified_at`, { ids });
@@ -214,7 +214,7 @@ export class TransactionsApi extends Api {
         patch: true,
         delete: true,
       },
-      id
+      id,
     );
 
     this.indicators = () => apiProvider.get(`${this.resource}/indicators`);
@@ -233,7 +233,7 @@ export class AssetTransactionsApi extends Api {
         patch: false,
         delete: false,
       },
-      id
+      id,
     );
     this.resource = `assets/${id}/transactions`;
 
@@ -253,7 +253,7 @@ export class AssetIncomessApi extends Api {
         patch: false,
         delete: false,
       },
-      id
+      id,
     );
 
     this.resource = `assets/${id}/incomes`;

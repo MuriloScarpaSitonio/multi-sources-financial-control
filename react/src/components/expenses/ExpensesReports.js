@@ -130,8 +130,8 @@ const ExpenseBarChartComponent = ({ data, dataKey, fetchReportData }) => {
   const handleClose = () => {
     // we haven't changed it yet
     menuText === COMPARATIVE_REPORT_TEXT
-      ? fetchReportData(dataKey.toUpperCase())
-      : fetchReportData(dataKey.toUpperCase(), { all: true });
+      ? fetchReportData(dataKey, { period: "since_a_year_ago" })
+      : fetchReportData(dataKey, { period: "current_month_and_past" });
 
     setButtonText(menuText);
     setMenuText(buttonText);
@@ -243,13 +243,13 @@ export const ExpensesReports = () => {
         fetchHistoricData({ future: true });
         break;
       case 2:
-        fetchReportData("CATEGORY");
+        fetchReportData("category", { period: "since_a_year_ago" });
         break;
       case 3:
-        fetchReportData("SOURCE");
+        fetchReportData("source", { period: "since_a_year_ago" });
         break;
       case 4:
-        fetchReportData("TYPE");
+        fetchReportData("type", { period: "since_a_year_ago" });
         break;
       default:
         break;
