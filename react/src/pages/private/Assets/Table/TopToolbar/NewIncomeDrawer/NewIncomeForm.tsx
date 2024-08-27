@@ -131,6 +131,7 @@ const NewIncomeForm = ({
     isFieldInvalid,
     getFieldHasError,
     getErrorMessage,
+    getValues,
   } = useFormPlus({
     mutationFn: createIncomeMutation,
     schema: schema,
@@ -150,7 +151,7 @@ const NewIncomeForm = ({
       enqueueSnackbar("Rendimento criado com sucesso", {
         variant: "success",
       });
-      reset();
+      reset({ ...getValues(), asset: defaultValues.asset, amount: "" });
     },
   });
 

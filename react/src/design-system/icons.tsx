@@ -155,7 +155,13 @@ export const InvestmentUpIcon = (props: SvgIconProps) => (
   </SvgIcon>
 );
 
-export const StatusDot = ({ variant }: { variant: "success" | "danger" }) => (
+export const StatusDot = ({
+  variant,
+  color,
+}: {
+  variant: "success" | "danger" | "custom";
+  color?: string;
+}) => (
   <SvgIcon fontSize="inherit">
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -171,7 +177,9 @@ export const StatusDot = ({ variant }: { variant: "success" | "danger" }) => (
         fill={
           variant === "success"
             ? getColor(Colors.brand)
-            : getColor(Colors.danger200)
+            : variant === "danger"
+              ? getColor(Colors.danger200)
+              : color
         }
       />
     </svg>

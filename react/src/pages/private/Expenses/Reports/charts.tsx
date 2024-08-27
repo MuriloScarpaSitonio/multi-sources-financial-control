@@ -10,10 +10,15 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  ReferenceLine,
 } from "recharts";
 import { getColor, Colors } from "../../../../design-system";
 import { ExpenseOptionsProperties } from "../consts";
-import { GroupBy, ReportUnknownAggregationData } from "../types";
+import {
+  GroupBy,
+  ReportUnknownAggregationData,
+  HistoricReportDataItem,
+} from "../types";
 
 const CHART_WIDTH = 700;
 const CHART_HEIGHT = 300;
@@ -75,7 +80,7 @@ const renderCustomizedLabel = ({
   );
 };
 
-const TooltipContent = ({
+const HorizontalStackedBarChartToolTipContent = ({
   active,
   payload,
 }: {
@@ -140,7 +145,10 @@ export const HorizontalStackedBarChart = ({
         tickLine={false}
       />
       <YAxis type="category" dataKey={groupBy} yAxisId={1} hide />
-      <Tooltip cursor={false} content={<TooltipContent />} />
+      <Tooltip
+        cursor={false}
+        content={<HorizontalStackedBarChartToolTipContent />}
+      />
       <Legend
         formatter={(value) => (value === "avg" ? "Média" : "Mês atual")}
       />
@@ -217,5 +225,88 @@ export const PieChart = ({
         })}
       </Pie>
     </PieReChart>
+  );
+};
+
+const BarChartWithReferenceLineToolTipContent = ({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: {
+    payload: HistoricReportDataItem;
+  }[];
+}) => {
+  if (active && payload && payload.length) {
+    const { payload: data } = payload[0];
+    const [_, month, year] = data.month.split("/");
+    return (
+      <Stack
+        spacing={0.1}
+        sx={{
+          border: "1px solid",
+          p: 1,
+          borderColor: getColor(Colors.danger100),
+          backgroundColor: getColor(Colors.neutral600),
+        }}
+      >
+        <p style={{ color: getColor(Colors.danger200) }}>
+          {`Total: R$ ${data.total.toLocaleString("pt-br", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+        </p>
+        <p style={{ color: getColor(Colors.danger100) }}>
+          {`Mês: ${month}/${year}`}
+        </p>
+      </Stack>
+    );
+  }
+};
+
+export const BarChartWithReferenceLine = ({
+  data,
+  referenceValue,
+}: {
+  data: HistoricReportDataItem[];
+  referenceValue: number;
+}) => {
+  const secondDayOfCurrentMonth = new Date();
+  secondDayOfCurrentMonth.setDate(2);
+  return (
+    <BarChart
+      width={CHART_WIDTH * 1.2}
+      height={CHART_HEIGHT}
+      data={data}
+      margin={{ left: 55 }}
+    >
+      <XAxis dataKey="month" />
+      <YAxis />
+      <Tooltip
+        cursor={false}
+        content={<BarChartWithReferenceLineToolTipContent />}
+      />
+      <Bar dataKey="total" radius={[5, 5, 0, 0]}>
+        {data?.map((d) => {
+          const [day, month, year] = d.month.split("/");
+          const isFuture =
+            new Date(parseInt(year), parseInt(month) - 1, parseInt(day)) >
+            secondDayOfCurrentMonth;
+          const props = isFuture
+            ? {
+                fill: getColor(Colors.neutral900),
+                strokeWidth: 1,
+                stroke: getColor(Colors.danger100),
+                strokeDasharray: "3 3",
+              }
+            : { fill: getColor(Colors.danger200) };
+          return <Cell key={d.month} {...props} />;
+        })}
+      </Bar>
+      <ReferenceLine
+        y={referenceValue}
+        label="Média"
+        stroke={getColor(Colors.danger200)}
+        strokeWidth={1}
+        strokeDasharray="3 3"
+      />
+    </BarChart>
   );
 };

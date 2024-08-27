@@ -14,7 +14,7 @@ import * as yup from "yup";
 
 import useFormPlus from "../../../../../hooks/useFormPlus";
 import { editAsset } from "../../api";
-import { ApiListResponse } from "../../api/types";
+import { ApiListResponse } from "../../../../../types";
 import {
   AssetsObjectivesMapping,
   AssetsObjectivesValueToLabelMapping,

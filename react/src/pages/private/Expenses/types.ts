@@ -1,3 +1,5 @@
+import { RawDateString } from "../../../types";
+
 export enum GroupBy {
   CATEGORY = "category",
   SOURCE = "source",
@@ -7,7 +9,12 @@ export enum GroupBy {
 export enum Kinds {
   TOTAL_SPENT,
   PERCENTAGE,
+  HISTORIC,
 }
+
+export type AvgComparasionPeriods =
+  | "since_a_year_ago"
+  | "current_month_and_past";
 
 export type PercentagePeriods =
   | "since_a_year_ago"
@@ -35,3 +42,13 @@ export type ReportUnknownAggregationData =
   | ReportAggregatedByTypeDataItem[]
   | ReportAggregatedByCategoryDataItem[]
   | ReportAggregatedBySourceDataItem[];
+
+export type HistoricReportDataItem = {
+  total: number;
+  month: RawDateString;
+};
+
+export type HistoricReportResponse = {
+  historic: HistoricReportDataItem[];
+  avg: number;
+};

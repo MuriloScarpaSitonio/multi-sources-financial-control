@@ -1,12 +1,17 @@
 import type { UseQueryResult } from "@tanstack/react-query";
-import type { ReportUnknownAggregationData, GroupBy } from "../../types";
+import type {
+  ReportUnknownAggregationData,
+  GroupBy,
+  HistoricReportResponse,
+} from "../../types";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { PercentagePeriods } from "../../types";
+import { PercentagePeriods, AvgComparasionPeriods } from "../../types";
 import {
   getAvgComparasionReport,
   getPercentageReport,
+  getHistoricReport,
 } from "../../api/expenses";
 
 const AVG_COMPASATION_REPORT_QUERY_KEY = "expense-avg-comparasion-report";
@@ -15,7 +20,7 @@ type Params = {
   group_by: GroupBy;
 };
 type AvgComparasionParams = Params & {
-  period: "since_a_year_ago" | "current_month_and_past";
+  period: AvgComparasionPeriods;
 };
 
 export const useExpensesAvgComparasionReport = (
@@ -57,6 +62,30 @@ export const useInvalidateExpensesPercentagenReportQueries = () => {
   const invalidate = async (params?: PercentageParams) => {
     await queryClient.invalidateQueries({
       queryKey: [PERCENTAGE_REPORT_QUERY_KEY, ...(params ? [params] : [])],
+    });
+  };
+
+  return { invalidate };
+};
+
+const HISTORIC_REPORT_QUERY_KEY = "expense-historic-report";
+
+type HistoricParams = { start_date: Date; end_date: Date };
+
+export const useExpensesHistoricReport = (
+  params: HistoricParams,
+): UseQueryResult<HistoricReportResponse> =>
+  useQuery({
+    queryKey: [HISTORIC_REPORT_QUERY_KEY, params],
+    queryFn: () => getHistoricReport(params),
+  });
+
+export const useInvalidateExpensesHistoricReportQueries = () => {
+  const queryClient = useQueryClient();
+
+  const invalidate = async (params?: HistoricParams) => {
+    await queryClient.invalidateQueries({
+      queryKey: [HISTORIC_REPORT_QUERY_KEY, ...(params ? [params] : [])],
     });
   };
 

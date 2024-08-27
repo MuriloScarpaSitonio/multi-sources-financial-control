@@ -12,7 +12,7 @@ import {
 import { MRT_Localization_PT_BR } from "material-react-table/locales/pt-BR";
 
 import { Colors, getColor } from "../design-system";
-import { type ApiListResponse } from "../pages/private/Assets/api/types";
+import { type ApiListResponse } from "../types";
 
 interface TableProps extends TableOptions<any> {
   queryFn: QueryFunction<ApiListResponse<any>>;
@@ -34,7 +34,9 @@ const useTable = ({
     pageIndex: 0,
     pageSize: defaultPageSize,
   });
-  const [expanded, setExpanded] = useState<ExpandedState>({});
+  const [expanded, setExpanded] = useState<ExpandedState>(
+    rest.initialState?.expanded ?? {},
+  );
   const [filters, setFilters] = useState(defaultFilters);
 
   const { queryFn, queryKey, ...props } = rest;
@@ -88,12 +90,7 @@ const useTable = ({
     muiTablePaperProps: { sx: { borderRadius: "10px" } },
     paginationDisplayMode: "pages",
     muiPaginationProps: {
-      rowsPerPageOptions: [
-        defaultPageSize,
-        defaultPageSize * 2,
-        defaultPageSize * 5,
-        100,
-      ],
+      rowsPerPageOptions: [10, 20, 50, 100],
     },
     rowCount: count,
     localization: {

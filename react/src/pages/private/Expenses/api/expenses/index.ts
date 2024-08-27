@@ -1,5 +1,13 @@
+import qs from "qs";
+
+import { Expense } from "../models";
+import {
+  GroupBy,
+  PercentagePeriods,
+  HistoricReportResponse,
+} from "../../types";
 import { apiProvider } from "../../../../../api/methods";
-import { GroupBy, PercentagePeriods } from "../../types";
+import { ApiListResponse } from "../../../../../types";
 
 const RESOURCE = "expenses";
 
@@ -42,5 +50,45 @@ export const getPercentageReport = async (params: {
   (
     await apiProvider.get(`${RESOURCE}/percentage_report`, {
       params,
+    })
+  ).data;
+
+export const getHistoricReport = async (params: {
+  start_date: Date;
+  end_date: Date;
+}): Promise<HistoricReportResponse> =>
+  (
+    await apiProvider.get(`${RESOURCE}/historic_report`, {
+      params: {
+        start_date: params.start_date.toLocaleDateString("pt-br"),
+        end_date: params.end_date.toLocaleDateString("pt-br"),
+      },
+    })
+  ).data;
+
+type Params = {
+  page?: number;
+  page_size?: number;
+  ordering?: string;
+  start_date?: Date;
+  end_date?: Date;
+  description?: string;
+  is_fixed?: boolean;
+  with_installments?: boolean;
+  category?: string[];
+  source?: string[];
+};
+export const getExpenses = async (
+  params: Params = {},
+): Promise<ApiListResponse<Expense>> =>
+  (
+    await apiProvider.get(RESOURCE, {
+      params: {
+        ...params,
+        start_date: params.start_date?.toLocaleDateString("pt-br"),
+        end_date: params.end_date?.toLocaleDateString("pt-br"),
+      },
+      paramsSerializer: (params: Params) =>
+        qs.stringify(params, { arrayFormat: "repeat" }),
     })
   ).data;

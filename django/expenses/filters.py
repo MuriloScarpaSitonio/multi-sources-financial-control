@@ -3,21 +3,27 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from django.core.exceptions import ValidationError
-from django.forms import Form
-
 import django_filters as filters
+from dateutil.relativedelta import relativedelta
 
 from .choices import ExpenseCategory, ExpenseReportType, ExpenseSource
 from .models import Expense, Revenue
 
 if TYPE_CHECKING:
+    from datetime import date
+
+    from django.db.models import QuerySet
+
     from .managers import ExpenseQueryset
 
 
 class _PersonalFinanceFilterSet(filters.FilterSet):
-    start_date = filters.DateFilter(field_name="created_at", lookup_expr="gte")
-    end_date = filters.DateFilter(field_name="created_at", lookup_expr="lte")
+    start_date = filters.DateFilter(
+        field_name="created_at", lookup_expr="gte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
+    )
+    end_date = filters.DateFilter(
+        field_name="created_at", lookup_expr="lte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
+    )
     description = filters.CharFilter(lookup_expr="icontains")
 
     class Meta:
@@ -32,9 +38,15 @@ class _PersonalFinanceFilterSet(filters.FilterSet):
 class ExpenseFilterSet(_PersonalFinanceFilterSet):
     category = filters.MultipleChoiceFilter(choices=ExpenseCategory.choices)
     source = filters.MultipleChoiceFilter(choices=ExpenseSource.choices)
+    with_installments = filters.BooleanFilter(method="filter_with_installments")
 
     class Meta(_PersonalFinanceFilterSet.Meta):
         model = Expense
+
+    def filter_with_installments(
+        self, queryset: ExpenseQueryset, _: str, value: bool
+    ) -> ExpenseQueryset:
+        return queryset.filter(installments_id__isnull=not value)
 
 
 class RevenueFilterSet(_PersonalFinanceFilterSet):
@@ -55,14 +67,14 @@ class ExpenseAvgComparasionReportFilterSet(filters.FilterSet):
         method="filter_period",
     )
 
-    def reports(self, queryset: ExpenseQueryset, _: str, value: bool):
+    def reports(self, queryset: ExpenseQueryset, _: str, value: bool) -> ExpenseQueryset:
         return queryset.avg_comparasion_report(group_by=value)
 
-    def filter_period(self, queryset: ExpenseQueryset, _: str, value: str):
+    def filter_period(self, queryset: ExpenseQueryset, _: str, value: str) -> ExpenseQueryset:
         return getattr(queryset, value)()
 
     @property
-    def qs(self):
+    def qs(self) -> ExpenseQueryset:
         if self.is_valid():
             return super().qs
         raise filters.utils.translate_validation(error_dict=self.errors)
@@ -108,6 +120,45 @@ class ExpenseHistoricFilterSet(filters.FilterSet):
 
     def filter_future(self, queryset: ExpenseQueryset, _: str, value: bool):
         return queryset.future() if value else queryset.since_a_year_ago()
+
+
+class MonthFilter(filters.DateFilter):
+    def __init__(self, **kwargs):
+        self.end = kwargs.pop("end", False)
+        super().__init__(**kwargs)
+
+    def filter(self, qs: QuerySet, value: date | None) -> QuerySet:
+        if not value:
+            return qs
+        if self.distinct:
+            qs = qs.distinct()
+
+        lookup = f"{self.field_name}__{self.lookup_expr}"
+        return self.get_method(qs)(
+            **{lookup: value + relativedelta(day=31) if self.end else value.replace(day=1)}
+        )
+
+
+class ExpenseHistoricV2FilterSet(filters.FilterSet):
+    start_date = MonthFilter(
+        field_name="created_at",
+        lookup_expr="gte",
+        required=True,
+        input_formats=["%d/%m/%Y", "%Y-%m-%d"],
+    )
+    end_date = MonthFilter(
+        field_name="created_at",
+        lookup_expr="lte",
+        required=True,
+        input_formats=["%d/%m/%Y", "%Y-%m-%d"],
+        end=True,
+    )
+
+    @property
+    def qs(self):
+        if self.is_valid():
+            return super().qs
+        raise filters.utils.translate_validation(error_dict=self.errors)
 
 
 class RevenueHistoricFilterSet(filters.FilterSet):

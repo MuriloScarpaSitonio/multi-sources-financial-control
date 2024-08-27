@@ -30,6 +30,7 @@ from .filters import (
     ExpenseAvgComparasionReportFilterSet,
     ExpenseFilterSet,
     ExpenseHistoricFilterSet,
+    ExpenseHistoricV2FilterSet,
     ExpensePercentageReportFilterSet,
     RevenueFilterSet,
     RevenueHistoricFilterSet,
@@ -131,6 +132,20 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
     def percentage_report(self, request: Request) -> Response:
         filterset = ExpensePercentageReportFilterSet(data=request.GET, queryset=self.get_queryset())
         return Response(self._get_report_data(filterset=filterset), status=HTTP_200_OK)
+
+    @action(methods=("GET",), detail=False)
+    def historic_report(self, request: Request) -> Response:
+        filterset = ExpenseHistoricV2FilterSet(data=request.GET, queryset=self.get_queryset())
+        qs = filterset.qs
+        serializer = HistoricResponseSerializer(
+            {
+                "historic": insert_zeros_if_no_data_in_monthly_historic_data(
+                    historic=list(qs.trunc_months().order_by("month"))
+                ),
+                **qs.monthly_avg(),
+            }
+        )
+        return Response(serializer.data, status=HTTP_200_OK)
 
 
 class RevenueViewSet(_PersonalFinanceViewSet):

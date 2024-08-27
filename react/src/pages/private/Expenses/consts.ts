@@ -1,4 +1,4 @@
-const ExpensesCategoriesMapping = {
+export const ExpensesCategoriesMapping = {
   Alimentação: { value: "FOOD", color: "#906ccc" },
   Casa: { value: "HOUSE", color: "#ccc86c" },
   CNPJ: { value: "CNPJ", color: "#cc6cc8" },
@@ -12,7 +12,7 @@ const ExpensesCategoriesMapping = {
   Outros: { value: "OTHER", color: "#d9d3c5" },
 };
 
-const ExpensesSourcesMapping = {
+export const ExpensesSourcesMapping = {
   Boleto: { value: "BANK_SLIP", color: "#906ccc" },
   "Cartão de crédito": { value: "CREDIT_CARD", color: "#ccc86c" },
   "Cartão de débito": { value: "DEBIT_CARD", color: "#cc6cc8" },
@@ -33,3 +33,5 @@ export const ExpenseOptionsProperties: {
   ...ExpensesSourcesMapping,
   ...ExpensesTypesMapping,
 };
+
+export const EXPENSES_QUERY_KEY = "expenses";

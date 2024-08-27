@@ -8,9 +8,10 @@ import {
   SimulatedAsset,
   Transaction,
 } from "./models";
-import { ApiListResponse } from "./types";
+import { ApiListResponse } from "../../../../types";
 import { AssetCurrencies } from "../consts";
 import { GroupBy, Kinds } from "../Reports/types";
+import { RawDateString } from "../../../../types";
 
 const RESOURCE = "assets";
 
@@ -151,7 +152,7 @@ export const deleteAsset = async (id: number) =>
 export const getTotalInvestedHistory = async (params?: {
   start_date?: Date;
   end_date?: Date;
-}): Promise<{ total: number; operation_date: string }[]> =>
+}): Promise<{ total: number; operation_date: RawDateString }[]> =>
   (
     await apiProvider.get(`${RESOURCE}/total_invested_history`, {
       params: {

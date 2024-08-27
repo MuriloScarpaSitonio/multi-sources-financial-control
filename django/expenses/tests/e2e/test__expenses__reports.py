@@ -1,8 +1,10 @@
+from datetime import datetime
 from statistics import fmean
 
 from django.utils import timezone
 
 import pytest
+from dateutil.relativedelta import relativedelta
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
 
 from config.settings.base import BASE_API_URL
@@ -344,3 +346,49 @@ def test__reports__percentage__since_a_year_ago(client, group_by, field_name):
                         convert_to_percentage_and_quantitize(value=value, total=total)
                     ) == convert_and_quantitize(result["total"])
     assert response.status_code == HTTP_200_OK
+
+
+@pytest.mark.usefixtures("expenses_report_data")
+def test__historic_report(client, user):
+    # GIVEN
+    today = timezone.localdate().replace(day=12)
+    start_date, end_date = today - relativedelta(months=18), today
+    last_day_of_month = end_date + relativedelta(day=31)
+    Expense.objects.create(
+        created_at=last_day_of_month,
+        value=12,
+        description="last_day_of_month",
+        category=ExpenseCategory.food,
+        source=ExpenseSource.credit_card,
+        is_fixed=False,
+        user=user,
+    )
+    qs = Expense.objects.filter(
+        user_id=user.id,
+        created_at__gte=start_date.replace(day=1),
+        created_at__lte=end_date + relativedelta(day=31),  # last day of month
+    )
+
+    # WHEN
+    response = client.get(
+        f"{URL}/historic_report?start_date={start_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}"
+    )
+    response_json = response.json()
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    total = 0
+    for result in response_json["historic"]:
+        d = datetime.strptime(result["month"], "%d/%m/%Y").date()
+        assert convert_and_quantitize(result["total"]) == convert_and_quantitize(
+            qs.filter(created_at__month=d.month, created_at__year=d.year).sum()["total"]
+        )
+        if d == today.replace(day=1):  # we don't evaluate the current month on the avg calculation
+            continue
+        total += result["total"]
+
+    assert convert_and_quantitize(response_json["avg"]) == convert_and_quantitize(
+        qs.monthly_avg()["avg"]
+    )

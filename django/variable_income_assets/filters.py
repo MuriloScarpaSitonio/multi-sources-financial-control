@@ -178,8 +178,12 @@ class TransactionFilterSet(filters.FilterSet):
 class PassiveIncomeFilterSet(filters.FilterSet):
     asset_code = filters.CharFilter(field_name="asset__code", lookup_expr="icontains")
     asset_type = filters.ChoiceFilter(field_name="asset__type", choices=AssetTypes.choices)
-    start_date = filters.DateFilter(field_name="operation_date", lookup_expr="gte")
-    end_date = filters.DateFilter(field_name="operation_date", lookup_expr="lte")
+    start_date = filters.DateFilter(
+        field_name="operation_date", lookup_expr="gte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
+    )
+    end_date = filters.DateFilter(
+        field_name="operation_date", lookup_expr="lte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
+    )
 
     class Meta:
         model = PassiveIncome
@@ -212,9 +216,11 @@ class PassiveIncomeAssetsAgreggationReportFilterSet(filters.FilterSet):
 
 
 class AssetsTotalInvestedSnapshotFilterSet(filters.FilterSet):
-    start_date = filters.DateFilter(field_name="operation_date", lookup_expr="gte")
+    start_date = filters.DateFilter(
+        field_name="operation_date", lookup_expr="gte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
+    )
     end_date = filters.DateFilter(
-        field_name="operation_date", lookup_expr="lte", input_formats=["%d/%m/%Y"]
+        field_name="operation_date", lookup_expr="lte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
     )
 
     class Meta:
