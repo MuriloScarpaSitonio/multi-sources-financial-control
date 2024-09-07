@@ -16,7 +16,7 @@ import { type ApiListResponse } from "../types";
 
 interface TableProps extends TableOptions<any> {
   queryFn: QueryFunction<ApiListResponse<any>>;
-  queryKey: string;
+  queryKey: string[];
   defaultPageSize?: number;
   defaultFilters?: Record<string, any>;
   columnVisibility?: VisibilityState;
@@ -47,7 +47,7 @@ const useTable = ({
     isError,
   } = useQuery({
     queryKey: [
-      queryKey,
+      ...queryKey,
       pagination.pageIndex,
       pagination.pageSize,
       sorting,

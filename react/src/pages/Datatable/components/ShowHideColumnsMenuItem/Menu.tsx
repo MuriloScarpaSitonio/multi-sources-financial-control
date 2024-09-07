@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useMemo, useState } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -39,6 +40,8 @@ export const Menu = <TData extends Row>({
     getCenterLeafColumns,
     getIsAllColumnsVisible,
     getIsSomeColumnsVisible,
+    getLeftLeafColumns,
+    getRightLeafColumns,
     getState,
     options: {
       enableColumnOrdering,
@@ -61,14 +64,31 @@ export const Menu = <TData extends Row>({
       !columns.some((col) => col.columnDef.columnDefType === "group")
     ) {
       return [
+        ...getLeftLeafColumns(),
         ...Array.from(new Set(columnOrder)).map((colId) =>
           getCenterLeafColumns().find((col) => col?.id === colId),
         ),
+        ...getRightLeafColumns(),
       ].filter(Boolean);
     }
     return columns;
-  }, [columnOrder, getAllColumns, getCenterLeafColumns]) as Column<TData>[];
+  }, [
+    columnOrder,
+    getAllColumns(),
+    getCenterLeafColumns(),
+    getLeftLeafColumns(),
+    getRightLeafColumns(),
+  ]) as Column<TData>[];
 
+  const isNestedColumns = allColumns.some(
+    (col) => col.columnDef.columnDefType === "group",
+  );
+
+  console.log(
+    getCenterLeafColumns(),
+    getLeftLeafColumns(),
+    getRightLeafColumns(),
+  );
   return (
     <MuiMenu
       MenuListProps={{
@@ -126,7 +146,7 @@ export const Menu = <TData extends Row>({
           allColumns={allColumns}
           column={column}
           hoveredColumn={hoveredColumn}
-          isNestedColumns={false}
+          isNestedColumns={isNestedColumns}
           key={`${index}-${column.id}`}
           setHoveredColumn={setHoveredColumn}
           table={table}

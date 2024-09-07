@@ -151,7 +151,7 @@ const NewIncomeForm = ({
       enqueueSnackbar("Rendimento criado com sucesso", {
         variant: "success",
       });
-      reset({ ...getValues(), asset: defaultValues.asset, amount: "" });
+      reset({ ...getValues(), asset: defaultValues.asset });
     },
   });
 

@@ -2,11 +2,12 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MenuItem from "@mui/material/MenuItem";
 
-import { type MRT_TableInstance as DataTable } from "material-react-table";
+import {
+  type MRT_TableInstance as DataTable,
+  type MRT_RowData as Row,
+} from "material-react-table";
 
-import { Asset } from "../../api/models";
-
-const ToggleDensityMenuItem = ({ table }: { table: DataTable<Asset> }) => {
+const ToggleDensityMenuItem = ({ table }: { table: DataTable<Row> }) => {
   const {
     getState,
     options: {

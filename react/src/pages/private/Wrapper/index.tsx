@@ -31,6 +31,15 @@ declare module "@mui/material/Button" {
   }
 }
 
+declare module "@mui/material/Chip" {
+  interface ChipPropsVariantOverrides {
+    brand: true;
+    "brand-selected": true;
+    neutral: true;
+    "neutral-selected": true;
+  }
+}
+
 type ReactNodeConstructor = ReactNode & { name: string };
 
 const Wrapper = ({ children }: { children: ReactNodeConstructor }) => {
@@ -168,6 +177,59 @@ const Wrapper = ({ children }: { children: ReactNodeConstructor }) => {
               color: getColor(Colors.brand),
             },
           },
+        },
+      },
+      MuiChip: {
+        variants: [
+          {
+            props: { variant: "brand-selected" },
+            style: {
+              background: getColor(Colors.brand600),
+              color: getColor(Colors.neutral200),
+            },
+          },
+          {
+            props: { variant: "brand" },
+            style: {
+              background: getColor(Colors.brand200),
+              color: getColor(Colors.neutral700),
+              borderRadius: "16px",
+              "& .MuiChip-icon": {
+                color: getColor(Colors.neutral700),
+              },
+              "& .MuiChip-deleteIcon": {
+                color: getColor(Colors.neutral700),
+              },
+              "&:hover": {
+                background: getColor(Colors.brand600),
+                color: getColor(Colors.neutral200),
+                "& .MuiChip-icon": {
+                  color: getColor(Colors.neutral200),
+                },
+                "& .MuiChip-deleteIcon": {
+                  color: getColor(Colors.neutral200),
+                },
+              },
+            },
+          },
+          {
+            props: { variant: "neutral" },
+            style: {
+              background: getColor(Colors.neutral600),
+              color: getColor(Colors.neutral200),
+              "&:hover": { background: getColor(Colors.neutral400) },
+            },
+          },
+          {
+            props: { variant: "neutral-selected" },
+            style: {
+              background: getColor(Colors.neutral400),
+              color: getColor(Colors.neutral200),
+            },
+          },
+        ],
+        styleOverrides: {
+          root: { borderRadius: "8px" },
         },
       },
     },

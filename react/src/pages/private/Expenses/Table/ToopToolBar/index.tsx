@@ -23,27 +23,21 @@ import {
 } from "material-react-table";
 
 import { Colors, getColor } from "../../../../../design-system";
-import FiltersMenu from "./FiltersMenu";
 import {
   ShowHideColumnsMenuItem,
   ToggleDensityMenuItem,
   ToggleFullScreenMenuItem,
 } from "../../../../Datatable/components";
-import {
-  SimulateTransactionMenuItem,
-  SimulateTransactionDrawer,
-} from "./SimulateTransactionMenuItem";
-import { Filters } from "../types";
-import NewTransactionDrawer from "./NewTransactionDrawer";
-import NewIncomeDrawer from "./NewIncomeDrawer";
+
+import FiltersMenu from "./FiltersMenu";
+import { Filters } from "../../types";
+//   import ExpenseDrawer from "./ExpenseDrawer";
 
 const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [openDialog, setOpenDialog] = useState(false);
 
   const open = Boolean(anchorEl);
 
-  const onClose = () => setAnchorEl(null);
   return (
     <>
       <IconButton
@@ -53,21 +47,11 @@ const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
       >
         <MoreVertIcon />
       </IconButton>
-      <Menu anchorEl={anchorEl} open={open} onClose={onClose}>
-        <SimulateTransactionMenuItem
-          onClick={() => {
-            setOpenDialog(true);
-            onClose();
-          }}
-        />
+      <Menu anchorEl={anchorEl} open={open} onClose={() => setAnchorEl(null)}>
         <ShowHideColumnsMenuItem table={table} />
         <ToggleDensityMenuItem table={table} />
         <ToggleFullScreenMenuItem table={table} />
       </Menu>
-      <SimulateTransactionDrawer
-        open={openDialog}
-        onClose={() => setOpenDialog(false)}
-      />
     </>
   );
 };
@@ -76,16 +60,19 @@ const TopToolBar = ({
   table,
   setSearch,
   setPagination,
+  filters,
   setFilters,
+  onDateFiltering,
 }: {
   table: DataTable<Row>;
   setSearch: Dispatch<SetStateAction<string>>;
   setPagination: Dispatch<SetStateAction<PaginationState>>;
+  filters: Filters;
   setFilters: Dispatch<SetStateAction<Filters>>;
+  onDateFiltering: () => void;
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [openTransactionDrawer, setOpenTransactionDrawer] = useState(false);
-  const [openIncomeDrawer, setOpenIncomeDrawer] = useState(false);
+  const [openDrawer, setOpenDrawer] = useState(false);
 
   return (
     <>
@@ -135,17 +122,9 @@ const TopToolBar = ({
               startIcon={<AddIcon />}
               size="large"
               variant="brand"
-              onClick={() => setOpenIncomeDrawer(true)}
+              onClick={() => setOpenDrawer(true)}
             >
-              Rendimento
-            </Button>
-            <Button
-              startIcon={<AddIcon />}
-              size="large"
-              variant="brand"
-              onClick={() => setOpenTransactionDrawer(true)}
-            >
-              Transação
+              Despesa
             </Button>
             <Button
               variant="neutral"
@@ -162,16 +141,14 @@ const TopToolBar = ({
         open={Boolean(anchorEl)}
         onClose={() => setAnchorEl(null)}
         anchorEl={anchorEl}
+        filters={filters}
         setFilters={setFilters}
+        onDateFiltering={onDateFiltering}
       />
-      <NewTransactionDrawer
-        open={openTransactionDrawer}
-        onClose={() => setOpenTransactionDrawer(false)}
-      />
-      <NewIncomeDrawer
-        open={openIncomeDrawer}
-        onClose={() => setOpenIncomeDrawer(false)}
-      />
+      {/* <ExpenseDrawer
+          open={openDrawer}
+          onClose={() => setOpenDrawer(false)}
+        /> */}
     </>
   );
 };

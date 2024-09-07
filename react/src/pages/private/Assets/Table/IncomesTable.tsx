@@ -9,6 +9,7 @@ import useTable from "../../../../hooks/useTable";
 import { RawDateString } from "../../../../types";
 import { getAssetIncomes } from "../api";
 import { Income } from "../api/models";
+import { ASSETS_QUERY_KEY } from "./consts";
 import { getExpandedRowSubTableLayoutProps } from "./utils";
 
 const IncomesTable = ({
@@ -57,7 +58,7 @@ const IncomesTable = ({
   const { table, pagination, sorting } = useTable({
     ...getExpandedRowSubTableLayoutProps(),
     columns: columns as Column<any>[],
-    queryKey: `assets-${assetId}-incomes`,
+    queryKey: [ASSETS_QUERY_KEY, assetId.toString(), "incomes"],
     queryFn: () =>
       getAssetIncomes({
         assetId,

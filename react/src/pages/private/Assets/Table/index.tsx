@@ -9,7 +9,6 @@ import {
   MaterialReactTable,
   type MRT_ColumnDef as Column,
   type MRT_Row as Row,
-  type MRT_TableInstance as DataTable,
 } from "material-react-table";
 
 import { Colors, getColor } from "../../../../design-system";
@@ -210,7 +209,7 @@ const Table = () => {
     setFilters,
   } = useTable({
     columns: columns as Column<any>[],
-    queryKey: ASSETS_QUERY_KEY,
+    queryKey: [ASSETS_QUERY_KEY],
     defaultFilters: { status: "OPENED" },
     enableExpanding: true,
     columnVisibility,
@@ -227,7 +226,7 @@ const Table = () => {
     getRowCanExpand: () => true,
     renderTopToolbar: ({ table }) => (
       <TopToolBar
-        table={table as DataTable<Asset>}
+        table={table}
         setSearch={setSearch}
         setPagination={setPagination}
         setFilters={setFilters}

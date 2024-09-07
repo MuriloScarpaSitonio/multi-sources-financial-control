@@ -1,17 +1,22 @@
-import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
+import type { Dispatch, SetStateAction } from "react";
 
-import Box from "@mui/material/Box";
+import type { RawDateString } from "../../../../types";
+import type { Filters } from "../types";
+
+import { useMemo, useState, useEffect, useCallback } from "react";
+
+import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
-import Tab from "@mui/material/Tab";
-import Tabs from "@mui/material/Tabs";
+import Skeleton from "@mui/material/Skeleton";
+import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
+import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 
 import {
   MaterialReactTable,
   type MRT_ColumnDef as Column,
-  type MRT_Row as Row,
-  type MRT_TableInstance as DataTable,
-  MRT_ExpandAllButton,
 } from "material-react-table";
+import { format, isEqual } from "date-fns";
+import { ptBR } from "date-fns/locale/pt-BR";
 
 import {
   Text,
@@ -19,6 +24,8 @@ import {
   FontWeights,
   getFontWeight,
   getFontSize,
+  Colors,
+  getColor,
 } from "../../../../design-system";
 import { StatusDot } from "../../../../design-system/icons";
 import useTable from "../../../../hooks/useTable";
@@ -26,20 +33,17 @@ import { getExpenses } from "../api/expenses";
 import { Expense } from "../api/models";
 
 import { ExpensesCategoriesMapping, EXPENSES_QUERY_KEY } from "../consts";
-import { RawDateString } from "../../../../types";
 // import AssetsForm from "./AssetForm";
-// import TopToolBar from "./TopToolbar";
+import TopToolBar from "./ToopToolBar";
 
-const getExpensesGroupedByType = async (filters: {
-  page?: number;
-  page_size?: number;
-  ordering?: string;
-  start_date?: Date;
-  end_date?: Date;
-  description?: string;
-  category?: string[];
-  source?: string[];
-}) => {
+const getExpensesGroupedByType = async (
+  filters: Filters & {
+    page?: number;
+    page_size?: number;
+    ordering?: string;
+    description?: string;
+  },
+) => {
   const [expenses, fixedExpenses, expensesWInstallments] = await Promise.all([
     getExpenses({
       ...filters,
@@ -71,8 +75,86 @@ const getExpensesGroupedByType = async (filters: {
   };
 };
 
+const months = [
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+];
+
+type Month = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | undefined;
+
+const MonthChips = ({
+  month,
+  setMonth,
+  year,
+  setYear,
+  currentYear,
+}: {
+  month: Month;
+  setMonth: Dispatch<SetStateAction<Month>>;
+  year: number;
+  setYear: Dispatch<SetStateAction<number>>;
+  currentYear: number;
+}) => {
+  const chips = useMemo(
+    () =>
+      [...Array(12).keys()].map((value) => (
+        <Chip
+          label={months[value]}
+          onClick={value === month ? undefined : () => setMonth(value as Month)}
+          variant={value === month ? "neutral-selected" : "neutral"}
+        />
+      )),
+    [setMonth, month],
+  );
+  const yearDiff = currentYear - year - 1;
+  return (
+    <Stack direction="row" spacing={2} alignItems="center">
+      <Chip
+        label={year - 1}
+        onClick={() => setYear((year) => year - 1)}
+        icon={<ArrowBackIosIcon fontSize="small" />}
+        variant="brand"
+      />
+      <Chip label={year} clickable={false} variant="brand-selected" />
+      {chips}
+      {yearDiff >= 0 && (
+        <Chip
+          label={currentYear - yearDiff}
+          onDelete={() => setYear(currentYear - yearDiff)}
+          onClick={() => setYear(currentYear - yearDiff)}
+          deleteIcon={<ArrowForwardIosIcon fontSize="small" />}
+          variant="brand"
+        />
+      )}
+    </Stack>
+  );
+};
+const isFilteringFirstMonth = (startDate: Date, endDate: Date) =>
+  isEqual(
+    // is the selected date the first day of month?
+    new Date(endDate.getFullYear(), endDate.getMonth(), 1),
+    startDate,
+  ) &&
+  isEqual(
+    // is the selected date the last day of month?
+    new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0),
+    endDate,
+  );
+
 const Table = () => {
   const today = new Date();
+  const [month, setMonth] = useState<Month>(today.getMonth() as Month);
+  const [year, setYear] = useState<number>(today.getFullYear());
   const columns = useMemo<Column<Expense>[]>(
     () => [
       { header: "", accessorKey: "type", size: 25 },
@@ -93,7 +175,7 @@ const Table = () => {
           return `R$ ${price}`;
         },
         aggregationFn: "sum",
-        AggregatedCell: ({ cell, row }) => {
+        AggregatedCell: ({ cell }) => {
           return (
             <Text
               weith={FontWeights.SEMI_BOLD}
@@ -147,7 +229,7 @@ const Table = () => {
     setFilters,
   } = useTable({
     columns: columns as Column<any>[],
-    queryKey: EXPENSES_QUERY_KEY,
+    queryKey: [EXPENSES_QUERY_KEY],
     enableExpanding: true,
     enableExpandAll: true,
     enableGrouping: true,
@@ -158,7 +240,7 @@ const Table = () => {
     initialState: { grouping: ["type"], expanded: { "type:Outros": true } },
     displayColumnDefOptions: {
       "mrt-row-expand": {
-        muiTableBodyCellProps: ({ row }) => ({
+        muiTableBodyCellProps: () => ({
           sx: {
             fontWeight: getFontWeight(FontWeights.SEMI_BOLD),
             fontSize: getFontSize(FontSizes.SMALL),
@@ -167,30 +249,76 @@ const Table = () => {
         size: 10,
       },
     },
-    defaultFilters: {
-      start_date: new Date(today.getFullYear(), today.getMonth(), 1),
-      end_date: new Date(today.getFullYear(), today.getMonth() + 1, 0),
-    },
     queryFn: () =>
       getExpensesGroupedByType({
         page: pagination.pageIndex + 1,
         page_size: pagination.pageSize,
         ordering: sorting.map((s) => (s.desc ? `-${s.id}` : s.id))[0] ?? "",
         description: search,
-        ...filters,
+        ...(filters as Filters),
       }),
     getRowId: (row: Expense) => row.id?.toString(),
-    // renderTopToolbar: ({ table }) => (
-    //   <TopToolBar
-    //     table={table as DataTable<Asset>}
-    //     setSearch={setSearch}
-    //     setPagination={setPagination}
-    //     setFilters={setFilters}
-    //   />
-    // ),
+    renderTopToolbar: ({ table }) => (
+      <TopToolBar
+        table={table}
+        setSearch={setSearch}
+        setPagination={setPagination}
+        filters={filters as Filters}
+        setFilters={setFilters}
+        onDateFiltering={() => setMonth(undefined)}
+      />
+    ),
   });
 
-  return <MaterialReactTable table={table} />;
+  useEffect(() => {
+    const { start_date, end_date } = filters as Filters;
+    if (
+      month === undefined &&
+      start_date &&
+      end_date &&
+      isFilteringFirstMonth(start_date, end_date)
+    )
+      setMonth(start_date.getMonth() as Month);
+    if (month !== undefined)
+      setFilters((prevFilters) => ({
+        ...prevFilters,
+        start_date: new Date(year, month, 1), // first day of month
+        end_date: new Date(year, month + 1, 0), // last day of month
+      }));
+  }, [filters, month, setMonth, year, setFilters]);
+
+  const getPeriod = useCallback(() => {
+    const { start_date, end_date } = filters as Filters;
+    if (!start_date || !end_date) return <Skeleton width={300} />;
+    if (isFilteringFirstMonth(start_date, end_date))
+      return months[start_date.getMonth()];
+    return `${format(start_date, "MMM dd, yyyy", {
+      locale: ptBR,
+    })} - ${format(end_date, "MMM dd, yyyy", {
+      locale: ptBR,
+    })}`;
+  }, [filters]);
+
+  return (
+    <Stack
+      spacing={2}
+      sx={{ p: 2, backgroundColor: getColor(Colors.neutral900) }}
+    >
+      <Stack spacing={2} alignItems="center">
+        <Text size={FontSizes.LARGE} weight={FontWeights.BOLD}>
+          {getPeriod()}
+        </Text>
+        <MonthChips
+          month={month}
+          setMonth={setMonth}
+          year={year}
+          setYear={setYear}
+          currentYear={today.getFullYear()}
+        />
+      </Stack>
+      <MaterialReactTable table={table} />
+    </Stack>
+  );
 };
 
 export default Table;
