@@ -18,6 +18,23 @@ export const getIndicators = async (): Promise<{
   total: number;
 }> => (await apiProvider.get(`${RESOURCE}/indicators`)).data;
 
+export const getIndicatorsV2 = async (params: {
+  startDate: Date;
+  endDate: Date;
+}): Promise<{
+  avg: number;
+  diff: number;
+  total: number;
+}> =>
+  (
+    await apiProvider.get(`${RESOURCE}/v2/indicators`, {
+      params: {
+        start_date: params.startDate.toLocaleDateString("pt-br"),
+        end_date: params.endDate.toLocaleDateString("pt-br"),
+      },
+    })
+  ).data;
+
 export const getAvgComparasionReport = async (params: {
   group_by: GroupBy;
   period: "since_a_year_ago" | "current_month_and_past";
@@ -70,8 +87,8 @@ type Params = {
   page?: number;
   page_size?: number;
   ordering?: string;
-  start_date?: Date;
-  end_date?: Date;
+  startDate?: Date;
+  endDate?: Date;
   description?: string;
   is_fixed?: boolean;
   with_installments?: boolean;
@@ -85,8 +102,8 @@ export const getExpenses = async (
     await apiProvider.get(RESOURCE, {
       params: {
         ...params,
-        start_date: params.start_date?.toLocaleDateString("pt-br"),
-        end_date: params.end_date?.toLocaleDateString("pt-br"),
+        start_date: params.startDate?.toLocaleDateString("pt-br"),
+        end_date: params.endDate?.toLocaleDateString("pt-br"),
       },
       paramsSerializer: (params: Params) =>
         qs.stringify(params, { arrayFormat: "repeat" }),

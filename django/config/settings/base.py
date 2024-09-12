@@ -130,7 +130,7 @@ BASE_API_URL = "api/v1/"
 
 AUTH_USER_MODEL = "authentication.CustomUser"
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = "anymail.backends.brevo.EmailBackend"
 ANYMAIL = {"SENDINBLUE_API_KEY": secret("BREVO_API_KEY", default="")}
 BREVO_TEMPLATE_IDS = {
     "activation": secret("BREVO_ACTIVATION_TEMPLATE_ID", default=0, cast=int),

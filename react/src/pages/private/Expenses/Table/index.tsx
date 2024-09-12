@@ -3,11 +3,10 @@ import type { Dispatch, SetStateAction } from "react";
 import type { RawDateString } from "../../../../types";
 import type { Filters } from "../types";
 
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useContext } from "react";
 
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
-import Skeleton from "@mui/material/Skeleton";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 
@@ -15,7 +14,7 @@ import {
   MaterialReactTable,
   type MRT_ColumnDef as Column,
 } from "material-react-table";
-import { format, isEqual } from "date-fns";
+import { format } from "date-fns";
 import { ptBR } from "date-fns/locale/pt-BR";
 
 import {
@@ -35,9 +34,13 @@ import { Expense } from "../api/models";
 import { ExpensesCategoriesMapping, EXPENSES_QUERY_KEY } from "../consts";
 // import AssetsForm from "./AssetForm";
 import TopToolBar from "./ToopToolBar";
+import { ExpensesContext } from "../context";
+import { isFilteringWholeMonth } from "../utils";
 
 const getExpensesGroupedByType = async (
   filters: Filters & {
+    startDate: Date;
+    endDate: Date;
     page?: number;
     page_size?: number;
     ordering?: string;
@@ -139,22 +142,13 @@ const MonthChips = ({
     </Stack>
   );
 };
-const isFilteringFirstMonth = (startDate: Date, endDate: Date) =>
-  isEqual(
-    // is the selected date the first day of month?
-    new Date(endDate.getFullYear(), endDate.getMonth(), 1),
-    startDate,
-  ) &&
-  isEqual(
-    // is the selected date the last day of month?
-    new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0),
-    endDate,
-  );
 
 const Table = () => {
   const today = new Date();
   const [month, setMonth] = useState<Month>(today.getMonth() as Month);
   const [year, setYear] = useState<number>(today.getFullYear());
+  const { startDate, setStartDate, endDate, setEndDate } =
+    useContext(ExpensesContext);
   const columns = useMemo<Column<Expense>[]>(
     () => [
       { header: "", accessorKey: "type", size: 25 },
@@ -255,6 +249,8 @@ const Table = () => {
         page_size: pagination.pageSize,
         ordering: sorting.map((s) => (s.desc ? `-${s.id}` : s.id))[0] ?? "",
         description: search,
+        startDate,
+        endDate,
         ...(filters as Filters),
       }),
     getRowId: (row: Expense) => row.id?.toString(),
@@ -271,33 +267,29 @@ const Table = () => {
   });
 
   useEffect(() => {
-    const { start_date, end_date } = filters as Filters;
     if (
       month === undefined &&
-      start_date &&
-      end_date &&
-      isFilteringFirstMonth(start_date, end_date)
+      // start_date &&
+      // end_date &&
+      isFilteringWholeMonth(startDate, endDate)
     )
-      setMonth(start_date.getMonth() as Month);
-    if (month !== undefined)
-      setFilters((prevFilters) => ({
-        ...prevFilters,
-        start_date: new Date(year, month, 1), // first day of month
-        end_date: new Date(year, month + 1, 0), // last day of month
-      }));
-  }, [filters, month, setMonth, year, setFilters]);
+      setMonth(startDate.getMonth() as Month);
+    if (month !== undefined) {
+      setStartDate(new Date(year, month, 1)); // first day of month
+      setEndDate(new Date(year, month + 1, 0)); // last day of month
+    }
+  }, [month, setMonth, year, setStartDate, setEndDate, startDate, endDate]);
 
   const getPeriod = useCallback(() => {
-    const { start_date, end_date } = filters as Filters;
-    if (!start_date || !end_date) return <Skeleton width={300} />;
-    if (isFilteringFirstMonth(start_date, end_date))
-      return months[start_date.getMonth()];
-    return `${format(start_date, "MMM dd, yyyy", {
+    // if (!startDate || !endDate) return <Skeleton width={300} />;
+    if (isFilteringWholeMonth(startDate, endDate))
+      return months[startDate.getMonth()];
+    return `${format(startDate, "MMM dd, yyyy", {
       locale: ptBR,
-    })} - ${format(end_date, "MMM dd, yyyy", {
+    })} - ${format(endDate, "MMM dd, yyyy", {
       locale: ptBR,
     })}`;
-  }, [filters]);
+  }, [startDate, endDate]);
 
   return (
     <Stack

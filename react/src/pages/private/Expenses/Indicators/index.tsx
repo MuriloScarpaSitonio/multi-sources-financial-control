@@ -19,7 +19,9 @@ import {
   getColor,
   Text,
 } from "../../../../design-system";
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useContext, useMemo } from "react";
+import { ExpensesContext } from "../context";
+import { isFilteringWholeMonth } from "../utils";
 
 const BorderLinearProgress = styled(LinearProgress)(({ value }) => ({
   height: 24,
@@ -122,18 +124,20 @@ const BalanceIndicator = ({
   );
 
 const Indicators = () => {
+  const { startDate, endDate } = useContext(ExpensesContext);
   const {
     data: expensesIndicators,
     isPending: isExpensesIndicatorsLoading,
     isError: isExpensesIndicatorsError,
-  } = useExpensesIndicators();
+  } = useExpensesIndicators({ startDate, endDate });
   const {
     data: revenuesIndicators,
     isPending: isRevenuesIndicatorsLoading,
     isError: isRevenuesIndicatorsError,
-  } = useRevenuesIndicators();
+  } = useRevenuesIndicators({ startDate, endDate });
 
   const isLoading = isExpensesIndicatorsLoading || isRevenuesIndicatorsLoading;
+  const isFilteringEntireMonth = isFilteringWholeMonth(startDate, endDate);
 
   const percentage = useMemo(() => {
     if (expensesIndicators && revenuesIndicators)
@@ -142,26 +146,30 @@ const Indicators = () => {
         100
       );
   }, [expensesIndicators, revenuesIndicators]);
+
   const balance = useMemo(() => {
     if (expensesIndicators && revenuesIndicators)
       return revenuesIndicators?.total - expensesIndicators?.total;
   }, [expensesIndicators, revenuesIndicators]);
+
   return (
     <Stack gap={4}>
       <Stack direction="row" gap={4}>
         <Indicator
-          title="Receita mensal"
+          title="Receitas"
           value={revenuesIndicators?.total}
           secondaryIndicator={
-            <PercentageChangeSecondaryIndicator
-              value={revenuesIndicators?.diff}
-              variant={
-                revenuesIndicators && revenuesIndicators.diff > 0
-                  ? "success"
-                  : "danger"
-              }
-              isLoading={isRevenuesIndicatorsLoading}
-            />
+            isFilteringEntireMonth && (
+              <PercentageChangeSecondaryIndicator
+                value={revenuesIndicators?.diff}
+                variant={
+                  revenuesIndicators && revenuesIndicators.diff > 0
+                    ? "success"
+                    : "danger"
+                }
+                isLoading={isRevenuesIndicatorsLoading}
+              />
+            )
           }
           Icon={MonetizationOnOutlinedIcon}
           variant="success"
@@ -169,19 +177,21 @@ const Indicators = () => {
           isError={isRevenuesIndicatorsError}
         />
         <Indicator
-          title="Despesa mensal"
+          title="Despesas"
           value={expensesIndicators?.total}
           secondaryIndicator={
-            <PercentageChangeSecondaryIndicator
-              value={expensesIndicators?.diff}
-              variant={
-                expensesIndicators && expensesIndicators.diff < 0
-                  ? "success"
-                  : "danger"
-              }
-              isIconInverse
-              isLoading={isExpensesIndicatorsLoading}
-            />
+            isFilteringEntireMonth && (
+              <PercentageChangeSecondaryIndicator
+                value={expensesIndicators?.diff}
+                variant={
+                  expensesIndicators && expensesIndicators.diff < 0
+                    ? "success"
+                    : "danger"
+                }
+                isIconInverse
+                isLoading={isExpensesIndicatorsLoading}
+              />
+            )
           }
           Icon={MonetizationOnOutlinedIcon}
           variant="danger"
@@ -223,10 +233,12 @@ const Indicators = () => {
       )}
       <Stack direction="row" gap={2}>
         <BalanceIndicator value={balance ?? 0} isLoading={isLoading} />
-        <ExpenseAvgDiffIndicator
-          value={expensesIndicators?.diff ?? 0}
-          isLoading={isLoading}
-        />
+        {isFilteringEntireMonth && (
+          <ExpenseAvgDiffIndicator
+            value={expensesIndicators?.diff ?? 0}
+            isLoading={isLoading}
+          />
+        )}
       </Stack>
     </Stack>
   );

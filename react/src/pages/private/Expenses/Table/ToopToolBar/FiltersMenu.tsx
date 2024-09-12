@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction } from "react";
+import { useContext, type Dispatch, type SetStateAction } from "react";
 
 import { ptBR } from "date-fns/locale/pt-BR";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFnsV3";
@@ -19,6 +19,7 @@ import {
 import { AutoCompleteMultiInput } from "../../../../../design-system/components";
 import { Text } from "../../../../../design-system";
 import { Filters } from "../../types";
+import { ExpensesContext } from "../../context";
 
 type Options = { label: string; value: string }[] | undefined;
 
@@ -48,6 +49,8 @@ export const FiltersMenu = ({
   setFilters: Dispatch<SetStateAction<Filters>>;
   onDateFiltering: () => void;
 }) => {
+  const { startDate, setStartDate, endDate, setEndDate } =
+    useContext(ExpensesContext);
   const { control, getValues } = useForm({
     resolver: yupResolver(schema),
     defaultValues: {
@@ -114,14 +117,11 @@ export const FiltersMenu = ({
                   {...field}
                   label="Início"
                   format="dd/MM/yyyy"
-                  defaultValue={filters.start_date}
+                  defaultValue={startDate}
                   slotProps={{ textField: { required: true } }}
                   onChange={(date) => {
                     if (date) {
-                      setFilters((prevFilters) => ({
-                        ...prevFilters,
-                        start_date: date,
-                      }));
+                      setStartDate(date);
                       onDateFiltering();
                     }
                   }}
@@ -141,14 +141,11 @@ export const FiltersMenu = ({
                   {...field}
                   label="Fim"
                   format="dd/MM/yyyy"
-                  defaultValue={filters.end_date}
+                  defaultValue={endDate}
                   slotProps={{ textField: { required: true } }}
                   onChange={(date) => {
                     if (date) {
-                      setFilters((prevFilters) => ({
-                        ...prevFilters,
-                        end_date: date,
-                      }));
+                      setEndDate(date);
                       onDateFiltering();
                     }
                   }}

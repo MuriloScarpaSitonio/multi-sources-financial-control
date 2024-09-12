@@ -56,6 +56,4 @@ export type HistoricReportResponse = {
 export type Filters = {
   category?: string[];
   source?: string[];
-  start_date?: Date;
-  end_date?: Date;
 };

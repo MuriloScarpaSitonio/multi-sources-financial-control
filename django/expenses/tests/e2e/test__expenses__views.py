@@ -732,6 +732,37 @@ def test__indicators(client, user):
     }
 
 
+@pytest.mark.usefixtures("expenses_report_data")
+def test__indicators_v2(client, user):
+    # GIVEN
+    today = timezone.localdate()
+    one_month_later = today + relativedelta(months=1)
+    qs = Expense.objects.filter(user_id=user.id)
+    avg = (
+        qs.since_a_year_ago()
+        .exclude(created_at__month=today.month, created_at__year=today.year)
+        .trunc_months()
+        .aggregate(avg=Avg("total"))["avg"]
+    )
+    total = Expense.objects.filter(created_at__range=(today, one_month_later)).sum()["total"]
+
+    # WHEN
+    response = client.get(
+        f"{URL}/v2/indicators?start_date={today.strftime('%d/%m/%Y')}"
+        + f"&end_date={one_month_later.strftime('%d/%m/%Y')}"
+    )
+
+    # THEN
+    response_json = response.json()
+
+    assert response.status_code == HTTP_200_OK
+    assert response_json == {
+        "total": convert_and_quantitize(total),
+        "avg": convert_and_quantitize(avg),
+        "diff": convert_and_quantitize(((total / avg) - Decimal("1.0")) * Decimal("100.0")),
+    }
+
+
 def test__indicators__wo_data(client):
     # GIVEN
 

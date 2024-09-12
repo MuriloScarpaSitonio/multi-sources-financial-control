@@ -180,7 +180,12 @@ class UserSerializer(serializers.ModelSerializer):
 
         validated_data.pop("password2")
         password = validated_data.pop("password")
-        user: UserModel = super().create(validated_data=validated_data)
+        user: UserModel = super().create(  # type: ignore
+            validated_data={
+                **validated_data,
+                "email": UserModel.objects.normalize_email(validated_data["email"]),
+            }
+        )
         try:
             password_validation.validate_password(password, user)
         except DjangoValidationError as e:

@@ -42,6 +42,27 @@ class _PersonalFinancialQuerySet(QuerySet):
     def since_a_year_ago(self) -> Self:
         return self.filter(self.filters.since_a_year_ago)
 
+    def since_a_year_ago_avg(self) -> dict[str, Decimal]:
+        return (
+            self.filter(self.filters.since_a_year_ago)
+            .exclude(self.filters.current)
+            .aggregate(
+                avg=Coalesce(
+                    Sum("value", default=Decimal())
+                    / (
+                        Count(
+                            Concat(
+                                "created_at__month", "created_at__year", output_field=CharField()
+                            ),
+                            distinct=True,
+                        )
+                        * Cast(1.0, DecimalField())
+                    ),
+                    Decimal(),
+                ),
+            )
+        )
+
     def current_month_and_past(self) -> Self:
         return self.filter(self.filters.current_month_and_past)
 

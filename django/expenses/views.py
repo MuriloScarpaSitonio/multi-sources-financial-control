@@ -147,6 +147,22 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
         )
         return Response(serializer.data, status=HTTP_200_OK)
 
+    @action(methods=("GET",), detail=False, url_path="v2/indicators")
+    def indicators_v2(self, request: Request) -> Response:
+        filterset = ExpenseHistoricV2FilterSet(data=request.GET, queryset=self.get_queryset())
+        total = filterset.qs.sum()["total"]
+        avg = self.get_queryset().since_a_year_ago_avg()["avg"]
+        serializer = RevenueIndicatorsSerializer(
+            {
+                "total": total,
+                "avg": avg,
+                "diff": (
+                    (((total / avg) - Decimal("1.0")) * Decimal("100.0")) if avg else Decimal()
+                ),
+            }
+        )
+        return Response(serializer.data, status=HTTP_200_OK)
+
 
 class RevenueViewSet(_PersonalFinanceViewSet):
     filterset_class = RevenueFilterSet
@@ -193,6 +209,22 @@ class RevenueViewSet(_PersonalFinanceViewSet):
         super().perform_destroy(instance)
         with RevenueUnitOfWork(user_id=self.request.user.id) as uow:
             messagebus.handle(message=events.RevenueDeleted(value=instance.value), uow=uow)
+
+    @action(methods=("GET",), detail=False, url_path="v2/indicators")
+    def indicators_v2(self, request: Request) -> Response:
+        filterset = ExpenseHistoricV2FilterSet(data=request.GET, queryset=self.get_queryset())
+        total = filterset.qs.sum()["total"]
+        avg = self.get_queryset().since_a_year_ago_avg()["avg"]
+        serializer = RevenueIndicatorsSerializer(
+            {
+                "total": total,
+                "avg": avg,
+                "diff": (
+                    (((total / avg) - Decimal("1.0")) * Decimal("100.0")) if avg else Decimal()
+                ),
+            }
+        )
+        return Response(serializer.data, status=HTTP_200_OK)
 
 
 class BankAccountView(APIView):

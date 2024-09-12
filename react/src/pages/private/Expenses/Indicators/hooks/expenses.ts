@@ -1,13 +1,16 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getIndicators } from "../../api/expenses";
+import { getIndicatorsV2 } from "../../api/expenses";
 
 const QUERY_KEY = "expenses-indicators";
 
-export const useExpensesIndicators = () =>
+export const useExpensesIndicators = (params: {
+  startDate: Date;
+  endDate: Date;
+}) =>
   useQuery({
-    queryKey: [QUERY_KEY],
-    queryFn: getIndicators,
+    queryKey: [QUERY_KEY, params],
+    queryFn: () => getIndicatorsV2(params),
   });
 
 export const useInvalidateExpensesIndicatorsQueries = () => {
