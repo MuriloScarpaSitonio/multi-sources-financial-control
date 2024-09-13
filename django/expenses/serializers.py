@@ -95,23 +95,29 @@ class AvgSerializer(serializers.Serializer):
     avg = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
 
 
-class _ExpenseReportGroupBySerializer(TotalSerializer, AvgSerializer): ...
-
-
-class ExpenseReportCategorySerializer(_ExpenseReportGroupBySerializer):
+class ExpenseReportCategorySerializer(TotalSerializer):
     category = CustomChoiceField(choices=ExpenseCategory.choices)
 
 
-class ExpenseReportSourceSerializer(_ExpenseReportGroupBySerializer):
+class ExpenseReportAvgCategorySerializer(ExpenseReportCategorySerializer, AvgSerializer): ...
+
+
+class ExpenseReportSourceSerializer(TotalSerializer):
     source = CustomChoiceField(choices=ExpenseSource.choices)
 
 
-class ExpenseReportTypeSerializer(_ExpenseReportGroupBySerializer):
+class ExpenseReportAvgSourceSerializer(ExpenseReportSourceSerializer, AvgSerializer): ...
+
+
+class ExpenseReportTypeSerializer(TotalSerializer):
     type = serializers.SerializerMethodField()
     is_fixed = serializers.BooleanField()
 
     def get_type(self, data: dict[str, bool | Decimal]) -> str:
         return "Fixo" if data["is_fixed"] is True else "Variável"
+
+
+class ExpenseReportAvgTypeSerializer(ExpenseReportTypeSerializer, AvgSerializer): ...
 
 
 class ExpenseHistoricSerializer(TotalSerializer):

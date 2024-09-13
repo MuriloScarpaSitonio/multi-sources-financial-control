@@ -126,14 +126,19 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
         )
 
     @staticmethod
-    def _get_report_serializer_class(choice: ChoiceItem) -> type[Serializer]:
-        module = __import__("expenses.serializers", fromlist=[choice.serializer_name])
-        return getattr(module, choice.serializer_name)
+    def _get_report_serializer_class(choice: ChoiceItem, avg: bool) -> type[Serializer]:
+        name = (
+            choice.serializer_name.replace("Report", "ReportAvg") if avg else choice.serializer_name
+        )
+        module = __import__("expenses.serializers", fromlist=[name])
+        return getattr(module, name)
 
-    def _get_report_data(self, filterset: ExpenseAvgComparasionReportFilterSet) -> ReturnList:
+    def _get_report_data(
+        self, filterset: ExpenseAvgComparasionReportFilterSet, avg: bool
+    ) -> ReturnList:
         qs = filterset.qs
         choice = ExpenseReportType.get_choice(value=filterset.form.cleaned_data["group_by"])
-        Serializer = self._get_report_serializer_class(choice=choice)
+        Serializer = self._get_report_serializer_class(choice=choice, avg=avg)
         serializer = Serializer(qs, many=True)
         return serializer.data
 
@@ -142,12 +147,12 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
         filterset = ExpenseAvgComparasionReportFilterSet(
             data=request.GET, queryset=self.get_queryset()
         )
-        return Response(self._get_report_data(filterset=filterset), status=HTTP_200_OK)
+        return Response(self._get_report_data(filterset=filterset, avg=True), status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
     def percentage_report(self, request: Request) -> Response:
         filterset = ExpensePercentageReportFilterSet(data=request.GET, queryset=self.get_queryset())
-        return Response(self._get_report_data(filterset=filterset), status=HTTP_200_OK)
+        return Response(self._get_report_data(filterset=filterset, avg=False), status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
     def historic_report(self, request: Request) -> Response:
