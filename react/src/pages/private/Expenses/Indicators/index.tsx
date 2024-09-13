@@ -21,7 +21,6 @@ import {
 } from "../../../../design-system";
 import { ReactNode, useContext, useMemo } from "react";
 import { ExpensesContext } from "../context";
-import { isFilteringWholeMonth } from "../utils";
 
 const BorderLinearProgress = styled(LinearProgress)(({ value }) => ({
   height: 24,
@@ -137,7 +136,8 @@ const Indicators = () => {
   } = useRevenuesIndicators({ startDate, endDate });
 
   const isLoading = isExpensesIndicatorsLoading || isRevenuesIndicatorsLoading;
-  const isFilteringEntireMonth = isFilteringWholeMonth(startDate, endDate);
+  const isFilteringEntireMonth =
+    !isExpensesIndicatorsLoading && expensesIndicators?.diff !== undefined;
 
   const percentage = useMemo(() => {
     if (expensesIndicators && revenuesIndicators)
@@ -163,7 +163,7 @@ const Indicators = () => {
               <PercentageChangeSecondaryIndicator
                 value={revenuesIndicators?.diff}
                 variant={
-                  revenuesIndicators && revenuesIndicators.diff > 0
+                  revenuesIndicators && (revenuesIndicators.diff ?? 0) > 0
                     ? "success"
                     : "danger"
                 }
@@ -184,7 +184,7 @@ const Indicators = () => {
               <PercentageChangeSecondaryIndicator
                 value={expensesIndicators?.diff}
                 variant={
-                  expensesIndicators && expensesIndicators.diff < 0
+                  expensesIndicators && (expensesIndicators.diff ?? 0) < 0
                     ? "success"
                     : "danger"
                 }

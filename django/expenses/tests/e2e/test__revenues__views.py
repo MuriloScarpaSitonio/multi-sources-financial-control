@@ -257,22 +257,17 @@ def test__indicators(client, user):
 
 
 @pytest.mark.usefixtures("revenues_historic_data")
-def test__indicators_v2(client, user):
+def test__sum(client, user):
     # GIVEN
     today = timezone.localdate()
     one_month_later = today + relativedelta(months=1)
-    qs = Revenue.objects.filter(user_id=user.id)
-    avg = (
-        qs.since_a_year_ago()
-        .exclude(created_at__month=today.month, created_at__year=today.year)
-        .trunc_months()
-        .aggregate(avg=Avg("total"))["avg"]
-    )
-    total = Revenue.objects.filter(created_at__range=(today, one_month_later)).sum()["total"]
+    total = Revenue.objects.filter(
+        user_id=user.id, created_at__range=(today, one_month_later)
+    ).sum()["total"]
 
     # WHEN
     response = client.get(
-        f"{URL}/v2/indicators?start_date={today.strftime('%d/%m/%Y')}"
+        f"{URL}/sum?start_date={today.strftime('%d/%m/%Y')}"
         + f"&end_date={one_month_later.strftime('%d/%m/%Y')}"
     )
 
@@ -280,11 +275,27 @@ def test__indicators_v2(client, user):
     response_json = response.json()
 
     assert response.status_code == HTTP_200_OK
-    assert response_json == {
-        "total": convert_and_quantitize(total),
-        "avg": convert_and_quantitize(avg),
-        "diff": convert_and_quantitize(((total / avg) - Decimal("1.0")) * Decimal("100.0")),
-    }
+    assert response_json == {"total": convert_and_quantitize(total)}
+
+
+@pytest.mark.usefixtures("revenues_historic_data")
+def test__avg(client, user):
+    # GIVEN
+    today = timezone.localdate()
+    avg = (
+        Revenue.objects.filter(user_id=user.id)
+        .since_a_year_ago()
+        .exclude(created_at__month=today.month, created_at__year=today.year)
+        .trunc_months()
+        .aggregate(avg=Avg("total"))["avg"]
+    )
+
+    # WHEN
+    response = client.get(f"{URL}/avg")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert response.json() == {"avg": convert_and_quantitize(avg)}
 
 
 def test__indicators__wo_data(client):

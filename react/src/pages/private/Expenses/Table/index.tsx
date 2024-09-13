@@ -1,21 +1,14 @@
-import type { Dispatch, SetStateAction } from "react";
-
 import type { RawDateString } from "../../../../types";
 import type { Filters } from "../types";
 
-import { useMemo, useState, useEffect, useCallback, useContext } from "react";
+import { useMemo, useContext } from "react";
 
-import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
-import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
-import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 
 import {
   MaterialReactTable,
   type MRT_ColumnDef as Column,
 } from "material-react-table";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale/pt-BR";
 
 import {
   Text,
@@ -23,8 +16,6 @@ import {
   FontWeights,
   getFontWeight,
   getFontSize,
-  Colors,
-  getColor,
 } from "../../../../design-system";
 import { StatusDot } from "../../../../design-system/icons";
 import useTable from "../../../../hooks/useTable";
@@ -35,7 +26,6 @@ import { ExpensesCategoriesMapping, EXPENSES_QUERY_KEY } from "../consts";
 // import AssetsForm from "./AssetForm";
 import TopToolBar from "./ToopToolBar";
 import { ExpensesContext } from "../context";
-import { isFilteringWholeMonth } from "../utils";
 
 const getExpensesGroupedByType = async (
   filters: Filters & {
@@ -78,77 +68,8 @@ const getExpensesGroupedByType = async (
   };
 };
 
-const months = [
-  "Janeiro",
-  "Fevereiro",
-  "Março",
-  "Abril",
-  "Maio",
-  "Junho",
-  "Julho",
-  "Agosto",
-  "Setembro",
-  "Outubro",
-  "Novembro",
-  "Dezembro",
-];
-
-type Month = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | undefined;
-
-const MonthChips = ({
-  month,
-  setMonth,
-  year,
-  setYear,
-  currentYear,
-}: {
-  month: Month;
-  setMonth: Dispatch<SetStateAction<Month>>;
-  year: number;
-  setYear: Dispatch<SetStateAction<number>>;
-  currentYear: number;
-}) => {
-  const chips = useMemo(
-    () =>
-      [...Array(12).keys()].map((value) => (
-        <Chip
-          label={months[value]}
-          onClick={value === month ? undefined : () => setMonth(value as Month)}
-          variant={value === month ? "neutral-selected" : "neutral"}
-        />
-      )),
-    [setMonth, month],
-  );
-  const yearDiff = currentYear - year - 1;
-  return (
-    <Stack direction="row" spacing={2} alignItems="center">
-      <Chip
-        label={year - 1}
-        onClick={() => setYear((year) => year - 1)}
-        icon={<ArrowBackIosIcon fontSize="small" />}
-        variant="brand"
-      />
-      <Chip label={year} clickable={false} variant="brand-selected" />
-      {chips}
-      {yearDiff >= 0 && (
-        <Chip
-          label={currentYear - yearDiff}
-          onDelete={() => setYear(currentYear - yearDiff)}
-          onClick={() => setYear(currentYear - yearDiff)}
-          deleteIcon={<ArrowForwardIosIcon fontSize="small" />}
-          variant="brand"
-        />
-      )}
-    </Stack>
-  );
-};
-
 const Table = () => {
-  const today = new Date();
-  const [month, setMonth] = useState<Month>(today.getMonth() as Month);
-  const [year, setYear] = useState<number>(today.getFullYear());
-  const { startDate, setStartDate, endDate, setEndDate } =
-    useContext(ExpensesContext);
+  const { startDate, endDate } = useContext(ExpensesContext);
   const columns = useMemo<Column<Expense>[]>(
     () => [
       { header: "", accessorKey: "type", size: 25 },
@@ -223,7 +144,11 @@ const Table = () => {
     setFilters,
   } = useTable({
     columns: columns as Column<any>[],
-    queryKey: [EXPENSES_QUERY_KEY],
+    queryKey: [
+      EXPENSES_QUERY_KEY,
+      startDate.toLocaleDateString("pt-br"),
+      endDate.toLocaleDateString("pt-br"),
+    ],
     enableExpanding: true,
     enableExpandAll: true,
     enableGrouping: true,
@@ -261,56 +186,11 @@ const Table = () => {
         setPagination={setPagination}
         filters={filters as Filters}
         setFilters={setFilters}
-        onDateFiltering={() => setMonth(undefined)}
       />
     ),
   });
 
-  useEffect(() => {
-    if (
-      month === undefined &&
-      // start_date &&
-      // end_date &&
-      isFilteringWholeMonth(startDate, endDate)
-    )
-      setMonth(startDate.getMonth() as Month);
-    if (month !== undefined) {
-      setStartDate(new Date(year, month, 1)); // first day of month
-      setEndDate(new Date(year, month + 1, 0)); // last day of month
-    }
-  }, [month, setMonth, year, setStartDate, setEndDate, startDate, endDate]);
-
-  const getPeriod = useCallback(() => {
-    // if (!startDate || !endDate) return <Skeleton width={300} />;
-    if (isFilteringWholeMonth(startDate, endDate))
-      return months[startDate.getMonth()];
-    return `${format(startDate, "MMM dd, yyyy", {
-      locale: ptBR,
-    })} - ${format(endDate, "MMM dd, yyyy", {
-      locale: ptBR,
-    })}`;
-  }, [startDate, endDate]);
-
-  return (
-    <Stack
-      spacing={2}
-      sx={{ p: 2, backgroundColor: getColor(Colors.neutral900) }}
-    >
-      <Stack spacing={2} alignItems="center">
-        <Text size={FontSizes.LARGE} weight={FontWeights.BOLD}>
-          {getPeriod()}
-        </Text>
-        <MonthChips
-          month={month}
-          setMonth={setMonth}
-          year={year}
-          setYear={setYear}
-          currentYear={today.getFullYear()}
-        />
-      </Stack>
-      <MaterialReactTable table={table} />
-    </Stack>
-  );
+  return <MaterialReactTable table={table} />;
 };
 
 export default Table;

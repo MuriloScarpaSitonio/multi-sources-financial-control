@@ -87,14 +87,15 @@ class RevenueSerializer(serializers.ModelSerializer):
         )
 
 
-class _ExpenseBaseSerializer(serializers.Serializer):
+class TotalSerializer(serializers.Serializer):
     total = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
 
 
-class _ExpenseReportGroupBySerializer(_ExpenseBaseSerializer):
-    avg = serializers.DecimalField(
-        max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP, required=False
-    )
+class AvgSerializer(serializers.Serializer):
+    avg = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
+
+
+class _ExpenseReportGroupBySerializer(TotalSerializer, AvgSerializer): ...
 
 
 class ExpenseReportCategorySerializer(_ExpenseReportGroupBySerializer):
@@ -113,17 +114,15 @@ class ExpenseReportTypeSerializer(_ExpenseReportGroupBySerializer):
         return "Fixo" if data["is_fixed"] is True else "Variável"
 
 
-class ExpenseHistoricSerializer(_ExpenseBaseSerializer):
+class ExpenseHistoricSerializer(TotalSerializer):
     month = serializers.DateField(format="%d/%m/%Y")
 
 
-class HistoricResponseSerializer(serializers.Serializer):
+class HistoricResponseSerializer(AvgSerializer, serializers.Serializer):
     historic = ExpenseHistoricSerializer(many=True)
-    avg = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
 
 
-class RevenueIndicatorsSerializer(_ExpenseBaseSerializer):
-    avg = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
+class RevenueIndicatorsSerializer(TotalSerializer, AvgSerializer):
     diff = serializers.DecimalField(max_digits=8, decimal_places=2, rounding=ROUND_HALF_UP)
 
 

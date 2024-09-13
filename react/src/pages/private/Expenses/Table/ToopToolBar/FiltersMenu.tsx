@@ -20,6 +20,7 @@ import { AutoCompleteMultiInput } from "../../../../../design-system/components"
 import { Text } from "../../../../../design-system";
 import { Filters } from "../../types";
 import { ExpensesContext } from "../../context";
+import { isFilteringWholeMonth } from "../../utils";
 
 type Options = { label: string; value: string }[] | undefined;
 
@@ -40,16 +41,14 @@ export const FiltersMenu = ({
   anchorEl,
   filters,
   setFilters,
-  onDateFiltering,
 }: {
   open: boolean;
   onClose: () => void;
   anchorEl: null | HTMLElement;
   filters: Filters;
   setFilters: Dispatch<SetStateAction<Filters>>;
-  onDateFiltering: () => void;
 }) => {
-  const { startDate, setStartDate, endDate, setEndDate } =
+  const { startDate, setStartDate, endDate, setEndDate, setMonth } =
     useContext(ExpensesContext);
   const { control, getValues } = useForm({
     resolver: yupResolver(schema),
@@ -122,7 +121,8 @@ export const FiltersMenu = ({
                   onChange={(date) => {
                     if (date) {
                       setStartDate(date);
-                      onDateFiltering();
+                      if (!isFilteringWholeMonth(date, endDate))
+                        setMonth(undefined);
                     }
                   }}
                 />
@@ -146,7 +146,8 @@ export const FiltersMenu = ({
                   onChange={(date) => {
                     if (date) {
                       setEndDate(date);
-                      onDateFiltering();
+                      if (!isFilteringWholeMonth(startDate, date))
+                        setMonth(undefined);
                     }
                   }}
                 />

@@ -1,24 +1,70 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getIndicatorsV2 } from "../../api/revenues";
+import { getAvg, getSum } from "../../api/revenues";
+import { isFilteringWholeMonth } from "../../utils";
+import { startOfMonth } from "date-fns";
 
-const QUERY_KEY = "revenues-indicators";
+const SUM_QUERY_KEY = "revenues-sum";
+
+export const useRevenuesSum = (params: { startDate: Date; endDate: Date }) =>
+  useQuery({
+    queryKey: [SUM_QUERY_KEY, params],
+    queryFn: () => getSum(params),
+  });
+
+const AVG_QUERY_KEY = "revenues-avg";
+
+const useRevenuesAvg = ({ enabled = true }: { enabled?: boolean }) =>
+  useQuery({
+    queryKey: [AVG_QUERY_KEY],
+    queryFn: getAvg,
+    enabled,
+  });
 
 export const useRevenuesIndicators = (params: {
   startDate: Date;
   endDate: Date;
-}) =>
-  useQuery({
-    queryKey: [QUERY_KEY, params],
-    queryFn: () => getIndicatorsV2(params),
-  });
+}) => {
+  const { startDate, endDate } = params;
+  const isFilteringEntireMonth = isFilteringWholeMonth(startDate, endDate);
+  const {
+    data: revenuesSumData,
+    isPending: isRevenuesSumLoading,
+    isError: isRevenuesSumError,
+  } = useRevenuesSum({ startDate: startOfMonth(startDate), endDate });
+  const {
+    data: revenuesAvgData,
+    isPending: isRevenuesAvgLoading,
+    isError: isRevenuesAvgError,
+  } = useRevenuesAvg({ enabled: isFilteringEntireMonth });
+
+  return {
+    data:
+      revenuesSumData && revenuesAvgData
+        ? {
+            total: revenuesSumData.total,
+            avg: revenuesAvgData.avg,
+            diff: isFilteringEntireMonth
+              ? revenuesAvgData.avg
+                ? (revenuesSumData.total / revenuesAvgData.avg - 1) * 100
+                : 0
+              : undefined,
+          }
+        : undefined,
+    isPending: isRevenuesSumLoading || isRevenuesAvgLoading,
+    isError: isRevenuesSumError || isRevenuesAvgError,
+  };
+};
 
 export const useInvalidateRevenuesIndicatorsQueries = () => {
   const queryClient = useQueryClient();
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({
-      queryKey: [QUERY_KEY],
+      queryKey: [SUM_QUERY_KEY],
+    });
+    await queryClient.invalidateQueries({
+      queryKey: [AVG_QUERY_KEY],
     });
   };
 

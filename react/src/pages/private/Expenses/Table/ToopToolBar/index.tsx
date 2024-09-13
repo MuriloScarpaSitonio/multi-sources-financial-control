@@ -62,14 +62,12 @@ const TopToolBar = ({
   setPagination,
   filters,
   setFilters,
-  onDateFiltering,
 }: {
   table: DataTable<Row>;
   setSearch: Dispatch<SetStateAction<string>>;
   setPagination: Dispatch<SetStateAction<PaginationState>>;
   filters: Filters;
   setFilters: Dispatch<SetStateAction<Filters>>;
-  onDateFiltering: () => void;
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openDrawer, setOpenDrawer] = useState(false);
@@ -143,7 +141,6 @@ const TopToolBar = ({
         anchorEl={anchorEl}
         filters={filters}
         setFilters={setFilters}
-        onDateFiltering={onDateFiltering}
       />
       {/* <ExpenseDrawer
           open={openDrawer}

@@ -8,19 +8,21 @@ export const getIndicators = async (): Promise<{
   total: number;
 }> => (await apiProvider.get(`${RESOURCE}/indicators`)).data;
 
-export const getIndicatorsV2 = async (params: {
+export const getSum = async (params: {
   startDate: Date;
   endDate: Date;
 }): Promise<{
-  avg: number;
-  diff: number;
   total: number;
 }> =>
   (
-    await apiProvider.get(`${RESOURCE}/v2/indicators`, {
+    await apiProvider.get(`${RESOURCE}/sum`, {
       params: {
         start_date: params.startDate.toLocaleDateString("pt-br"),
         end_date: params.endDate.toLocaleDateString("pt-br"),
       },
     })
   ).data;
+
+export const getAvg = async (): Promise<{
+  avg: number;
+}> => (await apiProvider.get(`${RESOURCE}/avg`)).data;

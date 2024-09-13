@@ -161,6 +161,27 @@ class ExpenseHistoricV2FilterSet(filters.FilterSet):
         raise filters.utils.translate_validation(error_dict=self.errors)
 
 
+class PersonalFinanceIndicatorsV2FilterSet(filters.FilterSet):
+    start_date = filters.DateFilter(
+        field_name="created_at",
+        lookup_expr="gte",
+        required=True,
+        input_formats=["%d/%m/%Y", "%Y-%m-%d"],
+    )
+    end_date = filters.DateFilter(
+        field_name="created_at",
+        lookup_expr="lte",
+        required=True,
+        input_formats=["%d/%m/%Y", "%Y-%m-%d"],
+    )
+
+    @property
+    def qs(self):
+        if self.is_valid():
+            return super().qs
+        raise filters.utils.translate_validation(error_dict=self.errors)
+
+
 class RevenueHistoricFilterSet(filters.FilterSet):
     is_fixed = filters.BooleanFilter()
 
