@@ -31,7 +31,7 @@ import {
 
 import FiltersMenu from "./FiltersMenu";
 import { Filters } from "../../types";
-//   import ExpenseDrawer from "./ExpenseDrawer";
+import ExpenseDrawer from "./ExpenseDrawer";
 
 const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -142,10 +142,11 @@ const TopToolBar = ({
         filters={filters}
         setFilters={setFilters}
       />
-      {/* <ExpenseDrawer
-          open={openDrawer}
-          onClose={() => setOpenDrawer(false)}
-        /> */}
+      <ExpenseDrawer
+        open={openDrawer}
+        onClose={() => setOpenDrawer(false)}
+        isAdding={true}
+      />
     </>
   );
 };

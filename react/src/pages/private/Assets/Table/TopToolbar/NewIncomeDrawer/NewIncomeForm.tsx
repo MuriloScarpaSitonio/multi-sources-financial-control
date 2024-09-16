@@ -14,8 +14,10 @@ import { Controller } from "react-hook-form";
 import * as yup from "yup";
 
 import {
+  DateInput,
   FormFeedbackError,
   NumberFormat,
+  PriceWithCurrencyInput,
 } from "../../../../../../design-system";
 import useFormPlus from "../../../../../../hooks/useFormPlus";
 import {
@@ -30,11 +32,7 @@ import {
   useInvalidateAssetsIndicatorsQueries,
   useInvalidateIncomesIndicatorsQueries,
 } from "../../../Indicators/hooks";
-import {
-  AssetCodeAutoComplete,
-  DateInput,
-  PriceWithCurrencyInput,
-} from "../../../forms/components";
+import { AssetCodeAutoComplete } from "../../../forms/components";
 import { ASSETS_QUERY_KEY } from "../../consts";
 import { Kinds } from "../../../Reports/types";
 

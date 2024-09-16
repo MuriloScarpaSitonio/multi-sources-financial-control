@@ -10,6 +10,7 @@ import * as yup from "yup";
 import {
   FormFeedbackError,
   NumberFormat,
+  PriceWithCurrencyInput,
 } from "../../../../../../design-system/components";
 import useFormPlus from "../../../../../../hooks/useFormPlus";
 import { simulateTransaction } from "../../../api";
@@ -17,7 +18,6 @@ import { SimulatedAssetResponse } from "../../../api/types";
 import { FormData } from "./types";
 import {
   AssetCodeAutoComplete,
-  PriceWithCurrencyInput,
   TransactionQuantity,
 } from "../../../forms/components";
 import { AssetCurrencyMap } from "../../../consts";

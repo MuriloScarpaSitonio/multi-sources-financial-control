@@ -10,11 +10,6 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
-import { ptBR } from "date-fns/locale/pt-BR";
-import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFnsV3";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-
 import { Controller } from "react-hook-form";
 
 import {
@@ -273,43 +268,6 @@ export const AssetObjectives = ({
   </FormControl>
 );
 
-export const PriceWithCurrencyInput = ({
-  currencySymbol,
-  control,
-  isFieldInvalid,
-  getFieldHasError,
-  getErrorMessage,
-  name = "price",
-  label = "Preço",
-}: ReactHookFormsInputCustomProps & {
-  currencySymbol: string;
-  name?: string;
-  label?: string;
-}) => (
-  <Controller
-    name={name}
-    control={control}
-    render={({ field }) => (
-      <Stack spacing={0.5}>
-        <TextField
-          {...field}
-          required
-          label={label}
-          InputProps={{
-            inputComponent: NumberFormat,
-            inputProps: { prefix: currencySymbol + " " },
-          }}
-          error={isFieldInvalid(field)}
-          variant="standard"
-        />
-        {getFieldHasError(name) && (
-          <FormFeedbackError message={getErrorMessage(name)} />
-        )}
-      </Stack>
-    )}
-  />
-);
-
 export const TransactionQuantity = ({
   required,
   control,
@@ -338,23 +296,4 @@ export const TransactionQuantity = ({
       </Stack>
     )}
   />
-);
-
-export const DateInput = ({
-  control,
-}: Pick<ReactHookFormsInputCustomProps, "control">) => (
-  <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
-    <Controller
-      name="operation_date"
-      control={control}
-      render={({ field }) => (
-        <DatePicker
-          {...field}
-          label="Data"
-          format="dd/MM/yyyy"
-          slotProps={{ textField: { required: true } }}
-        />
-      )}
-    />
-  </LocalizationProvider>
 );

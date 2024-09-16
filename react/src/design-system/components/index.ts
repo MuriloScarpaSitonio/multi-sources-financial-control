@@ -4,3 +4,4 @@ export { default as FormFeedbackError } from "./FormFeedbackError";
 export { default as InfoIconTooltip } from "./InfoIconTooltip";
 export { default as NumberFormat } from "./NumberFormat";
 export { default as Text } from "./Text";
+export * from "./forms";

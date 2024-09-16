@@ -111,3 +111,16 @@ export const getExpenses = async (
         qs.stringify(params, { arrayFormat: "repeat" }),
     })
   ).data;
+
+export const createExpense = async (
+  data: Omit<Expense, "id" | "full_description" | "created_at"> & {
+    installments: number;
+    created_at: Date;
+  },
+): Promise<Expense> =>
+  (
+    await apiProvider.post(RESOURCE, {
+      ...data,
+      created_at: data.created_at.toLocaleDateString("pt-br"),
+    })
+  ).data;

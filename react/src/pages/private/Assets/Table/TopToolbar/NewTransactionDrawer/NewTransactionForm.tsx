@@ -20,8 +20,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import * as yup from "yup";
 
 import {
+  DateInput,
   FormFeedbackError,
   NumberFormat,
+  PriceWithCurrencyInput,
 } from "../../../../../../design-system";
 import useFormPlus from "../../../../../../hooks/useFormPlus";
 import {
@@ -40,8 +42,6 @@ import {
   AssetObjectives,
   AssetTypeAutoComplete,
   TransactionQuantity,
-  PriceWithCurrencyInput,
-  DateInput,
 } from "../../../forms/components";
 import { ASSETS_QUERY_KEY } from "../../consts";
 
