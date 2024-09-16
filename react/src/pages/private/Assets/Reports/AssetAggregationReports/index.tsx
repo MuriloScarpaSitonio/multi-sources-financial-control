@@ -1,15 +1,14 @@
 import { useState } from "react";
 
 import { TabPanel } from "@mui/base/TabPanel";
-import Box from "@mui/material/Box";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
-import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 
-import { Colors, getColor } from "../../../../../design-system";
+import ReportBox from "../../../../../design-system/components/ReportBox";
+import ReportTabs from "../../../../../design-system/components/ReportTabs";
 import { StyledTab, StyledTabs, StyledTabsList } from "./layout";
 import { GroupBy, Kinds, ReportUnknownAggregationData } from "../types";
 import {
@@ -215,25 +214,9 @@ const AssetAggregationReports = () => {
   const [tabValue, setTabValue] = useState(0);
 
   return (
-    <Box
-      sx={{
-        backgroundColor: getColor(Colors.neutral900),
-        borderRadius: 6, // 24px
-      }}
-    >
-      <Tabs
+    <ReportBox>
+      <ReportTabs
         value={tabValue}
-        centered
-        sx={{
-          backgroundColor: getColor(Colors.neutral700),
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-        }}
-        TabIndicatorProps={{
-          sx: { background: getColor(Colors.neutral0), height: "1.5px" },
-        }}
-        textColor="inherit"
-        defaultValue={0}
         onChange={(_, newValue) => {
           switch (newValue) {
             case 0:
@@ -256,9 +239,9 @@ const AssetAggregationReports = () => {
         <Tab label="Percentual" />
         <Tab label="Valor investido" />
         <Tab label="ROI (Lucro/Prejuízo)" />
-      </Tabs>
+      </ReportTabs>
       <GroupByTabsWithContent kind={kind} />
-    </Box>
+    </ReportBox>
   );
 };
 

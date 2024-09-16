@@ -40,10 +40,10 @@ const Expenses = () => {
       <Stack spacing={2}>
         <PeriodsManager />
         <Grid container spacing={4}>
-          <Grid item xs={5}>
+          <Grid item xs={6}>
             <Indicators />
           </Grid>
-          <Grid item xs={7}>
+          <Grid item xs={6}>
             <Reports />
           </Grid>
         </Grid>

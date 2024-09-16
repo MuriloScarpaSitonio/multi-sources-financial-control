@@ -1,4 +1,3 @@
-import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 
 import { startOfMonth, subYears } from "date-fns";
@@ -13,6 +12,7 @@ import {
 
 import { useAssetsTotalInvestedHistory } from "./hooks";
 import { Colors, getColor } from "../../../../../design-system";
+import ReportBox from "../../../../../design-system/components/ReportBox";
 import { useAssetsIndicators } from "../../Indicators/hooks";
 import { useMemo } from "react";
 
@@ -145,15 +145,9 @@ const AssetTotalInvestedSnapshots = () => {
     [data, total],
   );
   return (
-    <Box
-      sx={{
-        backgroundColor: getColor(Colors.neutral900),
-        borderRadius: 6, // 24px
-        p: 2,
-      }}
-    >
+    <ReportBox sx={{ p: 2 }}>
       <Chart data={chartData} />
-    </Box>
+    </ReportBox>
   );
 };
 

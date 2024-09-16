@@ -8,6 +8,7 @@ import SvgIcon from "@mui/material/SvgIcon";
 import { InfoIconTooltip, Text } from "../../design-system/components";
 import * as enums from "../../design-system/enums";
 import { getColor } from "../../design-system/utils";
+import { SxProps } from "@mui/material";
 
 const Error = () => (
   <Stack direction="row" alignItems="center" spacing={1}>
@@ -29,6 +30,7 @@ export const Indicator = ({
   variant,
   isLoading,
   isError,
+  sx,
 }: {
   title: string;
   tooltipText?: string;
@@ -38,6 +40,7 @@ export const Indicator = ({
   variant: "success" | "danger";
   isLoading: boolean;
   isError: boolean;
+  sx?: SxProps;
 }) => {
   const content = (
     <Stack spacing={1.5}>
@@ -75,6 +78,7 @@ export const Indicator = ({
         px: 5,
         height: 140,
         borderRadius: 3,
+        ...sx,
       }}
       spacing={1}
     >

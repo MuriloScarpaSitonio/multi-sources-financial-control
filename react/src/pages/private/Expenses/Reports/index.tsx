@@ -1,10 +1,8 @@
 import { useMemo, useState } from "react";
 
 import { TabPanel } from "@mui/base/TabPanel";
-import Box from "@mui/material/Box";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
-import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Stack from "@mui/material/Stack";
 
@@ -13,7 +11,7 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFnsV3";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 
-import { Colors, getColor } from "../../../../design-system";
+import ReportBox from "../../../../design-system/components/ReportBox";
 import {
   StyledTab,
   StyledTabs,
@@ -37,6 +35,7 @@ import {
   useExpensesPercentagenReport,
   useExpensesHistoricReport,
 } from "./hooks";
+import ReportTabs from "../../../../design-system/components/ReportTabs";
 
 const PercentageContent = ({ groupBy }: { groupBy: GroupBy }) => {
   const [period, setPeriod] = useState<PercentagePeriods>("current");
@@ -218,25 +217,9 @@ const ExpenseReports = () => {
   const [tabValue, setTabValue] = useState(0);
 
   return (
-    <Box
-      sx={{
-        backgroundColor: getColor(Colors.neutral900),
-        borderRadius: 6, // 24px
-      }}
-    >
-      <Tabs
+    <ReportBox>
+      <ReportTabs
         value={tabValue}
-        centered
-        sx={{
-          backgroundColor: getColor(Colors.neutral700),
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-        }}
-        TabIndicatorProps={{
-          sx: { background: getColor(Colors.neutral0), height: "1.5px" },
-        }}
-        textColor="inherit"
-        defaultValue={0}
         onChange={(_, newValue) => {
           switch (newValue) {
             case 0:
@@ -259,9 +242,9 @@ const ExpenseReports = () => {
         <Tab label="Histórico" />
         <Tab label="Valor gasto" />
         <Tab label="Percentual" />
-      </Tabs>
+      </ReportTabs>
       <Content kind={kind} />
-    </Box>
+    </ReportBox>
   );
 };
 

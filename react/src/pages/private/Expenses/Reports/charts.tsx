@@ -20,7 +20,7 @@ import {
   HistoricReportDataItem,
 } from "../types";
 
-const CHART_WIDTH = 700;
+const CHART_WIDTH = 600;
 const CHART_HEIGHT = 300;
 const BAR_CHART_SIZE = 40;
 const ADEQUATE_NUMBER_OF_BARS = 5;
@@ -272,10 +272,10 @@ export const BarChartWithReferenceLine = ({
   secondDayOfCurrentMonth.setDate(2);
   return (
     <BarChart
-      width={CHART_WIDTH * 1.2}
+      width={CHART_WIDTH * 1.15}
       height={CHART_HEIGHT}
       data={data}
-      margin={{ left: 55 }}
+      margin={{ left: 25 }}
     >
       <XAxis dataKey="month" />
       <YAxis />

@@ -87,7 +87,7 @@ const useTable = ({
       menuBackgroundColor: getColor(Colors.neutral600),
       draggingBorderColor: getColor(Colors.brand),
     },
-    muiTablePaperProps: { sx: { borderRadius: "10px" } },
+    muiTablePaperProps: { sx: { borderRadius: "12px" } },
     paginationDisplayMode: "pages",
     muiPaginationProps: {
       rowsPerPageOptions: [10, 20, 50, 100],

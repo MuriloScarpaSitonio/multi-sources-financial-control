@@ -76,7 +76,7 @@ const ExpenseAvgDiffIndicator = ({
       }}
     />
   ) : (
-    <IndicatorBox variant={variant} width="60%">
+    <IndicatorBox variant={variant} width="50%">
       <Stack direction="row" gap={1}>
         {variant === "danger" ? (
           <ReportProblemOutlinedIcon
@@ -111,7 +111,7 @@ const BalanceIndicator = ({
       }}
     />
   ) : (
-    <IndicatorBox variant={value > 0 ? "success" : "danger"} width="40%">
+    <IndicatorBox variant={value > 0 ? "success" : "danger"} width="50%">
       <Text size={FontSizes.SEMI_REGULAR}>
         Saldo: R${" "}
         {value.toLocaleString("pt-br", {
@@ -175,6 +175,7 @@ const Indicators = () => {
           variant="success"
           isLoading={isRevenuesIndicatorsLoading}
           isError={isRevenuesIndicatorsError}
+          sx={{ width: "50%" }}
         />
         <Indicator
           title="Despesas"
@@ -197,6 +198,7 @@ const Indicators = () => {
           variant="danger"
           isLoading={isExpensesIndicatorsLoading}
           isError={isExpensesIndicatorsError}
+          sx={{ width: "50%" }}
         />
       </Stack>
       {isLoading ? (
