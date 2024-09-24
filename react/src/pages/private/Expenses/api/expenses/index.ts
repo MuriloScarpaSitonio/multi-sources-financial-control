@@ -112,14 +112,31 @@ export const getExpenses = async (
     })
   ).data;
 
-export const createExpense = async (
-  data: Omit<Expense, "id" | "full_description" | "created_at"> & {
-    installments: number;
-    created_at: Date;
-  },
-): Promise<Expense> =>
+type ExpenseWrite = Omit<Expense, "id" | "full_description" | "created_at"> & {
+  installments: number;
+  created_at: Date;
+};
+
+export const createExpense = async (data: ExpenseWrite): Promise<Expense> =>
   (
     await apiProvider.post(RESOURCE, {
+      ...data,
+      created_at: data.created_at.toLocaleDateString("pt-br"),
+    })
+  ).data;
+
+export const deleteExpense = async (id: number) =>
+  (await apiProvider.Delete(`${RESOURCE}/${id}`)).data;
+
+export const editExpense = async ({
+  id,
+  data,
+}: {
+  id: number;
+  data: ExpenseWrite;
+}): Promise<Expense> =>
+  (
+    await apiProvider.put(`${RESOURCE}/${id}`, {
       ...data,
       created_at: data.created_at.toLocaleDateString("pt-br"),
     })

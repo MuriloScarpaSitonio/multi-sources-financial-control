@@ -8,43 +8,41 @@ import DialogTitle from "@mui/material/DialogTitle";
 import { enqueueSnackbar } from "notistack";
 import { useMutation } from "@tanstack/react-query";
 
-import { deleteAsset } from "../../api";
+import { deleteExpense } from "../api/expenses";
+import { Expense } from "../api/models";
 
-const DeleteAssetDialog = ({
-  id,
-  code,
+const DeleteExpenseDialog = ({
+  expense,
   open,
   onClose,
   onSuccess,
 }: {
-  id: number;
-  code: string;
+  expense: Expense & { type: string };
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (id: number) => Promise<void>;
 }) => {
   const { mutate, isPending } = useMutation({
-    mutationFn: deleteAsset,
-    onSuccess: () => {
-      onSuccess();
+    mutationFn: deleteExpense,
+    onSuccess: async () => {
+      await onSuccess(expense.id);
       onClose();
-      enqueueSnackbar("Ativo deletado com sucesso", { variant: "success" });
+      enqueueSnackbar("Despesa deletado com sucesso", { variant: "success" });
     },
   });
+
   return (
     <Dialog open={open} onClose={onClose}>
-      <DialogTitle>
-        {`Tem certeza que deseja deletar o ativo ${code}?`}
-      </DialogTitle>
+      <DialogTitle>Tem certeza que deseja deletar essa despesa?</DialogTitle>
       <DialogContent>
-        <b>
-          ATENÇÃO: TODAS AS TRANSFERÊNCIAS E RENDIMENTOS TAMBÉM SERÃO EXCLUÍDOS!
-        </b>
+        {expense?.type === "Parcelas" && (
+          <b>ATENÇÃO: TODAS AS OUTRAS PARCELAS TAMBÉM SERÃO EXCLUÍDAS!</b>
+        )}
         <DialogActions>
           <Button variant="brand-text" onClick={onClose}>
             Cancelar
           </Button>
-          <Button variant="danger-text" onClick={() => mutate(id)}>
+          <Button variant="danger-text" onClick={() => mutate(expense.id)}>
             {isPending ? <CircularProgress size={24} /> : "Deletar"}
           </Button>
         </DialogActions>
@@ -53,4 +51,4 @@ const DeleteAssetDialog = ({
   );
 };
 
-export default DeleteAssetDialog;
+export default DeleteExpenseDialog;

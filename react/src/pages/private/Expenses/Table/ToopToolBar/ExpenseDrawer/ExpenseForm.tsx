@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction, useEffect } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useMemo } from "react";
 
 import FormLabel from "@mui/material/FormLabel";
 import Grid from "@mui/material/Grid";
@@ -7,7 +7,6 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 
-import { useQueryClient } from "@tanstack/react-query";
 import { enqueueSnackbar } from "notistack";
 import { Controller } from "react-hook-form";
 import * as yup from "yup";
@@ -17,19 +16,19 @@ import {
   ExpensesCategoriesMapping,
   ExpensesSourcesMapping,
 } from "../../../consts";
-import { useInvalidateExpensesIndicatorsQueries } from "../../../Indicators/hooks/expenses";
-import {
-  useInvalidateExpensesAvgComparasionReportQueries,
-  useInvalidateExpensesPercentagenReportQueries,
-  useInvalidateExpensesHistoricReportQueries,
-} from "../../../Reports/hooks";
+
 import {
   DateInput,
   AutocompleteFromObject,
   PriceWithCurrencyInput,
 } from "../../../../../../design-system";
 import useFormPlus from "../../../../../../hooks/useFormPlus";
-import { createExpense } from "../../../api/expenses";
+import { createExpense, editExpense } from "../../../api/expenses";
+import { useInvalidateExpenseQueries } from "../../../hooks";
+import { Expense } from "../../../api/models";
+import { useQueryClient } from "@tanstack/react-query";
+import { ApiListResponse } from "../../../../../../types";
+import { formatISO } from "date-fns";
 
 const schema = yup.object().shape({
   description: yup.string().required("A descrição é obrigatória"),
@@ -73,38 +72,107 @@ const createExpenseMutation = async (data: yup.Asserts<typeof schema>) => {
   });
 };
 
+const editExpenseMutation = async (
+  id: number,
+  data: yup.Asserts<typeof schema>,
+) => {
+  const { category, source, installments, isFixed, ...rest } = data;
+  await editExpense({
+    id,
+    data: {
+      category: category.value as string,
+      source: source.value as string,
+      is_fixed: isFixed,
+      ...rest,
+      ...(isFixed ? { installments: 1 } : { installments }),
+    },
+  });
+};
+
 const ExpenseForm = ({
   id,
   setIsSubmitting,
+  onEditSuccess,
+  initialData,
 }: {
   id: string;
   setIsSubmitting: Dispatch<SetStateAction<boolean>>;
+  onEditSuccess?: () => void;
+  initialData?: Expense;
 }) => {
-  const defaultValues = {
-    description: "",
-    value: "",
-    created_at: new Date(),
-    isFixed: false,
-    category: {
-      label: "",
-      value: "",
-    },
-    source: {
-      label: "",
-      value: "",
-    },
-    installments: 1,
+  const {
+    id: expenseId,
+    category,
+    source,
+    created_at,
+    is_fixed,
+    ...rest
+  } = initialData ?? {
+    category: "Alimentação",
+    source: "Cartão de crédito",
+    is_fixed: false,
   };
+  const defaultValues = useMemo(
+    () => ({
+      description: "",
+      value: "",
+      created_at: created_at ? new Date(created_at + "T00:00") : new Date(),
+      isFixed: is_fixed,
+      category: {
+        label: category,
+        value:
+          ExpensesCategoriesMapping[
+            category as keyof typeof ExpensesCategoriesMapping
+          ].value,
+      },
+      source: {
+        label: source,
+        value:
+          ExpensesSourcesMapping[source as keyof typeof ExpensesSourcesMapping]
+            .value,
+      },
+      installments: 1,
+      ...rest,
+    }),
+    [category, created_at, is_fixed, rest, source],
+  );
 
   const queryClient = useQueryClient();
-  const { invalidate: invalidateIndicatorsQueries } =
-    useInvalidateExpensesIndicatorsQueries();
-  const { invalidate: invalidateAvgComparasionReportQueries } =
-    useInvalidateExpensesAvgComparasionReportQueries();
-  const { invalidate: invalidatePercentageReportQueries } =
-    useInvalidateExpensesPercentagenReportQueries();
-  const { invalidate: invalidateHistoricReportQueries } =
-    useInvalidateExpensesHistoricReportQueries();
+  const { invalidate: invalidateExpensesQueries } =
+    useInvalidateExpenseQueries(queryClient);
+
+  const updateCachedData = (
+    data: yup.Asserts<typeof schema> & { id: number },
+  ) => {
+    const { category, source, created_at, ...rest } = data;
+    const assetsData = queryClient.getQueriesData({
+      queryKey: [EXPENSES_QUERY_KEY],
+      type: "active",
+    });
+    assetsData.forEach(([queryKey, cachedData]) => {
+      const newCachedData = (
+        cachedData as ApiListResponse<Expense>
+      ).results.map((expense) =>
+        expense.id === data.id
+          ? {
+              ...expense,
+              ...rest,
+              created_at: formatISO(created_at, { representation: "date" }),
+              category: category.label,
+              source: source.label,
+            }
+          : expense,
+      );
+
+      queryClient.setQueryData(
+        queryKey,
+        (oldData: ApiListResponse<Expense>) => ({
+          ...oldData,
+          results: newCachedData,
+        }),
+      );
+    });
+  };
 
   const {
     control,
@@ -116,24 +184,30 @@ const ExpenseForm = ({
     getFieldHasError,
     getErrorMessage,
     watch,
+    getValues,
   } = useFormPlus({
-    mutationFn: createExpenseMutation,
+    mutationFn: expenseId
+      ? (data) => editExpenseMutation(expenseId, data)
+      : createExpenseMutation,
     schema: schema,
     defaultValues,
     onSuccess: async () => {
-      await invalidateIndicatorsQueries();
-      await invalidateAvgComparasionReportQueries();
-      await invalidatePercentageReportQueries();
-      await invalidatePercentageReportQueries();
-      await invalidateHistoricReportQueries();
+      const data = getValues() as yup.Asserts<typeof schema>;
+      await invalidateExpensesQueries({
+        isUpdatingValue: data.value !== defaultValues.value,
+        invalidateTableQuery: !expenseId,
+      });
 
-      await queryClient.invalidateQueries({
-        queryKey: [EXPENSES_QUERY_KEY],
-      });
-      enqueueSnackbar("Despesa criado com sucesso", {
-        variant: "success",
-      });
-      reset();
+      enqueueSnackbar(
+        `Despesa ${expenseId ? "editada" : "criada"} com sucesso`,
+        {
+          variant: "success",
+        },
+      );
+      if (expenseId) {
+        updateCachedData({ ...data, id: expenseId });
+        onEditSuccess?.();
+      } else reset({ ...data, description: "", value: "" });
     },
   });
   const isFixed = watch("isFixed");

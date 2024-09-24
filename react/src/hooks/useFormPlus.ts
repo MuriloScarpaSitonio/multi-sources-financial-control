@@ -81,7 +81,6 @@ export const useFormPlus = ({
     [errors, apiErrors],
   );
 
-  console.log(errors);
   return {
     control,
     handleSubmit,

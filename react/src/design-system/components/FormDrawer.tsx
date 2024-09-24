@@ -15,6 +15,7 @@ const FormDrawer = ({
   onClose,
   formId,
   FormComponent,
+  initialData,
 }: {
   title: string;
   open: boolean;
@@ -23,7 +24,10 @@ const FormDrawer = ({
   FormComponent: FunctionComponent<{
     id: string;
     setIsSubmitting: Dispatch<SetStateAction<boolean>>;
+    initialData?: any;
+    onEditSuccess?: () => void;
   }>;
+  initialData?: any;
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -42,7 +46,12 @@ const FormDrawer = ({
     >
       <Stack spacing={5} sx={{ p: 3 }}>
         <Text>{title}</Text>
-        <FormComponent id={formId} setIsSubmitting={setIsSubmitting} />
+        <FormComponent
+          id={formId}
+          setIsSubmitting={setIsSubmitting}
+          initialData={initialData}
+          onEditSuccess={onClose}
+        />
         <Stack spacing={2} direction="row" justifyContent="flex-end">
           <Button onClick={onClose} variant="brand-text">
             Fechar
@@ -50,6 +59,8 @@ const FormDrawer = ({
           <Button type="submit" variant="brand" form={formId}>
             {isSubmitting ? (
               <CircularProgress color="inherit" size={24} />
+            ) : initialData ? (
+              "Editar"
             ) : (
               "Adicionar"
             )}

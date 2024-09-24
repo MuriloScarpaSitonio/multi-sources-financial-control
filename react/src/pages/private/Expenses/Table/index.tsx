@@ -1,9 +1,13 @@
-import type { RawDateString } from "../../../../types";
+import type { ApiListResponse, RawDateString } from "../../../../types";
 import type { Filters } from "../types";
 
-import { useMemo, useContext } from "react";
+import { useMemo, useContext, useState } from "react";
 
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import Stack from "@mui/material/Stack";
+import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
 
 import {
   MaterialReactTable,
@@ -16,6 +20,8 @@ import {
   FontWeights,
   getFontWeight,
   getFontSize,
+  getColor,
+  Colors,
 } from "../../../../design-system";
 import { StatusDot } from "../../../../design-system/icons";
 import useTable from "../../../../hooks/useTable";
@@ -26,6 +32,11 @@ import { ExpensesCategoriesMapping, EXPENSES_QUERY_KEY } from "../consts";
 // import AssetsForm from "./AssetForm";
 import TopToolBar from "./ToopToolBar";
 import { ExpensesContext } from "../context";
+import DeleteExpenseDialog from "./DeleteExpenseDialog";
+import { useInvalidateExpenseQueries } from "../hooks";
+import { useQueryClient } from "@tanstack/react-query";
+
+type GroupedExpense = Expense & { type: string };
 
 const getExpensesGroupedByType = async (
   filters: Filters & {
@@ -36,7 +47,7 @@ const getExpensesGroupedByType = async (
     ordering?: string;
     description?: string;
   },
-) => {
+): Promise<ApiListResponse<GroupedExpense>> => {
   const [expenses, fixedExpenses, expensesWInstallments] = await Promise.all([
     getExpenses({
       ...filters,
@@ -68,9 +79,44 @@ const getExpensesGroupedByType = async (
   };
 };
 
+const useOnExpenseDeleteSuccess = () => {
+  const queryClient = useQueryClient();
+  const { invalidate: invalidateExpensesQueries } =
+    useInvalidateExpenseQueries(queryClient);
+
+  const removeExpenseFromCachedData = (expenseId: number) => {
+    const expensesData = queryClient.getQueriesData({
+      queryKey: [EXPENSES_QUERY_KEY],
+      type: "active",
+    });
+    expensesData.forEach(([queryKey]) => {
+      queryClient.setQueryData(
+        queryKey,
+        (oldData: ApiListResponse<GroupedExpense>) => ({
+          ...oldData,
+          count: oldData.count - 1,
+          results: oldData.results.filter(
+            (expense) => expense.id !== expenseId,
+          ),
+        }),
+      );
+    });
+  };
+  return {
+    onDeleteSuccess: async (expenseId: number) => {
+      await invalidateExpensesQueries({ invalidateTableQuery: false });
+      removeExpenseFromCachedData(expenseId);
+    },
+  };
+};
+
 const Table = () => {
+  const [deleteExpense, setDeleteExpense] = useState<
+    GroupedExpense | undefined
+  >();
+
   const { startDate, endDate } = useContext(ExpensesContext);
-  const columns = useMemo<Column<Expense>[]>(
+  const columns = useMemo<Column<GroupedExpense>[]>(
     () => [
       { header: "", accessorKey: "type", size: 25 },
       {
@@ -133,6 +179,7 @@ const Table = () => {
     [],
   );
 
+  const { onDeleteSuccess } = useOnExpenseDeleteSuccess();
   const {
     table,
     search,
@@ -156,6 +203,10 @@ const Table = () => {
     groupedColumnMode: "remove",
     positionToolbarAlertBanner: "none",
     defaultPageSize: 100,
+    editDisplayMode: "custom",
+    enableRowActions: true,
+    enableToolbarInternalActions: true,
+    positionActionsColumn: "last",
     initialState: { grouping: ["type"], expanded: { "type:Outros": true } },
     displayColumnDefOptions: {
       "mrt-row-expand": {
@@ -172,7 +223,8 @@ const Table = () => {
       getExpensesGroupedByType({
         page: pagination.pageIndex + 1,
         page_size: pagination.pageSize,
-        ordering: sorting.map((s) => (s.desc ? `-${s.id}` : s.id))[0] ?? "",
+        ordering:
+          sorting.map((s) => (s.desc ? `-${s.id}` : s.id))[0] ?? "-created_at",
         description: search,
         startDate,
         endDate,
@@ -188,9 +240,39 @@ const Table = () => {
         setFilters={setFilters}
       />
     ),
+    renderRowActions: ({ row, table }) => (
+      <Stack direction="row" spacing={0.5}>
+        <Tooltip title="Editar">
+          <IconButton
+            sx={{ color: getColor(Colors.neutral300) }}
+            onClick={() => table.setEditingRow(row)}
+          >
+            <EditIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Deletar">
+          <IconButton
+            sx={{ color: getColor(Colors.neutral300) }}
+            onClick={() => setDeleteExpense(row.original)}
+          >
+            <DeleteIcon />
+          </IconButton>
+        </Tooltip>
+      </Stack>
+    ),
   });
 
-  return <MaterialReactTable table={table} />;
+  return (
+    <>
+      <MaterialReactTable table={table} />
+      <DeleteExpenseDialog
+        expense={deleteExpense as GroupedExpense}
+        open={!!deleteExpense}
+        onClose={() => setDeleteExpense(undefined)}
+        onSuccess={onDeleteSuccess}
+      />
+    </>
+  );
 };
 
 export default Table;

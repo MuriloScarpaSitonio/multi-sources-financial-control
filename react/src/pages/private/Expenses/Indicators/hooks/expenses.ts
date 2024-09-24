@@ -1,3 +1,4 @@
+import type { QueryClient } from "@tanstack/react-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getAvg, getSum } from "../../api/expenses";
@@ -58,8 +59,10 @@ export const useExpensesIndicators = (params: {
   };
 };
 
-export const useInvalidateExpensesIndicatorsQueries = () => {
-  const queryClient = useQueryClient();
+export const useInvalidateExpensesIndicatorsQueries = (
+  client?: QueryClient,
+) => {
+  const queryClient = useQueryClient(client);
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({

@@ -142,7 +142,7 @@ const Indicators = () => {
   const percentage = useMemo(() => {
     if (expensesIndicators && revenuesIndicators)
       return (
-        ((expensesIndicators?.total ?? 0) / (revenuesIndicators?.total ?? 1)) *
+        ((expensesIndicators?.total ?? 0) / (revenuesIndicators?.total || 1)) *
         100
       );
   }, [expensesIndicators, revenuesIndicators]);
@@ -233,7 +233,7 @@ const Indicators = () => {
           </Text>
         </div>
       )}
-      <Stack direction="row" gap={2}>
+      <Stack direction="row" gap={4}>
         <BalanceIndicator value={balance ?? 0} isLoading={isLoading} />
         {isFilteringEntireMonth && (
           <ExpenseAvgDiffIndicator

@@ -84,11 +84,6 @@ export const Menu = <TData extends Row>({
     (col) => col.columnDef.columnDefType === "group",
   );
 
-  console.log(
-    getCenterLeafColumns(),
-    getLeftLeafColumns(),
-    getRightLeafColumns(),
-  );
   return (
     <MuiMenu
       MenuListProps={{

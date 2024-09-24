@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useState,
   type Dispatch,
   type MouseEvent,
@@ -32,6 +33,21 @@ import {
 import FiltersMenu from "./FiltersMenu";
 import { Filters } from "../../types";
 import ExpenseDrawer from "./ExpenseDrawer";
+import { Expense } from "../../api/models";
+
+const removeProperties = (
+  obj: Record<string, any> | undefined,
+  keysToRemove: string[],
+): Record<string, any> | undefined => {
+  if (!obj) return;
+  return keysToRemove.reduce(
+    (acc, key) => {
+      const { [key]: removed, ...rest } = acc; // Use destructuring to remove the key
+      return rest;
+    },
+    { ...obj },
+  );
+};
 
 const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -72,6 +88,11 @@ const TopToolBar = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openDrawer, setOpenDrawer] = useState(false);
 
+  const { editingRow } = table.getState();
+
+  useEffect(() => {
+    if (editingRow) setOpenDrawer(true);
+  }, [editingRow]);
   return (
     <>
       <Grid
@@ -144,8 +165,16 @@ const TopToolBar = ({
       />
       <ExpenseDrawer
         open={openDrawer}
-        onClose={() => setOpenDrawer(false)}
-        isAdding={true}
+        onClose={() => {
+          setOpenDrawer(false);
+          table.setEditingRow(null);
+        }}
+        expense={
+          removeProperties(editingRow?.original, [
+            "type",
+            "full_description",
+          ]) as Expense
+        }
       />
     </>
   );
