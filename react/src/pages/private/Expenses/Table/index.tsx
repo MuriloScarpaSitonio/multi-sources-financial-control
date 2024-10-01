@@ -136,17 +136,14 @@ const Table = () => {
           return `R$ ${price}`;
         },
         aggregationFn: "sum",
-        AggregatedCell: ({ cell }) => {
-          return (
-            <Text
-              weith={FontWeights.SEMI_BOLD}
-              size={FontSizes.SMALL}
-            >{`R$ ${cell.getValue<number>().toLocaleString("pt-br", {
+        AggregatedCell: ({ cell }) => (
+          <Text weith={FontWeights.SEMI_BOLD} size={FontSizes.SMALL}>{`R$ ${cell
+            .getValue<number>()
+            .toLocaleString("pt-br", {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}`}</Text>
-          );
-        },
+        ),
       },
       {
         header: "Data",

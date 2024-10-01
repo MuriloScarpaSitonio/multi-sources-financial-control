@@ -10,3 +10,9 @@ export type Expense = {
   is_fixed: boolean;
   full_description: string;
 };
+
+export type BankAccount = {
+  amount: number;
+  description: string;
+  updated_at: RawDateString;
+};

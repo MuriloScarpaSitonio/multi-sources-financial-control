@@ -1,4 +1,5 @@
-import Box from "@mui/material/Box";
+import { useContext, useMemo } from "react";
+
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
@@ -7,11 +8,16 @@ import CheckCircleOutlinedIcon from "@mui/icons-material/CheckCircleOutlined";
 import { styled } from "@mui/material/styles";
 
 import { Indicator } from "../../components";
-import { useExpensesIndicators, useRevenuesIndicators } from "./hooks";
+import {
+  useExpensesIndicators,
+  useRevenuesIndicators,
+  useMostExpensiveExpense,
+} from "./hooks";
 import PercentageChangeSecondaryIndicator from "./PercentageChangeSecondaryIndicator";
 import LinearProgress, {
   linearProgressClasses,
 } from "@mui/material/LinearProgress";
+
 import {
   Colors,
   FontSizes,
@@ -19,8 +25,13 @@ import {
   getColor,
   Text,
 } from "../../../../design-system";
-import { ReactNode, useContext, useMemo } from "react";
 import { ExpensesContext } from "../context";
+import { Expense } from "../api/models";
+import { ExpensesCategoriesMapping } from "../consts";
+import { StatusDot } from "../../../../design-system/icons";
+import { useBankAccount } from "../hooks";
+import { IndicatorBox } from "./components";
+import BankAccountIndicator from "./BankAccountIndicator";
 
 const BorderLinearProgress = styled(LinearProgress)(({ value }) => ({
   height: 24,
@@ -36,28 +47,6 @@ const BorderLinearProgress = styled(LinearProgress)(({ value }) => ({
         : getColor(Colors.brand),
   },
 }));
-
-const IndicatorBox = ({
-  children,
-  variant,
-  width,
-}: {
-  children: ReactNode;
-  variant: "success" | "danger";
-  width: string;
-}) => (
-  <Box
-    sx={{
-      textAlign: "center",
-      p: 2,
-      borderRadius: "10px",
-      border: `2px solid ${variant === "success" ? getColor(Colors.brand) : getColor(Colors.danger200)}`,
-      width,
-    }}
-  >
-    {children}
-  </Box>
-);
 
 const ExpenseAvgDiffIndicator = ({
   value,
@@ -85,10 +74,8 @@ const ExpenseAvgDiffIndicator = ({
         ) : (
           <CheckCircleOutlinedIcon sx={{ color: getColor(Colors.brand) }} />
         )}
-        <Text size={FontSizes.SEMI_REGULAR}>
-          {variant === "danger"
-            ? "Gasto mensal acima da média"
-            : "Gasto mensal dentro da média"}
+        <Text size={FontSizes.SMALL}>
+          {`Gasto mensal ${variant === "danger" ? "acima" : "dentro"} da média`}
         </Text>
       </Stack>
     </IndicatorBox>
@@ -112,8 +99,8 @@ const BalanceIndicator = ({
     />
   ) : (
     <IndicatorBox variant={value > 0 ? "success" : "danger"} width="50%">
-      <Text size={FontSizes.SEMI_REGULAR}>
-        Saldo: R${" "}
+      <Text size={FontSizes.SMALL}>
+        Diferença: R${" "}
         {value.toLocaleString("pt-br", {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
@@ -121,6 +108,49 @@ const BalanceIndicator = ({
       </Text>
     </IndicatorBox>
   );
+
+const MostExpensiveIndicator = ({
+  expense,
+  isLoading,
+}: {
+  expense: Expense | undefined;
+  isLoading: boolean;
+}) => {
+  if (isLoading)
+    return (
+      <Skeleton
+        width="50%"
+        height={80}
+        sx={{
+          borderRadius: "10px",
+        }}
+      />
+    );
+  const { color } =
+    ExpensesCategoriesMapping[
+      expense?.category as keyof typeof ExpensesCategoriesMapping
+    ];
+  return (
+    <IndicatorBox variant="danger" width="50%">
+      <Stack gap={1}>
+        <Text size={FontSizes.SMALL}>Despesa mais cara:</Text>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Text size={FontSizes.SEMI_SMALL} color={Colors.neutral300}>
+            {expense?.full_description}
+          </Text>
+          <StatusDot variant="custom" color={color} />
+        </Stack>
+        <Text size={FontSizes.SMALL}>
+          R${" "}
+          {expense?.value.toLocaleString("pt-br", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </Text>
+      </Stack>
+    </IndicatorBox>
+  );
+};
 
 const Indicators = () => {
   const { startDate, endDate } = useContext(ExpensesContext);
@@ -134,6 +164,11 @@ const Indicators = () => {
     isPending: isRevenuesIndicatorsLoading,
     isError: isRevenuesIndicatorsError,
   } = useRevenuesIndicators({ startDate, endDate });
+  const { data: mostExpensiveExpense, isPending: isMostExpensiveLoading } =
+    useMostExpensiveExpense({ startDate, endDate });
+
+  const { data: bankAccount, isPending: isBankAccountLoading } =
+    useBankAccount();
 
   const isLoading = isExpensesIndicatorsLoading || isRevenuesIndicatorsLoading;
   const isFilteringEntireMonth =
@@ -241,6 +276,26 @@ const Indicators = () => {
             isLoading={isLoading}
           />
         )}
+      </Stack>
+      <Stack direction="row" gap={4}>
+        {isBankAccountLoading ? (
+          <Skeleton
+            width="50%"
+            height={80}
+            sx={{
+              borderRadius: "10px",
+            }}
+          />
+        ) : (
+          <BankAccountIndicator
+            amount={bankAccount?.amount ?? 0}
+            description={bankAccount?.description ?? ""}
+          />
+        )}
+        <MostExpensiveIndicator
+          expense={mostExpensiveExpense}
+          isLoading={isMostExpensiveLoading}
+        />
       </Stack>
     </Stack>
   );

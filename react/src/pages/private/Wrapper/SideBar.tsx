@@ -158,7 +158,7 @@ const SideBar = () => (
     }}
   >
     <Toolbar>
-      <IconButton href="/">
+      <IconButton href="/home" sx={{ borderRadius: 0 }}>
         <LogoIcon />
       </IconButton>
     </Toolbar>

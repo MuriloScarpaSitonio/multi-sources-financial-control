@@ -18,6 +18,10 @@ const StyledMaterialDesignContent = styled(MaterialDesignContent)(() => ({
     backgroundColor: getColor(Colors.brand950),
     color: getColor(Colors.neutral0),
   },
+  "&.notistack-MuiContent-error": {
+    backgroundColor: getColor(Colors.danger200),
+    color: getColor(Colors.neutral0),
+  },
 }));
 
 const CustomSnackbarProvider = () => (
@@ -44,6 +48,7 @@ const CustomSnackbarProvider = () => (
     }}
     Components={{
       success: StyledMaterialDesignContent,
+      error: StyledMaterialDesignContent,
     }}
   />
 );

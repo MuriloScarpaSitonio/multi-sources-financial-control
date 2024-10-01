@@ -8,6 +8,7 @@ import {
   useInvalidateExpensesPercentagenReportQueries,
   useInvalidateExpensesHistoricReportQueries,
 } from "../Reports/hooks";
+import { useInvalidateBankAccountQueries } from "./bank_account";
 
 export const useInvalidateExpenseQueries = (client?: QueryClient) => {
   const queryClient = useQueryClient(client);
@@ -20,6 +21,8 @@ export const useInvalidateExpenseQueries = (client?: QueryClient) => {
     useInvalidateExpensesPercentagenReportQueries(queryClient);
   const { invalidate: invalidateHistoricReportQueries } =
     useInvalidateExpensesHistoricReportQueries(queryClient);
+  const { invalidate: invalidateBankAccountQueries } =
+    useInvalidateBankAccountQueries(queryClient);
 
   const invalidate = async ({
     isUpdatingValue = true,
@@ -31,6 +34,7 @@ export const useInvalidateExpenseQueries = (client?: QueryClient) => {
     if (isUpdatingValue) {
       await invalidateIndicatorsQueries();
       await invalidateHistoricReportQueries();
+      await invalidateBankAccountQueries();
     }
     if (invalidateTableQuery)
       await queryClient.invalidateQueries({

@@ -186,6 +186,7 @@ const NewTransactionForm = ({
     isFieldInvalid,
     getFieldHasError,
     getErrorMessage,
+    getValues,
   } = useFormPlus({
     mutationFn: newCode ? createTransactionAndAsset : createTransactionMutation,
     schema: newCode ? newAssetTransactionSchema : transactionSchema,
@@ -211,7 +212,7 @@ const NewTransactionForm = ({
         setNewCode("");
         await invalidateAssetsMinimalDataQueries();
       }
-      reset();
+      reset({ ...getValues(), asset: defaultValues.asset });
     },
   });
 

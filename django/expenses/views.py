@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING, ClassVar
 
+from django.db.models import Max
 from django.db.transaction import atomic
 from django.utils import timezone
 
@@ -104,6 +105,14 @@ class _PersonalFinanceViewSet(
         return Response(
             AvgSerializer(self.get_queryset().since_a_year_ago_avg()).data, status=HTTP_200_OK
         )
+
+    @action(methods=("GET",), detail=False)
+    def higher_value(self, request: Request) -> Response:
+        filterset = PersonalFinanceIndicatorsV2FilterSet(
+            data=request.GET, queryset=self.get_queryset()
+        )
+        entity = filterset.qs.annotate(max_value=Max("value")).order_by("-max_value").first()
+        return Response(self.serializer_class(entity).data, status=HTTP_200_OK)
 
 
 class ExpenseViewSet(_PersonalFinanceViewSet):

@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getAvg, getSum } from "../../api/expenses";
+import { getAvg, getMostExpensive, getSum } from "../../api/expenses";
 import { isFilteringWholeMonth } from "../../utils";
 
 const SUM_QUERY_KEY = "expenses-sum";
@@ -75,3 +75,14 @@ export const useInvalidateExpensesIndicatorsQueries = (
 
   return { invalidate };
 };
+
+const MOST_EXPENSIVE_QUERY_KEY = "most-expensive-sum";
+
+export const useMostExpensiveExpense = (params: {
+  startDate: Date;
+  endDate: Date;
+}) =>
+  useQuery({
+    queryKey: [MOST_EXPENSIVE_QUERY_KEY, params],
+    queryFn: () => getMostExpensive(params),
+  });

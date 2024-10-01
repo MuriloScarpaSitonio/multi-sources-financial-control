@@ -774,6 +774,27 @@ def test__avg(client, user):
     assert response.json() == {"avg": convert_and_quantitize(avg)}
 
 
+@pytest.mark.usefixtures("expenses_report_data")
+def test__higher_value(client, user):
+    # GIVEN
+    today = timezone.localdate()
+    one_month_later = today + relativedelta(months=1)
+    expense = max(
+        Expense.objects.filter(user_id=user.id, created_at__range=(today, one_month_later)),
+        key=lambda e: e.value,
+    )
+
+    # WHEN
+    response = client.get(
+        f"{URL}/higher_value?start_date={today.strftime('%d/%m/%Y')}"
+        + f"&end_date={one_month_later.strftime('%d/%m/%Y')}"
+    )
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert response.json()["id"] == expense.id
+
+
 def test__indicators__wo_data(client):
     # GIVEN
 

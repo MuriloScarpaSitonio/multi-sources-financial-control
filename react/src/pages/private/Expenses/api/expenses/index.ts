@@ -141,3 +141,16 @@ export const editExpense = async ({
       created_at: data.created_at.toLocaleDateString("pt-br"),
     })
   ).data;
+
+export const getMostExpensive = async (params: {
+  startDate: Date;
+  endDate: Date;
+}): Promise<Expense> =>
+  (
+    await apiProvider.get(`${RESOURCE}/higher_value`, {
+      params: {
+        start_date: params.startDate.toLocaleDateString("pt-br"),
+        end_date: params.endDate.toLocaleDateString("pt-br"),
+      },
+    })
+  ).data;
