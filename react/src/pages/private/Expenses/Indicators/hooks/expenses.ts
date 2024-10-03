@@ -59,6 +59,17 @@ export const useExpensesIndicators = (params: {
   };
 };
 
+const MOST_EXPENSIVE_QUERY_KEY = "most-expensive-query";
+
+export const useMostExpensiveExpense = (params: {
+  startDate: Date;
+  endDate: Date;
+}) =>
+  useQuery({
+    queryKey: [MOST_EXPENSIVE_QUERY_KEY, params],
+    queryFn: () => getMostExpensive(params),
+  });
+
 export const useInvalidateExpensesIndicatorsQueries = (
   client?: QueryClient,
 ) => {
@@ -71,18 +82,10 @@ export const useInvalidateExpensesIndicatorsQueries = (
     await queryClient.invalidateQueries({
       queryKey: [AVG_QUERY_KEY],
     });
+    await queryClient.invalidateQueries({
+      queryKey: [MOST_EXPENSIVE_QUERY_KEY],
+    });
   };
 
   return { invalidate };
 };
-
-const MOST_EXPENSIVE_QUERY_KEY = "most-expensive-sum";
-
-export const useMostExpensiveExpense = (params: {
-  startDate: Date;
-  endDate: Date;
-}) =>
-  useQuery({
-    queryKey: [MOST_EXPENSIVE_QUERY_KEY, params],
-    queryFn: () => getMostExpensive(params),
-  });
