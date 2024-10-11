@@ -115,18 +115,40 @@ export const getExpenses = async (
 type ExpenseWrite = Omit<Expense, "id" | "full_description" | "created_at"> & {
   installments: number;
   created_at: Date;
+  performActionsOnFutureFixedExpenses?: boolean;
 };
 
-export const createExpense = async (data: ExpenseWrite): Promise<Expense> =>
+export const createExpense = async (data: ExpenseWrite): Promise<Expense> => {
+  const { created_at, performActionsOnFutureFixedExpenses, ...rest } = data;
+  return (
+    await apiProvider.post(
+      RESOURCE,
+      {
+        ...rest,
+        created_at: created_at.toLocaleDateString("pt-br"),
+      },
+      {
+        params: {
+          perform_actions_on_future_fixed_expenses:
+            performActionsOnFutureFixedExpenses,
+        },
+      },
+    )
+  ).data;
+};
+
+export const deleteExpense = async (
+  id: number,
+  performActionsOnFutureFixedExpenses?: boolean,
+) =>
   (
-    await apiProvider.post(RESOURCE, {
-      ...data,
-      created_at: data.created_at.toLocaleDateString("pt-br"),
+    await apiProvider.Delete(`${RESOURCE}/${id}`, {
+      params: {
+        perform_actions_on_future_fixed_expenses:
+          performActionsOnFutureFixedExpenses,
+      },
     })
   ).data;
-
-export const deleteExpense = async (id: number) =>
-  (await apiProvider.Delete(`${RESOURCE}/${id}`)).data;
 
 export const editExpense = async ({
   id,
@@ -134,13 +156,24 @@ export const editExpense = async ({
 }: {
   id: number;
   data: ExpenseWrite;
-}): Promise<Expense> =>
-  (
-    await apiProvider.put(`${RESOURCE}/${id}`, {
-      ...data,
-      created_at: data.created_at.toLocaleDateString("pt-br"),
-    })
+}): Promise<Expense> => {
+  const { created_at, performActionsOnFutureFixedExpenses, ...rest } = data;
+  return (
+    await apiProvider.put(
+      `${RESOURCE}/${id}`,
+      {
+        ...rest,
+        created_at: created_at.toLocaleDateString("pt-br"),
+      },
+      {
+        params: {
+          perform_actions_on_future_fixed_expenses:
+            performActionsOnFutureFixedExpenses,
+        },
+      },
+    )
   ).data;
+};
 
 export const getMostExpensive = async (params: {
   startDate: Date;

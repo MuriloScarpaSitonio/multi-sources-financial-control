@@ -4,6 +4,7 @@ import MuiAlert from "@mui/lab/Alert";
 import Box from "@mui/material/Box";
 import CssBaseline from "@mui/material/CssBaseline";
 import Link from "@mui/material/Link";
+import { buttonClasses } from "@mui/material/Button";
 import { checkboxClasses } from "@mui/material/Checkbox";
 import { formLabelClasses } from "@mui/material/FormLabel";
 import { inputClasses } from "@mui/material/Input";
@@ -107,6 +108,9 @@ const Wrapper = ({ children }: { children: ReactNodeConstructor }) => {
               borderRadius: "5px",
               fontWeight: getFontWeight(FontWeights.MEDIUM),
               "&:hover": { background: getColor(Colors.brand400) },
+              [`&.${buttonClasses.disabled}`]: {
+                background: "none",
+              },
             },
           },
           {

@@ -41,6 +41,7 @@ const schema = yup.object().shape({
     .required("A data é obrigatória")
     .typeError("Data inválida"),
   isFixed: yup.boolean().default(false),
+  performActionsOnFutureFixedExpenses: yup.boolean().default(false),
   category: yup
     .object()
     .shape({
@@ -62,13 +63,22 @@ const schema = yup.object().shape({
 });
 
 const createExpenseMutation = async (data: yup.Asserts<typeof schema>) => {
-  const { category, source, installments, isFixed, ...rest } = data;
+  const {
+    category,
+    source,
+    installments,
+    isFixed,
+    performActionsOnFutureFixedExpenses,
+    ...rest
+  } = data;
   await createExpense({
     category: category.value as string,
     source: source.value as string,
     is_fixed: isFixed,
     ...rest,
-    ...(isFixed ? { installments: 1 } : { installments }),
+    ...(isFixed
+      ? { installments: 1, performActionsOnFutureFixedExpenses }
+      : { installments }),
   });
 };
 
@@ -76,7 +86,14 @@ const editExpenseMutation = async (
   id: number,
   data: yup.Asserts<typeof schema>,
 ) => {
-  const { category, source, installments, isFixed, ...rest } = data;
+  const {
+    category,
+    source,
+    installments,
+    isFixed,
+    performActionsOnFutureFixedExpenses,
+    ...rest
+  } = data;
   await editExpense({
     id,
     data: {
@@ -84,7 +101,9 @@ const editExpenseMutation = async (
       source: source.value as string,
       is_fixed: isFixed,
       ...rest,
-      ...(isFixed ? { installments: 1 } : { installments }),
+      ...(isFixed
+        ? { installments: 1, performActionsOnFutureFixedExpenses }
+        : { installments }),
     },
   });
 };
@@ -92,11 +111,13 @@ const editExpenseMutation = async (
 const ExpenseForm = ({
   id,
   setIsSubmitting,
+  setIsDisabled,
   onEditSuccess,
   initialData,
 }: {
   id: string;
   setIsSubmitting: Dispatch<SetStateAction<boolean>>;
+  setIsDisabled?: Dispatch<SetStateAction<boolean>>;
   onEditSuccess?: () => void;
   initialData?: Expense;
 }) => {
@@ -180,6 +201,7 @@ const ExpenseForm = ({
     reset,
     mutate,
     isPending,
+    isDirty,
     isFieldInvalid,
     getFieldHasError,
     getErrorMessage,
@@ -214,6 +236,7 @@ const ExpenseForm = ({
   const installments = watch("installments");
 
   useEffect(() => setIsSubmitting(isPending), [isPending, setIsSubmitting]);
+  useEffect(() => setIsDisabled?.(!isDirty), [isDirty, setIsDisabled]);
 
   return (
     <Stack
@@ -303,6 +326,33 @@ const ExpenseForm = ({
             />
           )}
         />
+        <Typography
+          component="div"
+          style={{
+            display: isFixed ? "" : "none",
+          }}
+        >
+          <FormLabel>Aplicar em despesas futuras?</FormLabel>
+          <Grid component="label" container alignItems="center" spacing={1}>
+            <Grid item>Não</Grid>
+            <Grid item>
+              <Controller
+                name="performActionsOnFutureFixedExpenses"
+                control={control}
+                render={({ field: { value, onChange } }) => (
+                  <Switch
+                    color="primary"
+                    checked={value}
+                    onChange={(_, v) => {
+                      onChange(v);
+                    }}
+                  />
+                )}
+              />
+            </Grid>
+            <Grid item>Sim</Grid>
+          </Grid>
+        </Typography>
       </Stack>
       <AutocompleteFromObject
         obj={ExpensesCategoriesMapping}

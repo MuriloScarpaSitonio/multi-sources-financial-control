@@ -10,13 +10,15 @@ const QueryWithInfiteScroll = (url) => useInfiniteScroll(privateAxios, url);
 
 const get = (url, config) => privateAxios.get(url, config);
 
-const post = async (url, data = {}) => privateAxios.post(url, data);
+const post = async (url, data = {}, config) =>
+  privateAxios.post(url, data, config);
 
-const patch = async (url, data) => privateAxios.patch(url, data);
+const patch = async (url, data, config) =>
+  privateAxios.patch(url, data, config);
 
-const put = async (url, data) => privateAxios.put(url, data);
+const put = async (url, data, config) => privateAxios.put(url, data, config);
 
-const Delete = async (url) => privateAxios.delete(url);
+const Delete = async (url, config) => privateAxios.delete(url, config);
 
 export const login = (data) => publicAxios.post("token", data);
 
