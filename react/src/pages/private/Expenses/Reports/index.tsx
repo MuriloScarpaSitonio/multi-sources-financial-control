@@ -227,11 +227,11 @@ const ExpenseReports = () => {
               setTabValue(newValue);
               break;
             case 1:
-              setKind(Kinds.TOTAL_SPENT);
+              setKind(Kinds.PERCENTAGE);
               setTabValue(newValue);
               break;
             case 2:
-              setKind(Kinds.PERCENTAGE);
+              setKind(Kinds.TOTAL_SPENT);
               setTabValue(newValue);
               break;
             default:
@@ -240,8 +240,8 @@ const ExpenseReports = () => {
         }}
       >
         <Tab label="Histórico" />
-        <Tab label="Valor gasto" />
         <Tab label="Percentual" />
+        <Tab label="Valor gasto" />
       </ReportTabs>
       <Content kind={kind} />
     </ReportBox>
