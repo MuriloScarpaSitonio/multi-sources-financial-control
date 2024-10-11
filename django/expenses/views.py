@@ -25,31 +25,12 @@ from rest_framework.viewsets import GenericViewSet
 from shared.permissions import SubscriptionEndedPermission
 from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
 
+from . import filters, serializers
 from .choices import ExpenseReportType
 from .domain import commands, events
-from .filters import (
-    ExpenseAvgComparasionReportFilterSet,
-    ExpenseFilterSet,
-    ExpenseHistoricFilterSet,
-    ExpenseHistoricV2FilterSet,
-    ExpensePercentageReportFilterSet,
-    PersonalFinanceIndicatorsV2FilterSet,
-    RevenueFilterSet,
-    RevenueHistoricFilterSet,
-)
 from .managers import ExpenseQueryset, RevenueQueryset
 from .models import BankAccount, Expense, Revenue
 from .permissions import PersonalFinancesModulePermission
-from .serializers import (
-    AvgSerializer,
-    BankAccountSerializer,
-    ExpenseIndicatorsSerializer,
-    ExpenseSerializer,
-    HistoricResponseSerializer,
-    RevenueIndicatorsSerializer,
-    RevenueSerializer,
-    TotalSerializer,
-)
 from .service_layer import messagebus
 from .service_layer.unit_of_work import ExpenseUnitOfWork, RevenueUnitOfWork
 
@@ -67,10 +48,16 @@ class _PersonalFinanceViewSet(
     permission_classes = (SubscriptionEndedPermission, PersonalFinancesModulePermission)
     ordering_fields = ("created_at", "value")
 
+    def get_serializer_context(self):
+        filterset = filters.PersonalFinanceContextFilterSet(
+            data=self.request.GET, queryset=self.get_queryset()
+        )
+        return {**super().get_serializer_context(), **filterset.get_cleaned_data()}
+
     @action(methods=("GET",), detail=False)
     def historic(self, request: Request) -> Response:
         filterset = self.historic_filterset_class(data=request.GET, queryset=self.get_queryset())
-        serializer = HistoricResponseSerializer(
+        serializer = serializers.HistoricResponseSerializer(
             {
                 "historic": insert_zeros_if_no_data_in_monthly_historic_data(
                     historic=list(filterset.qs.trunc_months().order_by("month"))
@@ -95,20 +82,21 @@ class _PersonalFinanceViewSet(
 
     @action(methods=("GET",), detail=False)
     def sum(self, request: Request) -> Response:
-        filterset = PersonalFinanceIndicatorsV2FilterSet(
+        filterset = filters.PersonalFinanceIndicatorsV2FilterSet(
             data=request.GET, queryset=self.get_queryset()
         )
-        return Response(TotalSerializer(filterset.qs.sum()).data, status=HTTP_200_OK)
+        return Response(serializers.TotalSerializer(filterset.qs.sum()).data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
     def avg(self, _: Request) -> Response:
         return Response(
-            AvgSerializer(self.get_queryset().since_a_year_ago_avg()).data, status=HTTP_200_OK
+            serializers.AvgSerializer(self.get_queryset().since_a_year_ago_avg()).data,
+            status=HTTP_200_OK,
         )
 
     @action(methods=("GET",), detail=False)
     def higher_value(self, request: Request) -> Response:
-        filterset = PersonalFinanceIndicatorsV2FilterSet(
+        filterset = filters.PersonalFinanceIndicatorsV2FilterSet(
             data=request.GET, queryset=self.get_queryset()
         )
         entity = filterset.qs.annotate(max_value=Max("value")).order_by("-max_value").first()
@@ -116,10 +104,10 @@ class _PersonalFinanceViewSet(
 
 
 class ExpenseViewSet(_PersonalFinanceViewSet):
-    filterset_class = ExpenseFilterSet
-    historic_filterset_class = ExpenseHistoricFilterSet
-    serializer_class = ExpenseSerializer
-    indicators_serializer_class = ExpenseIndicatorsSerializer
+    filterset_class = filters.ExpenseFilterSet
+    historic_filterset_class = filters.ExpenseHistoricFilterSet
+    serializer_class = serializers.ExpenseSerializer
+    indicators_serializer_class = serializers.ExpenseIndicatorsSerializer
 
     def get_queryset(self) -> ExpenseQueryset[Expense]:
         return (
@@ -129,8 +117,14 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
         )
 
     def perform_destroy(self, instance: Expense) -> None:
+        context = self.get_serializer_context()
         messagebus.handle(
-            message=commands.DeleteExpense(expense=instance.to_domain()),
+            message=commands.DeleteExpense(
+                expense=instance.to_domain(),
+                perform_actions_on_future_fixed_expenses=context.get(
+                    "perform_actions_on_future_fixed_expenses", False
+                ),
+            ),
             uow=ExpenseUnitOfWork(user_id=self.request.user.id),
         )
 
@@ -143,7 +137,7 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
         return getattr(module, name)
 
     def _get_report_data(
-        self, filterset: ExpenseAvgComparasionReportFilterSet, avg: bool
+        self, filterset: filters.ExpenseAvgComparasionReportFilterSet, avg: bool
     ) -> ReturnList:
         qs = filterset.qs
         choice = ExpenseReportType.get_choice(value=filterset.form.cleaned_data["group_by"])
@@ -153,21 +147,25 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
 
     @action(methods=("GET",), detail=False)
     def avg_comparasion_report(self, request: Request) -> Response:
-        filterset = ExpenseAvgComparasionReportFilterSet(
+        filterset = filters.ExpenseAvgComparasionReportFilterSet(
             data=request.GET, queryset=self.get_queryset()
         )
         return Response(self._get_report_data(filterset=filterset, avg=True), status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
     def percentage_report(self, request: Request) -> Response:
-        filterset = ExpensePercentageReportFilterSet(data=request.GET, queryset=self.get_queryset())
+        filterset = filters.ExpensePercentageReportFilterSet(
+            data=request.GET, queryset=self.get_queryset()
+        )
         return Response(self._get_report_data(filterset=filterset, avg=False), status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
     def historic_report(self, request: Request) -> Response:
-        filterset = ExpenseHistoricV2FilterSet(data=request.GET, queryset=self.get_queryset())
+        filterset = filters.ExpenseHistoricV2FilterSet(
+            data=request.GET, queryset=self.get_queryset()
+        )
         qs = filterset.qs
-        serializer = HistoricResponseSerializer(
+        serializer = serializers.HistoricResponseSerializer(
             {
                 "historic": insert_zeros_if_no_data_in_monthly_historic_data(
                     historic=list(qs.trunc_months().order_by("month"))
@@ -179,10 +177,10 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
 
 
 class RevenueViewSet(_PersonalFinanceViewSet):
-    filterset_class = RevenueFilterSet
-    historic_filterset_class = RevenueHistoricFilterSet
-    serializer_class = RevenueSerializer
-    indicators_serializer_class = RevenueIndicatorsSerializer
+    filterset_class = filters.RevenueFilterSet
+    historic_filterset_class = filters.RevenueHistoricFilterSet
+    serializer_class = serializers.RevenueSerializer
+    indicators_serializer_class = serializers.RevenueIndicatorsSerializer
 
     def get_queryset(self) -> RevenueQueryset[Revenue]:
         return (
@@ -192,7 +190,7 @@ class RevenueViewSet(_PersonalFinanceViewSet):
         )
 
     @atomic
-    def perform_create(self, serializer: RevenueSerializer) -> None:
+    def perform_create(self, serializer: serializers.RevenueSerializer) -> None:
         super().perform_create(serializer)
 
         if serializer.instance.created_at > timezone.localdate():
@@ -205,7 +203,7 @@ class RevenueViewSet(_PersonalFinanceViewSet):
             )
 
     @atomic
-    def perform_update(self, serializer: RevenueSerializer) -> None:
+    def perform_update(self, serializer: serializers.RevenueSerializer) -> None:
         prev_value = serializer.instance.value
         super().perform_update(serializer)
 
@@ -233,11 +231,14 @@ class BankAccountView(APIView):
 
     def get(self, _: Request) -> Response:
         return Response(
-            data=BankAccountSerializer(instance=self.get_object()).data, status=HTTP_200_OK
+            data=serializers.BankAccountSerializer(instance=self.get_object()).data,
+            status=HTTP_200_OK,
         )
 
     def put(self, request: Request) -> Response:
-        serializer = BankAccountSerializer(instance=self.get_object(), data=request.data)
+        serializer = serializers.BankAccountSerializer(
+            instance=self.get_object(), data=request.data
+        )
         serializer.is_valid(raise_exception=True)
         serializer.save()
 

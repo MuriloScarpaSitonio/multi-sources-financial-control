@@ -42,7 +42,48 @@ def expense(user) -> Expense:
         source=ExpenseSource.credit_card,
         is_fixed=True,
         user=user,
+        recurring_id=uuid4(),
     )
+
+
+@pytest.fixture
+def fixed_expenses(expense) -> Expense:
+    expense.created_at = expense.created_at - relativedelta(months=2)
+    expense.save()
+    expenses = [expense]
+    for i in range(1, 12):
+        expenses.append(
+            ExpenseFactory(
+                value=expense.value,
+                description="Expense",
+                category=expense.category,
+                created_at=expense.created_at + relativedelta(months=i),
+                source=expense.source,
+                is_fixed=True,
+                user=expense.user,
+                recurring_id=expense.recurring_id,
+            )
+        )
+    return expenses
+
+
+@pytest.fixture
+def fixed_expenses_wo_delta(expense):
+    expenses = [expense]
+    for i in range(1, 12):
+        expenses.append(
+            ExpenseFactory(
+                value=expense.value,
+                description="Expense",
+                category=expense.category,
+                created_at=expense.created_at + relativedelta(months=i),
+                source=expense.source,
+                is_fixed=True,
+                user=expense.user,
+                recurring_id=expense.recurring_id,
+            )
+        )
+    return expenses
 
 
 @pytest.fixture
@@ -55,13 +96,14 @@ def another_expense(user) -> Expense:
         source=ExpenseSource.money,
         is_fixed=True,
         user=user,
+        recurring_id=uuid4(),
     )
 
 
 @pytest.fixture
 def expenses(user):
     today = timezone.localdate()
-    for i in range(1, 13):
+    return [
         ExpenseFactory(
             value=randint(50, 100),
             description=f"Expense {i}",
@@ -69,8 +111,11 @@ def expenses(user):
             created_at=today - relativedelta(months=i),
             source=choice(ExpenseSource.choices)[0],
             is_fixed=bool(i % 2),
+            recurring_id=uuid4() if bool(i % 2) else None,
             user=user,
         )
+        for i in range(1, 13)
+    ]
 
 
 @pytest.fixture
@@ -84,6 +129,7 @@ def expenses_report_data(expenses, user):
             created_at=today,
             source=choice(ExpenseSource.choices)[0],
             is_fixed=bool(i % 2),
+            recurring_id=uuid4() if bool(i % 2) else None,
             user=user,
         )
 
@@ -95,6 +141,7 @@ def expenses_report_data(expenses, user):
             created_at=today - relativedelta(months=i),
             source=choice(ExpenseSource.choices)[0],
             is_fixed=bool(i % 2),
+            recurring_id=uuid4() if bool(i % 2) else None,
             user=user,
         )
 
@@ -106,6 +153,7 @@ def expenses_report_data(expenses, user):
             created_at=today + relativedelta(months=i),
             source=choice(ExpenseSource.choices)[0],
             is_fixed=bool(i % 2),
+            recurring_id=uuid4() if bool(i % 2) else None,
             user=user,
         )
 
@@ -121,6 +169,7 @@ def expenses2(user):
             created_at=today - relativedelta(months=i),
             source=choice(ExpenseSource.choices)[0],
             is_fixed=bool(i % 2),
+            recurring_id=uuid4() if bool(i % 2) else None,
             user=user,
         )
 
@@ -190,5 +239,6 @@ def revenues_historic_data(revenues, user):
             description=f"Revenue {i}",
             created_at=today - relativedelta(months=i),
             is_fixed=bool(i % 2),
+            recurring_id=uuid4() if bool(i % 2) else None,
             user=user,
         )

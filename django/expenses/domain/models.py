@@ -16,6 +16,7 @@ from .exceptions import (
     FixedExpensesWithInstallmentsNotAllowedException,
     FutureExpenseMustBeCreditCardException,
     OnlyUpdateFirstInstallmentDateException,
+    OnlyUpdateFixedExpenseDateWithinMonthException,
 )
 
 if TYPE_CHECKING:
@@ -40,16 +41,16 @@ class Expense:
     installments_qty: int
     id: int | None = None
     is_fixed: bool = False
+    recurring_id: UUID | None = None
     installments_id: UUID | None = None
     installments: list[Expense] = field(default_factory=list)
-
-    # self.installments = installments if installments is not None else []
 
     def __post_init__(
         self,
     ) -> None:
         self.validate()
         self.events: list[Event] = []
+        self._today = timezone.localdate()
 
     def __repr__(self) -> str:
         return f"<Expense ({self.id})>"
@@ -78,11 +79,27 @@ class Expense:
         ):
             raise OnlyUpdateFirstInstallmentDateException()
 
+        if self.is_fixed and (
+            self.created_at.month != data_instance.created_at.month
+            or self.created_at.year != data_instance.created_at.year
+        ):
+            raise OnlyUpdateFixedExpenseDateWithinMonthException()
+
+    @property
+    def is_past_month(self) -> bool:
+        return (
+            self.created_at.month < self._today.month and self.created_at.year <= self._today.year
+        )
+
+    @property
+    def is_past(self):
+        return self.created_at <= self._today
+
     def should_change_bank_account_amount(
         self, action: Literal["create", "update", "delete"]
     ) -> bool:
         today = timezone.localdate()
-        default_condition = self.created_at <= today or self.source not in (
+        default_condition = (self.is_past and not self.is_past_month) or self.source not in (
             ExpenseSource.credit_card,
             ExpenseSource.money,
         )

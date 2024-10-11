@@ -14,6 +14,7 @@ from ..domain.models import Expense as ExpenseDTO
 from ..domain.models import RevenueDTO
 
 if TYPE_CHECKING:
+    from ..domain.models import Expense as ExpenseDomainModel
     from ..models import Expense, Revenue
 
     Entity = Expense | Revenue
@@ -51,7 +52,7 @@ class AbstractEntityRepository(ABC):
 
 
 class AbstractExpenseRepository(AbstractEntityRepository):
-    def add_installments(self, dto: EntityDTO) -> None:
+    def add_installments(self, dto: ExpenseDTO) -> None:
         dto.installments_id = uuid4()
         self.seen.add(dto)
         self._add_installments(dto=dto)
@@ -60,7 +61,7 @@ class AbstractExpenseRepository(AbstractEntityRepository):
     def _add_installments(self, dto: ExpenseDTO) -> None:
         raise NotImplementedError
 
-    def update_installments(self, dto: EntityDTO, created_at_changed: bool) -> None:
+    def update_installments(self, dto: ExpenseDTO, created_at_changed: bool) -> None:
         self.seen.add(dto)
         self._update_installments(dto=dto, created_at_changed=created_at_changed)
 
@@ -68,12 +69,21 @@ class AbstractExpenseRepository(AbstractEntityRepository):
     def _update_installments(self, dto: ExpenseDTO, created_at_changed: bool) -> None:
         raise NotImplementedError
 
-    def delete_installments(self, dto: EntityDTO) -> None:
+    def delete_installments(self, dto: ExpenseDTO) -> None:
         self.seen.add(dto)
         self._delete_installments(dto=dto)
 
     @abstractmethod
     def _delete_installments(self, dto: ExpenseDTO) -> None:
+        raise NotImplementedError
+
+    def add_future_fixed_expenses(self, dto: ExpenseDTO) -> None:
+        raise NotImplementedError
+
+    def update_future_fixed_expenses(self, dto: ExpenseDTO, created_at_changed: bool) -> None:
+        raise NotImplementedError
+
+    def delete_future_fixed_expenses(self, dto: ExpenseDTO) -> None:
         raise NotImplementedError
 
 
@@ -85,6 +95,7 @@ class ExpenseRepository(AbstractExpenseRepository):
 
         data = asdict(dto)
         data.pop("installments")
+        data.pop("installments_id")
         data.pop("installments_qty")
         Expense.objects.create(user_id=self.user_id, **data)
 
@@ -109,11 +120,33 @@ class ExpenseRepository(AbstractExpenseRepository):
             )
         )
 
+    def add_future_fixed_expenses(self, dto: ExpenseDTO) -> list[Expense]:
+        from ..models import Expense
+
+        data = asdict(dto)
+        data.pop("id")
+        data.pop("installments")
+        data.pop("installments_qty")
+        data.pop("installments_id")
+
+        created_at = data.pop("created_at")
+        return Expense.objects.bulk_create(
+            objs=(
+                Expense(
+                    user_id=self.user_id,
+                    created_at=created_at + relativedelta(months=i),
+                    **data,
+                )
+                for i in range(1, 12)
+            )
+        )
+
     def _update(self, dto: ExpenseDTO) -> None:
         from ..models import Expense
 
         data = asdict(dto)
         data.pop("installments")
+        data.pop("installments_id")
         data.pop("installments_qty")
         Expense.objects.filter(id=dto.id).update(**data)
 
@@ -131,6 +164,7 @@ class ExpenseRepository(AbstractExpenseRepository):
                 expense.created_at = dto.created_at + relativedelta(months=i)
                 expenses.append(expense)
 
+            # TODO try to remove this intermediary query
             Expense.objects.bulk_update(objs=expenses, fields=("created_at",))
 
         data.pop("installments")
@@ -144,12 +178,46 @@ class ExpenseRepository(AbstractExpenseRepository):
 
         Expense.objects.filter(id=dto.id).delete()
 
+    def update_future_fixed_expenses(self, dto: ExpenseDTO, created_at_changed: bool) -> None:
+        from ..models import Expense
+
+        data = asdict(dto)
+        created_at = data.pop("created_at")
+        recurring_id = data.pop("recurring_id")
+        future_qs = Expense.objects.filter(
+            recurring_id=recurring_id, created_at__gt=created_at
+        ).exclude(id=data.pop("id"))
+
+        if created_at_changed:
+            expenses: list[Expense] = []
+            for expense in future_qs.order_by("created_at"):
+                # `releativedelta` doesn't work with django's `F` object so this doesn't work:
+                # date_fiff = instance.created_at - validated_data["created_at"]
+                # F("created_at") - relativedelta(seconds=int(date_diff.total_seconds()))
+                expense.created_at = expense.created_at.replace(day=created_at.day)
+                expenses.append(expense)
+
+            # TODO try to remove this intermediary query
+            Expense.objects.bulk_update(objs=expenses, fields=("created_at",))
+
+        data.pop("installments")
+        data.pop("installments_id")
+        data.pop("installments_qty")
+        future_qs.update(**data)
+
     def _delete_installments(self, dto: ExpenseDTO) -> None:
         from ..models import Expense
 
         Expense.objects.filter(installments_id=dto.installments_id).delete()
 
-    def get_installments(self, id: int, installments_id: UUID | None) -> list[Expense]:
+    def delete_future_fixed_expenses(self, dto: ExpenseDTO) -> None:
+        from ..models import Expense
+
+        Expense.objects.filter(
+            recurring_id=dto.recurring_id, created_at__gt=dto.created_at
+        ).delete()
+
+    def get_installments(self, id: int, installments_id: UUID | None) -> list[ExpenseDomainModel]:
         from ..models import Expense
 
         return (

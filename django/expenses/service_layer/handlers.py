@@ -1,4 +1,5 @@
 from functools import singledispatch
+from uuid import uuid4
 
 from ..domain import commands, events
 from .unit_of_work import ExpenseUnitOfWork, RevenueUnitOfWork
@@ -6,10 +7,15 @@ from .unit_of_work import ExpenseUnitOfWork, RevenueUnitOfWork
 
 def create_expense(cmd: commands.CreateExpense, uow: ExpenseUnitOfWork) -> None:
     with uow:
-        if cmd.expense.installments_qty > 1:
-            uow.expenses.add_installments(dto=cmd.expense)
+        if cmd.expense.is_fixed:
+            cmd.expense.recurring_id = uuid4()
+            uow.expenses.add(cmd.expense)
+            if cmd.perform_actions_on_future_fixed_expenses:
+                uow.expenses.add_future_fixed_expenses(cmd.expense)
+        elif cmd.expense.installments_qty > 1:
+            uow.expenses.add_installments(cmd.expense)
         else:
-            uow.expenses.add(dto=cmd.expense)
+            uow.expenses.add(cmd.expense)
 
         cmd.expense.events.append(events.ExpenseCreated(expense=cmd.expense))
         uow.commit()
@@ -17,13 +23,37 @@ def create_expense(cmd: commands.CreateExpense, uow: ExpenseUnitOfWork) -> None:
 
 def update_expense(cmd: commands.UpdateExpense, uow: ExpenseUnitOfWork) -> None:
     with uow:
-        if cmd.expense.installments_id:
+        if cmd.expense.recurring_id is not None and cmd.expense.is_fixed:
+            uow.expenses.update(cmd.expense)
+            if cmd.perform_actions_on_future_fixed_expenses and not cmd.expense.is_past_month:
+                uow.expenses.update_future_fixed_expenses(
+                    cmd.expense,
+                    created_at_changed=cmd.data_instance.created_at != cmd.expense.created_at,
+                )
+        elif cmd.expense.installments_id is not None:
             uow.expenses.update_installments(
-                dto=cmd.expense,
+                cmd.expense,
                 created_at_changed=cmd.data_instance.created_at != cmd.expense.created_at,
             )
         else:
-            uow.expenses.update(dto=cmd.expense)
+            if not cmd.data_instance.is_fixed and cmd.expense.is_fixed:
+                # `is_fixed=False` updated to `is_fixed=True`
+                cmd.expense.recurring_id = uuid4()
+                uow.expenses.update(cmd.expense)
+                if cmd.perform_actions_on_future_fixed_expenses and not cmd.expense.is_past_month:
+                    uow.expenses.add_future_fixed_expenses(cmd.expense)
+            elif cmd.data_instance.is_fixed and not cmd.expense.is_fixed:
+                # `is_fixed=True` updated to `is_fixed=False`
+                cmd.expense.recurring_id = None
+                uow.expenses.update(cmd.expense)
+                if cmd.perform_actions_on_future_fixed_expenses and not cmd.expense.is_past_month:
+                    # as we have removed the `recurring_id` we need to set it back so we can find
+                    # the related expenses
+                    cmd.expense.recurring_id = cmd.data_instance.recurring_id
+                    uow.expenses.delete_future_fixed_expenses(cmd.expense)
+
+            else:
+                uow.expenses.update(cmd.expense)
 
         # make sure to update the installments, if applicable
         cmd.expense.installments = uow.expenses.get_installments(
@@ -37,10 +67,15 @@ def update_expense(cmd: commands.UpdateExpense, uow: ExpenseUnitOfWork) -> None:
 
 def delete_expense(cmd: commands.DeleteExpense, uow: ExpenseUnitOfWork) -> None:
     with uow:
-        if cmd.expense.installments_id is None:
-            uow.expenses.delete(dto=cmd.expense)
+        if cmd.expense.recurring_id is not None:
+            uow.expenses.delete(cmd.expense)
+            if cmd.perform_actions_on_future_fixed_expenses and not cmd.expense.is_past_month:
+                uow.expenses.delete_future_fixed_expenses(cmd.expense)
+        elif cmd.expense.installments_id is not None:
+            uow.expenses.delete_installments(cmd.expense)
         else:
-            uow.expenses.delete_installments(dto=cmd.expense)
+            uow.expenses.delete(cmd.expense)
+
         cmd.expense.events.append(events.ExpenseDeleted(expense=cmd.expense))
         uow.commit()
 

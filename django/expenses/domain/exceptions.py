@@ -50,3 +50,10 @@ class FutureExpenseMustBeCreditCardException(ValidationError):
 
     def __init__(self) -> None:
         super().__init__(field="created_at__source")
+
+
+class OnlyUpdateFixedExpenseDateWithinMonthException(ValidationError):
+    default_message = "Você só pode alterar a data de uma despesa fixa passada dentro do mesmo mês"
+
+    def __init__(self) -> None:
+        super().__init__(field="created_at")

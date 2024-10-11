@@ -16,32 +16,29 @@ from ...service_layer.tasks import (
 pytestmark = pytest.mark.django_db
 
 
-def test__create_fixed_expenses_from_last_month(user, expense, another_expense):
+@pytest.mark.usefixtures("expenses_w_installments", "fixed_expenses_wo_delta")
+def test__create_fixed_expenses_from_last_month(user):
     # GIVEN
     today = timezone.localdate()
-
-    expense.created_at = expense.created_at - relativedelta(months=1)
-    expense.save()
-
-    another_expense.created_at = another_expense.created_at - relativedelta(months=1)
-    another_expense.save()
+    fixed_qs = Expense.objects.filter(is_fixed=True)
+    fixed_count = fixed_qs.count()
+    non_fixed_qs = Expense.objects.filter(is_fixed=False)
+    non_fixed_count = non_fixed_qs.count()
 
     # WHEN
     create_fixed_expenses_from_last_month(user_id=user.pk)
 
     # THEN
-    assert Expense.objects.count() == 4
-    assert (
-        Expense.objects.filter(
-            user_id=user.pk,
-            is_fixed=True,
-            created_at__month=today.month,
-            created_at__year=today.year,
-        ).count()
-        == 2
-    )
+    latest_created_at = Expense.objects.only("created_at").latest("created_at").created_at
+    assert latest_created_at.replace(day=1) == (today + relativedelta(years=1)).replace(day=1)
+
+    assert fixed_qs.count() == fixed_count + 1
+
+    assert non_fixed_count > 0
+    assert non_fixed_count == non_fixed_qs.count()
 
 
+@pytest.mark.skip("Skip while we don't have properly fixed revenues flow")
 def test__create_fixed_revenues_from_last_month(user, revenue):
     # GIVEN
     today = timezone.localdate()

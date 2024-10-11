@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-import django_filters as filters
+import django_filters
 from dateutil.relativedelta import relativedelta
 
 from .choices import ExpenseCategory, ExpenseReportType, ExpenseSource
@@ -17,14 +17,14 @@ if TYPE_CHECKING:
     from .managers import ExpenseQueryset
 
 
-class _PersonalFinanceFilterSet(filters.FilterSet):
-    start_date = filters.DateFilter(
+class _PersonalFinanceFilterSet(django_filters.FilterSet):
+    start_date = django_filters.DateFilter(
         field_name="created_at", lookup_expr="gte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
     )
-    end_date = filters.DateFilter(
+    end_date = django_filters.DateFilter(
         field_name="created_at", lookup_expr="lte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
     )
-    description = filters.CharFilter(lookup_expr="icontains")
+    description = django_filters.CharFilter(lookup_expr="icontains")
 
     class Meta:
         fields = ("is_fixed",)
@@ -36,9 +36,9 @@ class _PersonalFinanceFilterSet(filters.FilterSet):
 
 
 class ExpenseFilterSet(_PersonalFinanceFilterSet):
-    category = filters.MultipleChoiceFilter(choices=ExpenseCategory.choices)
-    source = filters.MultipleChoiceFilter(choices=ExpenseSource.choices)
-    with_installments = filters.BooleanFilter(method="filter_with_installments")
+    category = django_filters.MultipleChoiceFilter(choices=ExpenseCategory.choices)
+    source = django_filters.MultipleChoiceFilter(choices=ExpenseSource.choices)
+    with_installments = django_filters.BooleanFilter(method="filter_with_installments")
 
     class Meta(_PersonalFinanceFilterSet.Meta):
         model = Expense
@@ -54,11 +54,11 @@ class RevenueFilterSet(_PersonalFinanceFilterSet):
         model = Revenue
 
 
-class ExpenseAvgComparasionReportFilterSet(filters.FilterSet):
-    group_by = filters.ChoiceFilter(
+class ExpenseAvgComparasionReportFilterSet(django_filters.FilterSet):
+    group_by = django_filters.ChoiceFilter(
         choices=ExpenseReportType.choices, required=True, method="reports"
     )
-    period = filters.ChoiceFilter(
+    period = django_filters.ChoiceFilter(
         choices=(
             ("since_a_year_ago", "since_a_year_ago"),
             ("current_month_and_past", "current_month_and_past"),
@@ -77,12 +77,12 @@ class ExpenseAvgComparasionReportFilterSet(filters.FilterSet):
     def qs(self) -> ExpenseQueryset:
         if self.is_valid():
             return super().qs
-        raise filters.utils.translate_validation(error_dict=self.errors)
+        raise django_filters.utils.translate_validation(error_dict=self.errors)
 
 
-class ExpensePercentageReportFilterSet(filters.FilterSet):
-    group_by = filters.ChoiceFilter(choices=ExpenseReportType.choices, required=True)
-    period = filters.ChoiceFilter(
+class ExpensePercentageReportFilterSet(django_filters.FilterSet):
+    group_by = django_filters.ChoiceFilter(choices=ExpenseReportType.choices, required=True)
+    period = django_filters.ChoiceFilter(
         choices=(
             ("since_a_year_ago", "since_a_year_ago"),
             ("current_month_and_past", "current_month_and_past"),
@@ -111,18 +111,18 @@ class ExpensePercentageReportFilterSet(filters.FilterSet):
                 }
                 for result in _qs
             ]
-        raise filters.utils.translate_validation(error_dict=self.errors)
+        raise django_filters.utils.translate_validation(error_dict=self.errors)
 
 
-class ExpenseHistoricFilterSet(filters.FilterSet):
-    future = filters.BooleanFilter(method="filter_future", required=True)
-    category = filters.MultipleChoiceFilter(choices=ExpenseCategory.choices)
+class ExpenseHistoricFilterSet(django_filters.FilterSet):
+    future = django_filters.BooleanFilter(method="filter_future", required=True)
+    category = django_filters.MultipleChoiceFilter(choices=ExpenseCategory.choices)
 
     def filter_future(self, queryset: ExpenseQueryset, _: str, value: bool):
         return queryset.future() if value else queryset.since_a_year_ago()
 
 
-class MonthFilter(filters.DateFilter):
+class MonthFilter(django_filters.DateFilter):
     def __init__(self, **kwargs):
         self.end = kwargs.pop("end", False)
         super().__init__(**kwargs)
@@ -139,7 +139,7 @@ class MonthFilter(filters.DateFilter):
         )
 
 
-class ExpenseHistoricV2FilterSet(filters.FilterSet):
+class ExpenseHistoricV2FilterSet(django_filters.FilterSet):
     start_date = MonthFilter(
         field_name="created_at",
         lookup_expr="gte",
@@ -158,17 +158,17 @@ class ExpenseHistoricV2FilterSet(filters.FilterSet):
     def qs(self):
         if self.is_valid():
             return super().qs
-        raise filters.utils.translate_validation(error_dict=self.errors)
+        raise django_filters.utils.translate_validation(error_dict=self.errors)
 
 
-class PersonalFinanceIndicatorsV2FilterSet(filters.FilterSet):
-    start_date = filters.DateFilter(
+class PersonalFinanceIndicatorsV2FilterSet(django_filters.FilterSet):
+    start_date = django_filters.DateFilter(
         field_name="created_at",
         lookup_expr="gte",
         required=True,
         input_formats=["%d/%m/%Y", "%Y-%m-%d"],
     )
-    end_date = filters.DateFilter(
+    end_date = django_filters.DateFilter(
         field_name="created_at",
         lookup_expr="lte",
         required=True,
@@ -179,12 +179,23 @@ class PersonalFinanceIndicatorsV2FilterSet(filters.FilterSet):
     def qs(self):
         if self.is_valid():
             return super().qs
-        raise filters.utils.translate_validation(error_dict=self.errors)
+        raise django_filters.utils.translate_validation(error_dict=self.errors)
 
 
-class RevenueHistoricFilterSet(filters.FilterSet):
-    is_fixed = filters.BooleanFilter()
+class RevenueHistoricFilterSet(django_filters.FilterSet):
+    is_fixed = django_filters.BooleanFilter()
 
     @property
     def qs(self):
         return super().qs.since_a_year_ago()
+
+
+class PersonalFinanceContextFilterSet(django_filters.FilterSet):
+    perform_actions_on_future_fixed_expenses = django_filters.BooleanFilter(required=False)
+
+    def get_cleaned_data(self) -> dict:
+        if self.is_valid():
+            if cleaned_data := self.form.cleaned_data:
+                return cleaned_data
+            return {"perform_actions_on_future_fixed_expenses": False}
+        raise django_filters.utils.translate_validation(error_dict=self.errors)

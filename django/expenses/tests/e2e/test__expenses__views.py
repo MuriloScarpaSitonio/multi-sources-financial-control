@@ -1,7 +1,6 @@
 import operator
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
-from statistics import fmean
 from typing import Literal
 
 from django.db.models import Avg, Q, Sum
@@ -19,9 +18,9 @@ from rest_framework.status import (
 )
 
 from config.settings.base import BASE_API_URL
-from shared.tests import convert_and_quantitize, convert_to_percentage_and_quantitize
+from shared.tests import convert_and_quantitize
 
-from ...choices import ExpenseCategory, ExpenseReportType, ExpenseSource
+from ...choices import ExpenseCategory, ExpenseSource
 from ...models import Expense
 
 pytestmark = pytest.mark.django_db
@@ -121,8 +120,10 @@ def test__list__filter_by_date(
 @pytest.mark.parametrize("is_fixed", (True, False))
 def test__list__include_date_fixed_expense(client, expense, is_fixed):
     # GIVEN
-    expense.is_fixed = is_fixed
-    expense.save()
+    if not is_fixed:
+        expense.is_fixed = is_fixed
+        expense.recurring_id = None
+        expense.save()
 
     # WHEN
     response = client.get(URL)
@@ -237,7 +238,10 @@ def test__create__installments(client, bank_account):
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
-    assert Expense.objects.filter(installments_id__isnull=False).count() == installments
+    assert (
+        Expense.objects.filter(installments_id__isnull=False, recurring_id__isnull=True).count()
+        == installments
+    )
     for i, expense in enumerate(
         Expense.objects.filter(installments_id__isnull=False).order_by("created_at")
     ):
@@ -246,7 +250,7 @@ def test__create__installments(client, bank_account):
         assert expense.value == data["value"] / installments
 
     bank_account.refresh_from_db()
-    assert previous_bank_account_amount - (data["value"] / installments) == bank_account.amount
+    assert previous_bank_account_amount == bank_account.amount
 
 
 def test__create__installments__none(client):
@@ -266,46 +270,6 @@ def test__create__installments__none(client):
     # THEN
     assert response.status_code == HTTP_201_CREATED
     assert Expense.objects.count() == 1
-
-
-def test__create__installments__none__is_fixed(client):
-    # GIVEN
-    data = {
-        "value": 12.00,
-        "description": "Test",
-        "category": ExpenseCategory.house,
-        "created_at": "01/01/2021",
-        "source": ExpenseSource.credit_card,
-        "installments": None,
-        "is_fixed": True,
-    }
-
-    # WHEN
-    response = client.post(URL, data=data)
-
-    # THEN
-    assert response.status_code == HTTP_201_CREATED
-    assert Expense.objects.count() == 1
-
-
-def test__create__installments__gt_1__is_fixed(client):
-    # GIVEN
-    data = {
-        "value": 12.00,
-        "description": "Test",
-        "category": ExpenseCategory.house,
-        "created_at": "01/01/2021",
-        "source": ExpenseSource.credit_card,
-        "installments": 2,
-        "is_fixed": True,
-    }
-
-    # WHEN
-    response = client.post(URL, data=data)
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"installments": "Despesas fixas não podem ser parceladas"}
 
 
 def test__create__installments__source_not_credit_card(client):
@@ -351,6 +315,9 @@ def test__create__invalid_value(client, value):
 )
 def test__update(client, expense, bank_account, value, operation):
     # GIVEN
+    expense.is_fixed = False
+    expense.recurring_id = None
+    expense.save()
     previous_bank_account_amount = bank_account.amount
     data = {
         "value": expense.value + value,
@@ -378,6 +345,9 @@ def test__update(client, expense, bank_account, value, operation):
     assert expense.source == data["source"]
     assert not expense.is_fixed
 
+    # make sure we are not creating future fixed expenses
+    assert Expense.objects.count() == 1
+
 
 def test__update__future__not_credit_card(client, expense):
     # GIVEN
@@ -402,6 +372,10 @@ def test__update__future__not_credit_card(client, expense):
 
 def test__update__future__credit_card(client, expense, bank_account):
     # GIVEN
+    expense.is_fixed = False
+    expense.recurring_id = None
+    expense.save()
+
     previous_bank_account_amount = bank_account.amount
     data = {
         "value": 12.00,
@@ -421,12 +395,8 @@ def test__update__future__credit_card(client, expense, bank_account):
     assert previous_bank_account_amount == bank_account.amount
 
 
-@pytest.mark.parametrize(
-    ("value", "operation"), ((10, operator.lt), (-10, operator.gt), (0, operator.eq))
-)
-def test__update__installments__value(
-    client, expenses_w_installments, bank_account, value, operation
-):
+@pytest.mark.parametrize("value", (10, -10, 0))
+def test__update__installments__value(client, expenses_w_installments, bank_account, value):
     # GIVEN
     for e in expenses_w_installments:
         e.created_at -= relativedelta(months=2)
@@ -444,23 +414,14 @@ def test__update__installments__value(
     # WHEN
     response = client.put(f"{URL}/{e.pk}", data=data)
 
-    already_decremented_expenses_count = Expense.objects.filter(
-        installments_id=e.installments_id, created_at__lte=timezone.localdate()
-    ).count()
-
     # THEN
     assert response.status_code == HTTP_200_OK
 
     bank_account.refresh_from_db()
-    assert (
-        previous_bank_account_amount
-        - (already_decremented_expenses_count * (data["value"] - e.value))
-        == bank_account.amount
-    )
-    assert operation(bank_account.amount - previous_bank_account_amount, 0)
+    assert previous_bank_account_amount == bank_account.amount
 
     assert Expense.objects.filter(
-        installments_id=e.installments_id, value=data["value"]
+        installments_id=e.installments_id, value=data["value"], recurring_id__isnull=True
     ).count() == len(expenses_w_installments)
 
 
@@ -500,9 +461,10 @@ def test__update__installments__value__not_1st_expense(
         - (already_decremented_expenses_count * (data["value"] - e.value))
         == bank_account.amount
     )
+    assert operation(bank_account.amount - previous_bank_account_amount, 0)
 
     assert Expense.objects.filter(
-        installments_id=e.installments_id, value=data["value"]
+        installments_id=e.installments_id, value=data["value"], recurring_id__isnull=True
     ).count() == len(expenses_w_installments)
 
 
@@ -563,26 +525,6 @@ def test__update__installments__created_at__not_1st_installment(client, expenses
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {"created_at": "Você só pode alterar a data da primeira parcela"}
-
-
-def test__update__installments__is_fixed(client, expenses_w_installments):
-    # GIVEN
-    e = expenses_w_installments[2]
-    data = {
-        "value": e.value,
-        "description": e.description,
-        "category": e.category,
-        "created_at": e.created_at.strftime("%d/%m/%Y"),
-        "source": e.source,
-        "is_fixed": True,
-    }
-
-    # WHEN
-    response = client.put(f"{URL}/{e.pk}", data=data)
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"installments": "Despesas fixas não podem ser parceladas"}
 
 
 def test__update__installments__source_not_credit_card(client, expenses_w_installments):

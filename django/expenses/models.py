@@ -20,7 +20,8 @@ class Expense(models.Model):
     created_at = models.DateField(default=serializable_today_function)
     source = models.CharField(validators=[ExpenseSource.validator], max_length=20)
     is_fixed = models.BooleanField(default=False)
-    installments_id = models.UUIDField(null=True, blank=True)
+    recurring_id = models.UUIDField(null=True, blank=True, db_index=True)
+    installments_id = models.UUIDField(null=True, blank=True, db_index=True)
     installment_number = models.PositiveSmallIntegerField(
         null=True, blank=True, validators=[MinValueValidator(1)]
     )
@@ -54,6 +55,13 @@ class Expense(models.Model):
                 ),
                 name="fixed_expense_must_not_have_installments",
             ),
+            # models.CheckConstraint(
+            #     check=(
+            #         models.Q(is_fixed=True, recurring_id__isnull=False)
+            #         | models.Q(is_fixed=False, recurring_id__isnull=True)
+            #     ),
+            #     name="fixed_expense_must_have_recurring_id",
+            # ),
         ]
 
     def __str__(self) -> str:  # pragma: no cover
@@ -82,6 +90,7 @@ class Expense(models.Model):
             created_at=self.created_at,
             source=self.source,
             category=self.category,
+            recurring_id=self.recurring_id,
             installments_qty=self.installments_qty or 1,
             installments_id=self.installments_id,
             installments=(

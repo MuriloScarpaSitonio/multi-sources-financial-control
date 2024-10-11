@@ -44,7 +44,12 @@ class ExpenseSerializer(serializers.ModelSerializer):
                 **validated_data, installments_qty=validated_data.pop("installments") or 1
             )
             messagebus.handle(
-                message=commands.CreateExpense(expense=expense),
+                message=commands.CreateExpense(
+                    expense=expense,
+                    perform_actions_on_future_fixed_expenses=self.context.get(
+                        "perform_actions_on_future_fixed_expenses", False
+                    ),
+                ),
                 uow=ExpenseUnitOfWork(user_id=user.id),
             )
             return expense
@@ -59,11 +64,18 @@ class ExpenseSerializer(serializers.ModelSerializer):
                 id=instance.pk,
                 installments_id=instance.installments_id,
                 installments_qty=instance.installments_qty or 1,
+                recurring_id=instance.recurring_id,
                 **validated_data,
             )
             expense.validate_update(data_instance=instance)
             messagebus.handle(
-                message=commands.UpdateExpense(expense=expense, data_instance=instance),
+                message=commands.UpdateExpense(
+                    expense=expense,
+                    data_instance=instance,
+                    perform_actions_on_future_fixed_expenses=self.context.get(
+                        "perform_actions_on_future_fixed_expenses", False
+                    ),
+                ),
                 uow=ExpenseUnitOfWork(user_id=user.id),
             )
             return expense
