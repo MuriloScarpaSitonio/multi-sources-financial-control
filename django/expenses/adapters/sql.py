@@ -11,7 +11,7 @@ from django.db.models import F
 from dateutil.relativedelta import relativedelta
 
 from ..domain.models import Expense as ExpenseDTO
-from ..domain.models import RevenueDTO
+from ..domain.models import Revenue as RevenueDTO
 
 if TYPE_CHECKING:
     from ..domain.models import Expense as ExpenseDomainModel
@@ -259,3 +259,68 @@ class DjangoBankAccountRepository(AbstractBankAccountRepository):
         from ..models import BankAccount
 
         BankAccount.objects.filter(user_id=self.user_id).update(amount=F("amount") - value)
+
+
+class AbstractRevenueRepository(AbstractEntityRepository):
+    def _add(self, *_, **__) -> None: ...
+    def _update(self, *_, **__) -> None: ...
+    def _delete(self, *_, **__) -> None: ...
+    def add_fixed_future_revenues(self, dto: RevenueDTO) -> list[Revenue]:
+        raise NotImplementedError
+
+    def update_future_fixed_revenues(self, dto: RevenueDTO, created_at_changed: bool) -> None:
+        raise NotImplementedError
+
+    def delete_future_fixed_revenues(self, dto: RevenueDTO) -> None:
+        raise NotImplementedError
+
+
+class RevenueRepository(AbstractRevenueRepository):
+    def add_fixed_future_revenues(self, dto: RevenueDTO) -> list[Revenue]:
+        from ..models import Revenue
+
+        data = asdict(dto)
+        data.pop("id")
+
+        created_at = data.pop("created_at")
+        return Revenue.objects.bulk_create(
+            objs=(
+                Revenue(
+                    user_id=self.user_id,
+                    created_at=created_at + relativedelta(months=i),
+                    **data,
+                )
+                for i in range(1, 12)
+            )
+        )
+
+    def update_future_fixed_revenues(self, dto: RevenueDTO, created_at_changed: bool) -> None:
+        from ..models import Revenue
+
+        data = asdict(dto)
+        created_at = data.pop("created_at")
+        recurring_id = data.pop("recurring_id")
+        future_qs = Revenue.objects.filter(
+            recurring_id=recurring_id, created_at__gt=created_at
+        ).exclude(id=data.pop("id"))
+
+        if created_at_changed:
+            revenues: list[Revenue] = []
+            for revenue in future_qs.order_by("created_at"):
+                # `releativedelta` doesn't work with django's `F` object so this doesn't work:
+                # date_fiff = instance.created_at - validated_data["created_at"]
+                # F("created_at") - relativedelta(seconds=int(date_diff.total_seconds()))
+                revenue.created_at = revenue.created_at.replace(day=created_at.day)
+                revenues.append(revenue)
+
+            # TODO try to remove this intermediary query
+            Revenue.objects.bulk_update(objs=revenues, fields=("created_at",))
+
+        future_qs.update(**data)
+
+    def delete_future_fixed_revenues(self, dto: RevenueDTO) -> None:
+        from ..models import Revenue
+
+        Revenue.objects.filter(
+            recurring_id=dto.recurring_id, created_at__gt=dto.created_at
+        ).delete()

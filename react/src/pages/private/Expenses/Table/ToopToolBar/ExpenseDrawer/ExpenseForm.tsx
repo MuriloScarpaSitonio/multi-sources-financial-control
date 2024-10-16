@@ -41,7 +41,7 @@ const schema = yup.object().shape({
     .required("A data é obrigatória")
     .typeError("Data inválida"),
   isFixed: yup.boolean().default(false),
-  performActionsOnFutureFixedExpenses: yup.boolean().default(false),
+  performActionsOnFutureFixedEntities: yup.boolean().default(false),
   category: yup
     .object()
     .shape({
@@ -68,7 +68,7 @@ const createExpenseMutation = async (data: yup.Asserts<typeof schema>) => {
     source,
     installments,
     isFixed,
-    performActionsOnFutureFixedExpenses,
+    performActionsOnFutureFixedEntities,
     ...rest
   } = data;
   await createExpense({
@@ -77,7 +77,7 @@ const createExpenseMutation = async (data: yup.Asserts<typeof schema>) => {
     is_fixed: isFixed,
     ...rest,
     ...(isFixed
-      ? { installments: 1, performActionsOnFutureFixedExpenses }
+      ? { installments: 1, performActionsOnFutureFixedEntities }
       : { installments }),
   });
 };
@@ -91,7 +91,7 @@ const editExpenseMutation = async (
     source,
     installments,
     isFixed,
-    performActionsOnFutureFixedExpenses,
+    performActionsOnFutureFixedEntities,
     ...rest
   } = data;
   await editExpense({
@@ -102,7 +102,7 @@ const editExpenseMutation = async (
       is_fixed: isFixed,
       ...rest,
       ...(isFixed
-        ? { installments: 1, performActionsOnFutureFixedExpenses }
+        ? { installments: 1, performActionsOnFutureFixedEntities }
         : { installments }),
     },
   });
@@ -337,7 +337,7 @@ const ExpenseForm = ({
             <Grid item>Não</Grid>
             <Grid item>
               <Controller
-                name="performActionsOnFutureFixedExpenses"
+                name="performActionsOnFutureFixedEntities"
                 control={control}
                 render={({ field: { value, onChange } }) => (
                   <Switch

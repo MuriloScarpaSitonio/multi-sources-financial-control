@@ -29,6 +29,9 @@ COMMAND_HANDLERS: dict[type[commands.Command], MessageCallable] = {
     commands.CreateExpense: handlers.create_expense,
     commands.UpdateExpense: handlers.update_expense,
     commands.DeleteExpense: handlers.delete_expense,
+    commands.CreateFutureFixedRevenues: handlers.create_future_fixed_revenues,
+    commands.UpdateFutureFixedRevenues: handlers.update_future_fixed_revenues,
+    commands.DeleteFutureFixedRevenues: handlers.delete_future_fixed_revenues,
 }
 
 

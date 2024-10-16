@@ -25,16 +25,41 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class RevenueDTO:
+class IsPastOrFutureMixin:
     created_at: date
-    value: Decimal
-    description: str | None = None
+
+    def __post_init__(self) -> None:
+        self._today = timezone.localdate()
+
+    @property
+    def is_past_month(self) -> bool:
+        return (
+            self.created_at.month < self._today.month and self.created_at.year <= self._today.year
+        )
+
+    @property
+    def is_past(self):
+        return self.created_at <= self._today
+
+    @property
+    def is_current_month(self):
+        return (
+            self.created_at.month == self._today.month and self.created_at.year == self._today.year
+        )
 
 
 @dataclass
-class Expense:
+class Revenue(IsPastOrFutureMixin):
+    value: Decimal
+    id: int | None = None
+    description: str | None = None
+    is_fixed: bool = False
+    recurring_id: UUID | None = None
+
+
+@dataclass
+class Expense(IsPastOrFutureMixin):
     description: str
-    created_at: date
     value: Decimal
     category: choices_to_enum(ExpenseCategory)
     source: choices_to_enum(ExpenseSource)
@@ -45,12 +70,11 @@ class Expense:
     installments_id: UUID | None = None
     installments: list[Expense] = field(default_factory=list)
 
-    def __post_init__(
-        self,
-    ) -> None:
+    def __post_init__(self) -> None:
+        super().__post_init__()
+
         self.validate()
         self.events: list[Event] = []
-        self._today = timezone.localdate()
 
     def __repr__(self) -> str:
         return f"<Expense ({self.id})>"
@@ -84,16 +108,6 @@ class Expense:
             or self.created_at.year != data_instance.created_at.year
         ):
             raise OnlyUpdateFixedExpenseDateWithinMonthException()
-
-    @property
-    def is_past_month(self) -> bool:
-        return (
-            self.created_at.month < self._today.month and self.created_at.year <= self._today.year
-        )
-
-    @property
-    def is_past(self):
-        return self.created_at <= self._today
 
     def should_change_bank_account_amount(
         self, action: Literal["create", "update", "delete"]

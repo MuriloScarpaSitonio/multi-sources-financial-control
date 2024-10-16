@@ -10,7 +10,7 @@ def create_expense(cmd: commands.CreateExpense, uow: ExpenseUnitOfWork) -> None:
         if cmd.expense.is_fixed:
             cmd.expense.recurring_id = uuid4()
             uow.expenses.add(cmd.expense)
-            if cmd.perform_actions_on_future_fixed_expenses:
+            if cmd.perform_actions_on_future_fixed_entities:
                 uow.expenses.add_future_fixed_expenses(cmd.expense)
         elif cmd.expense.installments_qty > 1:
             uow.expenses.add_installments(cmd.expense)
@@ -25,7 +25,7 @@ def update_expense(cmd: commands.UpdateExpense, uow: ExpenseUnitOfWork) -> None:
     with uow:
         if cmd.expense.recurring_id is not None and cmd.expense.is_fixed:
             uow.expenses.update(cmd.expense)
-            if cmd.perform_actions_on_future_fixed_expenses and not cmd.expense.is_past_month:
+            if cmd.perform_actions_on_future_fixed_entities and not cmd.expense.is_past_month:
                 uow.expenses.update_future_fixed_expenses(
                     cmd.expense,
                     created_at_changed=cmd.data_instance.created_at != cmd.expense.created_at,
@@ -40,13 +40,13 @@ def update_expense(cmd: commands.UpdateExpense, uow: ExpenseUnitOfWork) -> None:
                 # `is_fixed=False` updated to `is_fixed=True`
                 cmd.expense.recurring_id = uuid4()
                 uow.expenses.update(cmd.expense)
-                if cmd.perform_actions_on_future_fixed_expenses and not cmd.expense.is_past_month:
+                if cmd.perform_actions_on_future_fixed_entities and not cmd.expense.is_past_month:
                     uow.expenses.add_future_fixed_expenses(cmd.expense)
             elif cmd.data_instance.is_fixed and not cmd.expense.is_fixed:
                 # `is_fixed=True` updated to `is_fixed=False`
                 cmd.expense.recurring_id = None
                 uow.expenses.update(cmd.expense)
-                if cmd.perform_actions_on_future_fixed_expenses and not cmd.expense.is_past_month:
+                if cmd.perform_actions_on_future_fixed_entities and not cmd.expense.is_past_month:
                     # as we have removed the `recurring_id` we need to set it back so we can find
                     # the related expenses
                     cmd.expense.recurring_id = cmd.data_instance.recurring_id
@@ -69,7 +69,7 @@ def delete_expense(cmd: commands.DeleteExpense, uow: ExpenseUnitOfWork) -> None:
     with uow:
         if cmd.expense.recurring_id is not None:
             uow.expenses.delete(cmd.expense)
-            if cmd.perform_actions_on_future_fixed_expenses and not cmd.expense.is_past_month:
+            if cmd.perform_actions_on_future_fixed_entities and not cmd.expense.is_past_month:
                 uow.expenses.delete_future_fixed_expenses(cmd.expense)
         elif cmd.expense.installments_id is not None:
             uow.expenses.delete_installments(cmd.expense)
@@ -120,4 +120,30 @@ def decrement_bank_account(event: events.RevenueDeleted, uow: RevenueUnitOfWork)
 def _(event: events.RevenueUpdated, uow: RevenueUnitOfWork) -> None:
     with uow:
         uow.bank_account.decrement(value=event.diff)
+        uow.commit()
+
+
+def create_future_fixed_revenues(
+    cmd: commands.CreateFutureFixedRevenues, uow: RevenueUnitOfWork
+) -> None:
+    with uow:
+        uow.revenues.add_fixed_future_revenues(cmd.revenue)
+        uow.commit()
+
+
+def update_future_fixed_revenues(
+    cmd: commands.UpdateFutureFixedRevenues, uow: RevenueUnitOfWork
+) -> None:
+    with uow:
+        uow.revenues.update_future_fixed_revenues(
+            cmd.revenue, created_at_changed=cmd.created_at_changed
+        )
+        uow.commit()
+
+
+def delete_future_fixed_revenues(
+    cmd: commands.DeleteFutureFixedRevenues, uow: RevenueUnitOfWork
+) -> None:
+    with uow:
+        uow.revenues.delete_future_fixed_revenues(cmd.revenue)
         uow.commit()

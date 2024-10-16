@@ -57,3 +57,10 @@ class OnlyUpdateFixedExpenseDateWithinMonthException(ValidationError):
 
     def __init__(self) -> None:
         super().__init__(field="created_at")
+
+
+class OnlyUpdateFixedRevenueDateWithinMonthException(ValidationError):
+    default_message = "Você só pode alterar a data de uma receita fixa passada dentro do mesmo mês"
+
+    def __init__(self) -> None:
+        super().__init__(field="created_at")

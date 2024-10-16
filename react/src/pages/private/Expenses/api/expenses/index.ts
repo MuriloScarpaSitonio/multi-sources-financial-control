@@ -115,11 +115,11 @@ export const getExpenses = async (
 type ExpenseWrite = Omit<Expense, "id" | "full_description" | "created_at"> & {
   installments: number;
   created_at: Date;
-  performActionsOnFutureFixedExpenses?: boolean;
+  performActionsOnFutureFixedEntities?: boolean;
 };
 
 export const createExpense = async (data: ExpenseWrite): Promise<Expense> => {
-  const { created_at, performActionsOnFutureFixedExpenses, ...rest } = data;
+  const { created_at, performActionsOnFutureFixedEntities, ...rest } = data;
   return (
     await apiProvider.post(
       RESOURCE,
@@ -129,8 +129,8 @@ export const createExpense = async (data: ExpenseWrite): Promise<Expense> => {
       },
       {
         params: {
-          perform_actions_on_future_fixed_expenses:
-            performActionsOnFutureFixedExpenses,
+          perform_actions_on_future_fixed_entities:
+            performActionsOnFutureFixedEntities,
         },
       },
     )
@@ -139,13 +139,13 @@ export const createExpense = async (data: ExpenseWrite): Promise<Expense> => {
 
 export const deleteExpense = async (
   id: number,
-  performActionsOnFutureFixedExpenses?: boolean,
+  performActionsOnFutureFixedEntities?: boolean,
 ) =>
   (
     await apiProvider.Delete(`${RESOURCE}/${id}`, {
       params: {
-        perform_actions_on_future_fixed_expenses:
-          performActionsOnFutureFixedExpenses,
+        perform_actions_on_future_fixed_entities:
+          performActionsOnFutureFixedEntities,
       },
     })
   ).data;
@@ -157,7 +157,7 @@ export const editExpense = async ({
   id: number;
   data: ExpenseWrite;
 }): Promise<Expense> => {
-  const { created_at, performActionsOnFutureFixedExpenses, ...rest } = data;
+  const { created_at, performActionsOnFutureFixedEntities, ...rest } = data;
   return (
     await apiProvider.put(
       `${RESOURCE}/${id}`,
@@ -167,8 +167,8 @@ export const editExpense = async ({
       },
       {
         params: {
-          perform_actions_on_future_fixed_expenses:
-            performActionsOnFutureFixedExpenses,
+          perform_actions_on_future_fixed_entities:
+            performActionsOnFutureFixedEntities,
         },
       },
     )

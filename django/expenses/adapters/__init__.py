@@ -1,1 +1,1 @@
-from .sql import DjangoBankAccountRepository, ExpenseRepository
+from .sql import DjangoBankAccountRepository, ExpenseRepository, RevenueRepository

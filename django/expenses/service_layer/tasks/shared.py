@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 
 def create_fixed_entities_from_last_month(
-    user_id: int, model: Expense | Revenue
+    user_id: int, model: type[Expense] | type[Revenue]
 ) -> list[Expense | Revenue]:
     last_fixed_date = timezone.localdate() + relativedelta(months=11)
     qs = model.objects.filter(
@@ -21,7 +21,7 @@ def create_fixed_entities_from_last_month(
         is_fixed=True,
     ).values()
 
-    entities: list[model] = []
+    entities: list[model] = []  # type: ignore
     for e in qs:
         del e["id"]
         entities.append(model(created_at=e.pop("created_at") + relativedelta(months=1), **e))

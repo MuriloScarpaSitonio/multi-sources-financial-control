@@ -68,7 +68,7 @@ def test__list__include_date_fixed_revenue(client, revenue, is_fixed):
         assert response.json()["results"][0]["full_description"] == revenue.description
 
 
-def test__create(client, bank_account):
+def test__create__past(client, bank_account):
     # GIVEN
     data = {"value": 1200, "description": "Test", "created_at": "01/01/2021"}
     previous_bank_account_amount = bank_account.amount
@@ -82,7 +82,47 @@ def test__create(client, bank_account):
     assert Revenue.objects.count() == 1
 
     bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+
+def test__create__current(client, bank_account):
+    # GIVEN
+    today = timezone.localdate()
+    data = {"value": 1200, "description": "Test", "created_at": today.strftime("%d/%m/%Y")}
+    previous_bank_account_amount = bank_account.amount
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+
+    assert Revenue.objects.count() == 1
+
+    bank_account.refresh_from_db()
     assert previous_bank_account_amount + data["value"] == bank_account.amount
+
+
+def test__create__future(client, bank_account):
+    # GIVEN
+    today = timezone.localdate()
+    data = {
+        "value": 1200,
+        "description": "Test",
+        "created_at": (today + relativedelta(months=1)).strftime("%d/%m/%Y"),
+    }
+    previous_bank_account_amount = bank_account.amount
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+
+    assert Revenue.objects.count() == 1
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
 
 
 @pytest.mark.parametrize("value", (-1, 0))
@@ -113,17 +153,46 @@ def test__create__future(client, bank_account):
     assert previous_bank_account_amount == bank_account.amount
 
 
+@pytest.mark.parametrize("value", (1000, -1000, 0))
+def test__update__past(client, revenue, bank_account, value):
+    # GIVEN
+    revenue.is_fixed = False
+    revenue.save()
+
+    previous_bank_account_amount = bank_account.amount
+    data = {
+        "value": revenue.value + value,
+        "description": revenue.description + "abc",
+        "created_at": "01/01/2021",
+        "is_fixed": revenue.is_fixed,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{revenue.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+    revenue.refresh_from_db()
+    assert revenue.value == Decimal(data["value"])
+    assert revenue.description == data["description"]
+    assert revenue.created_at == datetime.strptime(data["created_at"], "%d/%m/%Y").date()
+
+
 @pytest.mark.parametrize(
     ("value", "operation"), ((1000, operator.gt), (-1000, operator.lt), (0, operator.eq))
 )
-def test__update(client, revenue, bank_account, value, operation):
+def test__update__current(client, revenue, bank_account, value, operation):
     # GIVEN
     previous_bank_account_amount = bank_account.amount
     data = {
         "value": revenue.value + value,
-        "description": "Test",
-        "created_at": "01/01/2021",
-        "is_fixed": False,
+        "description": revenue.description,
+        "created_at": revenue.created_at.strftime("%d/%m/%Y"),
+        "is_fixed": revenue.is_fixed,
     }
 
     # WHEN
@@ -140,7 +209,34 @@ def test__update(client, revenue, bank_account, value, operation):
     assert revenue.value == Decimal(data["value"])
     assert revenue.description == data["description"]
     assert revenue.created_at == datetime.strptime(data["created_at"], "%d/%m/%Y").date()
-    assert not revenue.is_fixed
+
+
+@pytest.mark.parametrize("value", (1000, -1000, 0))
+def test__update__future(client, revenue, bank_account, value):
+    # GIVEN
+    revenue.is_fixed = False
+    revenue.save()
+
+    previous_bank_account_amount = bank_account.amount
+    data = {
+        "value": revenue.value + value,
+        "description": revenue.description,
+        "created_at": revenue.created_at + relativedelta(months=1),
+        "is_fixed": revenue.is_fixed,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{revenue.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+    revenue.refresh_from_db()
+    assert revenue.value == Decimal(data["value"])
+    assert revenue.created_at == datetime.strptime(data["created_at"], "%d/%m/%Y").date()
 
 
 @pytest.mark.parametrize("value", (-1, 0))

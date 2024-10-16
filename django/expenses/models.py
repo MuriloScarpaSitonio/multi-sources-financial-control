@@ -8,6 +8,7 @@ from shared.models_utils import serializable_today_function
 
 from .choices import ExpenseCategory, ExpenseSource
 from .domain.models import Expense as ExpenseDomainModel
+from .domain.models import Revenue as RevenueDomainModel
 from .managers import ExpenseQueryset, RevenueQueryset
 
 
@@ -113,6 +114,7 @@ class Revenue(models.Model):
     description = models.CharField(max_length=300)
     created_at = models.DateField(default=serializable_today_function)
     is_fixed = models.BooleanField(default=False)
+    recurring_id = models.UUIDField(null=True, blank=True, db_index=True)
     user = models.ForeignKey(
         to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="revenues"
     )
@@ -133,6 +135,16 @@ class Revenue(models.Model):
             )
             if self.is_fixed
             else self.description
+        )
+
+    def to_domain(self) -> RevenueDomainModel:
+        return RevenueDomainModel(
+            id=self.pk,
+            value=self.value,
+            created_at=self.created_at,
+            description=self.description,
+            is_fixed=self.is_fixed,
+            recurring_id=self.recurring_id,
         )
 
 

@@ -47,7 +47,7 @@ def expense(user) -> Expense:
 
 
 @pytest.fixture
-def fixed_expenses(expense) -> Expense:
+def fixed_expenses(expense) -> list[Expense]:
     expense.created_at = expense.created_at - relativedelta(months=2)
     expense.save()
     expenses = [expense]
@@ -205,6 +205,7 @@ def revenue(user) -> Revenue:
         created_at=today,
         is_fixed=True,
         user=user,
+        recurring_id=uuid4(),
     )
 
 
@@ -217,6 +218,7 @@ def revenues(user):
             description=f"Revenue {i}",
             created_at=today - relativedelta(months=i),
             is_fixed=bool(i % 2),
+            recurring_id=uuid4() if bool(i % 2) else None,
             user=user,
         )
 
@@ -230,6 +232,7 @@ def revenues_historic_data(revenues, user):
             description=f"Revenue {i}",
             created_at=today,
             is_fixed=bool(i % 2),
+            recurring_id=uuid4() if bool(i % 2) else None,
             user=user,
         )
 
@@ -242,3 +245,22 @@ def revenues_historic_data(revenues, user):
             recurring_id=uuid4() if bool(i % 2) else None,
             user=user,
         )
+
+
+@pytest.fixture
+def fixed_revenues(revenue) -> list[Revenue]:
+    revenue.created_at = revenue.created_at - relativedelta(months=2)
+    revenue.save()
+    revenues = [revenue]
+    for i in range(1, 12):
+        revenues.append(
+            RevenueFactory(
+                value=revenue.value,
+                description=revenue.description,
+                created_at=revenue.created_at + relativedelta(months=i),
+                is_fixed=True,
+                user=revenue.user,
+                recurring_id=revenue.recurring_id,
+            )
+        )
+    return revenues

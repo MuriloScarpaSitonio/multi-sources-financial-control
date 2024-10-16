@@ -36,6 +36,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
             "installments",
             "full_description",
         )
+        extra_kwargs = {"id": {"read_only": True}, "full_description": {"read_only": True}}
 
     def create(self, validated_data: dict[str, Any]) -> Expense:
         try:
@@ -46,8 +47,8 @@ class ExpenseSerializer(serializers.ModelSerializer):
             messagebus.handle(
                 message=commands.CreateExpense(
                     expense=expense,
-                    perform_actions_on_future_fixed_expenses=self.context.get(
-                        "perform_actions_on_future_fixed_expenses", False
+                    perform_actions_on_future_fixed_entities=self.context.get(
+                        "perform_actions_on_future_fixed_entities", False
                     ),
                 ),
                 uow=ExpenseUnitOfWork(user_id=user.id),
@@ -72,8 +73,8 @@ class ExpenseSerializer(serializers.ModelSerializer):
                 message=commands.UpdateExpense(
                     expense=expense,
                     data_instance=instance,
-                    perform_actions_on_future_fixed_expenses=self.context.get(
-                        "perform_actions_on_future_fixed_expenses", False
+                    perform_actions_on_future_fixed_entities=self.context.get(
+                        "perform_actions_on_future_fixed_entities", False
                     ),
                 ),
                 uow=ExpenseUnitOfWork(user_id=user.id),
@@ -97,6 +98,7 @@ class RevenueSerializer(serializers.ModelSerializer):
             "user",
             "full_description",
         )
+        extra_kwargs = {"id": {"read_only": True}, "full_description": {"read_only": True}}
 
 
 class TotalSerializer(serializers.Serializer):

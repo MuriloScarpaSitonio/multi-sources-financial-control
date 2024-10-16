@@ -191,11 +191,11 @@ class RevenueHistoricFilterSet(django_filters.FilterSet):
 
 
 class PersonalFinanceContextFilterSet(django_filters.FilterSet):
-    perform_actions_on_future_fixed_expenses = django_filters.BooleanFilter(required=False)
+    perform_actions_on_future_fixed_entities = django_filters.BooleanFilter(required=False)
 
     def get_cleaned_data(self) -> dict:
         if self.is_valid():
             if cleaned_data := self.form.cleaned_data:
                 return cleaned_data
-            return {"perform_actions_on_future_fixed_expenses": False}
+            return {"perform_actions_on_future_fixed_entities": False}
         raise django_filters.utils.translate_validation(error_dict=self.errors)

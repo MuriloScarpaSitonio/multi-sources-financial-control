@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from decimal import Decimal
 from typing import TYPE_CHECKING, ClassVar
+from uuid import uuid4
 
 from django.db.models import Max
 from django.db.transaction import atomic
-from django.utils import timezone
 
 from djchoices.choices import ChoiceItem
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.generics import get_object_or_404
 from rest_framework.mixins import (
     CreateModelMixin,
@@ -28,6 +29,8 @@ from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
 from . import filters, serializers
 from .choices import ExpenseReportType
 from .domain import commands, events
+from .domain.exceptions import OnlyUpdateFixedRevenueDateWithinMonthException
+from .domain.models import Revenue as RevenueDomainModel
 from .managers import ExpenseQueryset, RevenueQueryset
 from .models import BankAccount, Expense, Revenue
 from .permissions import PersonalFinancesModulePermission
@@ -121,8 +124,8 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
         messagebus.handle(
             message=commands.DeleteExpense(
                 expense=instance.to_domain(),
-                perform_actions_on_future_fixed_expenses=context.get(
-                    "perform_actions_on_future_fixed_expenses", False
+                perform_actions_on_future_fixed_entities=context.get(
+                    "perform_actions_on_future_fixed_entities", False
                 ),
             ),
             uow=ExpenseUnitOfWork(user_id=self.request.user.id),
@@ -191,36 +194,100 @@ class RevenueViewSet(_PersonalFinanceViewSet):
 
     @atomic
     def perform_create(self, serializer: serializers.RevenueSerializer) -> None:
-        super().perform_create(serializer)
-
-        if serializer.instance.created_at > timezone.localdate():
-            # TODO: how to increment bank account when a future revenue is created?
-            return
-
-        with RevenueUnitOfWork(user_id=self.request.user.id) as uow:
+        # TODO move to service layer
+        revenue: RevenueDomainModel = serializer.save(
+            recurring_id=uuid4() if serializer.validated_data.get("is_fixed", False) else None
+        ).to_domain()
+        if revenue.is_fixed and serializer.context.get(
+            "perform_actions_on_future_fixed_entities", False
+        ):
             messagebus.handle(
-                message=events.RevenueCreated(value=serializer.instance.value), uow=uow
+                message=commands.CreateFutureFixedRevenues(revenue=revenue),
+                uow=RevenueUnitOfWork(user_id=self.request.user.id),
+            )
+
+        if revenue.is_current_month:
+            messagebus.handle(
+                message=events.RevenueCreated(value=serializer.instance.value),
+                uow=RevenueUnitOfWork(user_id=self.request.user.id),
             )
 
     @atomic
     def perform_update(self, serializer: serializers.RevenueSerializer) -> None:
+        # TODO: move to domain layer & service layer
         prev_value = serializer.instance.value
-        super().perform_update(serializer)
+        prev_created_at = serializer.instance.created_at
+        prev_recurring_id = serializer.instance.recurring_id
+        to_fixed = serializer.validated_data.get("is_fixed", False)
+        to_created_at = serializer.validated_data["created_at"]
+        from_not_fixed_to_fixed = not serializer.instance.is_fixed and to_fixed
+        from_fixed_to_not_fixed = serializer.instance.is_fixed and not to_fixed
+        perform_on_future = serializer.context.get(
+            "perform_actions_on_future_fixed_entities", False
+        )
+        if to_fixed and (
+            to_created_at.month != prev_created_at.month
+            or to_created_at.year != prev_created_at.year
+        ):
+            e = OnlyUpdateFixedRevenueDateWithinMonthException()
+            raise ValidationError(e.detail)
 
-        if serializer.instance.created_at > timezone.localdate():
-            # TODO: how to increment bank account when a future revenue is updated?
-            return
-
-        with RevenueUnitOfWork(user_id=self.request.user.id) as uow:
+        revenue: RevenueDomainModel = serializer.save(
+            **(
+                {"recurring_id": uuid4()}
+                if from_not_fixed_to_fixed
+                else {"recurring_id": None} if from_fixed_to_not_fixed else {}
+            )
+        ).to_domain()
+        uow = RevenueUnitOfWork(user_id=self.request.user.id)
+        if (
+            revenue.recurring_id is not None
+            and revenue.is_fixed
+            and perform_on_future
+            and not revenue.is_past_month
+        ):
             messagebus.handle(
-                message=events.RevenueUpdated(diff=prev_value - serializer.instance.value), uow=uow
+                message=commands.UpdateFutureFixedRevenues(
+                    revenue=revenue, created_at_changed=prev_created_at != revenue.created_at
+                ),
+                uow=uow,
+            )
+
+        if from_not_fixed_to_fixed and perform_on_future and not revenue.is_past_month:
+            messagebus.handle(message=commands.CreateFutureFixedRevenues(revenue=revenue), uow=uow)
+
+        if from_fixed_to_not_fixed and perform_on_future and not revenue.is_past_month:
+            # as we have removed the `recurring_id` we need to set it back so we can find
+            # the related expenses
+            revenue.recurring_id = prev_recurring_id
+            messagebus.handle(message=commands.DeleteFutureFixedRevenues(revenue=revenue), uow=uow)
+
+        if revenue.is_current_month:
+            messagebus.handle(
+                message=events.RevenueUpdated(diff=prev_value - serializer.instance.value),
+                uow=uow,
             )
 
     @atomic
     def perform_destroy(self, instance: Revenue):
-        super().perform_destroy(instance)
-        with RevenueUnitOfWork(user_id=self.request.user.id) as uow:
-            messagebus.handle(message=events.RevenueDeleted(value=instance.value), uow=uow)
+        # TODO move to service layer
+        revenue = instance.to_domain()
+        instance.delete()
+
+        if (
+            self.get_serializer_context().get("perform_actions_on_future_fixed_entities", False)
+            and not revenue.is_past_month
+        ):
+            messagebus.handle(
+                message=commands.DeleteFutureFixedRevenues(revenue=revenue),
+                uow=RevenueUnitOfWork(user_id=self.request.user.id),
+            )
+
+        if revenue.is_current_month:
+            messagebus.handle(
+                message=events.RevenueDeleted(value=revenue.value),
+                uow=RevenueUnitOfWork(user_id=self.request.user.id),
+            )
 
 
 class BankAccountView(APIView):

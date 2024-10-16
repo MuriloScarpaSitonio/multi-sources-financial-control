@@ -23,7 +23,7 @@ pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "expenses"
 
 
-def test__create__is_fixed(client):
+def test__create__is_fixed(client, bank_account):
     # GIVEN
     data = {
         "value": 12.00,
@@ -34,13 +34,28 @@ def test__create__is_fixed(client):
         "installments": None,
         "is_fixed": True,
     }
+    previous_bank_account_amount = bank_account.amount
 
     # WHEN
-    response = client.post(f"{URL}?perform_actions_on_future_fixed_expenses=true", data=data)
+    response = client.post(f"{URL}?perform_actions_on_future_fixed_entities=true", data=data)
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
-    assert Expense.objects.filter(recurring_id__isnull=False).count() == 12
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+    assert (
+        Expense.objects.filter(
+            recurring_id__isnull=False,
+            value=12,
+            description="Test",
+            category=ExpenseCategory.house,
+            source=ExpenseSource.credit_card,
+            is_fixed=True,
+        ).count()
+        == 12
+    )
     assert Expense.objects.only("created_at").latest("created_at").created_at == date(
         year=2021, month=12, day=1
     )
@@ -103,7 +118,7 @@ def test__update__is_fixed__past__value(client, fixed_expenses, bank_account, va
 
     # WHEN
     response = client.put(
-        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_expenses=true", data=data
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=true", data=data
     )
 
     # THEN
@@ -138,7 +153,7 @@ def test__update__is_fixed__current__value(client, fixed_expenses, bank_account,
 
     # WHEN
     response = client.put(
-        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_expenses=true", data=data
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=true", data=data
     )
 
     # THEN
@@ -181,7 +196,7 @@ def test__update__is_fixed__current__value__only_current(
 
     # WHEN
     response = client.put(
-        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_expenses=false", data=data
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=false", data=data
     )
 
     # THEN
@@ -217,7 +232,7 @@ def test__update__is_fixed__future__value(client, fixed_expenses, bank_account, 
 
     # WHEN
     response = client.put(
-        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_expenses=true", data=data
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=true", data=data
     )
 
     # THEN
@@ -292,7 +307,7 @@ def test__update__is_fixed__past__created_at(client, fixed_expenses, bank_accoun
 
     # WHEN
     response = client.put(
-        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_expenses=true", data=data
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=true", data=data
     )
 
     # THEN
@@ -327,7 +342,7 @@ def test__update__is_fixed__current__created_at(client, fixed_expenses, bank_acc
 
     # WHEN
     response = client.put(
-        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_expenses=true", data=data
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=true", data=data
     )
 
     # THEN
@@ -367,7 +382,7 @@ def test__update__is_fixed__current__created_at__only_current(client, fixed_expe
 
     # WHEN
     response = client.put(
-        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_expenses=false", data=data
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=false", data=data
     )
 
     # THEN
@@ -402,7 +417,7 @@ def test__update__is_fixed__future__created_at(client, fixed_expenses, bank_acco
 
     # WHEN
     response = client.put(
-        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_expenses=true", data=data
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=true", data=data
     )
 
     # THEN
@@ -489,7 +504,7 @@ def test__update__is_fixed__false_to_true(client, expense, bank_account, perform
 
     # WHEN
     response = client.put(
-        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_expenses={perform}", data=data
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities={perform}", data=data
     )
 
     # THEN
@@ -527,7 +542,7 @@ def test__update__is_fixed__false_to_true__past_month(client, expense, bank_acco
 
     # WHEN
     response = client.put(
-        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_expenses={perform}", data=data
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities={perform}", data=data
     )
 
     # THEN
@@ -566,7 +581,7 @@ def test__update__is_fixed__true_to_false(client, fixed_expenses, perform):
 
     # WHEN
     response = client.put(
-        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_expenses={perform}", data=data
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities={perform}", data=data
     )
 
     # THEN
@@ -596,7 +611,7 @@ def test__update__is_fixed__true_to_false__past_month(client, fixed_expenses, pe
 
     # WHEN
     response = client.put(
-        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_expenses={perform}", data=data
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities={perform}", data=data
     )
 
     # THEN
@@ -714,7 +729,7 @@ def test__delete__is_fixed__past(client, fixed_expenses, bank_account):
     previous_bank_account_amount = bank_account.amount
 
     # WHEN
-    response = client.delete(f"{URL}/{expense.pk}?perform_actions_on_future_fixed_expenses=true")
+    response = client.delete(f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=true")
 
     # THEN
     assert response.status_code == HTTP_204_NO_CONTENT
@@ -737,7 +752,7 @@ def test__delete__is_fixed__current(client, fixed_expenses, bank_account):
     previous_bank_account_amount = bank_account.amount
 
     # WHEN
-    response = client.delete(f"{URL}/{expense.pk}?perform_actions_on_future_fixed_expenses=true")
+    response = client.delete(f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=true")
 
     # THEN
     assert response.status_code == HTTP_204_NO_CONTENT
@@ -765,7 +780,7 @@ def test__delete__is_fixed__future(client, fixed_expenses, bank_account):
     previous_bank_account_amount = bank_account.amount
 
     # WHEN
-    response = client.delete(f"{URL}/{expense.pk}?perform_actions_on_future_fixed_expenses=true")
+    response = client.delete(f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=true")
 
     # THEN
     assert response.status_code == HTTP_204_NO_CONTENT

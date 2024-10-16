@@ -28,13 +28,13 @@ const DeleteExpenseDialog = ({
   onSuccess: (id: number) => Promise<void>;
 }) => {
   const [
-    performActionsOnFutureFixedExpenses,
-    setPerformActionsOnFutureFixedExpenses,
+    performActionsOnFutureFixedEntities,
+    setperformActionsOnFutureFixedEntities,
   ] = useState(false);
 
   const { mutate, isPending } = useMutation({
     mutationFn: () =>
-      deleteExpense(expense.id, performActionsOnFutureFixedExpenses),
+      deleteExpense(expense.id, performActionsOnFutureFixedEntities),
     onSuccess: async () => {
       await onSuccess(expense.id);
       onClose();
@@ -61,9 +61,9 @@ const DeleteExpenseDialog = ({
             <Grid item>
               <Switch
                 color="primary"
-                checked={performActionsOnFutureFixedExpenses}
+                checked={performActionsOnFutureFixedEntities}
                 onChange={(e) => {
-                  setPerformActionsOnFutureFixedExpenses(e.target.checked);
+                  setperformActionsOnFutureFixedEntities(e.target.checked);
                 }}
               />
             </Grid>

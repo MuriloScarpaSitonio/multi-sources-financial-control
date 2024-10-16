@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Self
 
 from django.db import transaction as djtransaction
 
-from ..adapters import DjangoBankAccountRepository, ExpenseRepository
+from ..adapters import DjangoBankAccountRepository, ExpenseRepository, RevenueRepository
 
 if TYPE_CHECKING:
     from ..domain.events import Event
@@ -77,6 +77,12 @@ class ExpenseUnitOfWork(DjangoUnitOfWork):
 
 
 class RevenueUnitOfWork(DjangoUnitOfWork):
+    revenues: RevenueRepository
+
+    def __enter__(self) -> Self:
+        self.revenues = RevenueRepository(user_id=self.user_id)
+        return super().__enter__()
+
     def collect_new_events(self) -> Iterator:
         for _ in ():
             yield
