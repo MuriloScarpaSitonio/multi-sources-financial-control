@@ -10,13 +10,20 @@ from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
 from config.settings.base import BASE_API_URL
 from shared.tests import convert_and_quantitize, convert_to_percentage_and_quantitize
 
-from ...choices import ExpenseCategory, ExpenseReportType, ExpenseSource
+from ...choices import (
+    ExpenseReportType,
+    CREDIT_CARD_SOURCE,
+    DEFAULT_CATEGORIES_MAP,
+    DEFAULT_SOURCES_MAP,
+)
 from ...models import Expense
 
 pytestmark = pytest.mark.django_db
 
 
 URL = f"/{BASE_API_URL}" + "expenses"
+
+MAPS = {"category": DEFAULT_CATEGORIES_MAP, "source": DEFAULT_SOURCES_MAP}
 
 
 def test__report__wo_group_by(client):
@@ -74,18 +81,12 @@ def test__report__invalid_period(client):
 )
 def test__reports(client, group_by, field_name):
     # GIVEN
-    choices_class_map = {"category": ExpenseCategory, "source": ExpenseSource}
-    choices_class = choices_class_map.get(field_name)
     qs = Expense.objects.since_a_year_ago()
     today = timezone.localdate()
     current_month = {}
     since_a_year_ago = {}
     for e in qs:
-        f = (
-            choices_class.get_choice(getattr(e, field_name)).label
-            if choices_class is not None
-            else field_name
-        )
+        f = getattr(e, field_name) if field_name != "is_fixed" else field_name
         if e.created_at.month == today.month and e.created_at.year == today.year:
             current_month.setdefault(f, []).append(e.value)
         else:
@@ -138,18 +139,12 @@ def test__report__wo_data(client, group_by):
 )
 def test__report__current_month_and_past_period(client, group_by, field_name):
     # GIVEN
-    choices_class_map = {"category": ExpenseCategory, "source": ExpenseSource}
-    choices_class = choices_class_map.get(field_name)
     qs = Expense.objects.current_month_and_past()
     today = timezone.localdate()
     current_month = {}
     past = {}
     for e in qs:
-        f = (
-            choices_class.get_choice(getattr(e, field_name)).label
-            if choices_class is not None
-            else field_name
-        )
+        f = getattr(e, field_name) if field_name != "is_fixed" else field_name
         if e.created_at.month == today.month and e.created_at.year == today.year:
             current_month.setdefault(f, []).append(e.value)
         else:
@@ -236,13 +231,12 @@ def test__reports__percentage__invalid_period(client):
 )
 def test__reports__percentage(client, group_by, field_name):
     # GIVEN
-    choices_class_map = {"category": ExpenseCategory, "source": ExpenseSource}
-    choices_class = choices_class_map.get(field_name)
+    _map = MAPS.get(field_name)
     qs = Expense.objects.current_month()
     total = qs.sum()["total"]
 
-    if choices_class:
-        totals = {v: qs.filter(**{field_name: v}).sum()["total"] for v in choices_class.values}
+    if _map:
+        totals = {v: qs.filter(**{field_name: v}).sum()["total"] for v in _map}
     else:
         totals = {
             "Variável": qs.filter(is_fixed=False).sum()["total"],
@@ -253,11 +247,11 @@ def test__reports__percentage(client, group_by, field_name):
 
     # THEN
     for result in response.json():
-        if choices_class:
-            for choice, label in choices_class.choices:
+        if _map:
+            for label in _map:
                 if label == result[group_by]:
                     assert float(
-                        convert_to_percentage_and_quantitize(value=totals[choice], total=total)
+                        convert_to_percentage_and_quantitize(value=totals[label], total=total)
                     ) == convert_and_quantitize(result["total"])
         else:
             for label, value in totals.items():
@@ -275,13 +269,12 @@ def test__reports__percentage(client, group_by, field_name):
 )
 def test__reports__percentage__current_month_and_past(client, group_by, field_name):
     # GIVEN
-    choices_class_map = {"category": ExpenseCategory, "source": ExpenseSource}
-    choices_class = choices_class_map.get(field_name)
+    _map = MAPS.get(field_name)
     qs = Expense.objects.current_month_and_past()
     total = qs.sum()["total"]
 
-    if choices_class:
-        totals = {v: qs.filter(**{field_name: v}).sum()["total"] for v in choices_class.values}
+    if _map:
+        totals = {v: qs.filter(**{field_name: v}).sum()["total"] for v in _map}
     else:
         totals = {
             "Variável": qs.filter(is_fixed=False).sum()["total"],
@@ -294,11 +287,11 @@ def test__reports__percentage__current_month_and_past(client, group_by, field_na
 
     # THEN
     for result in response.json():
-        if choices_class:
-            for choice, label in choices_class.choices:
+        if _map:
+            for label in _map:
                 if label == result[group_by]:
                     assert float(
-                        convert_to_percentage_and_quantitize(value=totals[choice], total=total)
+                        convert_to_percentage_and_quantitize(value=totals[label], total=total)
                     ) == convert_and_quantitize(result["total"])
         else:
             for label, value in totals.items():
@@ -316,13 +309,12 @@ def test__reports__percentage__current_month_and_past(client, group_by, field_na
 )
 def test__reports__percentage__since_a_year_ago(client, group_by, field_name):
     # GIVEN
-    choices_class_map = {"category": ExpenseCategory, "source": ExpenseSource}
-    choices_class = choices_class_map.get(field_name)
+    _map = MAPS.get(field_name)
     qs = Expense.objects.since_a_year_ago()
     total = qs.sum()["total"]
 
-    if choices_class:
-        totals = {v: qs.filter(**{field_name: v}).sum()["total"] for v in choices_class.values}
+    if _map:
+        totals = {v: qs.filter(**{field_name: v}).sum()["total"] for v in _map}
     else:
         totals = {
             "Variável": qs.filter(is_fixed=False).sum()["total"],
@@ -333,11 +325,11 @@ def test__reports__percentage__since_a_year_ago(client, group_by, field_name):
 
     # THEN
     for result in response.json():
-        if choices_class:
-            for choice, label in choices_class.choices:
+        if _map:
+            for label in _map:
                 if label == result[group_by]:
                     assert float(
-                        convert_to_percentage_and_quantitize(value=totals[choice], total=total)
+                        convert_to_percentage_and_quantitize(value=totals[label], total=total)
                     ) == convert_and_quantitize(result["total"])
         else:
             for label, value in totals.items():
@@ -358,8 +350,8 @@ def test__historic_report(client, user):
         created_at=last_day_of_month,
         value=12,
         description="last_day_of_month",
-        category=ExpenseCategory.food,
-        source=ExpenseSource.credit_card,
+        category="Alimentação",
+        source=CREDIT_CARD_SOURCE,
         is_fixed=False,
         user=user,
     )

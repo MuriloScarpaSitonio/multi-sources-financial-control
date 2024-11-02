@@ -20,11 +20,13 @@ interface TableProps extends TableOptions<any> {
   defaultPageSize?: number;
   defaultFilters?: Record<string, any>;
   columnVisibility?: VisibilityState;
+  isLoading?: boolean;
 }
 
 const useTable = ({
   defaultPageSize = 10,
   defaultFilters = {},
+  isLoading = false,
   columnVisibility,
   ...rest
 }: Omit<TableProps, "data">) => {
@@ -103,7 +105,7 @@ const useTable = ({
     onSortingChange: setSorting,
     onExpandedChange: setExpanded,
     state: {
-      isLoading: isPending,
+      isLoading: isPending || isLoading,
       showProgressBars: isRefetching,
       showLoadingOverlay: false,
       pagination,

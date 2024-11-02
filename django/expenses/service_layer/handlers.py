@@ -147,3 +147,15 @@ def delete_future_fixed_revenues(
     with uow:
         uow.revenues.delete_future_fixed_revenues(cmd.revenue)
         uow.commit()
+
+
+def change_all_expenses_category_name(event: events.ExpenseCategoryUpdated, uow: ExpenseUnitOfWork):
+    with uow:
+        uow.expenses.change_all_category_name(prev_name=event.prev_name, name=event.name)
+        uow.commit()
+
+
+def change_all_expenses_source_name(event: events.ExpenseCategoryUpdated, uow: ExpenseUnitOfWork):
+    with uow:
+        uow.expenses.change_all_source_name(prev_name=event.prev_name, name=event.name)
+        uow.commit()

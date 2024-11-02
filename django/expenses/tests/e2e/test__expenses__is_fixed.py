@@ -14,7 +14,7 @@ from rest_framework.status import (
 
 from config.settings.base import BASE_API_URL
 
-from ...choices import ExpenseCategory, ExpenseSource
+from ...choices import CREDIT_CARD_SOURCE, DEFAULT_CATEGORIES_MAP, DEFAULT_SOURCES_MAP
 from ...models import Expense
 
 pytestmark = pytest.mark.django_db
@@ -28,9 +28,9 @@ def test__create__is_fixed(client, bank_account):
     data = {
         "value": 12.00,
         "description": "Test",
-        "category": ExpenseCategory.house,
+        "category": "Casa",
         "created_at": "01/01/2021",
-        "source": ExpenseSource.credit_card,
+        "source": CREDIT_CARD_SOURCE,
         "installments": None,
         "is_fixed": True,
     }
@@ -50,8 +50,8 @@ def test__create__is_fixed(client, bank_account):
             recurring_id__isnull=False,
             value=12,
             description="Test",
-            category=ExpenseCategory.house,
-            source=ExpenseSource.credit_card,
+            category="Casa",
+            source=CREDIT_CARD_SOURCE,
             is_fixed=True,
         ).count()
         == 12
@@ -66,9 +66,9 @@ def test__create__installments__none__is_fixed(client):
     data = {
         "value": 12.00,
         "description": "Test",
-        "category": ExpenseCategory.house,
+        "category": "Casa",
         "created_at": "01/01/2021",
-        "source": ExpenseSource.credit_card,
+        "source": CREDIT_CARD_SOURCE,
         "installments": None,
         "is_fixed": True,
     }
@@ -86,9 +86,9 @@ def test__create__installments__gt_1__is_fixed(client):
     data = {
         "value": 12.00,
         "description": "Test",
-        "category": ExpenseCategory.house,
+        "category": "Casa",
         "created_at": "01/01/2021",
-        "source": ExpenseSource.credit_card,
+        "source": CREDIT_CARD_SOURCE,
         "installments": 2,
         "is_fixed": True,
     }
@@ -115,7 +115,6 @@ def test__update__is_fixed__past__value(client, fixed_expenses, bank_account, va
         "source": expense.source,
         "is_fixed": True,
     }
-
     # WHEN
     response = client.put(
         f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=true", data=data

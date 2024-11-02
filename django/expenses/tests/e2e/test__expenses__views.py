@@ -1,5 +1,5 @@
 import operator
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -20,7 +20,7 @@ from rest_framework.status import (
 from config.settings.base import BASE_API_URL
 from shared.tests import convert_and_quantitize
 
-from ...choices import ExpenseCategory, ExpenseSource
+from ...choices import CREDIT_CARD_SOURCE, MONEY_SOURCE, PIX_SOURCE
 from ...models import Expense
 
 pytestmark = pytest.mark.django_db
@@ -52,22 +52,37 @@ def test__list(client, filter_by, count):
     assert response.json()["count"] == count
 
 
-@pytest.mark.usefixtures("expenses")
-@pytest.mark.parametrize(
-    "field, value",
-    [("source", "MONEY"), ("category", "HOUSE")],
-)
-def test__list__filter_by_choice(client, field, value):
+def test__list__filter_multiple_categories(client, expense, another_expense, yet_another_expense):
     # GIVEN
+    yet_another_expense.category = "Transporte"
+    yet_another_expense.save()
 
     # WHEN
-    response = client.get(f"{URL}?{field}={value}")
+    response = client.get(f"{URL}?category=Casa&category=Lazer")
 
     # THEN
     assert response.status_code == HTTP_200_OK
-    assert (
-        response.json()["count"]
-        == Expense.objects.current_month_and_past().filter(**{field: value}).count()
+
+    assert response.json()["count"] == 2
+    assert sorted([r["id"] for r in response.json()["results"]]) == sorted(
+        [expense.id, another_expense.id]
+    )
+
+
+def test__list__filter_multiple_sources(client, expense, another_expense, yet_another_expense):
+    # GIVEN
+    yet_another_expense.source = PIX_SOURCE
+    yet_another_expense.save()
+
+    # WHEN
+    response = client.get(f"{URL}?source={CREDIT_CARD_SOURCE}&source={MONEY_SOURCE}")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    assert response.json()["count"] == 2
+    assert sorted([r["id"] for r in response.json()["results"]]) == sorted(
+        [expense.id, another_expense.id]
     )
 
 
@@ -152,15 +167,16 @@ def test__list__installments(client):
         assert r["id"] == int(r["full_description"].split("(")[-1][0])
 
 
-def test__create(client, bank_account):
+def test__create(client, user, bank_account):
     # GIVEN
+    today = timezone.localdate()
     previous_bank_account_amount = bank_account.amount
     data = {
         "value": 12.00,
         "description": "Test",
-        "category": ExpenseCategory.house,
-        "created_at": "01/01/2021",
-        "source": ExpenseSource.bank_slip,
+        "category": "Casa",
+        "created_at": today.strftime("%d/%m/%Y"),
+        "source": MONEY_SOURCE,
     }
 
     # WHEN
@@ -169,10 +185,18 @@ def test__create(client, bank_account):
     # THEN
     assert response.status_code == HTTP_201_CREATED
 
-    assert response.json()["category"] == ExpenseCategory.get_choice(ExpenseCategory.house).label
-    assert response.json()["source"] == ExpenseSource.get_choice(ExpenseSource.bank_slip).label
-
     assert Expense.objects.count() == 1
+
+    data.update({"created_at": today})
+    assert Expense.objects.filter(
+        **data,
+        user=user,
+        is_fixed=False,
+        recurring_id__isnull=True,
+        installments_id__isnull=True,
+        installment_number__isnull=True,
+        installments_qty__isnull=True,
+    ).exists()
 
     bank_account.refresh_from_db()
     assert previous_bank_account_amount - data["value"] == bank_account.amount
@@ -183,9 +207,9 @@ def test__create__future__not_credit_card(client):
     data = {
         "value": 12.00,
         "description": "Test",
-        "category": ExpenseCategory.house,
+        "category": "Casa",
         "created_at": "01/01/2121",
-        "source": ExpenseSource.bank_slip,
+        "source": MONEY_SOURCE,
     }
 
     # WHEN
@@ -205,9 +229,9 @@ def test__create__future__credit_card(client, bank_account):
     data = {
         "value": 12.00,
         "description": "Test",
-        "category": ExpenseCategory.house,
+        "category": "Casa",
         "created_at": "01/01/2121",
-        "source": ExpenseSource.credit_card,
+        "source": CREDIT_CARD_SOURCE,
     }
 
     # WHEN
@@ -227,9 +251,9 @@ def test__create__installments(client, bank_account):
     data = {
         "value": 12,
         "description": "Test",
-        "category": ExpenseCategory.house,
+        "category": "Casa",
         "created_at": "01/01/2021",
-        "source": ExpenseSource.credit_card,
+        "source": CREDIT_CARD_SOURCE,
         "installments": installments,
     }
 
@@ -258,9 +282,9 @@ def test__create__installments__none(client):
     data = {
         "value": 12.00,
         "description": "Test",
-        "category": ExpenseCategory.house,
+        "category": "Casa",
         "created_at": "01/01/2021",
-        "source": ExpenseSource.credit_card,
+        "source": CREDIT_CARD_SOURCE,
         "installments": None,
     }
 
@@ -277,9 +301,9 @@ def test__create__installments__source_not_credit_card(client):
     data = {
         "value": 12.00,
         "description": "Test",
-        "category": ExpenseCategory.house,
+        "category": "Casa",
         "created_at": "01/01/2021",
-        "source": ExpenseSource.bank_slip,
+        "source": MONEY_SOURCE,
         "installments": 2,
     }
 
@@ -297,9 +321,9 @@ def test__create__invalid_value(client, value):
     data = {
         "value": value,
         "description": "Test",
-        "category": ExpenseCategory.house,
+        "category": "Casa",
         "created_at": "01/01/2021",
-        "source": ExpenseSource.bank_slip,
+        "source": "Teste",
     }
 
     # WHEN
@@ -308,6 +332,44 @@ def test__create__invalid_value(client, value):
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {"value": ["Ensure this value is greater than or equal to 0.01."]}
+
+
+def test__create__new_category(client):
+    # GIVEN
+    data = {
+        "value": 12.00,
+        "description": "Test",
+        "category": "CNPJ",
+        "created_at": "01/01/2021",
+        "source": "Teste",
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+
+    assert response.json() == {"category": "A categoria não existe"}
+
+
+def test__create__new_source(client):
+    # GIVEN
+    data = {
+        "value": 12.00,
+        "description": "Test",
+        "category": "Casa",
+        "created_at": "01/01/2021",
+        "source": "Cheque",
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+
+    assert response.json() == {"source": "A fonte não existe"}
 
 
 @pytest.mark.parametrize(
@@ -322,9 +384,9 @@ def test__update(client, expense, bank_account, value, operation):
     data = {
         "value": expense.value + value,
         "description": "Test",
-        "category": ExpenseCategory.house,
-        "created_at": "01/01/2021",
-        "source": ExpenseSource.bank_slip,
+        "category": "Casa",
+        "created_at": (timezone.localdate()).strftime("%d/%m/%Y"),
+        "source": MONEY_SOURCE,
     }
 
     # WHEN
@@ -354,9 +416,9 @@ def test__update__future__not_credit_card(client, expense):
     data = {
         "value": 12.00,
         "description": "Test",
-        "category": ExpenseCategory.house,
+        "category": "Casa",
         "created_at": "01/01/2121",
-        "source": ExpenseSource.bank_slip,
+        "source": MONEY_SOURCE,
     }
 
     # WHEN
@@ -380,9 +442,9 @@ def test__update__future__credit_card(client, expense, bank_account):
     data = {
         "value": 12.00,
         "description": "Test",
-        "category": ExpenseCategory.house,
+        "category": "Casa",
         "created_at": "01/01/2121",
-        "source": ExpenseSource.credit_card,
+        "source": CREDIT_CARD_SOURCE,
     }
 
     # WHEN
@@ -480,7 +542,6 @@ def test__update__installments__created_at_and_value(client, expenses_w_installm
         "created_at": created_at.strftime("%d/%m/%Y"),
         "source": e.source,
     }
-
     # WHEN
     response = client.put(f"{URL}/{e.pk}", data=data)
 
@@ -535,7 +596,7 @@ def test__update__installments__source_not_credit_card(client, expenses_w_instal
         "description": e.description,
         "category": e.category,
         "created_at": e.created_at.strftime("%d/%m/%Y"),
-        "source": ExpenseSource.bank_slip,
+        "source": MONEY_SOURCE,
     }
 
     # WHEN
@@ -563,6 +624,25 @@ def test__update__invalid_value(client, expense, value):
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {"value": ["Ensure this value is greater than or equal to 0.01."]}
+
+
+def test__update__new_category(client, expense):
+    # GIVEN
+    data = {
+        "value": expense.value,
+        "description": expense.description,
+        "category": "CNPJ",
+        "created_at": "01/01/2021",
+        "source": expense.source,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{expense.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+
+    assert response.json() == {"category": "A categoria não existe"}
 
 
 def test__delete(client, expense, bank_account):
@@ -610,7 +690,7 @@ def test__delete__installments(client, expenses_w_installments, bank_account):
     (
         ("future=false", {}),
         ("future=true", {}),
-        (f"future=false&category={ExpenseCategory.cnpj}", {"category": ExpenseCategory.cnpj}),
+        ("future=false&category=Casa", {"category": "Casa"}),
     ),
 )
 def test__historic(client, user, filters, db_filters):

@@ -45,7 +45,7 @@ export const useInvalidateExpensesAvgComparasionReportQueries = (
   return { invalidate };
 };
 
-const PERCENTAGE_REPORT_QUERY_KEY = "expense-percentage-report";
+export const PERCENTAGE_REPORT_QUERY_KEY = "expense-percentage-report";
 
 type PercentageParams = Params & {
   period: PercentagePeriods;

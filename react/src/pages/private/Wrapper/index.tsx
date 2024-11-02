@@ -29,6 +29,7 @@ declare module "@mui/material/Button" {
     danger: true;
     "danger-text": true;
     neutral: true;
+    "neutral-text": true;
   }
 }
 
@@ -140,6 +141,14 @@ const Wrapper = ({ children }: { children: ReactNodeConstructor }) => {
             props: { variant: "neutral" },
             style: {
               background: getColor(Colors.neutral400),
+              color: getColor(Colors.neutral0),
+              borderRadius: "5px",
+              "&:hover": { background: getColor(Colors.neutral600) },
+            },
+          },
+          {
+            props: { variant: "neutral-text" },
+            style: {
               color: getColor(Colors.neutral0),
               borderRadius: "5px",
               "&:hover": { background: getColor(Colors.neutral600) },

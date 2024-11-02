@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Literal
 from uuid import uuid4
 
 from django.db.models import Max
@@ -32,7 +32,7 @@ from .domain import commands, events
 from .domain.exceptions import OnlyUpdateFixedRevenueDateWithinMonthException
 from .domain.models import Revenue as RevenueDomainModel
 from .managers import ExpenseQueryset, RevenueQueryset
-from .models import BankAccount, Expense, Revenue
+from .models import BankAccount, Expense, ExpenseCategory, ExpenseSource, Revenue
 from .permissions import PersonalFinancesModulePermission
 from .service_layer import messagebus
 from .service_layer.unit_of_work import ExpenseUnitOfWork, RevenueUnitOfWork
@@ -258,7 +258,7 @@ class RevenueViewSet(_PersonalFinanceViewSet):
 
         if from_fixed_to_not_fixed and perform_on_future and not revenue.is_past_month:
             # as we have removed the `recurring_id` we need to set it back so we can find
-            # the related expenses
+            # the related revenues
             revenue.recurring_id = prev_recurring_id
             messagebus.handle(message=commands.DeleteFutureFixedRevenues(revenue=revenue), uow=uow)
 
@@ -310,3 +310,68 @@ class BankAccountView(APIView):
         serializer.save()
 
         return Response(data=serializer.data, status=HTTP_200_OK)
+
+
+class _ExpenseRelatedEntityViewSet(
+    GenericViewSet, ListModelMixin, UpdateModelMixin, DestroyModelMixin, CreateModelMixin
+):
+    permission_classes = (SubscriptionEndedPermission, PersonalFinancesModulePermission)
+    ordering_fields = ("num_of_appearances", "name")
+    ordering = ("-created_at",)
+    filter_backends = (filters.MostCommonOrderingFilterBackend,)
+
+    expense_field: ClassVar[Literal["category", "source"]]
+    model: ClassVar[type[ExpenseCategory] | type[ExpenseSource]]
+    entity_updated_event_class: ClassVar[events.RelatedExpenseEntityUpdated]
+
+    def get_related_queryset(self) -> ExpenseQueryset[Expense]:
+        return Expense.objects.filter(user_id=self.request.user.id)
+
+    def get_queryset(self):
+        return (
+            self.model.objects.only("id", "name", "hex_color").filter(
+                user_id=self.request.user.id, deleted=False
+            )
+            if self.request.user.is_authenticated
+            else self.model.objects.none()  # pragma: no cover -- drf-spectatular
+        )
+
+    def perform_update(self, serializer: serializers.serializers.Serializer) -> None:
+        prev_name = serializer.instance.name
+        instance = serializer.save()
+        if prev_name != instance.name:
+            with ExpenseUnitOfWork(user_id=self.request.user.id) as uow:
+                messagebus.handle(
+                    message=self.entity_updated_event_class(
+                        prev_name=prev_name, name=instance.name
+                    ),
+                    uow=uow,
+                )
+
+    @action(methods=("GET",), detail=False)
+    def most_common(self, _: Request) -> Response:
+        entity = (
+            self.get_related_queryset()
+            .most_common(self.expense_field)
+            .as_related_entities(self.expense_field)
+            .first()
+        )
+        return Response(self.serializer_class(entity).data, status=HTTP_200_OK)
+
+    def perform_destroy(self, instance: ExpenseCategory | ExpenseSource):
+        instance.deleted = True
+        instance.save(update_fields=("deleted",))
+
+
+class ExpenseCategoryViewSet(_ExpenseRelatedEntityViewSet):
+    expense_field = "category"
+    model = ExpenseCategory
+    serializer_class = serializers.ExpenseCategorySerializer
+    entity_updated_event_class = events.ExpenseCategoryUpdated
+
+
+class ExpenseSourceViewSet(_ExpenseRelatedEntityViewSet):
+    expense_field = "source"
+    model = ExpenseSource
+    serializer_class = serializers.ExpenseSourceSerializer
+    entity_updated_event_class = events.ExpenseSourceUpdated

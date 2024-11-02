@@ -13,6 +13,7 @@ import {
   MaterialReactTable,
   type MRT_ColumnDef as Column,
 } from "material-react-table";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
   Text,
@@ -28,13 +29,11 @@ import useTable from "../../../../hooks/useTable";
 import { getExpenses } from "../api/expenses";
 import { Expense } from "../api/models";
 
-import { ExpensesCategoriesMapping, EXPENSES_QUERY_KEY } from "../consts";
-// import AssetsForm from "./AssetForm";
-import TopToolBar from "./ToopToolBar";
+import { EXPENSES_QUERY_KEY } from "../consts";
 import { ExpensesContext } from "../context";
-import DeleteExpenseDialog from "./DeleteExpenseDialog";
 import { useInvalidateExpenseQueries } from "../hooks";
-import { useQueryClient } from "@tanstack/react-query";
+import DeleteExpenseDialog from "./DeleteExpenseDialog";
+import TopToolBar from "./ToopToolBar";
 
 type GroupedExpense = Expense & { type: string };
 
@@ -115,7 +114,8 @@ const Table = () => {
     GroupedExpense | undefined
   >();
 
-  const { startDate, endDate } = useContext(ExpensesContext);
+  const { startDate, endDate, categories, sources, isRelatedEntitiesLoading } =
+    useContext(ExpensesContext);
   const columns = useMemo<Column<GroupedExpense>[]>(
     () => [
       { header: "", accessorKey: "type", size: 25 },
@@ -160,20 +160,36 @@ const Table = () => {
         size: 80,
         Cell: ({ cell }) => {
           const category = cell.getValue<string>();
-          const { color } =
-            ExpensesCategoriesMapping[
-              category as keyof typeof ExpensesCategoriesMapping
-            ];
           return (
             <Stack direction="row" spacing={1} alignItems="center">
-              <StatusDot variant="custom" color={color} />
+              <StatusDot
+                variant="custom"
+                color={categories.hexColorMapping.get(category)}
+              />
               <span>{category}</span>
             </Stack>
           );
         },
       },
+      {
+        header: "Fonte",
+        accessorKey: "source",
+        size: 80,
+        Cell: ({ cell }) => {
+          const source = cell.getValue<string>();
+          return (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <StatusDot
+                variant="custom"
+                color={sources.hexColorMapping.get(source)}
+              />
+              <span>{source}</span>
+            </Stack>
+          );
+        },
+      },
     ],
-    [],
+    [categories, sources],
   );
 
   const { onDeleteSuccess } = useOnExpenseDeleteSuccess();
@@ -203,6 +219,7 @@ const Table = () => {
     editDisplayMode: "custom",
     enableRowActions: true,
     enableToolbarInternalActions: true,
+    isLoading: isRelatedEntitiesLoading,
     positionActionsColumn: "last",
     initialState: { grouping: ["type"], expanded: { "type:Outros": true } },
     displayColumnDefOptions: {

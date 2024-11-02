@@ -5,7 +5,6 @@ from django.utils import timezone
 import pytest
 from dateutil.relativedelta import relativedelta
 
-from ...choices import ExpenseSource
 from ...models import Expense, Revenue
 from ...service_layer.tasks import (
     create_fixed_expenses_from_last_month,

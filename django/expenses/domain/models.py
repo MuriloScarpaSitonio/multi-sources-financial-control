@@ -8,9 +8,7 @@ from uuid import UUID
 
 from django.utils import timezone
 
-from shared.utils import choices_to_enum
-
-from ..choices import ExpenseCategory, ExpenseSource
+from ..choices import CATEGORIES_NOT_ALLOWED_IN_FUTURE, CREDIT_CARD_SOURCE
 from .exceptions import (
     ExpensesWithInstallmentsMustBeCreditedCardException,
     FixedExpensesWithInstallmentsNotAllowedException,
@@ -61,14 +59,18 @@ class Revenue(IsPastOrFutureMixin):
 class Expense(IsPastOrFutureMixin):
     description: str
     value: Decimal
-    category: choices_to_enum(ExpenseCategory)
-    source: choices_to_enum(ExpenseSource)
+    category: str
+    source: str
     installments_qty: int
     id: int | None = None
     is_fixed: bool = False
     recurring_id: UUID | None = None
     installments_id: UUID | None = None
     installments: list[Expense] = field(default_factory=list)
+    # not really something related to the domain model
+    # but rather fields that need to be persisted in the DB
+    extra_data: dict = field(default_factory=dict)
+    #
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -86,12 +88,12 @@ class Expense(IsPastOrFutureMixin):
         if self.installments_qty > 1:
             if self.is_fixed:
                 raise FixedExpensesWithInstallmentsNotAllowedException()
-            if self.source != ExpenseSource.credit_card:
+            if self.source != CREDIT_CARD_SOURCE:
                 raise ExpensesWithInstallmentsMustBeCreditedCardException()
         if (
             not self.is_fixed
             and self.created_at > timezone.localdate()
-            and self.source != ExpenseSource.credit_card
+            and self.source != CREDIT_CARD_SOURCE
         ):
             raise FutureExpenseMustBeCreditCardException()
 
@@ -113,10 +115,9 @@ class Expense(IsPastOrFutureMixin):
         self, action: Literal["create", "update", "delete"]
     ) -> bool:
         today = timezone.localdate()
-        default_condition = (self.is_past and not self.is_past_month) or self.source not in (
-            ExpenseSource.credit_card,
-            ExpenseSource.money,
-        )
+        default_condition = (
+            self.is_past and not self.is_past_month
+        ) or self.source not in CATEGORIES_NOT_ALLOWED_IN_FUTURE
         if action in ("create", "update"):
             return default_condition
         if action == "delete":

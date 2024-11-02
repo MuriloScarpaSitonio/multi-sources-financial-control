@@ -187,3 +187,48 @@ export const getMostExpensive = async (params: {
       },
     })
   ).data;
+
+type ExpenseRelatedEntity = {
+  id: number;
+  name: string;
+  hex_color: string;
+  // hex_color: Colors;
+};
+
+export const getCategories = async (params: {
+  ordering?: string;
+  page?: number;
+  page_size?: number;
+}): Promise<ApiListResponse<ExpenseRelatedEntity>> =>
+  (await apiProvider.get(`${RESOURCE}/categories`, { params })).data;
+
+export const updateCategory = async ({
+  id,
+  data,
+}: {
+  id: number;
+  data: { name: string; hex_color: string };
+}): Promise<ExpenseRelatedEntity> =>
+  (await apiProvider.put(`${RESOURCE}/categories/${id}`, data)).data;
+
+export const deleteCategory = async (id: number) =>
+  (await apiProvider.Delete(`${RESOURCE}/categories/${id}`)).data;
+
+export const getSources = async (params: {
+  ordering?: string;
+  page?: number;
+  page_size?: number;
+}): Promise<ApiListResponse<ExpenseRelatedEntity>> =>
+  (await apiProvider.get(`${RESOURCE}/sources`, { params })).data;
+
+export const updateSource = async ({
+  id,
+  data,
+}: {
+  id: number;
+  data: { name: string; hex_color: string };
+}): Promise<ExpenseRelatedEntity> =>
+  (await apiProvider.put(`${RESOURCE}/sources/${id}`, data)).data;
+
+export const deleteSource = async (id: number) =>
+  (await apiProvider.Delete(`${RESOURCE}/sources/${id}`)).data;

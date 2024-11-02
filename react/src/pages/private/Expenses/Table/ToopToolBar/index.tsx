@@ -30,9 +30,13 @@ import {
   ToggleFullScreenMenuItem,
 } from "../../../../Datatable/components";
 
-import FiltersMenu from "./FiltersMenu";
-import { Filters } from "../../types";
 import ExpenseDrawer from "./ExpenseDrawer";
+import FiltersMenu from "./FiltersMenu";
+import {
+  ManageRelatedEntitiesMenuItem,
+  ManageRelatedEntitiesDrawer,
+} from "./ManageRelatedEntitiesMenuItem";
+import { Filters } from "../../types";
 import { Expense } from "../../api/models";
 
 const removeProperties = (
@@ -51,9 +55,9 @@ const removeProperties = (
 
 const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [openDrawer, setOpenDrawer] = useState(false);
 
-  const open = Boolean(anchorEl);
-
+  const onClose = () => setAnchorEl(null);
   return (
     <>
       <IconButton
@@ -63,11 +67,21 @@ const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
       >
         <MoreVertIcon />
       </IconButton>
-      <Menu anchorEl={anchorEl} open={open} onClose={() => setAnchorEl(null)}>
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={onClose}>
+        <ManageRelatedEntitiesMenuItem
+          onClick={() => {
+            setOpenDrawer(true);
+            onClose();
+          }}
+        />
         <ShowHideColumnsMenuItem table={table} />
         <ToggleDensityMenuItem table={table} />
         <ToggleFullScreenMenuItem table={table} />
       </Menu>
+      <ManageRelatedEntitiesDrawer
+        open={openDrawer}
+        onClose={() => setOpenDrawer(false)}
+      />
     </>
   );
 };
@@ -160,7 +174,6 @@ const TopToolBar = ({
         open={Boolean(anchorEl)}
         onClose={() => setAnchorEl(null)}
         anchorEl={anchorEl}
-        filters={filters}
         setFilters={setFilters}
       />
       <ExpenseDrawer

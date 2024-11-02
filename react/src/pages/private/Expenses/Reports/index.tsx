@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 
 import { TabPanel } from "@mui/base/TabPanel";
 import MenuItem from "@mui/material/MenuItem";
@@ -11,12 +11,12 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFnsV3";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 
-import ReportBox from "../../../../design-system/components/ReportBox";
 import {
   StyledTab,
   StyledTabs,
   StyledTabsList,
-} from "../../../../design-system/components/Tabs";
+  ReportBox,
+} from "../../../../design-system";
 import {
   GroupBy,
   AvgComparasionPeriods,
@@ -36,9 +36,23 @@ import {
   useExpensesHistoricReport,
 } from "./hooks";
 import ReportTabs from "../../../../design-system/components/ReportTabs";
+import { ExpensesContext } from "../context";
+import { ExpensesTypesColorMap } from "../consts";
 
 const PercentageContent = ({ groupBy }: { groupBy: GroupBy }) => {
   const [period, setPeriod] = useState<PercentagePeriods>("current");
+  const {
+    sources: { hexColorMapping: sourcesColorMapping },
+    categories: { hexColorMapping: categoriesColorMapping },
+  } = useContext(ExpensesContext);
+
+  const colors =
+    groupBy === GroupBy.SOURCE
+      ? sourcesColorMapping
+      : groupBy === GroupBy.CATEGORY
+        ? categoriesColorMapping
+        : ExpensesTypesColorMap;
+
   const {
     data,
     // isPending TODO
@@ -59,7 +73,11 @@ const PercentageContent = ({ groupBy }: { groupBy: GroupBy }) => {
           <MenuItem value="current_month_and_past">Todo o período</MenuItem>
         </Select>
       </Stack>
-      <PieChart data={data as ReportUnknownAggregationData} groupBy={groupBy} />
+      <PieChart
+        data={data as ReportUnknownAggregationData}
+        groupBy={groupBy}
+        colors={colors}
+      />
     </Stack>
   );
 };

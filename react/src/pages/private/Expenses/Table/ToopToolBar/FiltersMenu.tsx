@@ -12,10 +12,6 @@ import { yupResolver } from "@hookform/resolvers/yup";
 
 import * as yup from "yup";
 
-import {
-  ExpensesCategoriesMapping,
-  ExpensesSourcesMapping,
-} from "../../consts";
 import { AutoCompleteMultiInput } from "../../../../../design-system/components";
 import { Text } from "../../../../../design-system";
 import { Filters } from "../../types";
@@ -39,17 +35,22 @@ export const FiltersMenu = ({
   open,
   onClose,
   anchorEl,
-  filters,
   setFilters,
 }: {
   open: boolean;
   onClose: () => void;
   anchorEl: null | HTMLElement;
-  filters: Filters;
   setFilters: Dispatch<SetStateAction<Filters>>;
 }) => {
-  const { startDate, setStartDate, endDate, setEndDate, setMonth } =
-    useContext(ExpensesContext);
+  const {
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
+    setMonth,
+    categories,
+    sources,
+  } = useContext(ExpensesContext);
   const { control, getValues } = useForm({
     resolver: yupResolver(schema),
     defaultValues: {
@@ -167,9 +168,10 @@ export const FiltersMenu = ({
                   handleChange(values, name, onChange)
                 }
                 label="Categoria"
-                options={Object.entries(ExpensesCategoriesMapping).map(
-                  ([label, { value }]) => ({ label, value }),
-                )}
+                options={categories.results.map(({ name }) => ({
+                  label: name,
+                  value: name,
+                }))}
               />
             )}
           />
@@ -186,9 +188,10 @@ export const FiltersMenu = ({
                   handleChange(values, name, onChange)
                 }
                 label="Fonte"
-                options={Object.entries(ExpensesSourcesMapping).map(
-                  ([label, { value }]) => ({ label, value }),
-                )}
+                options={sources.results.map(({ name }) => ({
+                  label: name,
+                  value: name,
+                }))}
               />
             )}
           />

@@ -186,12 +186,11 @@ class TransactionViewSet(ModelViewSet):
     serializer_class = serializers.TransactionListSerializer
     filterset_class = filters.TransactionFilterSet
     ordering_fields = ("operation_date", "asset__code")
+    ordering = ("-operation_date",)
 
     def get_queryset(self) -> TransactionQuerySet[Transaction]:
         if self.request.user.is_authenticated:
-            qs = Transaction.objects.filter(asset__user=self.request.user.pk).order_by(
-                "-operation_date"
-            )
+            qs = Transaction.objects.filter(asset__user_id=self.request.user.pk)
             return (
                 qs.select_related("asset")
                 if self.action in ("list", "retrieve", "update", "destroy")
@@ -239,13 +238,12 @@ class PassiveIncomeViewSet(ModelViewSet):
     serializer_class = serializers.PassiveIncomeSerializer
     filterset_class = filters.PassiveIncomeFilterSet
     ordering_fields = ("operation_date", "amount", "asset__code")
+    ordering = ("-operation_date",)
 
     def get_queryset(self) -> PassiveIncomeQuerySet[PassiveIncome]:
         return (
-            (
-                PassiveIncome.objects.select_related("asset")
-                .filter(asset__user=self.request.user)
-                .order_by("-operation_date")
+            PassiveIncome.objects.select_related("asset").filter(
+                asset__user_id=self.request.user.pk
             )
             if self.request.user.is_authenticated
             else PassiveIncome.objects.none()  # pragma: no cover -- drf-spectatular
@@ -324,11 +322,12 @@ class AssetTransactionViewSet(GenericViewSet, ListModelMixin):
     serializer_class = serializers.TransactionListSerializer
     filterset_class = filters.TransactionFilterSet
     ordering_fields = ("operation_date", "asset__code")
+    ordering = ("-operation_date",)
 
     def get_queryset(self) -> TransactionQuerySet[Transaction]:
         return Transaction.objects.filter(
             asset__user_id=self.request.user.pk, asset_id=self.kwargs["pk"]
-        ).order_by("-operation_date")
+        )
 
     @extend_schema(
         responses={200: serializers.AssetTransactionSimulateEndpointSerializer},
@@ -369,8 +368,9 @@ class AssetIncomesViewSet(GenericViewSet, ListModelMixin):
     serializer_class = serializers.PassiveIncomeSerializer
     filterset_class = filters.PassiveIncomeFilterSet
     ordering_fields = ("operation_date", "amount", "asset__code")
+    ordering = ("-operation_date",)
 
     def get_queryset(self) -> PassiveIncomeQuerySet[PassiveIncome]:
         return PassiveIncome.objects.filter(
             asset__user_id=self.request.user.pk, asset_id=self.kwargs["pk"]
-        ).order_by("-operation_date")
+        )

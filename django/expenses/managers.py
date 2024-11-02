@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING, Literal, Self
 
-from django.db.models import CharField, Count, DecimalField, Q, QuerySet, Sum
+from django.db.models import CharField, Count, DecimalField, F, Q, QuerySet, Sum
 from django.db.models.functions import Cast, Coalesce, Concat, TruncMonth
 
 from shared.managers_utils import GenericDateFilters
@@ -133,6 +133,25 @@ class ExpenseQueryset(_PersonalFinancialQuerySet):
             future=Sum("value", filter=self.filters.future, default=Decimal()),
             avg=Coalesce(self._monthly_avg_expression, Decimal()),
         )
+
+    def annotate_num_of_appearances(self, field_name: Literal["category", "source"]) -> Self:
+        return self.values(field_name).annotate(num_of_appearances=Count(field_name))
+
+    def as_related_entities(self, field_name: Literal["category", "source"]) -> Self:
+        kwargs = {"name": F(field_name)}
+        if field_name == "category":
+            qs = self.annotate(
+                id=F("expanded_category_id"), hex_color=F("expanded_category__hex_color"), **kwargs
+            )
+        elif field_name == "source":
+            qs = self.annotate(
+                id=F("expanded_source_id"), hex_color=F("expanded_source__hex_color"), **kwargs
+            )
+
+        return qs.values("id", "name", "hex_color").distinct()
+
+    def most_common(self, field_name: Literal["category", "source"]) -> str:
+        return self.annotate_num_of_appearances(field_name).order_by("-num_of_appearances")
 
 
 class RevenueQueryset(_PersonalFinancialQuerySet):

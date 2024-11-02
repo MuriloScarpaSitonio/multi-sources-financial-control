@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from dateutil.relativedelta import relativedelta
 
-from ...choices import ExpenseSource
+from ...choices import CREDIT_CARD_SOURCE
 from ...models import Expense
 from ...service_layer.unit_of_work import ExpenseUnitOfWork
 
@@ -18,7 +18,7 @@ def decrement_credit_card_bill(user_id: int, base_date: date) -> None:
     last_month_date = base_date - relativedelta(months=1)
     qs = Expense.objects.filter(
         user_id=user_id,
-        source=ExpenseSource.credit_card,
+        source=CREDIT_CARD_SOURCE,
         created_at__range=(last_month_date, yesterday),
     )
     with ExpenseUnitOfWork(user_id=user_id) as uow:

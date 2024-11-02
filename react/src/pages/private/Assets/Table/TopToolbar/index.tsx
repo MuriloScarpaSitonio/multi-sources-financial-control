@@ -39,7 +39,7 @@ import NewIncomeDrawer from "./NewIncomeDrawer";
 
 const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [openDialog, setOpenDialog] = useState(false);
+  const [openDrawer, setOpenDrawer] = useState(false);
 
   const open = Boolean(anchorEl);
 
@@ -56,7 +56,7 @@ const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
       <Menu anchorEl={anchorEl} open={open} onClose={onClose}>
         <SimulateTransactionMenuItem
           onClick={() => {
-            setOpenDialog(true);
+            setOpenDrawer(true);
             onClose();
           }}
         />
@@ -65,8 +65,8 @@ const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
         <ToggleFullScreenMenuItem table={table} />
       </Menu>
       <SimulateTransactionDrawer
-        open={openDialog}
-        onClose={() => setOpenDialog(false)}
+        open={openDrawer}
+        onClose={() => setOpenDrawer(false)}
       />
     </>
   );

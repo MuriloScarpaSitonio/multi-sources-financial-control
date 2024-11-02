@@ -1,15 +1,15 @@
 from django.contrib import admin
 from django.forms import CharField, ModelForm, Select
 
-from .choices import ExpenseCategory, ExpenseSource
+from .choices import Colors
 from .models import BankAccount, Expense, Revenue
 
 admin.site.register(BankAccount)
 
 
 class _ExpenseForm(ModelForm):
-    category = CharField(max_length=50, widget=Select(choices=ExpenseCategory.choices))
-    source = CharField(max_length=50, widget=Select(choices=ExpenseSource.choices))
+    category_hex_color = CharField(max_length=50, widget=Select(choices=Colors.choices))
+    source_hex_color = CharField(max_length=50, widget=Select(choices=Colors.choices))
 
     class Meta:
         model = Expense

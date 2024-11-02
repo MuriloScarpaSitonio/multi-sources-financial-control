@@ -77,13 +77,24 @@ class AbstractExpenseRepository(AbstractEntityRepository):
     def _delete_installments(self, dto: ExpenseDTO) -> None:
         raise NotImplementedError
 
+    @abstractmethod
     def add_future_fixed_expenses(self, dto: ExpenseDTO) -> None:
         raise NotImplementedError
 
+    @abstractmethod
     def update_future_fixed_expenses(self, dto: ExpenseDTO, created_at_changed: bool) -> None:
         raise NotImplementedError
 
+    @abstractmethod
     def delete_future_fixed_expenses(self, dto: ExpenseDTO) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def change_all_category_name(self, *, prev_name: str, name: str) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
+    def change_all_source_name(self, *, prev_name: str, name: str) -> int:
         raise NotImplementedError
 
 
@@ -97,7 +108,8 @@ class ExpenseRepository(AbstractExpenseRepository):
         data.pop("installments")
         data.pop("installments_id")
         data.pop("installments_qty")
-        Expense.objects.create(user_id=self.user_id, **data)
+        extra_data = data.pop("extra_data")
+        Expense.objects.create(user_id=self.user_id, **data, **extra_data)
 
     def _add_installments(self, dto: ExpenseDTO) -> list[Expense]:
         from ..models import Expense
@@ -107,6 +119,7 @@ class ExpenseRepository(AbstractExpenseRepository):
         installments = data.pop("installments_qty")
         data["value"] /= installments
         created_at = data.pop("created_at")
+        extra_data = data.pop("extra_data")
         return Expense.objects.bulk_create(
             objs=(
                 Expense(
@@ -115,6 +128,7 @@ class ExpenseRepository(AbstractExpenseRepository):
                     installments_qty=installments,
                     installment_number=i + 1,
                     **data,
+                    **extra_data,
                 )
                 for i in range(installments)
             )
@@ -130,12 +144,14 @@ class ExpenseRepository(AbstractExpenseRepository):
         data.pop("installments_id")
 
         created_at = data.pop("created_at")
+        extra_data = data.pop("extra_data")
         return Expense.objects.bulk_create(
             objs=(
                 Expense(
                     user_id=self.user_id,
                     created_at=created_at + relativedelta(months=i),
                     **data,
+                    **extra_data,
                 )
                 for i in range(1, 12)
             )
@@ -148,7 +164,8 @@ class ExpenseRepository(AbstractExpenseRepository):
         data.pop("installments")
         data.pop("installments_id")
         data.pop("installments_qty")
-        Expense.objects.filter(id=dto.id).update(**data)
+        extra_data = data.pop("extra_data")
+        Expense.objects.filter(id=dto.id).update(**data, **extra_data)
 
     def _update_installments(self, dto: ExpenseDTO, created_at_changed: bool) -> None:
         from ..models import Expense
@@ -171,7 +188,8 @@ class ExpenseRepository(AbstractExpenseRepository):
         data.pop("installments_qty")
         data.pop("created_at")
         data.pop("id")
-        installments_qs.update(**data)
+        extra_data = data.pop("extra_data")
+        installments_qs.update(**data, **extra_data)
 
     def _delete(self, dto: ExpenseDTO) -> None:
         from ..models import Expense
@@ -203,7 +221,8 @@ class ExpenseRepository(AbstractExpenseRepository):
         data.pop("installments")
         data.pop("installments_id")
         data.pop("installments_qty")
-        future_qs.update(**data)
+        extra_data = data.pop("extra_data")
+        future_qs.update(**data, **extra_data)
 
     def _delete_installments(self, dto: ExpenseDTO) -> None:
         from ..models import Expense
@@ -228,6 +247,18 @@ class ExpenseRepository(AbstractExpenseRepository):
             if installments_id
             else []
         )
+
+    def change_all_category_name(self, *, prev_name: str, name: str) -> int:
+        from ..models import Expense
+
+        return Expense.objects.filter(user_id=self.user_id, category=prev_name).update(
+            category=name
+        )
+
+    def change_all_source_name(self, *, prev_name: str, name: str) -> int:
+        from ..models import Expense
+
+        return Expense.objects.filter(user_id=self.user_id, source=prev_name).update(source=name)
 
 
 class AbstractBankAccountRepository(ABC):

@@ -5,8 +5,9 @@ from typing import TYPE_CHECKING
 
 import django_filters
 from dateutil.relativedelta import relativedelta
+from rest_framework.filters import OrderingFilter
 
-from .choices import ExpenseCategory, ExpenseReportType, ExpenseSource
+from .choices import ExpenseReportType
 from .models import Expense, Revenue
 
 if TYPE_CHECKING:
@@ -14,7 +15,27 @@ if TYPE_CHECKING:
 
     from django.db.models import QuerySet
 
+    from rest_framework.request import Request
+    from rest_framework.viewsets import GenericViewSet
+
     from .managers import ExpenseQueryset
+
+
+class MostCommonOrderingFilterBackend(OrderingFilter):
+    def filter_queryset(self, request: Request, queryset: QuerySet, view: GenericViewSet):
+        ordering = self.get_ordering(request, queryset, view)
+        if ordering:
+            if "num_of_appearances" in ordering or "-num_of_appearances" in ordering:
+                return (
+                    view.get_related_queryset()
+                    .annotate_num_of_appearances(view.expense_field)
+                    .as_related_entities(view.expense_field)
+                    .order_by(*ordering)
+                )
+
+            return queryset.order_by(*ordering)
+
+        return queryset
 
 
 class _PersonalFinanceFilterSet(django_filters.FilterSet):
@@ -36,8 +57,8 @@ class _PersonalFinanceFilterSet(django_filters.FilterSet):
 
 
 class ExpenseFilterSet(_PersonalFinanceFilterSet):
-    category = django_filters.MultipleChoiceFilter(choices=ExpenseCategory.choices)
-    source = django_filters.MultipleChoiceFilter(choices=ExpenseSource.choices)
+    category = django_filters.CharFilter(method="filter_category")
+    source = django_filters.CharFilter(method="filter_source")
     with_installments = django_filters.BooleanFilter(method="filter_with_installments")
 
     class Meta(_PersonalFinanceFilterSet.Meta):
@@ -47,6 +68,12 @@ class ExpenseFilterSet(_PersonalFinanceFilterSet):
         self, queryset: ExpenseQueryset, _: str, value: bool
     ) -> ExpenseQueryset:
         return queryset.filter(installments_id__isnull=not value)
+
+    def filter_category(self, queryset: ExpenseQueryset, *_, **__) -> ExpenseQueryset:
+        return queryset.filter(category__in=self.request.GET.getlist("category"))
+
+    def filter_source(self, queryset: ExpenseQueryset, *_, **__) -> ExpenseQueryset:
+        return queryset.filter(source__in=self.request.GET.getlist("source"))
 
 
 class RevenueFilterSet(_PersonalFinanceFilterSet):
@@ -116,7 +143,7 @@ class ExpensePercentageReportFilterSet(django_filters.FilterSet):
 
 class ExpenseHistoricFilterSet(django_filters.FilterSet):
     future = django_filters.BooleanFilter(method="filter_future", required=True)
-    category = django_filters.MultipleChoiceFilter(choices=ExpenseCategory.choices)
+    category = django_filters.CharFilter()
 
     def filter_future(self, queryset: ExpenseQueryset, _: str, value: bool):
         return queryset.future() if value else queryset.since_a_year_ago()

@@ -13,7 +13,6 @@ import {
   ReferenceLine,
 } from "recharts";
 import { getColor, Colors } from "../../../../design-system";
-import { ExpenseOptionsProperties } from "../consts";
 import {
   GroupBy,
   ReportUnknownAggregationData,
@@ -48,7 +47,7 @@ const renderCustomizedLabel = ({
   innerRadius: number;
   outerRadius: number;
   value: number;
-  name: keyof typeof ExpenseOptionsProperties;
+  name: string;
   fill: string;
 }) => {
   const RADIAN = Math.PI / 180;
@@ -171,11 +170,15 @@ export const HorizontalStackedBarChart = ({
 export const PieChart = ({
   data,
   groupBy,
+  colors,
 }: {
   data: ReportUnknownAggregationData;
   groupBy: GroupBy;
+  colors: Map<string, string>;
 }) => {
   const hasFewOptions = (data?.length ?? 0) < 5;
+  console.log("data = ", data);
+  console.log("colors = ", colors);
   return (
     <PieReChart
       width={CHART_WIDTH}
@@ -185,13 +188,10 @@ export const PieChart = ({
       {!hasFewOptions && (
         <Legend
           payload={data?.map((item) => {
-            const label = item[
-              groupBy
-            ] as keyof typeof ExpenseOptionsProperties;
-            const { color } = ExpenseOptionsProperties[label];
+            const label = item[groupBy] as string;
             return {
               value: label,
-              color,
+              color: colors.get(label),
             };
           })}
         />
@@ -215,11 +215,11 @@ export const PieChart = ({
         minAngle={2}
       >
         {data?.map((item) => {
-          const label = item[groupBy] as keyof typeof ExpenseOptionsProperties;
+          const label = item[groupBy] as string;
           return (
             <Cell
               key={`expenses-percentage-pie-chart-cell-${label}`}
-              fill={ExpenseOptionsProperties[label].color}
+              fill={colors.get(label)}
             />
           );
         })}
@@ -239,6 +239,7 @@ const BarChartWithReferenceLineToolTipContent = ({
 }) => {
   if (active && payload && payload.length) {
     const { payload: data } = payload[0];
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [_, month, year] = data.month.split("/");
     return (
       <Stack

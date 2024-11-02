@@ -6,10 +6,43 @@ from django.db import models
 
 from shared.models_utils import serializable_today_function
 
-from .choices import ExpenseCategory, ExpenseSource
+from .choices import Colors
 from .domain.models import Expense as ExpenseDomainModel
 from .domain.models import Revenue as RevenueDomainModel
 from .managers import ExpenseQueryset, RevenueQueryset
+
+
+class _RelatedEntity(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    name = models.CharField(max_length=100)
+    hex_color = models.CharField(max_length=7, validators=[Colors.validator])
+    deleted = models.BooleanField(default=False, db_index=True)
+
+    class Meta:
+        abstract = True
+        constraints = [
+            models.UniqueConstraint(
+                fields=("name", "user"), name="%(class)s__name__user__unique_together"
+            )
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"<{self.__class__.__name__} ({self.name} | {self.user_id})>"
+
+    __repr__ = __str__
+
+
+class ExpenseCategory(_RelatedEntity):
+    user = models.ForeignKey(
+        to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="expense_categories"
+    )
+
+
+class ExpenseSource(_RelatedEntity):
+    user = models.ForeignKey(
+        to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="expense_sources"
+    )
 
 
 class Expense(models.Model):
@@ -17,9 +50,9 @@ class Expense(models.Model):
         decimal_places=2, max_digits=18, validators=[MinValueValidator(Decimal("0.01"))]
     )
     description = models.CharField(max_length=300)
-    category = models.CharField(validators=[ExpenseCategory.validator], max_length=20)
+    category = models.CharField(max_length=100)
     created_at = models.DateField(default=serializable_today_function)
-    source = models.CharField(validators=[ExpenseSource.validator], max_length=20)
+    source = models.CharField(max_length=100)
     is_fixed = models.BooleanField(default=False)
     recurring_id = models.UUIDField(null=True, blank=True, db_index=True)
     installments_id = models.UUIDField(null=True, blank=True, db_index=True)
@@ -32,6 +65,23 @@ class Expense(models.Model):
     user = models.ForeignKey(
         to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="expenses"
     )
+
+    # needed so we can sort by most common
+    expanded_category = models.ForeignKey(
+        to=ExpenseCategory,
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="expenses",
+    )
+    expanded_source = models.ForeignKey(
+        to=ExpenseSource,
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="expenses",
+    )
+    #
 
     objects = ExpenseQueryset.as_manager()
 
@@ -104,6 +154,10 @@ class Expense(models.Model):
                 if self.installments_id and include_installments
                 else []
             ),
+            extra_data={
+                "expanded_category_id": self.expanded_category_id,
+                "expanded_source_id": self.expanded_source_id,
+            },
         )
 
 

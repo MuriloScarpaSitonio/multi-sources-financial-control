@@ -8,6 +8,7 @@ import Reports from "./Reports";
 import Table from "./Table";
 import { useMemo, useState } from "react";
 import { endOfMonth, Month, startOfMonth } from "date-fns";
+import { useGetCategories, useGetSources } from "./hooks";
 
 const customEndOfMonth = (date: Date) => {
   const result = endOfMonth(date);
@@ -22,6 +23,12 @@ const Expenses = () => {
   const [month, setMonth] = useState(now.getMonth() as Month | undefined);
   const [year, setYear] = useState(now.getFullYear());
 
+  const { data: categoriesData, isPending: isLoadingCategories } =
+    useGetCategories({ ordering: "name" });
+  const { data: sourcesData, isPending: isLoadingSources } = useGetSources({
+    ordering: "name",
+  });
+
   const contextValue = useMemo(
     () => ({
       startDate,
@@ -32,8 +39,36 @@ const Expenses = () => {
       setMonth,
       year,
       setYear,
+      categories: {
+        results: categoriesData?.results ?? [],
+        hexColorMapping: new Map(
+          (categoriesData?.results ?? []).map((category) => [
+            category.name,
+            category.hex_color,
+          ]),
+        ),
+      },
+      sources: {
+        results: sourcesData?.results ?? [],
+        hexColorMapping: new Map(
+          (sourcesData?.results ?? []).map((source) => [
+            source.name,
+            source.hex_color,
+          ]),
+        ),
+      },
+      isRelatedEntitiesLoading: isLoadingCategories || isLoadingSources,
     }),
-    [startDate, endDate, month, year],
+    [
+      startDate,
+      endDate,
+      month,
+      year,
+      categoriesData,
+      sourcesData,
+      isLoadingCategories,
+      isLoadingSources,
+    ],
   );
   return (
     <ExpensesContext.Provider value={contextValue}>

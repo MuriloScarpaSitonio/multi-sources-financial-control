@@ -39,3 +39,15 @@ class RevenueDeleted(Event):
 
 
 class BankAccountNegative(Event): ...
+
+
+@dataclass
+class RelatedExpenseEntityUpdated(Event):
+    prev_name: str
+    name: str
+
+
+class ExpenseCategoryUpdated(RelatedExpenseEntityUpdated): ...
+
+
+class ExpenseSourceUpdated(RelatedExpenseEntityUpdated): ...

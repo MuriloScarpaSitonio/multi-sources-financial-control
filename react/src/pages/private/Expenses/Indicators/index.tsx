@@ -27,7 +27,6 @@ import {
 } from "../../../../design-system";
 import { ExpensesContext } from "../context";
 import { Expense } from "../api/models";
-import { ExpensesCategoriesMapping } from "../consts";
 import { StatusDot } from "../../../../design-system/icons";
 import { useBankAccount } from "../hooks";
 import { IndicatorBox } from "./components";
@@ -116,7 +115,9 @@ const MostExpensiveIndicator = ({
   expense: Expense | undefined;
   isLoading: boolean;
 }) => {
-  if (isLoading)
+  const { categories, isRelatedEntitiesLoading } = useContext(ExpensesContext);
+
+  if (isLoading || isRelatedEntitiesLoading)
     return (
       <Skeleton
         width="50%"
@@ -126,10 +127,6 @@ const MostExpensiveIndicator = ({
         }}
       />
     );
-  const { color } =
-    ExpensesCategoriesMapping[
-      expense?.category as keyof typeof ExpensesCategoriesMapping
-    ];
   return (
     <IndicatorBox variant="danger" width="50%">
       <Stack gap={1}>
@@ -138,7 +135,10 @@ const MostExpensiveIndicator = ({
           <Text size={FontSizes.SEMI_SMALL} color={Colors.neutral300}>
             {expense?.full_description}
           </Text>
-          <StatusDot variant="custom" color={color} />
+          <StatusDot
+            variant="custom"
+            color={categories.hexColorMapping.get(expense?.category as string)}
+          />
         </Stack>
         <Text size={FontSizes.SMALL}>
           R${" "}

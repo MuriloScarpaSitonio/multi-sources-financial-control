@@ -1,37 +1,44 @@
-export const ExpensesCategoriesMapping = {
-  Alimentação: { value: "FOOD", color: "#906ccc" },
-  Casa: { value: "HOUSE", color: "#ccc86c" },
-  CNPJ: { value: "CNPJ", color: "#cc6cc8" },
-  Lazer: { value: "RECREATION", color: "#6cccc6" },
-  Presentes: { value: "GIFT", color: "#e6837c" },
-  Roupas: { value: "CLOTHES", color: "#729e81" },
-  Saúde: { value: "HEALTHCARE", color: "#d9a648" },
-  Supermercado: { value: "SUPERMARKET", color: "#818deb" },
-  Transporte: { value: "TRANSPORT", color: "#c9b671" },
-  Viagem: { value: "TRIP", color: "#d984cc" },
-  Outros: { value: "OTHER", color: "#d9d3c5" },
-};
-
-export const ExpensesSourcesMapping = {
-  Boleto: { value: "BANK_SLIP", color: "#906ccc" },
-  "Cartão de crédito": { value: "CREDIT_CARD", color: "#ccc86c" },
-  "Cartão de débito": { value: "DEBIT_CARD", color: "#cc6cc8" },
-  Dinheiro: { value: "MONEY", color: "#6cccc6" },
-  "Settle Up": { value: "SETTLE_UP", color: "#e6837c" },
-  "Transferência bancária": { value: "BANK_TRANSFER", color: "#729e81" },
-};
-
-const ExpensesTypesMapping = {
-  Fixo: { value: "is_fixed=true", color: "#906ccc" },
-  Variável: { value: "is_fixed=false", color: "#ccc86c" },
-};
-
-export const ExpenseOptionsProperties: {
-  [key: string]: { value: string; color: string };
-} = {
-  ...ExpensesCategoriesMapping,
-  ...ExpensesSourcesMapping,
-  ...ExpensesTypesMapping,
-};
+export const ExpensesTypesColorMap = new Map([
+  ["Fixo", "#906ccc"],
+  ["Variável", "#ccc86c"],
+]);
 
 export const EXPENSES_QUERY_KEY = "expenses";
+
+export const ColorsMapping = {
+  "Roxo 1": { value: "#906CCC" },
+  "Roxo 2": { value: "#906C96" },
+  "Rosa 1": { value: "#CC6CC8" },
+  "Rosa 2": { value: "#D6A8D4" },
+  "Rosa 3": { value: "#E57A96" },
+  "Rosa 4": { value: "#DAADAE" },
+  "Vermelho 1": { value: "#CB5F61" },
+  "Laranja 1": { value: "#CA7F45" },
+  "Amarelo 1": { value: "#D8A548" },
+  "Amarelo 2": { value: "#D4C05C" },
+  "Verde 1": { value: "#C6CB9C" },
+  "Verde 2": { value: "#61A78F" },
+  "Verde 3": { value: "#6CCCC6" },
+  "Azul 1": { value: "#A3C4DA" },
+  "Azul 2": { value: "#7A9FE5" },
+  "Azul 3": { value: "#5F7CB2" },
+};
+
+// export const ColorsMapping = {
+//   "#906CCC": "Roxo 1",
+//   "#906C96": "Roxo 2",
+//   "#CC6CC8": "Rosa 1",
+//   "#D6A8D4": "Rosa 2",
+//   "#E57A96": "Rosa 3",
+//   "#DAADAE": "Rosa 4",
+//   "#CB5F61": "Vermelho 1",
+//   "#CA7F45": "Laranja 1",
+//   "#D8A548": "Laranja 1",
+//   "#D4C05C": "Amarelo 1",
+//   "#C6CB9C": "Verde 1",
+//   "#61A78F": "Verde 2",
+//   "#6CCCC6": "Verde 3",
+//   "#A3C4DA": "Azul 1",
+//   "#7A9FE5": "Azul 2",
+//   "#5F7CB2": "Azul 3",
+// };

@@ -1,5 +1,13 @@
-import { type Dispatch, type SetStateAction, useEffect, useMemo } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+} from "react";
 
+import Autocomplete from "@mui/material/Autocomplete";
 import FormLabel from "@mui/material/FormLabel";
 import Grid from "@mui/material/Grid";
 import Switch from "@mui/material/Switch";
@@ -7,19 +15,16 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 
+import { formatISO } from "date-fns";
 import { enqueueSnackbar } from "notistack";
 import { Controller } from "react-hook-form";
 import * as yup from "yup";
 
-import {
-  EXPENSES_QUERY_KEY,
-  ExpensesCategoriesMapping,
-  ExpensesSourcesMapping,
-} from "../../../consts";
+import { EXPENSES_QUERY_KEY } from "../../../consts";
 
 import {
   DateInput,
-  AutocompleteFromObject,
+  FormFeedbackError,
   PriceWithCurrencyInput,
 } from "../../../../../../design-system";
 import useFormPlus from "../../../../../../hooks/useFormPlus";
@@ -28,7 +33,10 @@ import { useInvalidateExpenseQueries } from "../../../hooks";
 import { Expense } from "../../../api/models";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiListResponse } from "../../../../../../types";
-import { formatISO } from "date-fns";
+import { ExpensesContext, ExpenseRelatedEntity } from "../../../context";
+import { StatusDot } from "../../../../../../design-system/icons";
+import { ReactHookFormsInputCustomProps } from "../../../../../../design-system/components/forms/types";
+import { InputAdornment, MenuItem } from "@mui/material";
 
 const schema = yup.object().shape({
   description: yup.string().required("A descrição é obrigatória"),
@@ -61,6 +69,72 @@ const schema = yup.object().shape({
     .required("A quantidade de parcelas é obrigatório")
     .positive("Apenas números positivos"),
 });
+
+const AutocompleteFromArray = ({
+  array,
+  control,
+  isFieldInvalid,
+  getFieldHasError,
+  getErrorMessage,
+  name = "category",
+  label = "Categoria",
+}: ReactHookFormsInputCustomProps & {
+  array: ExpenseRelatedEntity[];
+  name?: string;
+  label?: string;
+}) => (
+  <Controller
+    name={name}
+    control={control}
+    render={({ field }) => (
+      <>
+        <Autocomplete
+          {...field}
+          onChange={(_, source) => field.onChange(source)}
+          disableClearable
+          options={array.map(({ name, hex_color }) => ({
+            label: name,
+            value: name,
+            hex_color,
+          }))}
+          getOptionLabel={(option) => option.label}
+          renderOption={(props, option) => (
+            <MenuItem {...props} key={option.value} value={option.value}>
+              <Stack direction="row" gap={1} alignItems="center">
+                <StatusDot variant="custom" color={option.hex_color} />
+                {option.label}
+              </Stack>
+            </MenuItem>
+          )}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              value=""
+              error={isFieldInvalid(field)}
+              required
+              label={label}
+              variant="standard"
+              InputProps={{
+                ...params.InputProps,
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <StatusDot
+                      variant="custom"
+                      color={field.value.hex_color as string}
+                    />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          )}
+        />
+        {getFieldHasError(name) && (
+          <FormFeedbackError message={getErrorMessage(`${name}.label`)} />
+        )}
+      </>
+    )}
+  />
+);
 
 const createExpenseMutation = async (data: yup.Asserts<typeof schema>) => {
   const {
@@ -121,6 +195,8 @@ const ExpenseForm = ({
   onEditSuccess?: () => void;
   initialData?: Expense;
 }) => {
+  const { sources, categories } = useContext(ExpensesContext);
+
   const {
     id: expenseId,
     category,
@@ -141,59 +217,57 @@ const ExpenseForm = ({
       isFixed: is_fixed,
       category: {
         label: category,
-        value:
-          ExpensesCategoriesMapping[
-            category as keyof typeof ExpensesCategoriesMapping
-          ].value,
+        value: category,
+        hex_color: categories.hexColorMapping.get(category),
       },
       source: {
         label: source,
-        value:
-          ExpensesSourcesMapping[source as keyof typeof ExpensesSourcesMapping]
-            .value,
+        value: source,
+        hex_color: sources.hexColorMapping.get(source),
       },
       installments: 1,
       ...rest,
     }),
-    [category, created_at, is_fixed, rest, source],
+    [category, created_at, is_fixed, rest, source, categories, sources],
   );
 
   const queryClient = useQueryClient();
   const { invalidate: invalidateExpensesQueries } =
     useInvalidateExpenseQueries(queryClient);
 
-  const updateCachedData = (
-    data: yup.Asserts<typeof schema> & { id: number },
-  ) => {
-    const { category, source, created_at, ...rest } = data;
-    const assetsData = queryClient.getQueriesData({
-      queryKey: [EXPENSES_QUERY_KEY],
-      type: "active",
-    });
-    assetsData.forEach(([queryKey, cachedData]) => {
-      const newCachedData = (
-        cachedData as ApiListResponse<Expense>
-      ).results.map((expense) =>
-        expense.id === data.id
-          ? {
-              ...expense,
-              ...rest,
-              created_at: formatISO(created_at, { representation: "date" }),
-              category: category.label,
-              source: source.label,
-            }
-          : expense,
-      );
+  const updateCachedData = useCallback(
+    (data: yup.Asserts<typeof schema> & { id: number }) => {
+      const { category, source, created_at, ...rest } = data;
+      const expensesData = queryClient.getQueriesData({
+        queryKey: [EXPENSES_QUERY_KEY],
+        type: "active",
+      });
+      expensesData.forEach(([queryKey, cachedData]) => {
+        const newCachedData = (
+          cachedData as ApiListResponse<Expense>
+        ).results.map((expense) =>
+          expense.id === data.id
+            ? {
+                ...expense,
+                ...rest,
+                created_at: formatISO(created_at, { representation: "date" }),
+                category: category.label,
+                source: source.label,
+              }
+            : expense,
+        );
 
-      queryClient.setQueryData(
-        queryKey,
-        (oldData: ApiListResponse<Expense>) => ({
-          ...oldData,
-          results: newCachedData,
-        }),
-      );
-    });
-  };
+        queryClient.setQueryData(
+          queryKey,
+          (oldData: ApiListResponse<Expense>) => ({
+            ...oldData,
+            results: newCachedData,
+          }),
+        );
+      });
+    },
+    [queryClient],
+  );
 
   const {
     control,
@@ -354,15 +428,15 @@ const ExpenseForm = ({
           </Grid>
         </Typography>
       </Stack>
-      <AutocompleteFromObject
-        obj={ExpensesCategoriesMapping}
+      <AutocompleteFromArray
+        array={categories.results}
         control={control}
         isFieldInvalid={isFieldInvalid}
         getFieldHasError={getFieldHasError}
         getErrorMessage={getErrorMessage}
       />
-      <AutocompleteFromObject
-        obj={ExpensesSourcesMapping}
+      <AutocompleteFromArray
+        array={sources.results}
         name="source"
         label="Fonte"
         control={control}

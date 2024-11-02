@@ -3,22 +3,19 @@ from __future__ import annotations
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
+from django.db.utils import IntegrityError
+
 from rest_framework import serializers
 
-from shared.serializers_utils import CustomChoiceField
-
-from .choices import ExpenseCategory, ExpenseSource
 from .domain import commands
 from .domain.exceptions import ValidationError as DomainValidationError
 from .domain.models import Expense as ExpenseDomainModel
-from .models import BankAccount, Expense, Revenue
+from .models import BankAccount, Expense, ExpenseCategory, ExpenseSource, Revenue
 from .service_layer import messagebus
 from .service_layer.unit_of_work import ExpenseUnitOfWork
 
 
 class ExpenseSerializer(serializers.ModelSerializer):
-    source = CustomChoiceField(choices=ExpenseSource.choices)
-    category = CustomChoiceField(choices=ExpenseCategory.choices)
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     installments = serializers.IntegerField(default=1, write_only=True, allow_null=True)
 
@@ -41,8 +38,19 @@ class ExpenseSerializer(serializers.ModelSerializer):
     def create(self, validated_data: dict[str, Any]) -> Expense:
         try:
             user = validated_data.pop("user")
+            category = validated_data.pop("category")
+            expanded_category = ExpenseCategory.objects.only("id").get(name=category, user=user)
+            source = validated_data.pop("source")
+            expanded_source = ExpenseSource.objects.only("id").get(name=source, user=user)
             expense = ExpenseDomainModel(
-                **validated_data, installments_qty=validated_data.pop("installments") or 1
+                **validated_data,
+                category=category,
+                source=source,
+                installments_qty=validated_data.pop("installments") or 1,
+                extra_data={
+                    "expanded_category_id": expanded_category.id,
+                    "expanded_source_id": expanded_source.id,
+                },
             )
             messagebus.handle(
                 message=commands.CreateExpense(
@@ -54,18 +62,40 @@ class ExpenseSerializer(serializers.ModelSerializer):
                 uow=ExpenseUnitOfWork(user_id=user.id),
             )
             return expense
-        except DomainValidationError as e:
-            raise serializers.ValidationError(e.detail) from e
+        except DomainValidationError as exception:
+            raise serializers.ValidationError(exception.detail) from exception
+        except ExpenseCategory.DoesNotExist as exc:
+            raise serializers.ValidationError({"category": "A categoria não existe"}) from exc
+        except ExpenseSource.DoesNotExist as e:
+            raise serializers.ValidationError({"source": "A fonte não existe"}) from e
 
     def update(self, instance: Expense, validated_data: dict) -> Expense:
         try:
+            extra_data: dict[str, int] = {}
+
             validated_data.pop("installments")
             user = validated_data.pop("user")
+            category = validated_data.pop("category")
+
+            if category != instance.category:
+                extra_data["expanded_source_id"] = (
+                    ExpenseCategory.objects.only("id").get(name=category, user=user).id
+                )
+
+            source = validated_data.pop("source")
+            if category != instance.category:
+                extra_data["expanded_category_id"] = (
+                    ExpenseSource.objects.only("id").get(name=source, user=user).id
+                )
+
             expense = ExpenseDomainModel(
                 id=instance.pk,
+                category=category,
+                source=source,
                 installments_id=instance.installments_id,
                 installments_qty=instance.installments_qty or 1,
                 recurring_id=instance.recurring_id,
+                extra_data=extra_data,
                 **validated_data,
             )
             expense.validate_update(data_instance=instance)
@@ -80,8 +110,12 @@ class ExpenseSerializer(serializers.ModelSerializer):
                 uow=ExpenseUnitOfWork(user_id=user.id),
             )
             return expense
-        except DomainValidationError as e:
-            raise serializers.ValidationError(e.detail) from e
+        except DomainValidationError as exception:
+            raise serializers.ValidationError(exception.detail) from exception
+        except ExpenseCategory.DoesNotExist as exc:
+            raise serializers.ValidationError({"category": "A categoria não existe"}) from exc
+        except ExpenseSource.DoesNotExist as e:
+            raise serializers.ValidationError({"source": "A fonte não existe"}) from e
 
 
 class RevenueSerializer(serializers.ModelSerializer):
@@ -110,14 +144,14 @@ class AvgSerializer(serializers.Serializer):
 
 
 class ExpenseReportCategorySerializer(TotalSerializer):
-    category = CustomChoiceField(choices=ExpenseCategory.choices)
+    category = serializers.CharField()
 
 
 class ExpenseReportAvgCategorySerializer(ExpenseReportCategorySerializer, AvgSerializer): ...
 
 
 class ExpenseReportSourceSerializer(TotalSerializer):
-    source = CustomChoiceField(choices=ExpenseSource.choices)
+    source = serializers.CharField()
 
 
 class ExpenseReportAvgSourceSerializer(ExpenseReportSourceSerializer, AvgSerializer): ...
@@ -155,3 +189,27 @@ class BankAccountSerializer(serializers.ModelSerializer):
         model = BankAccount
         fields = ("amount", "description", "updated_at")
         extra_kwargs = {"updated_at": {"read_only": True}}
+
+
+class _ExpenseRelatedEntitySerializer(serializers.ModelSerializer):
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
+    class Meta:
+        fields = ("id", "user", "name", "hex_color")
+        extra_kwargs = {"id": {"read_only": True}}
+
+    def save(self, **kwargs):
+        try:
+            return super().save(**kwargs)
+        except IntegrityError as e:
+            raise serializers.ValidationError({"name": "Os nomes precisam ser únicos"}) from e
+
+
+class ExpenseCategorySerializer(_ExpenseRelatedEntitySerializer):
+    class Meta(_ExpenseRelatedEntitySerializer.Meta):
+        model = ExpenseCategory
+
+
+class ExpenseSourceSerializer(_ExpenseRelatedEntitySerializer):
+    class Meta(_ExpenseRelatedEntitySerializer.Meta):
+        model = ExpenseSource
