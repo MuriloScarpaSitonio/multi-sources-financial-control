@@ -47,3 +47,6 @@ class GenericDateFilters:
                 f"{self.date_field_name}__year": self.base_date.year,
             }
         ) | Q(**{f"{self.date_field_name}__year__gt": self.base_date.year})
+
+    def filter_range(self, start: date, end: date) -> Q:
+        return Q(**{f"{self.date_field_name}__range": (start, end)})

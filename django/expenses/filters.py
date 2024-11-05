@@ -107,40 +107,6 @@ class ExpenseAvgComparasionReportFilterSet(django_filters.FilterSet):
         raise django_filters.utils.translate_validation(error_dict=self.errors)
 
 
-class ExpensePercentageReportFilterSet(django_filters.FilterSet):
-    group_by = django_filters.ChoiceFilter(choices=ExpenseReportType.choices, required=True)
-    period = django_filters.ChoiceFilter(
-        choices=(
-            ("since_a_year_ago", "since_a_year_ago"),
-            ("current_month_and_past", "current_month_and_past"),
-            ("current", "current"),
-        ),
-        required=True,
-    )
-
-    queryset: ExpenseQueryset
-
-    @property
-    def qs(self):
-        if self.is_valid():
-            _qs = list(
-                self.queryset.percentage_report(
-                    group_by=self.form.cleaned_data["group_by"],
-                    period=self.form.cleaned_data["period"],
-                )
-            )
-
-            total_agg = sum(r["total"] for r in _qs)
-            return [
-                {
-                    **result,
-                    "total": (result["total"] / total_agg) * Decimal("100.0"),
-                }
-                for result in _qs
-            ]
-        raise django_filters.utils.translate_validation(error_dict=self.errors)
-
-
 class ExpenseHistoricFilterSet(django_filters.FilterSet):
     future = django_filters.BooleanFilter(method="filter_future", required=True)
     category = django_filters.CharFilter()
@@ -206,6 +172,33 @@ class PersonalFinanceIndicatorsV2FilterSet(django_filters.FilterSet):
     def qs(self):
         if self.is_valid():
             return super().qs
+        raise django_filters.utils.translate_validation(error_dict=self.errors)
+
+
+class ExpensePercentageReportFilterSet(PersonalFinanceIndicatorsV2FilterSet):
+    group_by = django_filters.ChoiceFilter(choices=ExpenseReportType.choices, required=True)
+
+    queryset: ExpenseQueryset
+
+    @property
+    def qs(self):
+        if self.is_valid():
+            _qs = list(
+                self.queryset.percentage_report(
+                    group_by=self.form.cleaned_data["group_by"],
+                    start_date=self.form.cleaned_data["start_date"],
+                    end_date=self.form.cleaned_data["end_date"],
+                )
+            )
+
+            total_agg = sum(r["total"] for r in _qs)
+            return [
+                {
+                    **result,
+                    "total": (result["total"] / total_agg) * Decimal("100.0"),
+                }
+                for result in _qs
+            ]
         raise django_filters.utils.translate_validation(error_dict=self.errors)
 
 

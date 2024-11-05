@@ -99,6 +99,7 @@ const useTable = ({
       ...MRT_Localization_PT_BR,
       rowsPerPage: "Mostrar",
       expand: "",
+      ...props.localization,
     },
     displayColumnDefOptions: { "mrt-row-expand": { size: 10 } },
     onPaginationChange: setPagination,

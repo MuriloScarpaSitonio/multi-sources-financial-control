@@ -11,10 +11,10 @@ from config.settings.base import BASE_API_URL
 from shared.tests import convert_and_quantitize, convert_to_percentage_and_quantitize
 
 from ...choices import (
-    ExpenseReportType,
     CREDIT_CARD_SOURCE,
     DEFAULT_CATEGORIES_MAP,
     DEFAULT_SOURCES_MAP,
+    ExpenseReportType,
 )
 from ...models import Expense
 
@@ -26,7 +26,7 @@ URL = f"/{BASE_API_URL}" + "expenses"
 MAPS = {"category": DEFAULT_CATEGORIES_MAP, "source": DEFAULT_SOURCES_MAP}
 
 
-def test__report__wo_group_by(client):
+def test__avg_comparasion_report__wo_group_by(client):
     # GIVEN
 
     # WHEN
@@ -37,7 +37,7 @@ def test__report__wo_group_by(client):
     assert response.json() == {"group_by": ["This field is required."]}
 
 
-def test__report__invalid_group_by(client):
+def test__avg_comparasion_report__invalid_group_by(client):
     # GIVEN
 
     # WHEN
@@ -50,7 +50,7 @@ def test__report__invalid_group_by(client):
     }
 
 
-def test__report__wo_period(client):
+def test__avg_comparasion_report__wo_period(client):
     # GIVEN
 
     # WHEN
@@ -61,7 +61,7 @@ def test__report__wo_period(client):
     assert response.json() == {"period": ["This field is required."]}
 
 
-def test__report__invalid_period(client):
+def test__avg_comparasion_report__invalid_period(client):
     # GIVEN
 
     # WHEN
@@ -79,7 +79,7 @@ def test__report__invalid_period(client):
     "group_by, field_name",
     [(value, ExpenseReportType.get_choice(value).field_name) for value in ExpenseReportType.values],
 )
-def test__reports(client, group_by, field_name):
+def test__avg_comparasion_report(client, group_by, field_name):
     # GIVEN
     qs = Expense.objects.since_a_year_ago()
     today = timezone.localdate()
@@ -119,7 +119,7 @@ def test__reports(client, group_by, field_name):
 
 
 @pytest.mark.parametrize("group_by", list(ExpenseReportType.values))
-def test__report__wo_data(client, group_by):
+def test__avg_comparasion_report__wo_data(client, group_by):
     # GIVEN
 
     # WHEN
@@ -132,55 +132,17 @@ def test__report__wo_data(client, group_by):
     assert response.json() == []
 
 
-@pytest.mark.usefixtures("expenses_report_data")
-@pytest.mark.parametrize(
-    "group_by, field_name",
-    [(value, ExpenseReportType.get_choice(value).field_name) for value in ExpenseReportType.values],
-)
-def test__report__current_month_and_past_period(client, group_by, field_name):
+def test__reports__percentage__wo_group_by(client):
     # GIVEN
-    qs = Expense.objects.current_month_and_past()
     today = timezone.localdate()
-    current_month = {}
-    past = {}
-    for e in qs:
-        f = getattr(e, field_name) if field_name != "is_fixed" else field_name
-        if e.created_at.month == today.month and e.created_at.year == today.year:
-            current_month.setdefault(f, []).append(e.value)
-        else:
-            past.setdefault(f, []).append(e.value)
-    result_brute_force = [
-        {
-            "total": sum(current_month.get(k)) if current_month.get(k) is not None else 0,
-            "avg": convert_and_quantitize(fmean(v)),
-            field_name: k,
-        }
-        for k, v in past.items()
-    ]
+    start_date, end_date = today - relativedelta(months=18), today
 
     # WHEN
     response = client.get(
-        f"{URL}/avg_comparasion_report?group_by={group_by}&period=current_month_and_past"
+        f"{URL}/percentage_report"
+        + f"?start_date={start_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}"
     )
-
-    # THEN
-    for result in response.json():
-        for brute_force in result_brute_force:
-            if result[field_name] == brute_force[field_name]:
-                assert convert_and_quantitize(result["total"]) == convert_and_quantitize(
-                    brute_force["total"]
-                )
-                assert convert_and_quantitize(result["avg"]) == convert_and_quantitize(
-                    brute_force["avg"]
-                )
-    assert response.status_code == HTTP_200_OK
-
-
-def test__reports__percentage__wo_group_by(client):
-    # GIVEN
-
-    # WHEN
-    response = client.get(f"{URL}/avg_comparasion_report?period=since_a_year_ago")
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
@@ -189,38 +151,20 @@ def test__reports__percentage__wo_group_by(client):
 
 def test__reports__percentage__invalid_group_by(client):
     # GIVEN
+    today = timezone.localdate()
+    start_date, end_date = today - relativedelta(months=18), today
 
     # WHEN
-    response = client.get(f"{URL}/percentage_report?group_by=wrong&period=since_a_year_ago")
+    response = client.get(
+        f"{URL}/percentage_report?group_by=wrong"
+        + f"&start_date={start_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}"
+    )
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {
         "group_by": ["Select a valid choice. wrong is not one of the available choices."]
-    }
-
-
-def test__reports__percentage__wo_period(client):
-    # GIVEN
-
-    # WHEN
-    response = client.get(f"{URL}/percentage_report?group_by=type")
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"period": ["This field is required."]}
-
-
-def test__reports__percentage__invalid_period(client):
-    # GIVEN
-
-    # WHEN
-    response = client.get(f"{URL}/percentage_report?group_by=type&period=wrong")
-
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {
-        "period": ["Select a valid choice. wrong is not one of the available choices."]
     }
 
 
@@ -231,46 +175,10 @@ def test__reports__percentage__invalid_period(client):
 )
 def test__reports__percentage(client, group_by, field_name):
     # GIVEN
+    today = timezone.localdate()
+    start_date, end_date = today - relativedelta(months=18), today
     _map = MAPS.get(field_name)
-    qs = Expense.objects.current_month()
-    total = qs.sum()["total"]
-
-    if _map:
-        totals = {v: qs.filter(**{field_name: v}).sum()["total"] for v in _map}
-    else:
-        totals = {
-            "Variável": qs.filter(is_fixed=False).sum()["total"],
-            "Fixo": qs.filter(is_fixed=True).sum()["total"],
-        }
-    # WHEN
-    response = client.get(f"{URL}/percentage_report?group_by={group_by}&period=current")
-
-    # THEN
-    for result in response.json():
-        if _map:
-            for label in _map:
-                if label == result[group_by]:
-                    assert float(
-                        convert_to_percentage_and_quantitize(value=totals[label], total=total)
-                    ) == convert_and_quantitize(result["total"])
-        else:
-            for label, value in totals.items():
-                if label == result[group_by]:
-                    assert float(
-                        convert_to_percentage_and_quantitize(value=value, total=total)
-                    ) == convert_and_quantitize(result["total"])
-    assert response.status_code == HTTP_200_OK
-
-
-@pytest.mark.usefixtures("expenses_report_data")
-@pytest.mark.parametrize(
-    "group_by, field_name",
-    [(value, ExpenseReportType.get_choice(value).field_name) for value in ExpenseReportType.values],
-)
-def test__reports__percentage__current_month_and_past(client, group_by, field_name):
-    # GIVEN
-    _map = MAPS.get(field_name)
-    qs = Expense.objects.current_month_and_past()
+    qs = Expense.objects.filter(created_at__range=(start_date, end_date))
     total = qs.sum()["total"]
 
     if _map:
@@ -282,46 +190,10 @@ def test__reports__percentage__current_month_and_past(client, group_by, field_na
         }
     # WHEN
     response = client.get(
-        f"{URL}/percentage_report?group_by={group_by}&period=current_month_and_past"
+        f"{URL}/percentage_report?group_by={group_by}"
+        + f"&start_date={start_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}"
     )
-
-    # THEN
-    for result in response.json():
-        if _map:
-            for label in _map:
-                if label == result[group_by]:
-                    assert float(
-                        convert_to_percentage_and_quantitize(value=totals[label], total=total)
-                    ) == convert_and_quantitize(result["total"])
-        else:
-            for label, value in totals.items():
-                if label == result[group_by]:
-                    assert float(
-                        convert_to_percentage_and_quantitize(value=value, total=total)
-                    ) == convert_and_quantitize(result["total"])
-    assert response.status_code == HTTP_200_OK
-
-
-@pytest.mark.usefixtures("expenses_report_data")
-@pytest.mark.parametrize(
-    "group_by, field_name",
-    [(value, ExpenseReportType.get_choice(value).field_name) for value in ExpenseReportType.values],
-)
-def test__reports__percentage__since_a_year_ago(client, group_by, field_name):
-    # GIVEN
-    _map = MAPS.get(field_name)
-    qs = Expense.objects.since_a_year_ago()
-    total = qs.sum()["total"]
-
-    if _map:
-        totals = {v: qs.filter(**{field_name: v}).sum()["total"] for v in _map}
-    else:
-        totals = {
-            "Variável": qs.filter(is_fixed=False).sum()["total"],
-            "Fixo": qs.filter(is_fixed=True).sum()["total"],
-        }
-    # WHEN
-    response = client.get(f"{URL}/percentage_report?group_by={group_by}&period=since_a_year_ago")
 
     # THEN
     for result in response.json():

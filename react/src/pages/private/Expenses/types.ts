@@ -16,11 +16,6 @@ export type AvgComparasionPeriods =
   | "since_a_year_ago"
   | "current_month_and_past";
 
-export type PercentagePeriods =
-  | "since_a_year_ago"
-  | "current_month_and_past"
-  | "current";
-
 export type ReportDataItem = {
   total: number;
   avg: number;

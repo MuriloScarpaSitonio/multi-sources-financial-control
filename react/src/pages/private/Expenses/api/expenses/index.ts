@@ -2,8 +2,8 @@ import qs from "qs";
 
 import { Expense } from "../models";
 import {
+  AvgComparasionPeriods,
   GroupBy,
-  PercentagePeriods,
   HistoricReportResponse,
 } from "../../types";
 import { apiProvider } from "../../../../../api/methods";
@@ -38,8 +38,8 @@ export const getAvg = async (): Promise<{
 }> => (await apiProvider.get(`${RESOURCE}/avg`)).data;
 
 export const getAvgComparasionReport = async (params: {
-  group_by: GroupBy;
-  period: "since_a_year_ago" | "current_month_and_past";
+  groupBy: GroupBy;
+  period: AvgComparasionPeriods;
 }): Promise<
   {
     total: number;
@@ -51,13 +51,14 @@ export const getAvgComparasionReport = async (params: {
 > =>
   (
     await apiProvider.get(`${RESOURCE}/avg_comparasion_report`, {
-      params,
+      params: { group_by: params.groupBy, period: params.period },
     })
   ).data;
 
 export const getPercentageReport = async (params: {
-  group_by: GroupBy;
-  period: PercentagePeriods;
+  groupBy: GroupBy;
+  startDate: Date;
+  endDate: Date;
 }): Promise<
   {
     total: number;
@@ -68,19 +69,23 @@ export const getPercentageReport = async (params: {
 > =>
   (
     await apiProvider.get(`${RESOURCE}/percentage_report`, {
-      params,
+      params: {
+        group_by: params.groupBy,
+        start_date: params.startDate.toLocaleDateString("pt-br"),
+        end_date: params.endDate.toLocaleDateString("pt-br"),
+      },
     })
   ).data;
 
 export const getHistoricReport = async (params: {
-  start_date: Date;
-  end_date: Date;
+  startDate: Date;
+  endDate: Date;
 }): Promise<HistoricReportResponse> =>
   (
     await apiProvider.get(`${RESOURCE}/historic_report`, {
       params: {
-        start_date: params.start_date.toLocaleDateString("pt-br"),
-        end_date: params.end_date.toLocaleDateString("pt-br"),
+        start_date: params.startDate.toLocaleDateString("pt-br"),
+        end_date: params.endDate.toLocaleDateString("pt-br"),
       },
     })
   ).data;

@@ -222,6 +222,7 @@ const Table = () => {
     isLoading: isRelatedEntitiesLoading,
     positionActionsColumn: "last",
     initialState: { grouping: ["type"], expanded: { "type:Outros": true } },
+    localization: { noRecordsToDisplay: "Nenhuma despesa encontrada" },
     displayColumnDefOptions: {
       "mrt-row-expand": {
         muiTableBodyCellProps: () => ({

@@ -127,6 +127,12 @@ const MostExpensiveIndicator = ({
         }}
       />
     );
+  if (!expense?.value)
+    return (
+      <IndicatorBox variant="danger" width="50%" height="50%">
+        <Text size={FontSizes.SMALL}>Nenhuma despesa encontrada</Text>
+      </IndicatorBox>
+    );
   return (
     <IndicatorBox variant="danger" width="50%">
       <Stack gap={1}>
@@ -142,7 +148,7 @@ const MostExpensiveIndicator = ({
         </Stack>
         <Text size={FontSizes.SMALL}>
           R${" "}
-          {expense?.value.toLocaleString("pt-br", {
+          {expense?.value?.toLocaleString("pt-br", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           })}

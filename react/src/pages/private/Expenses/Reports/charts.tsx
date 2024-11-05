@@ -177,8 +177,6 @@ export const PieChart = ({
   colors: Map<string, string>;
 }) => {
   const hasFewOptions = (data?.length ?? 0) < 5;
-  console.log("data = ", data);
-  console.log("colors = ", colors);
   return (
     <PieReChart
       width={CHART_WIDTH}

@@ -211,6 +211,7 @@ const Table = () => {
     columns: columns as Column<any>[],
     queryKey: [ASSETS_QUERY_KEY],
     defaultFilters: { status: "OPENED" },
+    localization: { noRecordsToDisplay: "Nenhum ativo encontrado" },
     enableExpanding: true,
     columnVisibility,
     onColumnVisibilityChange: setColumnVisibility,

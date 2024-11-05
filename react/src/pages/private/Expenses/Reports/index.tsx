@@ -1,6 +1,7 @@
-import { useContext, useMemo, useState } from "react";
+import { Dispatch, SetStateAction, useContext, useMemo, useState } from "react";
 
 import { TabPanel } from "@mui/base/TabPanel";
+import Box from "@mui/material/Box";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import Tab from "@mui/material/Tab";
@@ -16,12 +17,13 @@ import {
   StyledTabs,
   StyledTabsList,
   ReportBox,
+  Text,
+  FontSizes,
 } from "../../../../design-system";
 import {
   GroupBy,
   AvgComparasionPeriods,
   Kinds,
-  PercentagePeriods,
   ReportUnknownAggregationData,
   HistoricReportResponse,
 } from "../types";
@@ -39,9 +41,63 @@ import ReportTabs from "../../../../design-system/components/ReportTabs";
 import { ExpensesContext } from "../context";
 import { ExpensesTypesColorMap } from "../consts";
 
+type DatesState = {
+  startDate: Date;
+  setStartDate: Dispatch<SetStateAction<Date>>;
+  endDate: Date;
+  setEndDate: Dispatch<SetStateAction<Date>>;
+};
+
+type DateView = "day" | "month" | "year";
+
+const DatePickers = ({
+  views,
+  startDate,
+  setStartDate,
+  endDate,
+  setEndDate,
+}: { views: DateView[] } & DatesState) => (
+  <Stack
+    direction="row"
+    gap={1}
+    justifyContent="flex-end"
+    sx={{ pr: 2.5, pb: 1 }}
+  >
+    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
+      <DatePicker
+        label="Início"
+        slotProps={{
+          textField: { required: true, size: "small", variant: "standard" },
+        }}
+        value={startDate}
+        views={views}
+        onChange={(v) => {
+          if (v && v <= endDate) setStartDate(v);
+        }}
+      />
+    </LocalizationProvider>
+    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
+      <DatePicker
+        label="Fim"
+        slotProps={{
+          textField: { required: true, size: "small", variant: "standard" },
+        }}
+        value={endDate}
+        views={views}
+        onChange={(v) => {
+          if (v && v >= startDate) setEndDate(v);
+        }}
+      />
+    </LocalizationProvider>
+  </Stack>
+);
+
 const PercentageContent = ({ groupBy }: { groupBy: GroupBy }) => {
-  const [period, setPeriod] = useState<PercentagePeriods>("current");
   const {
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
     sources: { hexColorMapping: sourcesColorMapping },
     categories: { hexColorMapping: categoriesColorMapping },
   } = useContext(ExpensesContext);
@@ -56,28 +112,29 @@ const PercentageContent = ({ groupBy }: { groupBy: GroupBy }) => {
   const {
     data,
     // isPending TODO
-  } = useExpensesPercentagenReport({
-    group_by: groupBy,
-    period,
-  });
+  } = useExpensesPercentagenReport({ groupBy, startDate, endDate });
 
+  console.log("data =", data);
   return (
     <Stack justifyContent="center" sx={{ py: 1, pl: 2.5 }}>
-      <Stack direction="row" justifyContent="flex-end">
-        <Select
-          value={period}
-          onChange={(e) => setPeriod(e.target.value as PercentagePeriods)}
-        >
-          <MenuItem value="current">Mês atual</MenuItem>
-          <MenuItem value="since_a_year_ago">Um ano atrás</MenuItem>
-          <MenuItem value="current_month_and_past">Todo o período</MenuItem>
-        </Select>
-      </Stack>
-      <PieChart
-        data={data as ReportUnknownAggregationData}
-        groupBy={groupBy}
-        colors={colors}
+      <DatePickers
+        views={["day", "month", "year"]}
+        startDate={startDate}
+        setStartDate={setStartDate}
+        endDate={endDate}
+        setEndDate={setEndDate}
       />
+      {!!data?.length ? (
+        <PieChart
+          data={data as ReportUnknownAggregationData}
+          groupBy={groupBy}
+          colors={colors}
+        />
+      ) : (
+        <Box sx={{ py: 18, pl: 15, mr: 25 }}>
+          <Text size={FontSizes.SEMI_REGULAR}>Nenhuma despesa encontrada</Text>
+        </Box>
+      )}
     </Stack>
   );
 };
@@ -92,14 +149,17 @@ const CurrentWithAvgComparasionContent = ({
   const {
     data,
     // isPending TODO
-  } = useExpensesAvgComparasionReport({
-    group_by: groupBy,
-    period,
-  });
+  } = useExpensesAvgComparasionReport({ groupBy, period });
 
   return (
     <Stack gap={1} justifyContent="center" sx={{ py: 1, pl: 2.5 }}>
-      <Stack direction="row" justifyContent="flex-end">
+      <Stack
+        direction="row"
+        gap={1}
+        alignItems="center"
+        justifyContent="flex-end"
+      >
+        <Text size={FontSizes.SEMI_REGULAR}>Comparar com média de</Text>
         <Select
           value={period}
           onChange={(e) => setPeriod(e.target.value as AvgComparasionPeriods)}
@@ -182,41 +242,17 @@ const HistoricContent = () => {
   const {
     data,
     // isPending TODO
-  } = useExpensesHistoricReport({
-    start_date: startDate,
-    end_date: endDate,
-  });
+  } = useExpensesHistoricReport({ startDate, endDate });
 
   return (
     <Stack gap={1} justifyContent="center" sx={{ pt: 2, pb: 1, pl: 2.5 }}>
-      <Stack direction="row" gap={1} justifyContent="flex-end" sx={{ pr: 2.5 }}>
-        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
-          <DatePicker
-            label="Início"
-            slotProps={{
-              textField: { required: true, size: "small", variant: "standard" },
-            }}
-            value={startDate}
-            views={["month", "year"]}
-            onChange={(v) => {
-              if (v && v < endDate) setStartDate(v);
-            }}
-          />
-        </LocalizationProvider>
-        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
-          <DatePicker
-            label="Fim"
-            slotProps={{
-              textField: { required: true, size: "small", variant: "standard" },
-            }}
-            value={endDate}
-            views={["month", "year"]}
-            onChange={(v) => {
-              if (v && v > startDate) setEndDate(v);
-            }}
-          />
-        </LocalizationProvider>
-      </Stack>
+      <DatePickers
+        views={["month", "year"]}
+        startDate={startDate}
+        setStartDate={setStartDate}
+        endDate={endDate}
+        setEndDate={setEndDate}
+      />
       <BarChartWithReferenceLine
         data={data?.historic as HistoricReportResponse["historic"]}
         referenceValue={data?.avg as HistoricReportResponse["avg"]}
@@ -231,7 +267,7 @@ const Content = ({ kind }: { kind: Kinds }) => {
 };
 
 const ExpenseReports = () => {
-  const [kind, setKind] = useState<Kinds>(Kinds.HISTORIC);
+  const [kind, setKind] = useState<Kinds>(Kinds.PERCENTAGE);
   const [tabValue, setTabValue] = useState(0);
 
   return (
@@ -241,11 +277,11 @@ const ExpenseReports = () => {
         onChange={(_, newValue) => {
           switch (newValue) {
             case 0:
-              setKind(Kinds.HISTORIC);
+              setKind(Kinds.PERCENTAGE);
               setTabValue(newValue);
               break;
             case 1:
-              setKind(Kinds.PERCENTAGE);
+              setKind(Kinds.HISTORIC);
               setTabValue(newValue);
               break;
             case 2:
@@ -257,8 +293,8 @@ const ExpenseReports = () => {
           }
         }}
       >
-        <Tab label="Histórico" />
         <Tab label="Percentual" />
+        <Tab label="Histórico" />
         <Tab label="Valor gasto" />
       </ReportTabs>
       <Content kind={kind} />

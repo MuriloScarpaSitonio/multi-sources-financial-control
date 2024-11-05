@@ -7,7 +7,7 @@ import type {
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { PercentagePeriods, AvgComparasionPeriods } from "../../types";
+import { AvgComparasionPeriods } from "../../types";
 import {
   getAvgComparasionReport,
   getPercentageReport,
@@ -17,7 +17,12 @@ import {
 const AVG_COMPASATION_REPORT_QUERY_KEY = "expense-avg-comparasion-report";
 
 type Params = {
-  group_by: GroupBy;
+  groupBy: GroupBy;
+};
+
+type HistoricParams = {
+  startDate: Date;
+  endDate: Date;
 };
 type AvgComparasionParams = Params & {
   period: AvgComparasionPeriods;
@@ -47,9 +52,7 @@ export const useInvalidateExpensesAvgComparasionReportQueries = (
 
 export const PERCENTAGE_REPORT_QUERY_KEY = "expense-percentage-report";
 
-type PercentageParams = Params & {
-  period: PercentagePeriods;
-};
+type PercentageParams = Params & HistoricParams;
 
 export const useExpensesPercentagenReport = (
   params: PercentageParams,
@@ -74,8 +77,6 @@ export const useInvalidateExpensesPercentagenReportQueries = (
 };
 
 const HISTORIC_REPORT_QUERY_KEY = "expense-historic-report";
-
-type HistoricParams = { start_date: Date; end_date: Date };
 
 export const useExpensesHistoricReport = (
   params: HistoricParams,

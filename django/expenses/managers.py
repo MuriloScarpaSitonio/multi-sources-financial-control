@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Literal, Self
 
@@ -88,15 +89,17 @@ class _PersonalFinancialQuerySet(QuerySet):
 
 
 class ExpenseQueryset(_PersonalFinancialQuerySet):
-    def percentage_report(
-        self,
-        group_by: str,
-        period: Literal["since_a_year_ago", "current_month", "current_month_and_past"],
-    ) -> Self:
+    def percentage_report(self, group_by: str, start_date: date, end_date: date) -> Self:
         choice = ExpenseReportType.get_choice(value=group_by)
         return (
             self.values(choice.field_name)
-            .annotate(total=Sum("value", filter=getattr(self.filters, period), default=Decimal()))
+            .annotate(
+                total=Sum(
+                    "value",
+                    filter=self.filters.filter_range(start_date, end_date),
+                    default=Decimal(),
+                )
+            )
             .filter(total__gt=0)
             .order_by("-total")
         )

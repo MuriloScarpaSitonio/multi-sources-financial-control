@@ -78,12 +78,12 @@ class ExpenseSerializer(serializers.ModelSerializer):
             category = validated_data.pop("category")
 
             if category != instance.category:
-                extra_data["expanded_source_id"] = (
+                extra_data["expanded_category_id"] = (
                     ExpenseCategory.objects.only("id").get(name=category, user=user).id
                 )
 
             source = validated_data.pop("source")
-            if category != instance.category:
+            if source != instance.source:
                 extra_data["expanded_category_id"] = (
                     ExpenseSource.objects.only("id").get(name=source, user=user).id
                 )
