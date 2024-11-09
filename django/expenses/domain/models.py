@@ -90,12 +90,12 @@ class Expense(IsPastOrFutureMixin):
                 raise FixedExpensesWithInstallmentsNotAllowedException()
             if self.source != CREDIT_CARD_SOURCE:
                 raise ExpensesWithInstallmentsMustBeCreditedCardException()
-        if (
-            not self.is_fixed
-            and self.created_at > timezone.localdate()
-            and self.source != CREDIT_CARD_SOURCE
-        ):
-            raise FutureExpenseMustBeCreditCardException()
+        # if (
+        #     not self.is_fixed
+        #     and self.created_at > timezone.localdate()
+        #     and self.source != CREDIT_CARD_SOURCE
+        # ):
+        #     raise FutureExpenseMustBeCreditCardException()
 
     def validate_update(self, data_instance: ExpenseDataModel) -> None:
         if (
