@@ -71,6 +71,22 @@ class _PersonalFinanceViewSet(
         return Response(serializer.data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
+    def historic_report(self, request: Request) -> Response:
+        filterset = filters.ExpenseHistoricV2FilterSet(
+            data=request.GET, queryset=self.get_queryset()
+        )
+        qs = filterset.qs
+        serializer = serializers.HistoricResponseSerializer(
+            {
+                "historic": insert_zeros_if_no_data_in_monthly_historic_data(
+                    historic=list(qs.trunc_months().order_by("month"))
+                ),
+                **qs.monthly_avg(),
+            }
+        )
+        return Response(serializer.data, status=HTTP_200_OK)
+
+    @action(methods=("GET",), detail=False)
     def indicators(self, _: Request) -> Response:
         qs = self.get_queryset().indicators()
         # TODO: do this via SQL
@@ -161,22 +177,6 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
             data=request.GET, queryset=self.get_queryset()
         )
         return Response(self._get_report_data(filterset=filterset, avg=False), status=HTTP_200_OK)
-
-    @action(methods=("GET",), detail=False)
-    def historic_report(self, request: Request) -> Response:
-        filterset = filters.ExpenseHistoricV2FilterSet(
-            data=request.GET, queryset=self.get_queryset()
-        )
-        qs = filterset.qs
-        serializer = serializers.HistoricResponseSerializer(
-            {
-                "historic": insert_zeros_if_no_data_in_monthly_historic_data(
-                    historic=list(qs.trunc_months().order_by("month"))
-                ),
-                **qs.monthly_avg(),
-            }
-        )
-        return Response(serializer.data, status=HTTP_200_OK)
 
 
 class RevenueViewSet(_PersonalFinanceViewSet):

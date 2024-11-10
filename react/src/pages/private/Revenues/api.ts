@@ -1,5 +1,6 @@
 import { Revenue } from "./models";
 
+import { HistoricReportResponse } from "../Expenses/types";
 import { apiProvider } from "../../../api/methods";
 import { ApiListResponse } from "../../../types";
 
@@ -113,3 +114,16 @@ export const getSum = async (params: {
 export const getAvg = async (): Promise<{
   avg: number;
 }> => (await apiProvider.get(`${RESOURCE}/avg`)).data;
+
+export const getHistoricReport = async (params: {
+  startDate: Date;
+  endDate: Date;
+}): Promise<HistoricReportResponse> =>
+  (
+    await apiProvider.get(`${RESOURCE}/historic_report`, {
+      params: {
+        start_date: params.startDate.toLocaleDateString("pt-br"),
+        end_date: params.endDate.toLocaleDateString("pt-br"),
+      },
+    })
+  ).data;

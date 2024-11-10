@@ -229,30 +229,47 @@ export const PieChart = ({
 const BarChartWithReferenceLineToolTipContent = ({
   active,
   payload,
+  variant,
 }: {
   active?: boolean;
   payload?: {
     payload: HistoricReportDataItem;
   }[];
+  variant: "danger" | "success";
 }) => {
   if (active && payload && payload.length) {
     const { payload: data } = payload[0];
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [_, month, year] = data.month.split("/");
+    const isVariantDanger = variant === "danger";
     return (
       <Stack
         spacing={0.1}
         sx={{
           border: "1px solid",
           p: 1,
-          borderColor: getColor(Colors.danger100),
+          borderColor: getColor(
+            isVariantDanger ? Colors.danger100 : Colors.brand100,
+          ),
           backgroundColor: getColor(Colors.neutral600),
         }}
       >
-        <p style={{ color: getColor(Colors.danger200) }}>
+        <p
+          style={{
+            color: getColor(
+              isVariantDanger ? Colors.danger200 : Colors.brand200,
+            ),
+          }}
+        >
           {`Total: R$ ${data.total.toLocaleString("pt-br", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
         </p>
-        <p style={{ color: getColor(Colors.danger100) }}>
+        <p
+          style={{
+            color: getColor(
+              isVariantDanger ? Colors.danger100 : Colors.brand100,
+            ),
+          }}
+        >
           {`Mês: ${month}/${year}`}
         </p>
       </Stack>
@@ -263,12 +280,15 @@ const BarChartWithReferenceLineToolTipContent = ({
 export const BarChartWithReferenceLine = ({
   data,
   referenceValue,
+  variant,
 }: {
   data: HistoricReportDataItem[];
   referenceValue: number;
+  variant: "danger" | "success";
 }) => {
   const secondDayOfCurrentMonth = new Date();
   secondDayOfCurrentMonth.setDate(2);
+  const isVariantDanger = variant === "danger";
   return (
     <BarChart
       width={CHART_WIDTH * 1.15}
@@ -280,7 +300,7 @@ export const BarChartWithReferenceLine = ({
       <YAxis />
       <Tooltip
         cursor={false}
-        content={<BarChartWithReferenceLineToolTipContent />}
+        content={<BarChartWithReferenceLineToolTipContent variant={variant} />}
       />
       <Bar dataKey="total" radius={[5, 5, 0, 0]}>
         {data?.map((d) => {
@@ -292,17 +312,23 @@ export const BarChartWithReferenceLine = ({
             ? {
                 fill: getColor(Colors.neutral900),
                 strokeWidth: 1,
-                stroke: getColor(Colors.danger100),
+                stroke: getColor(
+                  isVariantDanger ? Colors.danger100 : Colors.brand100,
+                ),
                 strokeDasharray: "3 3",
               }
-            : { fill: getColor(Colors.danger200) };
+            : {
+                fill: getColor(
+                  isVariantDanger ? Colors.danger200 : Colors.brand200,
+                ),
+              };
           return <Cell key={d.month} {...props} />;
         })}
       </Bar>
       <ReferenceLine
         y={referenceValue}
         label="Média"
-        stroke={getColor(Colors.danger200)}
+        stroke={getColor(isVariantDanger ? Colors.danger200 : Colors.brand200)}
         strokeWidth={1}
         strokeDasharray="3 3"
       />

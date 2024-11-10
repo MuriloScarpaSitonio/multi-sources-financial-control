@@ -1,4 +1,5 @@
 export { default as AutoCompleteMultiInput } from "./AutoCompleteMultiInput";
+export { default as DatePickers } from "./DatePickers";
 export { default as FormDrawer } from "./FormDrawer";
 export { default as FormFeedbackError } from "./FormFeedbackError";
 export { default as InfoIconTooltip } from "./InfoIconTooltip";

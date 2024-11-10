@@ -7,13 +7,14 @@ import Tabs from "@mui/material/Tabs";
 
 import { endOfMonth, Month, startOfMonth } from "date-fns";
 
+import { default as RevenueReports } from "../Revenues/Reports";
 import { default as RevenuesTable } from "../Revenues/Table";
 import { ExpensesContext } from "./context";
 import { useGetCategories, useGetSources } from "./hooks";
 import Indicators from "./Indicators";
 import PeriodsManager from "./PeriodsManager";
-import Reports from "./Reports";
-import { default as ExpenseTable } from "./Table";
+import { default as ExpenseReports } from "./Reports";
+import { default as ExpensesTable } from "./Table";
 import { Colors, getColor } from "../../../design-system";
 
 const customEndOfMonth = (date: Date) => {
@@ -21,6 +22,27 @@ const customEndOfMonth = (date: Date) => {
   result.setHours(0, 0, 0, 0);
   return result;
 };
+
+const CustomTabs = ({
+  tabValue,
+  onTabChange,
+}: {
+  tabValue: number;
+  onTabChange: (event: SyntheticEvent, value: number) => void;
+}) => (
+  <Tabs
+    value={tabValue}
+    onChange={onTabChange}
+    TabIndicatorProps={{
+      sx: { background: getColor(Colors.neutral0), height: "1.5px" },
+    }}
+    textColor="inherit"
+    visibleScrollbar
+  >
+    <Tab label="Despesas" />
+    <Tab label="Receitas" />
+  </Tabs>
+);
 
 const Expenses = () => {
   const now = new Date();
@@ -86,26 +108,25 @@ const Expenses = () => {
             <Indicators />
           </Grid>
           <Grid item xs={6}>
-            <Reports />
+            <CustomTabs
+              tabValue={tabValue}
+              onTabChange={(_: SyntheticEvent, value: number) =>
+                setTabValue(value)
+              }
+            />
+            {tabValue === 0 && <ExpenseReports />}
+            {tabValue === 1 && <RevenueReports />}
           </Grid>
         </Grid>
         <Grid container spacing={4}>
           <Grid item xs={12}>
-            <Tabs
-              value={tabValue}
-              onChange={(_: SyntheticEvent, value: number) =>
+            <CustomTabs
+              tabValue={tabValue}
+              onTabChange={(_: SyntheticEvent, value: number) =>
                 setTabValue(value)
               }
-              TabIndicatorProps={{
-                sx: { background: getColor(Colors.neutral0), height: "1.5px" },
-              }}
-              textColor="inherit"
-              visibleScrollbar
-            >
-              <Tab label="Despesas" />
-              <Tab label="Receitas" />
-            </Tabs>
-            {tabValue === 0 && <ExpenseTable />}
+            />
+            {tabValue === 0 && <ExpensesTable />}
             {tabValue === 1 && <RevenuesTable />}
           </Grid>
         </Grid>
