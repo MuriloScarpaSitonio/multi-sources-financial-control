@@ -30,14 +30,9 @@ import {
   ToggleFullScreenMenuItem,
 } from "../../../../Datatable/components";
 
-import ExpenseDrawer from "./ExpenseDrawer";
+import RevenueDrawer from "./RevenueDrawer";
 import FiltersMenu from "./FiltersMenu";
-import {
-  ManageRelatedEntitiesMenuItem,
-  ManageRelatedEntitiesDrawer,
-} from "./ManageRelatedEntitiesMenuItem";
-import { Filters } from "../../types";
-import { Expense } from "../../api/models";
+import { Revenue } from "../../models";
 
 const removeProperties = (
   obj: Record<string, any> | undefined,
@@ -55,7 +50,6 @@ const removeProperties = (
 
 const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [openDrawer, setOpenDrawer] = useState(false);
 
   const onClose = () => setAnchorEl(null);
   return (
@@ -68,20 +62,10 @@ const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
         <MoreVertIcon />
       </IconButton>
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={onClose}>
-        <ManageRelatedEntitiesMenuItem
-          onClick={() => {
-            setOpenDrawer(true);
-            onClose();
-          }}
-        />
         <ShowHideColumnsMenuItem table={table} />
         <ToggleDensityMenuItem table={table} />
         <ToggleFullScreenMenuItem table={table} />
       </Menu>
-      <ManageRelatedEntitiesDrawer
-        open={openDrawer}
-        onClose={() => setOpenDrawer(false)}
-      />
     </>
   );
 };
@@ -90,12 +74,10 @@ const TopToolBar = ({
   table,
   setSearch,
   setPagination,
-  setFilters,
 }: {
   table: DataTable<Row>;
   setSearch: Dispatch<SetStateAction<string>>;
   setPagination: Dispatch<SetStateAction<PaginationState>>;
-  setFilters: Dispatch<SetStateAction<Filters>>;
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openDrawer, setOpenDrawer] = useState(false);
@@ -155,7 +137,7 @@ const TopToolBar = ({
               variant="brand"
               onClick={() => setOpenDrawer(true)}
             >
-              Despesa
+              Receita
             </Button>
             <Button
               variant="neutral"
@@ -172,19 +154,18 @@ const TopToolBar = ({
         open={Boolean(anchorEl)}
         onClose={() => setAnchorEl(null)}
         anchorEl={anchorEl}
-        setFilters={setFilters}
       />
-      <ExpenseDrawer
+      <RevenueDrawer
         open={openDrawer}
         onClose={() => {
           setOpenDrawer(false);
           table.setEditingRow(null);
         }}
-        expense={
+        revenue={
           removeProperties(editingRow?.original, [
             "type",
             "full_description",
-          ]) as Expense
+          ]) as Revenue
         }
       />
     </>

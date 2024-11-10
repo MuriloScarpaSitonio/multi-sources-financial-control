@@ -1,14 +1,20 @@
-import Stack from "@mui/material/Stack";
-import Grid from "@mui/material/Grid";
+import { useMemo, useState, type SyntheticEvent } from "react";
 
-import Indicators from "./Indicators";
+import Grid from "@mui/material/Grid";
+import Stack from "@mui/material/Stack";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
+
+import { endOfMonth, Month, startOfMonth } from "date-fns";
+
+import { default as RevenuesTable } from "../Revenues/Table";
 import { ExpensesContext } from "./context";
+import { useGetCategories, useGetSources } from "./hooks";
+import Indicators from "./Indicators";
 import PeriodsManager from "./PeriodsManager";
 import Reports from "./Reports";
-import Table from "./Table";
-import { useMemo, useState } from "react";
-import { endOfMonth, Month, startOfMonth } from "date-fns";
-import { useGetCategories, useGetSources } from "./hooks";
+import { default as ExpenseTable } from "./Table";
+import { Colors, getColor } from "../../../design-system";
 
 const customEndOfMonth = (date: Date) => {
   const result = endOfMonth(date);
@@ -22,6 +28,7 @@ const Expenses = () => {
   const [endDate, setEndDate] = useState(customEndOfMonth(now));
   const [month, setMonth] = useState(now.getMonth() as Month | undefined);
   const [year, setYear] = useState(now.getFullYear());
+  const [tabValue, setTabValue] = useState(0);
 
   const { data: categoriesData, isPending: isLoadingCategories } =
     useGetCategories({ ordering: "name" });
@@ -84,7 +91,22 @@ const Expenses = () => {
         </Grid>
         <Grid container spacing={4}>
           <Grid item xs={12}>
-            <Table />
+            <Tabs
+              value={tabValue}
+              onChange={(_: SyntheticEvent, value: number) =>
+                setTabValue(value)
+              }
+              TabIndicatorProps={{
+                sx: { background: getColor(Colors.neutral0), height: "1.5px" },
+              }}
+              textColor="inherit"
+              visibleScrollbar
+            >
+              <Tab label="Despesas" />
+              <Tab label="Receitas" />
+            </Tabs>
+            {tabValue === 0 && <ExpenseTable />}
+            {tabValue === 1 && <RevenuesTable />}
           </Grid>
         </Grid>
       </Stack>

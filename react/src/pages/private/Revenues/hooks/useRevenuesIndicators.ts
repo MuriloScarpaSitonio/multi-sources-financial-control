@@ -1,8 +1,11 @@
+import type { QueryClient } from "@tanstack/react-query";
+
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getAvg, getSum } from "../../api/revenues";
-import { isFilteringWholeMonth } from "../../utils";
 import { startOfMonth } from "date-fns";
+
+import { getAvg, getSum } from "../api";
+import { isFilteringWholeMonth } from "../../Expenses/utils";
 
 const SUM_QUERY_KEY = "revenues-sum";
 
@@ -56,8 +59,10 @@ export const useRevenuesIndicators = (params: {
   };
 };
 
-export const useInvalidateRevenuesIndicatorsQueries = () => {
-  const queryClient = useQueryClient();
+export const useInvalidateRevenuesIndicatorsQueries = (
+  client?: QueryClient,
+) => {
+  const queryClient = useQueryClient(client);
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({

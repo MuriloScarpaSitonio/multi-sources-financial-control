@@ -8,11 +8,7 @@ import CheckCircleOutlinedIcon from "@mui/icons-material/CheckCircleOutlined";
 import { styled } from "@mui/material/styles";
 
 import { Indicator } from "../../components";
-import {
-  useExpensesIndicators,
-  useRevenuesIndicators,
-  useMostExpensiveExpense,
-} from "./hooks";
+import { useExpensesIndicators, useMostExpensiveExpense } from "./hooks";
 import PercentageChangeSecondaryIndicator from "./PercentageChangeSecondaryIndicator";
 import LinearProgress, {
   linearProgressClasses,
@@ -31,6 +27,7 @@ import { StatusDot } from "../../../../design-system/icons";
 import { useBankAccount } from "../hooks";
 import { IndicatorBox } from "./components";
 import BankAccountIndicator from "./BankAccountIndicator";
+import { useRevenuesIndicators } from "../../Revenues/hooks/useRevenuesIndicators";
 
 const BorderLinearProgress = styled(LinearProgress)(({ value }) => ({
   height: 24,

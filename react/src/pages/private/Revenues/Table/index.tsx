@@ -1,5 +1,4 @@
 import type { ApiListResponse, RawDateString } from "../../../../types";
-import type { Filters } from "../types";
 
 import { useMemo, useContext, useState } from "react";
 
@@ -24,101 +23,87 @@ import {
   getColor,
   Colors,
 } from "../../../../design-system";
-import { StatusDot } from "../../../../design-system/icons";
 import useTable from "../../../../hooks/useTable";
-import { getExpenses } from "../api/expenses";
-import { Expense } from "../api/models";
+import { getRevenues } from "../api";
+import { Revenue } from "../models";
 
-import { EXPENSES_QUERY_KEY } from "../consts";
-import { ExpensesContext } from "../context";
-import { useInvalidateExpenseQueries } from "../hooks";
-import DeleteExpenseDialog from "./DeleteExpenseDialog";
+import { REVENUES_QUERY_KEY } from "../consts";
+import { ExpensesContext } from "../../Expenses/context";
+import { useInvalidateRevenuesQueries } from "../hooks";
+import DeleteRevenueDialog from "./DeleteRevenueDialog";
 import TopToolBar from "./ToopToolBar";
 
-type GroupedExpense = Expense & { type: string };
+type GroupedRevenue = Revenue & { type: string };
 
-const getExpensesGroupedByType = async (
-  filters: Filters & {
-    startDate: Date;
-    endDate: Date;
-    page?: number;
-    page_size?: number;
-    ordering?: string;
-    description?: string;
-  },
-): Promise<ApiListResponse<GroupedExpense>> => {
-  const [expenses, fixedExpenses, expensesWInstallments] = await Promise.all([
-    getExpenses({
+const getRevenuesGroupedByType = async (filters: {
+  startDate: Date;
+  endDate: Date;
+  page?: number;
+  page_size?: number;
+  ordering?: string;
+  description?: string;
+}): Promise<ApiListResponse<GroupedRevenue>> => {
+  const [Revenues, fixedRevenues] = await Promise.all([
+    getRevenues({
       ...filters,
       is_fixed: false,
-      with_installments: false,
-      // page: 1,
-      // page_size: 100,
-    }),
-    getExpenses({ ...filters, is_fixed: true, page: 1, page_size: 100 }),
-    getExpenses({
-      ...filters,
-      with_installments: true,
       page: 1,
       page_size: 100,
     }),
+    getRevenues({ ...filters, is_fixed: true, page: 1, page_size: 100 }),
   ]);
 
   return {
     results: [
-      ...fixedExpenses?.results?.map((obj: Expense) => ({
+      ...fixedRevenues?.results?.map((obj: Revenue) => ({
         ...obj,
-        type: "Custos fixos",
+        type: "Receitas fixas",
       })),
-      ...expensesWInstallments?.results?.map((obj: Expense) => ({
-        ...obj,
-        type: "Parcelas",
-      })),
-      ...expenses?.results?.map((obj: Expense) => ({ ...obj, type: "Outros" })),
+      ...Revenues?.results?.map((obj: Revenue) => ({ ...obj, type: "Outras" })),
     ],
-    count: expenses?.count,
+    count: Revenues?.count,
   };
 };
 
-const useOnExpenseDeleteSuccess = () => {
+const useOnRevenueDeleteSuccess = () => {
   const queryClient = useQueryClient();
-  const { invalidate: invalidateExpensesQueries } =
-    useInvalidateExpenseQueries(queryClient);
+  const { invalidate: invalidateRevenuesQueries } =
+    useInvalidateRevenuesQueries(queryClient);
 
-  const removeExpenseFromCachedData = (expenseId: number) => {
-    const expensesData = queryClient.getQueriesData({
-      queryKey: [EXPENSES_QUERY_KEY],
+  const removeRevenueFromCachedData = (RevenueId: number) => {
+    const revenuesData = queryClient.getQueriesData({
+      queryKey: [REVENUES_QUERY_KEY],
       type: "active",
     });
-    expensesData.forEach(([queryKey]) => {
+    revenuesData.forEach(([queryKey]) => {
       queryClient.setQueryData(
         queryKey,
-        (oldData: ApiListResponse<GroupedExpense>) => ({
+        (oldData: ApiListResponse<GroupedRevenue>) => ({
           ...oldData,
           count: oldData.count - 1,
           results: oldData.results.filter(
-            (expense) => expense.id !== expenseId,
+            (Revenue) => Revenue.id !== RevenueId,
           ),
         }),
       );
     });
   };
   return {
-    onDeleteSuccess: async (expenseId: number) => {
-      await invalidateExpensesQueries({ invalidateTableQuery: false });
-      removeExpenseFromCachedData(expenseId);
+    onDeleteSuccess: async (RevenueId: number) => {
+      await invalidateRevenuesQueries({ invalidateTableQuery: false });
+      removeRevenueFromCachedData(RevenueId);
     },
   };
 };
 
 const Table = () => {
-  const [deleteExpense, setDeleteExpense] = useState<
-    GroupedExpense | undefined
+  const [deleteRevenue, setDeleteRevenue] = useState<
+    GroupedRevenue | undefined
   >();
 
-  const { startDate, endDate, categories, sources, isRelatedEntitiesLoading } =
+  const { startDate, endDate, isRelatedEntitiesLoading } =
     useContext(ExpensesContext);
-  const columns = useMemo<Column<GroupedExpense>[]>(
+  const columns = useMemo<Column<GroupedRevenue>[]>(
     () => [
       { header: "", accessorKey: "type", size: 25 },
       {
@@ -127,7 +112,7 @@ const Table = () => {
         size: 100,
       },
       {
-        header: "Preço",
+        header: "Valor",
         accessorKey: "value",
         size: 40,
         Cell: ({ cell }) => {
@@ -156,45 +141,11 @@ const Table = () => {
           return `${day}/${month}/${year}`;
         },
       },
-      {
-        header: "Categoria",
-        accessorKey: "category",
-        size: 80,
-        Cell: ({ cell }) => {
-          const category = cell.getValue<string>();
-          return (
-            <Stack direction="row" spacing={1} alignItems="center">
-              <StatusDot
-                variant="custom"
-                color={categories.hexColorMapping.get(category)}
-              />
-              <span>{category}</span>
-            </Stack>
-          );
-        },
-      },
-      {
-        header: "Fonte",
-        accessorKey: "source",
-        size: 80,
-        Cell: ({ cell }) => {
-          const source = cell.getValue<string>();
-          return (
-            <Stack direction="row" spacing={1} alignItems="center">
-              <StatusDot
-                variant="custom"
-                color={sources.hexColorMapping.get(source)}
-              />
-              <span>{source}</span>
-            </Stack>
-          );
-        },
-      },
     ],
-    [categories, sources],
+    [],
   );
 
-  const { onDeleteSuccess } = useOnExpenseDeleteSuccess();
+  const { onDeleteSuccess } = useOnRevenueDeleteSuccess();
   const {
     table,
     search,
@@ -203,11 +154,10 @@ const Table = () => {
     setPagination,
     sorting,
     filters,
-    setFilters,
   } = useTable({
     columns: columns as Column<any>[],
     queryKey: [
-      EXPENSES_QUERY_KEY,
+      REVENUES_QUERY_KEY,
       startDate.toLocaleDateString("pt-br"),
       endDate.toLocaleDateString("pt-br"),
     ],
@@ -223,8 +173,11 @@ const Table = () => {
     enableToolbarInternalActions: true,
     isLoading: isRelatedEntitiesLoading,
     positionActionsColumn: "last",
-    initialState: { grouping: ["type"], expanded: { "type:Outros": true } },
-    localization: { noRecordsToDisplay: "Nenhuma despesa encontrada" },
+    initialState: {
+      grouping: ["type"],
+      expanded: { "type:Outras": true, "type:Receitas fixas": true },
+    },
+    localization: { noRecordsToDisplay: "Nenhuma receita encontrada" },
     displayColumnDefOptions: {
       "mrt-row-expand": {
         muiTableBodyCellProps: () => ({
@@ -237,7 +190,7 @@ const Table = () => {
       },
     },
     queryFn: () =>
-      getExpensesGroupedByType({
+      getRevenuesGroupedByType({
         page: pagination.pageIndex + 1,
         page_size: pagination.pageSize,
         ordering:
@@ -245,15 +198,14 @@ const Table = () => {
         description: search,
         startDate,
         endDate,
-        ...(filters as Filters),
+        ...filters,
       }),
-    getRowId: (row: Expense) => row.id?.toString(),
+    getRowId: (row: Revenue) => row.id?.toString(),
     renderTopToolbar: ({ table }) => (
       <TopToolBar
         table={table}
         setSearch={setSearch}
         setPagination={setPagination}
-        setFilters={setFilters}
       />
     ),
     renderRowActions: ({ row, table }) => (
@@ -269,7 +221,7 @@ const Table = () => {
         <Tooltip title="Deletar">
           <IconButton
             sx={{ color: getColor(Colors.neutral300) }}
-            onClick={() => setDeleteExpense(row.original)}
+            onClick={() => setDeleteRevenue(row.original)}
           >
             <DeleteIcon />
           </IconButton>
@@ -281,10 +233,10 @@ const Table = () => {
   return (
     <>
       <MaterialReactTable table={table} />
-      <DeleteExpenseDialog
-        expense={deleteExpense as GroupedExpense}
-        open={!!deleteExpense}
-        onClose={() => setDeleteExpense(undefined)}
+      <DeleteRevenueDialog
+        revenue={deleteRevenue as GroupedRevenue}
+        open={!!deleteRevenue}
+        onClose={() => setDeleteRevenue(undefined)}
         onSuccess={onDeleteSuccess}
       />
     </>

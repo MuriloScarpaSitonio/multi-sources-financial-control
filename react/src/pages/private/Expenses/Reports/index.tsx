@@ -109,10 +109,11 @@ const PercentageContent = ({ groupBy }: { groupBy: GroupBy }) => {
         ? categoriesColorMapping
         : ExpensesTypesColorMap;
 
-  const {
-    data,
-    // isPending TODO
-  } = useExpensesPercentagenReport({ groupBy, startDate, endDate });
+  const { data, isPending } = useExpensesPercentagenReport({
+    groupBy,
+    startDate,
+    endDate,
+  });
 
   console.log("data =", data);
   return (
@@ -132,7 +133,13 @@ const PercentageContent = ({ groupBy }: { groupBy: GroupBy }) => {
         />
       ) : (
         <Box sx={{ py: 18, pl: 15, mr: 25 }}>
-          <Text size={FontSizes.SEMI_REGULAR}>Nenhuma despesa encontrada</Text>
+          {isPending ? (
+            <></>
+          ) : (
+            <Text size={FontSizes.SEMI_REGULAR}>
+              Nenhuma despesa encontrada
+            </Text>
+          )}
         </Box>
       )}
     </Stack>
