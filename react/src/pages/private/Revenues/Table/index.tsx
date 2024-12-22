@@ -23,6 +23,7 @@ import {
   getColor,
   Colors,
 } from "../../../../design-system";
+import { StatusDot } from "../../../../design-system/icons";
 import useTable from "../../../../hooks/useTable";
 import { getRevenues } from "../api";
 import { Revenue } from "../models";
@@ -101,7 +102,7 @@ const Table = () => {
     GroupedRevenue | undefined
   >();
 
-  const { startDate, endDate, isRelatedEntitiesLoading } =
+  const { startDate, endDate, isRelatedEntitiesLoading, revenuesCategories } =
     useContext(ExpensesContext);
   const columns = useMemo<Column<GroupedRevenue>[]>(
     () => [
@@ -141,8 +142,25 @@ const Table = () => {
           return `${day}/${month}/${year}`;
         },
       },
+      {
+        header: "Categoria",
+        accessorKey: "category",
+        size: 80,
+        Cell: ({ cell }) => {
+          const category = cell.getValue<string>();
+          return (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <StatusDot
+                variant="custom"
+                color={revenuesCategories.hexColorMapping.get(category)}
+              />
+              <span>{category}</span>
+            </Stack>
+          );
+        },
+      },
     ],
-    [],
+    [revenuesCategories],
   );
 
   const { onDeleteSuccess } = useOnRevenueDeleteSuccess();

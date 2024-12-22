@@ -2,7 +2,9 @@ import {
   type Dispatch,
   type SetStateAction,
   useCallback,
+  useContext,
   useEffect,
+  useMemo,
 } from "react";
 
 import FormLabel from "@mui/material/FormLabel";
@@ -15,10 +17,10 @@ import Typography from "@mui/material/Typography";
 import { formatISO } from "date-fns";
 import { enqueueSnackbar } from "notistack";
 import { Controller } from "react-hook-form";
+import { useQueryClient } from "@tanstack/react-query";
 import * as yup from "yup";
 
 import { REVENUES_QUERY_KEY } from "../../../consts";
-
 import {
   DateInput,
   PriceWithCurrencyInput,
@@ -27,8 +29,9 @@ import useFormPlus from "../../../../../../hooks/useFormPlus";
 import { createRevenue, editRevenue } from "../../../api";
 import { useInvalidateRevenuesQueries } from "../../../hooks";
 import { Revenue } from "../../../models";
-import { useQueryClient } from "@tanstack/react-query";
+import { ExpensesContext } from "../../../../Expenses/context";
 import { ApiListResponse } from "../../../../../../types";
+import { AutoCompleteForRelatedEntities } from "../../../../Expenses/components";
 
 const schema = yup.object().shape({
   description: yup.string().required("A descrição é obrigatória"),
@@ -42,19 +45,33 @@ const schema = yup.object().shape({
     .typeError("Data inválida"),
   isFixed: yup.boolean().default(false),
   performActionsOnFutureFixedEntities: yup.boolean().default(false),
+  category: yup
+    .object()
+    .shape({
+      label: yup.string().required("A categoria é obrigatória"),
+      value: yup.string().required("A categoria é obrigatória"),
+    })
+    .required("A categoria é obrigatória"),
 });
 
 const createRevenueMutation = async (data: yup.Asserts<typeof schema>) => {
-  const { isFixed, ...rest } = data;
-  await createRevenue({ is_fixed: isFixed, ...rest });
+  const { isFixed, category, ...rest } = data;
+  await createRevenue({
+    is_fixed: isFixed,
+    category: category.value as string,
+    ...rest,
+  });
 };
 
 const editRevenueMutation = async (
   id: number,
   data: yup.Asserts<typeof schema>,
 ) => {
-  const { isFixed, ...rest } = data;
-  await editRevenue({ id, data: { is_fixed: isFixed, ...rest } });
+  const { isFixed, category, ...rest } = data;
+  await editRevenue({
+    id,
+    data: { is_fixed: isFixed, category: category.value as string, ...rest },
+  });
 };
 
 const RevenueForm = ({
@@ -70,19 +87,33 @@ const RevenueForm = ({
   onEditSuccess?: () => void;
   initialData?: Revenue;
 }) => {
+  const { revenuesCategories } = useContext(ExpensesContext);
   const {
     id: revenueId,
+    category,
+
     created_at,
     is_fixed,
     ...rest
-  } = initialData ?? { is_fixed: false };
-  const defaultValues = {
-    description: "",
-    value: "",
-    created_at: created_at ? new Date(created_at + "T00:00") : new Date(),
-    isFixed: is_fixed,
-    ...rest,
+  } = initialData ?? {
+    is_fixed: false,
+    category: "Salário", // TODO: change to most common
   };
+  const defaultValues = useMemo(
+    () => ({
+      description: "",
+      value: "",
+      created_at: created_at ? new Date(created_at + "T00:00") : new Date(),
+      isFixed: is_fixed,
+      category: {
+        label: category,
+        value: category,
+        hex_color: revenuesCategories.hexColorMapping.get(category),
+      },
+      ...rest,
+    }),
+    [category, created_at, is_fixed, rest, revenuesCategories],
+  );
 
   const queryClient = useQueryClient();
   const { invalidate: invalidateRevenuesQueries } =
@@ -90,7 +121,7 @@ const RevenueForm = ({
 
   const updateCachedData = useCallback(
     (data: yup.Asserts<typeof schema> & { id: number }) => {
-      const { created_at, ...rest } = data;
+      const { created_at, category, ...rest } = data;
       const revenuesData = queryClient.getQueriesData({
         queryKey: [REVENUES_QUERY_KEY],
         type: "active",
@@ -104,6 +135,7 @@ const RevenueForm = ({
                 ...revenue,
                 ...rest,
                 created_at: formatISO(created_at, { representation: "date" }),
+                category: category.label,
               }
             : revenue,
         );
@@ -251,6 +283,13 @@ const RevenueForm = ({
           </Grid>
         </Typography>
       </Stack>
+      <AutoCompleteForRelatedEntities
+        entities={revenuesCategories.results}
+        control={control}
+        isFieldInvalid={isFieldInvalid}
+        getFieldHasError={getFieldHasError}
+        getErrorMessage={getErrorMessage}
+      />
     </Stack>
   );
 };

@@ -9,6 +9,7 @@ import { endOfMonth, Month, startOfMonth } from "date-fns";
 
 import { default as RevenueReports } from "../Revenues/Reports";
 import { default as RevenuesTable } from "../Revenues/Table";
+import { useGetCategories as useRevenuesCategories } from "../Revenues/hooks/useGetCategories";
 import { ExpensesContext } from "./context";
 import { useGetCategories, useGetSources } from "./hooks";
 import Indicators from "./Indicators";
@@ -57,6 +58,10 @@ const Expenses = () => {
   const { data: sourcesData, isPending: isLoadingSources } = useGetSources({
     ordering: "name",
   });
+  const {
+    data: revenuesCategoriesData,
+    isLoading: isLoadingRevenuesCategories,
+  } = useRevenuesCategories({ ordering: "name", enabled: tabValue === 1 });
 
   const contextValue = useMemo(
     () => ({
@@ -86,7 +91,17 @@ const Expenses = () => {
           ]),
         ),
       },
-      isRelatedEntitiesLoading: isLoadingCategories || isLoadingSources,
+      revenuesCategories: {
+        results: revenuesCategoriesData?.results ?? [],
+        hexColorMapping: new Map(
+          (revenuesCategoriesData?.results ?? []).map((category) => [
+            category.name,
+            category.hex_color,
+          ]),
+        ),
+      },
+      isRelatedEntitiesLoading:
+        isLoadingCategories || isLoadingSources || isLoadingRevenuesCategories,
     }),
     [
       startDate,
@@ -97,6 +112,8 @@ const Expenses = () => {
       sourcesData,
       isLoadingCategories,
       isLoadingSources,
+      isLoadingRevenuesCategories,
+      revenuesCategoriesData,
     ],
   );
   return (

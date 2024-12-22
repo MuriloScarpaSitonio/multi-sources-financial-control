@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.forms import CharField, ModelForm, Select
 
 from .choices import Colors
-from .models import BankAccount, Expense, Revenue
+from .models import BankAccount, Expense, ExpenseCategory, ExpenseSource, Revenue, RevenueCategory
 
 admin.site.register(BankAccount)
 
@@ -23,7 +23,22 @@ class ExpenseAdmin(admin.ModelAdmin):
     form = _ExpenseForm
 
 
+@admin.register(ExpenseCategory)
+class ExpenseCategoryAdmin(admin.ModelAdmin):
+    search_fields = ("name",)
+
+
+@admin.register(ExpenseSource)
+class ExpenseSourceAdmin(admin.ModelAdmin):
+    search_fields = ("name",)
+
+
 @admin.register(Revenue)
 class RevenueAdmin(admin.ModelAdmin):
     search_fields = ("description",)
     list_filter = ("is_fixed",)
+
+
+@admin.register(RevenueCategory)
+class RevenueCategoryAdmin(admin.ModelAdmin):
+    search_fields = ("name",)

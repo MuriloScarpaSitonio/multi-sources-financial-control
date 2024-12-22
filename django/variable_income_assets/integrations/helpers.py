@@ -74,9 +74,9 @@ def fetch_asset_current_price(code: str, asset_type: AssetTypes, currency: Curre
 
 
 async def get_b3_close_prices(codes: list[str], operation_date: date) -> dict[str, float]:
-    async with BrApiClient() as c:
-        # return await c.get_b3_prices(codes=codes)
-        raise NotImplementedError
+    # async with BrApiClient() as c:
+    # return await c.get_b3_prices(codes=codes)
+    raise NotImplementedError
 
 
 async def get_crypto_close_prices(codes: list[str], currency: Currencies, operation_date: date):

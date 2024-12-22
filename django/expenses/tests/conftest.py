@@ -11,10 +11,18 @@ from authentication.tests.conftest import client, secrets, user
 from expenses.choices import (
     CREDIT_CARD_SOURCE,
     DEFAULT_CATEGORIES_MAP,
+    DEFAULT_REVENUE_CATEGORIES_MAP,
     DEFAULT_SOURCES_MAP,
     MONEY_SOURCE,
 )
-from expenses.models import BankAccount, Expense, ExpenseCategory, ExpenseSource, Revenue
+from expenses.models import (
+    BankAccount,
+    Expense,
+    ExpenseCategory,
+    ExpenseSource,
+    Revenue,
+    RevenueCategory,
+)
 
 
 class ExpenseFactory(DjangoModelFactory):
@@ -30,6 +38,11 @@ class ExpenseCategoryFactory(DjangoModelFactory):
 class ExpenseSourceFactory(DjangoModelFactory):
     class Meta:
         model = ExpenseSource
+
+
+class RevenueCategoryFactory(DjangoModelFactory):
+    class Meta:
+        model = RevenueCategory
 
 
 class RevenueFactory(DjangoModelFactory):
@@ -66,6 +79,19 @@ def default_categories(user):
 @pytest.fixture
 def default_categories_map(default_categories):
     return {category.name: category.id for category in default_categories}
+
+
+@pytest.fixture(autouse=True)
+def default_revenue_categories(user):
+    return [
+        RevenueCategoryFactory(name=name, hex_color=color, user=user)
+        for name, color in DEFAULT_REVENUE_CATEGORIES_MAP.items()
+    ]
+
+
+@pytest.fixture
+def default_revenue_categories_map(default_revenue_categories):
+    return {category.name: category.id for category in default_revenue_categories}
 
 
 @pytest.fixture
@@ -285,15 +311,43 @@ def expenses_w_installments(user, default_categories_map, default_sources_map) -
 
 
 @pytest.fixture
-def revenue(user) -> Revenue:
-    today = timezone.localdate()
+def revenue(user, default_revenue_categories_map) -> Revenue:
     return RevenueFactory(
         value=3902,
         description="Revenue",
-        created_at=today,
+        created_at=timezone.localdate(),
         is_fixed=True,
         user=user,
         recurring_id=uuid4(),
+        category="Salário",
+        expanded_category_id=default_revenue_categories_map["Salário"],
+    )
+
+
+@pytest.fixture
+def another_revenue(user, default_revenue_categories_map) -> Revenue:
+    return RevenueFactory(
+        value=1000,
+        description="Revenue bonus",
+        created_at=timezone.localdate(),
+        is_fixed=False,
+        user=user,
+        category="Bônus",
+        expanded_category_id=default_revenue_categories_map["Bônus"],
+    )
+
+
+@pytest.fixture
+def yet_another_revenue(user, revenue, default_revenue_categories_map) -> Revenue:
+    return RevenueFactory(
+        value=4000,
+        description="Revenue",
+        created_at=timezone.localdate() - relativedelta(months=1),
+        is_fixed=True,
+        user=user,
+        recurring_id=revenue.recurring_id,
+        category="Salário",
+        expanded_category_id=default_revenue_categories_map["Salário"],
     )
 
 

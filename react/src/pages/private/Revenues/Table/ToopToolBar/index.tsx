@@ -32,6 +32,10 @@ import {
 
 import RevenueDrawer from "./RevenueDrawer";
 import FiltersMenu from "./FiltersMenu";
+import {
+  ManageRelatedEntitiesMenuItem,
+  ManageRelatedEntitiesDrawer,
+} from "./ManageRelatedEntitiesMenuItem";
 import { Revenue } from "../../models";
 
 const removeProperties = (
@@ -50,6 +54,7 @@ const removeProperties = (
 
 const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [openDrawer, setOpenDrawer] = useState(false);
 
   const onClose = () => setAnchorEl(null);
   return (
@@ -62,10 +67,20 @@ const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
         <MoreVertIcon />
       </IconButton>
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={onClose}>
+        <ManageRelatedEntitiesMenuItem
+          onClick={() => {
+            setOpenDrawer(true);
+            onClose();
+          }}
+        />
         <ShowHideColumnsMenuItem table={table} />
         <ToggleDensityMenuItem table={table} />
         <ToggleFullScreenMenuItem table={table} />
       </Menu>
+      <ManageRelatedEntitiesDrawer
+        open={openDrawer}
+        onClose={() => setOpenDrawer(false)}
+      />
     </>
   );
 };

@@ -355,3 +355,10 @@ class RevenueRepository(AbstractRevenueRepository):
         Revenue.objects.filter(
             recurring_id=dto.recurring_id, created_at__gt=dto.created_at
         ).delete()
+
+    def change_all_category_name(self, *, prev_name: str, name: str) -> int:
+        from ..models import Revenue
+
+        return Revenue.objects.filter(user_id=self.user_id, category=prev_name).update(
+            category=name
+        )

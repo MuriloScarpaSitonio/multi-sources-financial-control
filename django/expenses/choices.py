@@ -65,3 +65,12 @@ DEFAULT_SOURCES_MAP = {
     "Cartão de débito": Colors.pink1,
     "Boleto": Colors.orange1,
 }
+
+
+DEFAULT_REVENUE_CATEGORIES_MAP = {
+    "Salário": Colors.green3,
+    "Bônus": Colors.blue1,
+    "Prêmio": Colors.purple1,
+    "Presente": Colors.orange1,
+    "Outros": Colors.blue2,
+}

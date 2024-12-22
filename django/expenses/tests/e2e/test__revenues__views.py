@@ -68,9 +68,14 @@ def test__list__include_date_fixed_revenue(client, revenue, is_fixed):
         assert response.json()["results"][0]["full_description"] == revenue.description
 
 
-def test__create__past(client, bank_account):
+def test__create__past(client, bank_account, default_revenue_categories_map):
     # GIVEN
-    data = {"value": 1200, "description": "Test", "created_at": "01/01/2021"}
+    data = {
+        "value": 1200,
+        "description": "Test",
+        "created_at": "01/01/2021",
+        "category": "Outros",
+    }
     previous_bank_account_amount = bank_account.amount
 
     # WHEN
@@ -79,7 +84,13 @@ def test__create__past(client, bank_account):
     # THEN
     assert response.status_code == HTTP_201_CREATED
 
-    assert Revenue.objects.count() == 1
+    assert (
+        Revenue.objects.filter(
+            category=data["category"],
+            expanded_category_id=default_revenue_categories_map[data["category"]],
+        ).count()
+        == 1
+    )
 
     bank_account.refresh_from_db()
     assert previous_bank_account_amount == bank_account.amount
@@ -88,7 +99,12 @@ def test__create__past(client, bank_account):
 def test__create__current(client, bank_account):
     # GIVEN
     today = timezone.localdate()
-    data = {"value": 1200, "description": "Test", "created_at": today.strftime("%d/%m/%Y")}
+    data = {
+        "value": 1200,
+        "description": "Test",
+        "created_at": today.strftime("%d/%m/%Y"),
+        "category": "Outros",
+    }
     previous_bank_account_amount = bank_account.amount
 
     # WHEN
@@ -110,6 +126,7 @@ def test__create__future(client, bank_account):
         "value": 1200,
         "description": "Test",
         "created_at": (today + relativedelta(months=1)).strftime("%d/%m/%Y"),
+        "category": "Outros",
     }
     previous_bank_account_amount = bank_account.amount
 
@@ -125,10 +142,33 @@ def test__create__future(client, bank_account):
     assert previous_bank_account_amount == bank_account.amount
 
 
+def test__create__new_category(client):
+    # GIVEN
+    data = {
+        "value": 1200,
+        "description": "Test",
+        "created_at": "01/01/2021",
+        "category": "teste",
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+
+    assert response.json() == {"category": "A categoria não existe"}
+
+
 @pytest.mark.parametrize("value", (-1, 0))
 def test__create__invalid_value(client, value):
     # GIVEN
-    data = {"value": value, "description": "Test", "created_at": "01/01/2021"}
+    data = {
+        "value": value,
+        "description": "Test",
+        "created_at": "01/01/2021",
+        "category": "Outros",
+    }
 
     # WHEN
     response = client.post(URL, data=data)
@@ -140,7 +180,12 @@ def test__create__invalid_value(client, value):
 
 def test__create__future(client, bank_account):
     # GIVEN
-    data = {"value": 1000, "description": "Test", "created_at": "01/01/2121"}
+    data = {
+        "value": 1000,
+        "description": "Test",
+        "created_at": "01/01/2121",
+        "category": "Outros",
+    }
     previous_bank_account_amount = bank_account.amount
 
     # WHEN
@@ -165,6 +210,7 @@ def test__update__past(client, revenue, bank_account, value):
         "description": revenue.description + "abc",
         "created_at": "01/01/2021",
         "is_fixed": revenue.is_fixed,
+        "category": "Outros",
     }
 
     # WHEN
@@ -193,6 +239,7 @@ def test__update__current(client, revenue, bank_account, value, operation):
         "description": revenue.description,
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": revenue.is_fixed,
+        "category": "Outros",
     }
 
     # WHEN
@@ -221,8 +268,9 @@ def test__update__future(client, revenue, bank_account, value):
     data = {
         "value": revenue.value + value,
         "description": revenue.description,
-        "created_at": revenue.created_at + relativedelta(months=1),
+        "created_at": (revenue.created_at + relativedelta(months=1)).strftime("%d/%m/%Y"),
         "is_fixed": revenue.is_fixed,
+        "category": "Outros",
     }
 
     # WHEN
@@ -242,7 +290,12 @@ def test__update__future(client, revenue, bank_account, value):
 @pytest.mark.parametrize("value", (-1, 0))
 def test__update__invalid_value(client, revenue, value):
     # GIVEN
-    data = {"value": value, "description": "Test", "created_at": "01/01/2021"}
+    data = {
+        "value": value,
+        "description": "Test",
+        "created_at": "01/01/2021",
+        "category": "Outros",
+    }
 
     # WHEN
     response = client.put(f"{URL}/{revenue.pk}", data=data)
@@ -252,14 +305,37 @@ def test__update__invalid_value(client, revenue, value):
     assert response.json() == {"value": ["Ensure this value is greater than or equal to 0.01."]}
 
 
-def test__update__future(client, revenue, bank_account):
+def test__update__new_category(client, revenue):
     # GIVEN
-    previous_bank_account_amount = bank_account.amount
     data = {
-        "value": 1222,
-        "description": "Test",
-        "created_at": "01/01/2221",
-        "is_fixed": False,
+        "value": revenue.value,
+        "description": revenue.description,
+        "created_at": revenue.created_at.strftime("%d/%m/%Y"),
+        "is_fixed": revenue.is_fixed,
+        "category": "test",
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{revenue.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+
+    assert response.json() == {"category": "A categoria não existe"}
+
+
+def test__update__category(client, revenue, default_revenue_categories_map):
+    # GIVEN
+    revenue.category = "Outros"
+    revenue.expanded_category_id = default_revenue_categories_map[revenue.category]
+    revenue.save()
+
+    data = {
+        "value": revenue.value,
+        "description": revenue.description,
+        "created_at": revenue.created_at.strftime("%d/%m/%Y"),
+        "is_fixed": revenue.is_fixed,
+        "category": "Salário",
     }
 
     # WHEN
@@ -268,8 +344,9 @@ def test__update__future(client, revenue, bank_account):
     # THEN
     assert response.status_code == HTTP_200_OK
 
-    bank_account.refresh_from_db()
-    assert previous_bank_account_amount == bank_account.amount
+    revenue.refresh_from_db()
+    assert revenue.category == data["category"]
+    assert revenue.expanded_category_id == default_revenue_categories_map[data["category"]]
 
 
 def test__delete(client, revenue, bank_account):

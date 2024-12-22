@@ -82,7 +82,13 @@ export const useExpensesHistoricReport = (
   params: HistoricParams,
 ): UseQueryResult<HistoricReportResponse> =>
   useQuery({
-    queryKey: [HISTORIC_REPORT_QUERY_KEY, params],
+    queryKey: [
+      HISTORIC_REPORT_QUERY_KEY,
+      {
+        start_date: params.startDate.toLocaleDateString("pt-br"),
+        end_date: params.endDate.toLocaleDateString("pt-br"),
+      },
+    ],
     queryFn: () => getHistoricReport(params),
   });
 

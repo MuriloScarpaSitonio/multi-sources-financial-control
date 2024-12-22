@@ -2,6 +2,9 @@ import operator
 from decimal import ROUND_HALF_UP, Decimal
 from random import randrange
 
+from django.db.models import F
+from django.utils import timezone
+
 import pytest
 from rest_framework.status import (
     HTTP_200_OK,
@@ -14,8 +17,6 @@ from rest_framework.status import (
 )
 
 from config.settings.base import BASE_API_URL
-from django.db.models import F
-from django.utils import timezone
 from shared.tests import convert_and_quantitize
 
 from ...choices import AssetObjectives, AssetSectors, AssetTypes, Currencies

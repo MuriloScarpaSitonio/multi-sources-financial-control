@@ -87,6 +87,25 @@ class _PersonalFinancialQuerySet(QuerySet):
     def sum(self) -> dict[str, Decimal]:
         return self.aggregate(total=Coalesce(Sum("value"), Decimal()))
 
+    def annotate_num_of_appearances(self, field_name: str) -> Self:
+        return self.values(field_name).annotate(num_of_appearances=Count(field_name))
+
+    def as_related_entities(self, field_name: str) -> Self:
+        kwargs = {"name": F(field_name)}
+        if field_name == "category":
+            qs = self.annotate(
+                id=F("expanded_category_id"), hex_color=F("expanded_category__hex_color"), **kwargs
+            )
+        elif field_name == "source":
+            qs = self.annotate(
+                id=F("expanded_source_id"), hex_color=F("expanded_source__hex_color"), **kwargs
+            )
+
+        return qs.values("id", "name", "hex_color").distinct()
+
+    def most_common(self, field_name: str) -> str:
+        return self.annotate_num_of_appearances(field_name).order_by("-num_of_appearances")
+
 
 class ExpenseQueryset(_PersonalFinancialQuerySet):
     def percentage_report(self, group_by: str, start_date: date, end_date: date) -> Self:
@@ -138,23 +157,13 @@ class ExpenseQueryset(_PersonalFinancialQuerySet):
         )
 
     def annotate_num_of_appearances(self, field_name: Literal["category", "source"]) -> Self:
-        return self.values(field_name).annotate(num_of_appearances=Count(field_name))
+        return super().annotate_num_of_appearances(field_name)
 
     def as_related_entities(self, field_name: Literal["category", "source"]) -> Self:
-        kwargs = {"name": F(field_name)}
-        if field_name == "category":
-            qs = self.annotate(
-                id=F("expanded_category_id"), hex_color=F("expanded_category__hex_color"), **kwargs
-            )
-        elif field_name == "source":
-            qs = self.annotate(
-                id=F("expanded_source_id"), hex_color=F("expanded_source__hex_color"), **kwargs
-            )
-
-        return qs.values("id", "name", "hex_color").distinct()
+        return super().as_related_entities(field_name)
 
     def most_common(self, field_name: Literal["category", "source"]) -> str:
-        return self.annotate_num_of_appearances(field_name).order_by("-num_of_appearances")
+        return super().most_common(field_name)
 
 
 class RevenueQueryset(_PersonalFinancialQuerySet):
@@ -163,3 +172,12 @@ class RevenueQueryset(_PersonalFinancialQuerySet):
             total=Sum("value", filter=self.filters.current, default=Decimal()),
             avg=Coalesce(self._monthly_avg_expression, Decimal()),
         )
+
+    def annotate_num_of_appearances(self, _: str = "") -> Self:
+        return super().annotate_num_of_appearances(field_name="category")
+
+    def as_related_entities(self) -> Self:
+        return super().as_related_entities(field_name="category")
+
+    def most_common(self) -> str:
+        return super().most_common(field_name="category")

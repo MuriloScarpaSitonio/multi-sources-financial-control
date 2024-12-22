@@ -25,6 +25,7 @@ EVENT_HANDLERS: dict[type[events.Event], list[MessageCallable]] = {
     events.RevenueDeleted: [handlers.decrement_bank_account],
     events.ExpenseCategoryUpdated: [handlers.change_all_expenses_category_name],
     events.ExpenseSourceUpdated: [handlers.change_all_expenses_source_name],
+    events.RevenueCategoryUpdated: [handlers.change_all_revenues_category_name],
 }
 
 COMMAND_HANDLERS: dict[type[commands.Command], MessageCallable] = {

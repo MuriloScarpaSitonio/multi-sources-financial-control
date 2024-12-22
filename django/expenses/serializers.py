@@ -10,7 +10,7 @@ from rest_framework import serializers
 from .domain import commands
 from .domain.exceptions import ValidationError as DomainValidationError
 from .domain.models import Expense as ExpenseDomainModel
-from .models import BankAccount, Expense, ExpenseCategory, ExpenseSource, Revenue
+from .models import BankAccount, Expense, ExpenseCategory, ExpenseSource, Revenue, RevenueCategory
 from .service_layer import messagebus
 from .service_layer.unit_of_work import ExpenseUnitOfWork
 
@@ -119,7 +119,9 @@ class ExpenseSerializer(serializers.ModelSerializer):
 
 
 class RevenueSerializer(serializers.ModelSerializer):
-    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    user = serializers.HiddenField(
+        default=serializers.CurrentUserDefault(),
+    )
 
     class Meta:
         model = Revenue
@@ -131,8 +133,13 @@ class RevenueSerializer(serializers.ModelSerializer):
             "is_fixed",
             "user",
             "full_description",
+            "category",
         )
-        extra_kwargs = {"id": {"read_only": True}, "full_description": {"read_only": True}}
+        extra_kwargs = {
+            "id": {"read_only": True},
+            "full_description": {"read_only": True},
+            "category": {"required": True},
+        }
 
 
 class TotalSerializer(serializers.Serializer):
@@ -213,3 +220,8 @@ class ExpenseCategorySerializer(_ExpenseRelatedEntitySerializer):
 class ExpenseSourceSerializer(_ExpenseRelatedEntitySerializer):
     class Meta(_ExpenseRelatedEntitySerializer.Meta):
         model = ExpenseSource
+
+
+class RevenueCategorySerializer(_ExpenseRelatedEntitySerializer):
+    class Meta(_ExpenseRelatedEntitySerializer.Meta):
+        model = RevenueCategory

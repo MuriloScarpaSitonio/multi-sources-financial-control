@@ -30,7 +30,13 @@ URL = f"/{BASE_API_URL}" + "revenues"
 @pytest.mark.parametrize("perform", (True, False))
 def test__create(client, bank_account, perform):
     # GIVEN
-    data = {"value": 1200, "description": "Test", "created_at": "01/01/2021", "is_fixed": True}
+    data = {
+        "value": 1200,
+        "description": "Test",
+        "created_at": "01/01/2021",
+        "is_fixed": True,
+        "category": "Outros",
+    }
     previous_bank_account_amount = bank_account.amount
 
     # WHEN
@@ -61,6 +67,7 @@ def test__update__is_fixed__past__value(client, fixed_revenues, bank_account, va
         "description": revenue.description,
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": True,
+        "category": "Outros",
     }
 
     # WHEN
@@ -94,6 +101,7 @@ def test__update__is_fixed__current__value(client, fixed_revenues, bank_account,
         "description": revenue.description,
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": True,
+        "category": "Outros",
     }
 
     # WHEN
@@ -135,6 +143,7 @@ def test__update__is_fixed__current__value__only_current(
         "description": revenue.description,
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": True,
+        "category": "Outros",
     }
 
     # WHEN
@@ -169,6 +178,7 @@ def test__update__is_fixed__future__value(client, fixed_revenues, bank_account, 
         "description": revenue.description,
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": True,
+        "category": "Outros",
     }
 
     # WHEN
@@ -209,6 +219,7 @@ def test__update__is_fixed__future__value__only_current(
         "description": revenue.description,
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": True,
+        "category": "Outros",
     }
 
     # WHEN
@@ -240,6 +251,7 @@ def test__update__is_fixed__past__created_at(client, fixed_revenues, bank_accoun
         "description": revenue.description,
         "created_at": (revenue.created_at.replace(day=day)).strftime("%d/%m/%Y"),
         "is_fixed": True,
+        "category": "Outros",
     }
 
     # WHEN
@@ -273,6 +285,7 @@ def test__update__is_fixed__current__created_at(client, fixed_revenues, bank_acc
         "description": revenue.description,
         "created_at": (revenue.created_at.replace(day=day)).strftime("%d/%m/%Y"),
         "is_fixed": True,
+        "category": "Outros",
     }
 
     # WHEN
@@ -311,6 +324,7 @@ def test__update__is_fixed__current__created_at__only_current(client, fixed_reve
         "description": revenue.description,
         "created_at": (revenue.created_at.replace(day=day)).strftime("%d/%m/%Y"),
         "is_fixed": True,
+        "category": "Outros",
     }
 
     # WHEN
@@ -344,6 +358,7 @@ def test__update__is_fixed__future__created_at(client, fixed_revenues, bank_acco
         "description": revenue.description + " abc",
         "created_at": (revenue.created_at.replace(day=day)).strftime("%d/%m/%Y"),
         "is_fixed": True,
+        "category": "Outros",
     }
 
     # WHEN
@@ -390,6 +405,7 @@ def test__update__is_fixed__future__created_at__only_current(client, fixed_reven
         "description": revenue.description + " abc",
         "created_at": (revenue.created_at.replace(day=day)).strftime("%d/%m/%Y"),
         "is_fixed": True,
+        "category": "Outros",
     }
 
     # WHEN
@@ -427,6 +443,7 @@ def test__update__is_fixed__false_to_true(client, revenue, bank_account, perform
         "description": revenue.description + " abc",
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": True,
+        "category": "Outros",
     }
 
     # WHEN
@@ -463,6 +480,7 @@ def test__update__is_fixed__false_to_true__past_month(client, revenue, bank_acco
         "description": revenue.description + " abc",
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": True,
+        "category": "Outros",
     }
 
     # WHEN
@@ -500,6 +518,7 @@ def test__update__is_fixed__true_to_false(client, fixed_revenues, perform):
         "description": revenue.description,
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": False,
+        "category": "Outros",
     }
 
     # WHEN
@@ -528,6 +547,7 @@ def test__update__is_fixed__true_to_false__past_month(client, fixed_revenues, pe
         "description": revenue.description,
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": False,
+        "category": "Outros",
     }
 
     # WHEN
@@ -561,6 +581,7 @@ def test__update__is_fixed__past__created_at__to_another_month(client, fixed_rev
         "description": revenue.description,
         "created_at": (revenue.created_at + relativedelta(**delta)).strftime("%d/%m/%Y"),
         "is_fixed": True,
+        "category": "Outros",
     }
 
     # WHEN
@@ -583,6 +604,7 @@ def test__update__is_fixed__current__created_at__to_another_month(client, fixed_
         "description": revenue.description,
         "created_at": (revenue.created_at + relativedelta(**delta)).strftime("%d/%m/%Y"),
         "is_fixed": True,
+        "category": "Outros",
     }
 
     # WHEN
@@ -605,6 +627,7 @@ def test__update__is_fixed__future__created_at__to_another_month(client, fixed_r
         "description": revenue.description,
         "created_at": (revenue.created_at + relativedelta(**delta)).strftime("%d/%m/%Y"),
         "is_fixed": True,
+        "category": "Outros",
     }
 
     # WHEN

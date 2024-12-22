@@ -161,6 +161,12 @@ class Expense(models.Model):
         )
 
 
+class RevenueCategory(_RelatedEntity):
+    user = models.ForeignKey(
+        to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="revenue_categories"
+    )
+
+
 class Revenue(models.Model):
     value = models.DecimalField(
         decimal_places=2, max_digits=18, validators=[MinValueValidator(Decimal("0.01"))]
@@ -169,6 +175,16 @@ class Revenue(models.Model):
     created_at = models.DateField(default=serializable_today_function)
     is_fixed = models.BooleanField(default=False)
     recurring_id = models.UUIDField(null=True, blank=True, db_index=True)
+    category = models.CharField(max_length=100, default="")
+    # needed so we can sort by most common
+    expanded_category = models.ForeignKey(
+        to=RevenueCategory,
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="revenues",
+    )
+    #
     user = models.ForeignKey(
         to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="revenues"
     )

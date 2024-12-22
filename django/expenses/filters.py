@@ -22,14 +22,17 @@ if TYPE_CHECKING:
 
 
 class MostCommonOrderingFilterBackend(OrderingFilter):
-    def filter_queryset(self, request: Request, queryset: QuerySet, view: GenericViewSet):
+    def filter_queryset(
+        self, request: Request, queryset: QuerySet, view: GenericViewSet
+    ) -> QuerySet:
         ordering = self.get_ordering(request, queryset, view)
         if ordering:
             if "num_of_appearances" in ordering or "-num_of_appearances" in ordering:
+                args = (view.expense_field,) if hasattr(view, "expense_field") else ()
                 return (
                     view.get_related_queryset()
-                    .annotate_num_of_appearances(view.expense_field)
-                    .as_related_entities(view.expense_field)
+                    .annotate_num_of_appearances(*args)
+                    .as_related_entities(*args)
                     .order_by(*ordering)
                 )
 

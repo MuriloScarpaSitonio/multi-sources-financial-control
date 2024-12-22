@@ -32,7 +32,7 @@ from .domain import commands, events
 from .domain.exceptions import OnlyUpdateFixedRevenueDateWithinMonthException
 from .domain.models import Revenue as RevenueDomainModel
 from .managers import ExpenseQueryset, RevenueQueryset
-from .models import BankAccount, Expense, ExpenseCategory, ExpenseSource, Revenue
+from .models import BankAccount, Expense, ExpenseCategory, ExpenseSource, Revenue, RevenueCategory
 from .permissions import PersonalFinancesModulePermission
 from .service_layer import messagebus
 from .service_layer.unit_of_work import ExpenseUnitOfWork, RevenueUnitOfWork
@@ -192,11 +192,22 @@ class RevenueViewSet(_PersonalFinanceViewSet):
             else Expense.objects.none()  # pragma: no cover -- drf-spectatular
         )
 
+    def _get_expanded_category_id(self, category: str) -> int:
+        try:
+            return RevenueCategory.objects.only("id").get(name=category, user=self.request.user).id
+        except RevenueCategory.DoesNotExist as exc:
+            raise ValidationError({"category": "A categoria não existe"}) from exc
+
     @atomic
     def perform_create(self, serializer: serializers.RevenueSerializer) -> None:
         # TODO move to service layer
+        expanded_category_id = self._get_expanded_category_id(
+            category=serializer.validated_data["category"]
+        )
+
         revenue: RevenueDomainModel = serializer.save(
-            recurring_id=uuid4() if serializer.validated_data.get("is_fixed", False) else None
+            recurring_id=uuid4() if serializer.validated_data.get("is_fixed", False) else None,
+            expanded_category_id=expanded_category_id,
         ).to_domain()
         if revenue.is_fixed and serializer.context.get(
             "perform_actions_on_future_fixed_entities", False
@@ -232,13 +243,17 @@ class RevenueViewSet(_PersonalFinanceViewSet):
             e = OnlyUpdateFixedRevenueDateWithinMonthException()
             raise ValidationError(e.detail)
 
-        revenue: RevenueDomainModel = serializer.save(
-            **(
-                {"recurring_id": uuid4()}
-                if from_not_fixed_to_fixed
-                else {"recurring_id": None} if from_fixed_to_not_fixed else {}
+        kwargs = {}
+        if serializer.instance.category != serializer.validated_data["category"]:
+            kwargs["expanded_category_id"] = self._get_expanded_category_id(
+                category=serializer.validated_data["category"]
             )
-        ).to_domain()
+        if from_not_fixed_to_fixed:
+            kwargs["recurring_id"] = uuid4()
+        elif from_fixed_to_not_fixed:
+            kwargs["recurring_id"] = None
+
+        revenue: RevenueDomainModel = serializer.save(**kwargs).to_domain()
         uow = RevenueUnitOfWork(user_id=self.request.user.id)
         if (
             revenue.recurring_id is not None
@@ -358,7 +373,7 @@ class _ExpenseRelatedEntityViewSet(
         )
         return Response(self.serializer_class(entity).data, status=HTTP_200_OK)
 
-    def perform_destroy(self, instance: ExpenseCategory | ExpenseSource):
+    def perform_destroy(self, instance: ExpenseCategory | ExpenseSource) -> None:
         instance.deleted = True
         instance.save(update_fields=("deleted",))
 
@@ -375,3 +390,44 @@ class ExpenseSourceViewSet(_ExpenseRelatedEntityViewSet):
     model = ExpenseSource
     serializer_class = serializers.ExpenseSourceSerializer
     entity_updated_event_class = events.ExpenseSourceUpdated
+
+
+class RevenueCategoryViewSet(
+    GenericViewSet, ListModelMixin, UpdateModelMixin, DestroyModelMixin, CreateModelMixin
+):
+    permission_classes = (SubscriptionEndedPermission, PersonalFinancesModulePermission)
+    ordering_fields = ("num_of_appearances", "name")
+    ordering = ("-created_at",)
+    filter_backends = (filters.MostCommonOrderingFilterBackend,)
+    serializer_class = serializers.RevenueCategorySerializer
+
+    def get_related_queryset(self) -> RevenueQueryset[Revenue]:
+        return Revenue.objects.filter(user_id=self.request.user.id)
+
+    def get_queryset(self):
+        return (
+            RevenueCategory.objects.only("id", "name", "hex_color").filter(
+                user_id=self.request.user.id, deleted=False
+            )
+            if self.request.user.is_authenticated
+            else RevenueCategory.objects.none()  # pragma: no cover -- drf-spectatular
+        )
+
+    def perform_update(self, serializer: serializers.serializers.Serializer) -> None:
+        prev_name = serializer.instance.name
+        instance = serializer.save()
+        if prev_name != instance.name:
+            with RevenueUnitOfWork(user_id=self.request.user.id) as uow:
+                messagebus.handle(
+                    message=events.RevenueCategoryUpdated(prev_name=prev_name, name=instance.name),
+                    uow=uow,
+                )
+
+    @action(methods=("GET",), detail=False)
+    def most_common(self, _: Request) -> Response:
+        entity = self.get_related_queryset().most_common().as_related_entities().first()
+        return Response(self.serializer_class(entity).data, status=HTTP_200_OK)
+
+    def perform_destroy(self, instance: RevenueCategory) -> None:
+        instance.deleted = True
+        instance.save(update_fields=("deleted",))

@@ -12,7 +12,6 @@ from ..choices import CATEGORIES_NOT_ALLOWED_IN_FUTURE, CREDIT_CARD_SOURCE
 from .exceptions import (
     ExpensesWithInstallmentsMustBeCreditedCardException,
     FixedExpensesWithInstallmentsNotAllowedException,
-    FutureExpenseMustBeCreditCardException,
     OnlyUpdateFirstInstallmentDateException,
     OnlyUpdateFixedExpenseDateWithinMonthException,
 )

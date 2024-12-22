@@ -105,7 +105,7 @@ class TransactionListSerializer(TransactionSerializer):
 
     def update(self, instance: Transaction, validated_data: dict) -> Transaction:
         try:
-            user = validated_data.pop("user")
+            validated_data.pop("user")
             validated_data.pop("asset_pk", None)
 
             asset_domain: AssetDomainModel = (

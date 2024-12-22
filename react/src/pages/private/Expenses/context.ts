@@ -25,6 +25,7 @@ interface ExpensesContextType {
   setYear: Dispatch<SetStateAction<number>>;
   categories: RelatedEntityResultsAndHexColorMapping;
   sources: RelatedEntityResultsAndHexColorMapping;
+  revenuesCategories: RelatedEntityResultsAndHexColorMapping;
   isRelatedEntitiesLoading: boolean;
 }
 

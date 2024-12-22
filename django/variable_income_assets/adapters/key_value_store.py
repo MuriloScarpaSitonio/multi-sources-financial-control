@@ -7,7 +7,7 @@ DOLLAR_CONVERSION_RATE_KEY = "DOLLAR_CONVERSION_RATE"
 
 def get_dollar_conversion_rate() -> Decimal:
     value = key_value_backend.get(key=DOLLAR_CONVERSION_RATE_KEY)
-    return value if value is not None else Decimal("5.0")
+    return value if value is not None else Decimal("6.0")
 
 
 def update_dollar_conversion_rate(value: Decimal | None = None) -> Decimal:
@@ -18,7 +18,7 @@ def update_dollar_conversion_rate(value: Decimal | None = None) -> Decimal:
             value = fetch_dollar_to_real_conversion_value()
         except Exception:
             # TODO: log error
-            value = Decimal("5.0")
+            value = Decimal("6.0")
 
     key_value_backend.set(key=DOLLAR_CONVERSION_RATE_KEY, value=value)
 

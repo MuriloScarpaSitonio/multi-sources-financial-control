@@ -7,4 +7,5 @@ export type Revenue = {
   created_at: RawDateString;
   is_fixed: boolean;
   full_description: string;
+  category: string;
 };

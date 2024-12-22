@@ -127,3 +127,29 @@ export const getHistoricReport = async (params: {
       },
     })
   ).data;
+
+type RevenueRelatedEntity = {
+  id: number;
+  name: string;
+  hex_color: string;
+  // hex_color: Colors;
+};
+
+export const getCategories = async (params: {
+  ordering?: string;
+  page?: number;
+  page_size?: number;
+}): Promise<ApiListResponse<RevenueRelatedEntity>> =>
+  (await apiProvider.get(`${RESOURCE}/categories`, { params })).data;
+
+export const updateCategory = async ({
+  id,
+  data,
+}: {
+  id: number;
+  data: { name: string; hex_color: string };
+}): Promise<RevenueRelatedEntity> =>
+  (await apiProvider.put(`${RESOURCE}/categories/${id}`, data)).data;
+
+export const deleteCategory = async (id: number) =>
+  (await apiProvider.Delete(`${RESOURCE}/categories/${id}`)).data;

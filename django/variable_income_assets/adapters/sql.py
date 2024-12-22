@@ -247,7 +247,6 @@ class DjangoSQLAssetTotalInvestedSnapshotRepository(AbstractAssetTotalInvestedSn
     def update_total_from_diff(
         self, user_id: int, operation_date: date, total_change: Decimal
     ) -> int:
-        from ..models import AssetsTotalInvestedSnapshot
 
         return AssetsTotalInvestedSnapshot.objects.filter(
             user_id=user_id, operation_date=operation_date

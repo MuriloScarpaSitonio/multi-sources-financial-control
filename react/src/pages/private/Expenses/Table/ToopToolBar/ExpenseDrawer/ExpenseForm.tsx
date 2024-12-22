@@ -7,7 +7,6 @@ import {
   useMemo,
 } from "react";
 
-import Autocomplete from "@mui/material/Autocomplete";
 import FormLabel from "@mui/material/FormLabel";
 import Grid from "@mui/material/Grid";
 import Switch from "@mui/material/Switch";
@@ -24,7 +23,6 @@ import { EXPENSES_QUERY_KEY } from "../../../consts";
 
 import {
   DateInput,
-  FormFeedbackError,
   PriceWithCurrencyInput,
 } from "../../../../../../design-system";
 import useFormPlus from "../../../../../../hooks/useFormPlus";
@@ -33,10 +31,8 @@ import { useInvalidateExpenseQueries } from "../../../hooks";
 import { Expense } from "../../../api/models";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiListResponse } from "../../../../../../types";
-import { ExpensesContext, ExpenseRelatedEntity } from "../../../context";
-import { StatusDot } from "../../../../../../design-system/icons";
-import { ReactHookFormsInputCustomProps } from "../../../../../../design-system/components/forms/types";
-import { InputAdornment, MenuItem } from "@mui/material";
+import { ExpensesContext } from "../../../context";
+import { AutoCompleteForRelatedEntities } from "../../../components";
 
 const schema = yup.object().shape({
   description: yup.string().required("A descrição é obrigatória"),
@@ -69,72 +65,6 @@ const schema = yup.object().shape({
     .required("A quantidade de parcelas é obrigatório")
     .positive("Apenas números positivos"),
 });
-
-const AutocompleteFromArray = ({
-  array,
-  control,
-  isFieldInvalid,
-  getFieldHasError,
-  getErrorMessage,
-  name = "category",
-  label = "Categoria",
-}: ReactHookFormsInputCustomProps & {
-  array: ExpenseRelatedEntity[];
-  name?: string;
-  label?: string;
-}) => (
-  <Controller
-    name={name}
-    control={control}
-    render={({ field }) => (
-      <>
-        <Autocomplete
-          {...field}
-          onChange={(_, source) => field.onChange(source)}
-          disableClearable
-          options={array.map(({ name, hex_color }) => ({
-            label: name,
-            value: name,
-            hex_color,
-          }))}
-          getOptionLabel={(option) => option.label}
-          renderOption={(props, option) => (
-            <MenuItem {...props} key={option.value} value={option.value}>
-              <Stack direction="row" gap={1} alignItems="center">
-                <StatusDot variant="custom" color={option.hex_color} />
-                {option.label}
-              </Stack>
-            </MenuItem>
-          )}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              value=""
-              error={isFieldInvalid(field)}
-              required
-              label={label}
-              variant="standard"
-              InputProps={{
-                ...params.InputProps,
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <StatusDot
-                      variant="custom"
-                      color={field.value.hex_color as string}
-                    />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          )}
-        />
-        {getFieldHasError(name) && (
-          <FormFeedbackError message={getErrorMessage(`${name}.label`)} />
-        )}
-      </>
-    )}
-  />
-);
 
 const createExpenseMutation = async (data: yup.Asserts<typeof schema>) => {
   const {
@@ -205,8 +135,8 @@ const ExpenseForm = ({
     is_fixed,
     ...rest
   } = initialData ?? {
-    category: "Alimentação",
-    source: "Cartão de crédito",
+    category: "Alimentação", // TODO: change to most common
+    source: "Cartão de crédito", // TODO: change to most common
     is_fixed: false,
   };
   const defaultValues = useMemo(
@@ -428,15 +358,15 @@ const ExpenseForm = ({
           </Grid>
         </Typography>
       </Stack>
-      <AutocompleteFromArray
-        array={categories.results}
+      <AutoCompleteForRelatedEntities
+        entities={categories.results}
         control={control}
         isFieldInvalid={isFieldInvalid}
         getFieldHasError={getFieldHasError}
         getErrorMessage={getErrorMessage}
       />
-      <AutocompleteFromArray
-        array={sources.results}
+      <AutoCompleteForRelatedEntities
+        entities={sources.results}
         name="source"
         label="Fonte"
         control={control}

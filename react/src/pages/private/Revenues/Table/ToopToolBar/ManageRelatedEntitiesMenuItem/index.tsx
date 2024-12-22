@@ -1,6 +1,4 @@
-import { useCallback, useContext, useState } from "react";
-
-import Tab from "@mui/material/Tab";
+import { useCallback, useContext } from "react";
 
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -16,36 +14,20 @@ import { enqueueSnackbar } from "notistack";
 import { Controller } from "react-hook-form";
 import * as yup from "yup";
 
-import {
-  Colors,
-  Text,
-  getColor,
-  ReportTabs,
-} from "../../../../../../design-system";
+import { Colors, Text, getColor } from "../../../../../../design-system";
 import {
   ExpensesContext,
-  type RelatedEntityResultsAndHexColorMapping,
   type ExpenseRelatedEntity,
-} from "../../../context";
+} from "../../../../Expenses/context";
 import useFormPlus from "../../../../../../hooks/useFormPlus";
-import {
-  deleteCategory,
-  deleteSource,
-  updateCategory,
-  updateSource,
-} from "../../../api/expenses";
-import { EXPENSES_QUERY_KEY } from "../../../consts";
+import { deleteCategory, updateCategory } from "../../../api";
+import { REVENUES_QUERY_KEY } from "../../../consts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  useInvalidateCategoriesQueries,
-  useInvalidateSourcesQueries,
-} from "../../../hooks";
+import { useInvalidateCategoriesQueries } from "../../../hooks/useGetCategories";
 import { ApiListResponse } from "../../../../../../types";
-import { Expense } from "../../../api/models";
-import { PERCENTAGE_REPORT_QUERY_KEY } from "../../../Reports/hooks";
-import { AutoCompleteForRelatedEntitiesColors } from "../../../components";
-
-type RelatedEntityKind = "category" | "source";
+import { Revenue } from "../../../models";
+import { AutoCompleteForRelatedEntitiesColors } from "../../../../Expenses/components";
+// import { PERCENTAGE_REPORT_QUERY_KEY } from "../../../Reports/hooks";
 
 const schema = yup.object().shape({
   name: yup.string().required("O nome é obrigatória"),
@@ -58,63 +40,50 @@ const schema = yup.object().shape({
     .required("A cor é obrigatória"),
 });
 
-const RelatedEntityForm = ({
-  entity,
-  kind,
-}: {
-  entity: ExpenseRelatedEntity;
-  kind: RelatedEntityKind;
-}) => {
+const RelatedEntityForm = ({ entity }: { entity: ExpenseRelatedEntity }) => {
   const queryClient = useQueryClient();
 
   const { invalidate: invalidateCategories } =
     useInvalidateCategoriesQueries(queryClient);
-  const { invalidate: invalidateSources } =
-    useInvalidateSourcesQueries(queryClient);
-
-  const onSuccess = useCallback(() => {
-    if (kind === "category") invalidateCategories();
-    else invalidateSources();
-  }, [kind, invalidateCategories, invalidateSources]);
-
-  const entityLabel = kind === "category" ? "Categoria" : "Fonte";
 
   const updateCachedData = useCallback(
     ({ name, prevName }: { name: string; prevName: string }) => {
-      const reportData = queryClient.getQueriesData({
-        queryKey: [PERCENTAGE_REPORT_QUERY_KEY, { group_by: kind }],
-        type: "active",
-      });
-      reportData.forEach(([queryKey, cachedData]) => {
-        const newCachedData = (
-          cachedData as ({ [kind: string]: string } & { total: number })[]
-        ).map((data) =>
-          data[kind] === prevName ? { ...data, [kind]: name } : data,
-        );
+      // const reportData = queryClient.getQueriesData({
+      //   queryKey: [PERCENTAGE_REPORT_QUERY_KEY, { group_by: kind }],
+      //   type: "active",
+      // });
+      // reportData.forEach(([queryKey, cachedData]) => {
+      //   const newCachedData = (
+      //     cachedData as ({ [kind: string]: string } & { total: number })[]
+      //   ).map((data) =>
+      //     data.category === prevName ? { ...data, category: name } : data,
+      //   );
 
-        queryClient.setQueryData(queryKey, newCachedData);
-      });
+      //   queryClient.setQueryData(queryKey, newCachedData);
+      // });
       const expensesData = queryClient.getQueriesData({
-        queryKey: [EXPENSES_QUERY_KEY],
+        queryKey: [REVENUES_QUERY_KEY],
         type: "active",
       });
       expensesData.forEach(([queryKey, cachedData]) => {
         const newCachedData = (
-          cachedData as ApiListResponse<Expense>
-        ).results.map((expense) =>
-          expense[kind] === prevName ? { ...expense, [kind]: name } : expense,
+          cachedData as ApiListResponse<Revenue>
+        ).results.map((revenue) =>
+          revenue.category === prevName
+            ? { ...revenue, category: name }
+            : revenue,
         );
 
         queryClient.setQueryData(
           queryKey,
-          (oldData: ApiListResponse<Expense>) => ({
+          (oldData: ApiListResponse<Revenue>) => ({
             ...oldData,
             results: newCachedData,
           }),
         );
       });
     },
-    [queryClient, kind],
+    [queryClient],
   );
   const {
     control,
@@ -128,7 +97,7 @@ const RelatedEntityForm = ({
     getErrorMessage,
     isFieldInvalid,
   } = useFormPlus({
-    mutationFn: kind === "category" ? updateCategory : updateSource,
+    mutationFn: updateCategory,
     schema: schema,
     defaultValues: {
       ...entity,
@@ -139,20 +108,20 @@ const RelatedEntityForm = ({
     },
     onSuccess: async () => {
       const data = getValues() as yup.Asserts<typeof schema>;
-      onSuccess();
+      invalidateCategories();
       reset(data);
       updateCachedData({ name: data.name, prevName: entity.name });
-      enqueueSnackbar(`${entityLabel} editada com sucesso!`, {
+      enqueueSnackbar("Categoria editada com sucesso!", {
         variant: "success",
       });
     },
   });
 
   const { mutate: deleteEntity, isPending: isDeleting } = useMutation({
-    mutationFn: kind === "category" ? deleteCategory : deleteSource,
+    mutationFn: deleteCategory,
     onSuccess: () => {
-      onSuccess();
-      enqueueSnackbar(`${entityLabel} deletada com sucesso!`, {
+      invalidateCategories();
+      enqueueSnackbar("Categoria deletada com sucesso!", {
         variant: "success",
       });
     },
@@ -222,61 +191,6 @@ const RelatedEntityForm = ({
   );
 };
 
-const TabsContent = ({
-  content,
-  kind,
-}: {
-  content: RelatedEntityResultsAndHexColorMapping;
-  kind: RelatedEntityKind;
-}) => {
-  return (
-    <Stack gap={1}>
-      {content.results.map((entity) => (
-        <RelatedEntityForm
-          entity={entity}
-          kind={kind}
-          key={`related-entity-${kind}-form-${entity.id}`}
-        />
-      ))}
-    </Stack>
-  );
-};
-const Tabs = () => {
-  const [kind, setKind] = useState<RelatedEntityKind>("category");
-
-  const [tabValue, setTabValue] = useState(0);
-  const { sources, categories } = useContext(ExpensesContext);
-
-  return (
-    <Stack gap={2}>
-      <ReportTabs
-        value={tabValue}
-        onChange={(_, newValue) => {
-          switch (newValue) {
-            case 0:
-              setTabValue(newValue);
-              setKind("category");
-              break;
-            case 1:
-              setTabValue(newValue);
-              setKind("source");
-              break;
-            default:
-              break;
-          }
-        }}
-      >
-        <Tab label="Categorias" />
-        <Tab label="Fontes" />
-      </ReportTabs>
-      <TabsContent
-        content={kind === "category" ? categories : sources}
-        kind={kind}
-      />
-    </Stack>
-  );
-};
-
 export const ManageRelatedEntitiesDrawer = ({
   open,
   onClose,
@@ -284,6 +198,8 @@ export const ManageRelatedEntitiesDrawer = ({
   open: boolean;
   onClose: () => void;
 }) => {
+  const { revenuesCategories } = useContext(ExpensesContext);
+
   return (
     <Drawer
       open={open}
@@ -298,8 +214,15 @@ export const ManageRelatedEntitiesDrawer = ({
       }}
     >
       <Stack spacing={5} sx={{ p: 3 }}>
-        <Text>Gerenciar categorias e fontes</Text>
-        <Tabs />
+        <Text>Gerenciar categorias</Text>
+        <Stack gap={1}>
+          {revenuesCategories.results.map((entity) => (
+            <RelatedEntityForm
+              entity={entity}
+              key={`related-entity-form-${entity.id}`}
+            />
+          ))}
+        </Stack>
         <Stack spacing={2} direction="row" justifyContent="flex-end">
           <Button onClick={onClose} variant="brand">
             Fechar
@@ -319,6 +242,6 @@ export const ManageRelatedEntitiesMenuItem = ({
     <ListItemIcon>
       <RuleIcon />
     </ListItemIcon>
-    <ListItemText>Gerenciar categorias e fontes</ListItemText>
+    <ListItemText>Gerenciar categorias</ListItemText>
   </MenuItem>
 );

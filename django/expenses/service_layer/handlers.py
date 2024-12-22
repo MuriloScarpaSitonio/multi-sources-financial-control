@@ -159,3 +159,9 @@ def change_all_expenses_source_name(event: events.ExpenseCategoryUpdated, uow: E
     with uow:
         uow.expenses.change_all_source_name(prev_name=event.prev_name, name=event.name)
         uow.commit()
+
+
+def change_all_revenues_category_name(event: events.RevenueCategoryUpdated, uow: RevenueUnitOfWork):
+    with uow:
+        uow.revenues.change_all_category_name(prev_name=event.prev_name, name=event.name)
+        uow.commit()
