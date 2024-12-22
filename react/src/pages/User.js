@@ -58,28 +58,25 @@ export default function User() {
   let queryParams = useQueryParams();
 
   const [tabValue, setTabValue] = useState(
-    parseInt(queryParams.get("tab")) || 0
+    parseInt(queryParams.get("tab")) || 0,
   );
   const navigate = useNavigate();
 
   useEffect(() => {
     if (queryParams.get("refresh")) {
       queryParams.delete("refresh");
-      console.log(queryParams.toString());
       new UserApi(localStorage.getItem("user_id"))
         .retrieve()
         .then((response) => {
           setUserDataToLocalStorage(response.data);
         })
-        .finally(() =>
-        navigate('.', { search: queryParams.toString() })
-        );
+        .finally(() => navigate(".", { search: queryParams.toString() }));
     }
   });
 
   const classes = useStyles();
   const isInvestmentsIntegrationsModuleEnabled = stringToBoolean(
-    localStorage.getItem("user_is_investments_integrations_module_enabled")
+    localStorage.getItem("user_is_investments_integrations_module_enabled"),
   );
   const isSubscriptionCancelled =
     localStorage.getItem("user_subscription_status") === "CANCELED";

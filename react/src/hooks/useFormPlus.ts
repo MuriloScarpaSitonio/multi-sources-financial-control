@@ -43,7 +43,9 @@ export const useFormPlus = ({
         Object.fromEntries(
           Object.entries(error.response.data).map(([key, value]) => [
             key,
-            (value as string[]).join("; "),
+            Array.isArray(value)
+              ? (value as string[]).join("; ")
+              : (value as string),
           ]),
         ),
       );
@@ -93,6 +95,7 @@ export const useFormPlus = ({
     getValues,
     reset,
     watch,
+    apiErrors,
   };
 };
 

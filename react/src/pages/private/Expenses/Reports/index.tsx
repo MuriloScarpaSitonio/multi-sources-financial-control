@@ -60,7 +60,6 @@ const PercentageContent = ({ groupBy }: { groupBy: GroupBy }) => {
     endDate,
   });
 
-  console.log("data =", data);
   return (
     <Stack justifyContent="center" sx={{ py: 1, pl: 2.5 }}>
       <DatePickers

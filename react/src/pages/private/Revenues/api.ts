@@ -153,3 +153,9 @@ export const updateCategory = async ({
 
 export const deleteCategory = async (id: number) =>
   (await apiProvider.Delete(`${RESOURCE}/categories/${id}`)).data;
+
+export const addCategory = async (data: {
+  name: string;
+  hex_color: string;
+}): Promise<RevenueRelatedEntity> =>
+  (await apiProvider.post(`${RESOURCE}/categories`, data)).data;

@@ -1,15 +1,23 @@
-import { useCallback, useContext, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
+
+import { useCallback, useContext, useEffect, useState } from "react";
 
 import Tab from "@mui/material/Tab";
 
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+
 import Drawer from "@mui/material/Drawer";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import AddIcon from "@mui/icons-material/Add";
 import RuleIcon from "@mui/icons-material/Rule";
 
 import { enqueueSnackbar } from "notistack";
@@ -29,6 +37,8 @@ import {
 } from "../../../context";
 import useFormPlus from "../../../../../../hooks/useFormPlus";
 import {
+  addCategory,
+  addSource,
   deleteCategory,
   deleteSource,
   updateCategory,
@@ -48,7 +58,7 @@ import { AutoCompleteForRelatedEntitiesColors } from "../../../components";
 type RelatedEntityKind = "category" | "source";
 
 const schema = yup.object().shape({
-  name: yup.string().required("O nome é obrigatória"),
+  name: yup.string().required("O nome é obrigatório"),
   hex_color: yup
     .object()
     .shape({
@@ -57,6 +67,151 @@ const schema = yup.object().shape({
     })
     .required("A cor é obrigatória"),
 });
+
+const FORM_ID = "new-expense-related-entity-form-id";
+
+const NewRelatedEntityForm = ({
+  id,
+  setIsSubmitting,
+  kind,
+  excludeColors,
+}: {
+  id: string;
+  setIsSubmitting: Dispatch<SetStateAction<boolean>>;
+  kind: RelatedEntityKind;
+  excludeColors: string[];
+}) => {
+  const queryClient = useQueryClient();
+
+  const { invalidate: invalidateCategories } =
+    useInvalidateCategoriesQueries(queryClient);
+  const { invalidate: invalidateSources } =
+    useInvalidateSourcesQueries(queryClient);
+
+  const onSuccess = useCallback(() => {
+    if (kind === "category") invalidateCategories();
+    else invalidateSources();
+  }, [kind, invalidateCategories, invalidateSources]);
+
+  const entityLabel = kind === "category" ? "Categoria" : "Fonte";
+
+  const {
+    control,
+    handleSubmit,
+    mutate,
+    isPending,
+    reset,
+    getFieldHasError,
+    getErrorMessage,
+    isFieldInvalid,
+  } = useFormPlus({
+    mutationFn: kind === "category" ? addCategory : addSource,
+    schema: schema,
+    defaultValues: { name: "", hex_color: { label: "", value: "" } },
+    onSuccess: () => {
+      onSuccess();
+      reset();
+      enqueueSnackbar(`${entityLabel} adicionada com sucesso!`, {
+        variant: "success",
+      });
+    },
+  });
+
+  useEffect(() => setIsSubmitting(isPending), [isPending, setIsSubmitting]);
+
+  return (
+    <Stack
+      gap={1}
+      component="form"
+      noValidate
+      id={id}
+      onSubmit={handleSubmit((data: yup.Asserts<typeof schema>) =>
+        mutate({ ...data, hex_color: data.hex_color.value }),
+      )}
+      sx={{ marginBottom: 2 }}
+    >
+      <Stack direction="row" spacing={1}>
+        <Controller
+          name="name"
+          control={control}
+          rules={{ required: true }}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              label="Nome"
+              required
+              error={getFieldHasError(field.name)}
+              helperText={getErrorMessage(field.name)}
+              variant="standard"
+              sx={{ width: "80%" }}
+            />
+          )}
+        />
+        <AutoCompleteForRelatedEntitiesColors
+          control={control}
+          isFieldInvalid={isFieldInvalid}
+          getFieldHasError={getFieldHasError}
+          getErrorMessage={getErrorMessage}
+          sx={{ width: "15%" }}
+          excludeValues={excludeColors}
+        />
+      </Stack>
+    </Stack>
+  );
+};
+
+const NewRelatedEntityDialog = ({
+  open,
+  onClose,
+  kind,
+  currentColors,
+}: {
+  open: boolean;
+  onClose: () => void;
+  kind: RelatedEntityKind;
+  currentColors: string[];
+}) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const entityLabel = kind === "category" ? "categoria" : "fonte";
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="sm"
+      PaperProps={{
+        style: {
+          backgroundColor: getColor(Colors.neutral600),
+          boxShadow: "none",
+          backgroundImage: "none",
+        },
+      }}
+    >
+      <DialogTitle>{`Adicionar nova ${entityLabel}`}</DialogTitle>
+      <DialogContent>
+        <NewRelatedEntityForm
+          id={FORM_ID}
+          kind={kind}
+          setIsSubmitting={setIsSubmitting}
+          excludeColors={currentColors}
+        />
+        <DialogActions>
+          <Button onClick={onClose} variant="brand-text">
+            Fechar
+          </Button>
+          <Button type="submit" variant="brand" form={FORM_ID}>
+            {isSubmitting ? (
+              <CircularProgress color="inherit" size={24} />
+            ) : (
+              "Adicionar"
+            )}
+          </Button>
+        </DialogActions>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const RelatedEntityForm = ({
   entity,
@@ -229,15 +384,35 @@ const TabsContent = ({
   content: RelatedEntityResultsAndHexColorMapping;
   kind: RelatedEntityKind;
 }) => {
+  const [openDialog, setOpenDialog] = useState(false);
+
   return (
-    <Stack gap={1}>
-      {content.results.map((entity) => (
-        <RelatedEntityForm
-          entity={entity}
-          kind={kind}
-          key={`related-entity-${kind}-form-${entity.id}`}
-        />
-      ))}
+    <Stack spacing={2}>
+      <Stack direction="row" justifyContent="flex-end">
+        <Button
+          startIcon={<AddIcon />}
+          size="small"
+          variant="brand"
+          onClick={() => setOpenDialog(true)}
+        >
+          {kind === "category" ? "Categoria" : "Fonte"}
+        </Button>
+      </Stack>
+      <Stack spacing={1}>
+        {content.results.map((entity) => (
+          <RelatedEntityForm
+            entity={entity}
+            kind={kind}
+            key={`related-entity-${kind}-form-${entity.id}`}
+          />
+        ))}
+      </Stack>
+      <NewRelatedEntityDialog
+        open={openDialog}
+        onClose={() => setOpenDialog(false)}
+        kind={kind}
+        currentColors={Array.from(content.hexColorMapping.values())}
+      />
     </Stack>
   );
 };

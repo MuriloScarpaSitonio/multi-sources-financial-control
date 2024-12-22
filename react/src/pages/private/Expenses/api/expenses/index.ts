@@ -219,6 +219,12 @@ export const updateCategory = async ({
 export const deleteCategory = async (id: number) =>
   (await apiProvider.Delete(`${RESOURCE}/categories/${id}`)).data;
 
+export const addCategory = async (data: {
+  name: string;
+  hex_color: string;
+}): Promise<ExpenseRelatedEntity> =>
+  (await apiProvider.post(`${RESOURCE}/categories`, data)).data;
+
 export const getSources = async (params: {
   ordering?: string;
   page?: number;
@@ -237,3 +243,9 @@ export const updateSource = async ({
 
 export const deleteSource = async (id: number) =>
   (await apiProvider.Delete(`${RESOURCE}/sources/${id}`)).data;
+
+export const addSource = async (data: {
+  name: string;
+  hex_color: string;
+}): Promise<ExpenseRelatedEntity> =>
+  (await apiProvider.post(`${RESOURCE}/sources`, data)).data;
