@@ -128,6 +128,19 @@ export const getHistoricReport = async (params: {
     })
   ).data;
 
+export const getPercentageReport = async (params: {
+  startDate: Date;
+  endDate: Date;
+}): Promise<HistoricReportResponse> =>
+  (
+    await apiProvider.get(`${RESOURCE}/percentage_report`, {
+      params: {
+        start_date: params.startDate.toLocaleDateString("pt-br"),
+        end_date: params.endDate.toLocaleDateString("pt-br"),
+      },
+    })
+  ).data;
+
 type RevenueRelatedEntity = {
   id: number;
   name: string;

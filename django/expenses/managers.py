@@ -181,3 +181,17 @@ class RevenueQueryset(_PersonalFinancialQuerySet):
 
     def most_common(self) -> str:
         return super().most_common(field_name="category")
+
+    def percentage_report(self, start_date: date, end_date: date) -> Self:
+        return (
+            self.values("category")
+            .annotate(
+                total=Sum(
+                    "value",
+                    filter=self.filters.filter_range(start_date, end_date),
+                    default=Decimal(),
+                )
+            )
+            .filter(total__gt=0)
+            .order_by("-total")
+        )

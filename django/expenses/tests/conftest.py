@@ -218,8 +218,9 @@ def expenses(user, default_categories_map, default_sources_map):
 def expenses_report_data(expenses, user, default_categories_map, default_sources_map):
     today = timezone.localdate()
     for i in range(1, 7):
-        category1 = next(iter(DEFAULT_CATEGORIES_MAP))
-        source1 = next(iter(DEFAULT_SOURCES_MAP))
+        category1 = choice(list(DEFAULT_CATEGORIES_MAP))
+        source1 = choice(list(DEFAULT_SOURCES_MAP))
+        is_fixed = bool(i % 2)
         ExpenseFactory(
             value=randint(5, 10),
             description=f"Expense {i}",
@@ -228,14 +229,15 @@ def expenses_report_data(expenses, user, default_categories_map, default_sources
             created_at=today,
             source=source1,
             expanded_source_id=default_sources_map[source1],
-            is_fixed=bool(i % 2),
-            recurring_id=uuid4() if bool(i % 2) else None,
+            is_fixed=is_fixed,
+            recurring_id=uuid4() if is_fixed else None,
             user=user,
         )
 
     for i in range(14, 30):
-        category2 = next(iter(DEFAULT_CATEGORIES_MAP))
-        source2 = next(iter(DEFAULT_SOURCES_MAP))
+        category2 = choice(list(DEFAULT_CATEGORIES_MAP))
+        source2 = choice(list(DEFAULT_SOURCES_MAP))
+        is_fixed = bool(i % 2)
         ExpenseFactory(
             value=randint(5, 10),
             description=f"Expense {i}",
@@ -244,14 +246,15 @@ def expenses_report_data(expenses, user, default_categories_map, default_sources
             created_at=today - relativedelta(months=i),
             source=source2,
             expanded_source_id=default_sources_map[source2],
-            is_fixed=bool(i % 2),
-            recurring_id=uuid4() if bool(i % 2) else None,
+            is_fixed=is_fixed,
+            recurring_id=uuid4() if is_fixed else None,
             user=user,
         )
 
     for i in range(1, 8):
-        category3 = next(iter(DEFAULT_CATEGORIES_MAP))
-        source3 = next(iter(DEFAULT_SOURCES_MAP))
+        category3 = choice(list(DEFAULT_CATEGORIES_MAP))
+        source3 = choice(list(DEFAULT_SOURCES_MAP))
+        is_fixed = bool(i % 2)
         ExpenseFactory(
             value=randint(5, 10),
             description=f"Expense {i+30}",
@@ -260,8 +263,8 @@ def expenses_report_data(expenses, user, default_categories_map, default_sources
             created_at=today + relativedelta(months=i),
             source=source3,
             expanded_source_id=default_sources_map[source3],
-            is_fixed=bool(i % 2),
-            recurring_id=uuid4() if bool(i % 2) else None,
+            is_fixed=is_fixed,
+            recurring_id=uuid4() if is_fixed else None,
             user=user,
         )
 
@@ -352,16 +355,19 @@ def yet_another_revenue(user, revenue, default_revenue_categories_map) -> Revenu
 
 
 @pytest.fixture
-def revenues(user):
+def revenues(user, default_revenue_categories_map):
     today = timezone.localdate()
     for i in range(1, 13):
+        is_fixed = bool(i % 2)
         RevenueFactory(
             value=randint(5000, 10000),
             description=f"Revenue {i}",
             created_at=today - relativedelta(months=i),
-            is_fixed=bool(i % 2),
-            recurring_id=uuid4() if bool(i % 2) else None,
+            is_fixed=is_fixed,
+            recurring_id=uuid4() if is_fixed else None,
             user=user,
+            category="Salário",
+            expanded_category_id=default_revenue_categories_map["Salário"],
         )
 
 
@@ -369,22 +375,70 @@ def revenues(user):
 def revenues_historic_data(revenues, user):
     today = timezone.localdate()
     for i in range(1, 7):
+        is_fixed = bool(i % 2)
         RevenueFactory(
             value=randint(5000, 10000),
             description=f"Revenue {i}",
             created_at=today,
-            is_fixed=bool(i % 2),
-            recurring_id=uuid4() if bool(i % 2) else None,
+            is_fixed=is_fixed,
+            recurring_id=uuid4() if is_fixed else None,
             user=user,
         )
 
     for i in range(14, 30):
-        ExpenseFactory(
+        is_fixed = bool(i % 2)
+        RevenueFactory(
             value=randint(5000, 10000),
             description=f"Revenue {i}",
             created_at=today - relativedelta(months=i),
-            is_fixed=bool(i % 2),
-            recurring_id=uuid4() if bool(i % 2) else None,
+            is_fixed=is_fixed,
+            recurring_id=uuid4() if is_fixed else None,
+            user=user,
+        )
+
+
+@pytest.fixture
+def revenues_report_data(revenues, user, default_revenue_categories_map):
+    today = timezone.localdate()
+    for i in range(1, 7):
+        category1 = choice(list(DEFAULT_REVENUE_CATEGORIES_MAP))
+        is_fixed = bool(i % 2)
+        RevenueFactory(
+            value=randint(500, 1000000),
+            description=f"Revenue {i}",
+            category=category1,
+            expanded_category_id=default_revenue_categories_map[category1],
+            created_at=today,
+            is_fixed=is_fixed,
+            recurring_id=uuid4() if is_fixed else None,
+            user=user,
+        )
+
+    for i in range(14, 30):
+        category2 = choice(list(DEFAULT_REVENUE_CATEGORIES_MAP))
+        is_fixed = bool(i % 2)
+        RevenueFactory(
+            value=randint(500, 1000000),
+            description=f"Revenue {i}",
+            category=category2,
+            expanded_category_id=default_revenue_categories_map[category2],
+            created_at=today - relativedelta(months=i),
+            is_fixed=is_fixed,
+            recurring_id=uuid4() if is_fixed else None,
+            user=user,
+        )
+
+    for i in range(1, 8):
+        category3 = choice(list(DEFAULT_REVENUE_CATEGORIES_MAP))
+        is_fixed = bool(i % 2)
+        RevenueFactory(
+            value=randint(500, 1000000),
+            description=f"Revenue {i+30}",
+            category=category3,
+            expanded_category_id=default_revenue_categories_map[category3],
+            created_at=today + relativedelta(months=i),
+            is_fixed=is_fixed,
+            recurring_id=uuid4() if is_fixed else None,
             user=user,
         )
 

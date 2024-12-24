@@ -3,17 +3,18 @@ import type { HistoricReportResponse } from "../../Expenses/types";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getHistoricReport } from "../api";
+import { ReportAggregatedByCategoryDataItem } from "../../Expenses/types";
+import { getHistoricReport, getPercentageReport } from "../api";
 
 const HISTORIC_REPORT_QUERY_KEY = "revenue-historic-report";
 
-type HistoricParams = {
+type Params = {
   startDate: Date;
   endDate: Date;
 };
 
 export const useRevenuesHistoricReport = (
-  params: HistoricParams,
+  params: Params,
 ): UseQueryResult<HistoricReportResponse> =>
   useQuery({
     queryKey: [
@@ -31,9 +32,33 @@ export const useInvalidateRevenuesHistoricReportQueries = (
 ) => {
   const queryClient = useQueryClient(client);
 
-  const invalidate = async (params?: HistoricParams) => {
+  const invalidate = async (params?: Params) => {
     await queryClient.invalidateQueries({
       queryKey: [HISTORIC_REPORT_QUERY_KEY, ...(params ? [params] : [])],
+    });
+  };
+
+  return { invalidate };
+};
+
+export const PERCENTAGE_REPORT_QUERY_KEY = "revenues-percentage-report";
+
+export const useRevenuesPercentagenReport = (
+  params: Params,
+): UseQueryResult<ReportAggregatedByCategoryDataItem[]> =>
+  useQuery({
+    queryKey: [PERCENTAGE_REPORT_QUERY_KEY, params],
+    queryFn: () => getPercentageReport(params),
+  });
+
+export const useInvalidateRevenuesPercentagenReportQueries = (
+  client?: QueryClient,
+) => {
+  const queryClient = useQueryClient(client);
+
+  const invalidate = async (params?: Params) => {
+    await queryClient.invalidateQueries({
+      queryKey: [PERCENTAGE_REPORT_QUERY_KEY, ...(params ? [params] : [])],
     });
   };
 

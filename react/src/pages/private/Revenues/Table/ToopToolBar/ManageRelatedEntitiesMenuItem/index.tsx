@@ -33,7 +33,7 @@ import { useInvalidateCategoriesQueries } from "../../../hooks/useGetCategories"
 import { ApiListResponse } from "../../../../../../types";
 import { Revenue } from "../../../models";
 import { AutoCompleteForRelatedEntitiesColors } from "../../../../Expenses/components";
-// import { PERCENTAGE_REPORT_QUERY_KEY } from "../../../Reports/hooks";
+import { PERCENTAGE_REPORT_QUERY_KEY } from "../../../Reports/hooks";
 
 const schema = yup.object().shape({
   name: yup.string().required("O nome é obrigatório"),
@@ -187,19 +187,19 @@ const RevenueCategoryForm = ({
 
   const updateCachedData = useCallback(
     ({ name, prevName }: { name: string; prevName: string }) => {
-      // const reportData = queryClient.getQueriesData({
-      //   queryKey: [PERCENTAGE_REPORT_QUERY_KEY, { group_by: kind }],
-      //   type: "active",
-      // });
-      // reportData.forEach(([queryKey, cachedData]) => {
-      //   const newCachedData = (
-      //     cachedData as ({ [kind: string]: string } & { total: number })[]
-      //   ).map((data) =>
-      //     data.category === prevName ? { ...data, category: name } : data,
-      //   );
+      const reportData = queryClient.getQueriesData({
+        queryKey: [PERCENTAGE_REPORT_QUERY_KEY],
+        type: "active",
+      });
+      reportData.forEach(([queryKey, cachedData]) => {
+        const newCachedData = (
+          cachedData as { category: string; total: number }[]
+        ).map((data) =>
+          data.category === prevName ? { ...data, category: name } : data,
+        );
 
-      //   queryClient.setQueryData(queryKey, newCachedData);
-      // });
+        queryClient.setQueryData(queryKey, newCachedData);
+      });
       const expensesData = queryClient.getQueriesData({
         queryKey: [REVENUES_QUERY_KEY],
         type: "active",

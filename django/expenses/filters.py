@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from rest_framework.request import Request
     from rest_framework.viewsets import GenericViewSet
 
-    from .managers import ExpenseQueryset
+    from .managers import ExpenseQueryset, RevenueQueryset
 
 
 class MostCommonOrderingFilterBackend(OrderingFilter):
@@ -211,6 +211,30 @@ class RevenueHistoricFilterSet(django_filters.FilterSet):
     @property
     def qs(self):
         return super().qs.since_a_year_ago()
+
+
+class RevenuesPercentageReportFilterSet(PersonalFinanceIndicatorsV2FilterSet):
+    queryset: RevenueQueryset
+
+    @property
+    def qs(self):
+        if self.is_valid():
+            _qs = list(
+                self.queryset.percentage_report(
+                    start_date=self.form.cleaned_data["start_date"],
+                    end_date=self.form.cleaned_data["end_date"],
+                )
+            )
+
+            total_agg = sum(r["total"] for r in _qs)
+            return [
+                {
+                    **result,
+                    "total": (result["total"] / total_agg) * Decimal("100.0"),
+                }
+                for result in _qs
+            ]
+        raise django_filters.utils.translate_validation(error_dict=self.errors)
 
 
 class PersonalFinanceContextFilterSet(django_filters.FilterSet):

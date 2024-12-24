@@ -304,6 +304,14 @@ class RevenueViewSet(_PersonalFinanceViewSet):
                 uow=RevenueUnitOfWork(user_id=self.request.user.id),
             )
 
+    @action(methods=("GET",), detail=False)
+    def percentage_report(self, request: Request) -> Response:
+        filterset = filters.RevenuesPercentageReportFilterSet(
+            data=request.GET, queryset=self.get_queryset()
+        )
+        serializer = serializers.ExpenseReportCategorySerializer(filterset.qs, many=True)
+        return Response(serializer.data, status=HTTP_200_OK)
+
 
 class BankAccountView(APIView):
     permission_classes = (SubscriptionEndedPermission, PersonalFinancesModulePermission)

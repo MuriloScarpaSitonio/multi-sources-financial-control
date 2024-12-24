@@ -17,8 +17,9 @@ from rest_framework.status import (
 )
 
 from config.settings.base import BASE_API_URL
-from shared.tests import convert_and_quantitize
+from shared.tests import convert_and_quantitize, convert_to_percentage_and_quantitize
 
+from ...choices import DEFAULT_REVENUE_CATEGORIES_MAP
 from ...models import Revenue
 
 pytestmark = pytest.mark.django_db
@@ -398,6 +399,34 @@ def test__historic(client, user, filters, db_filters):
     assert convert_and_quantitize(response_json["avg"]) == convert_and_quantitize(
         qs.monthly_avg()["avg"]
     )
+
+
+@pytest.mark.usefixtures("revenues_report_data")
+def test__reports__percentage(client):
+    # GIVEN
+    today = timezone.localdate()
+    start_date, end_date = today - relativedelta(months=18), today
+    _map = DEFAULT_REVENUE_CATEGORIES_MAP
+    qs = Revenue.objects.filter(created_at__range=(start_date, end_date))
+    total = qs.sum()["total"]
+    totals = {v: qs.filter(category=v).sum()["total"] for v in _map}
+
+    # WHEN
+    response = client.get(
+        f"{URL}/percentage_report?"
+        + f"&start_date={start_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}"
+    )
+
+    # THEN
+    for result in response.json():
+        for label in _map:
+            if label == result["category"]:
+                assert float(
+                    convert_to_percentage_and_quantitize(value=totals[label], total=total)
+                ) == convert_and_quantitize(result["total"])
+
+    assert response.status_code == HTTP_200_OK
 
 
 @pytest.mark.usefixtures("revenues_historic_data")
