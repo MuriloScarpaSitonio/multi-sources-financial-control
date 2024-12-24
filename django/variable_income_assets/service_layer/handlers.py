@@ -148,7 +148,6 @@ def maybe_update_snapshot(
     event: events.TransactionsCreated | events.TransactionUpdated | events.TransactionDeleted,
     _: AbstractUnitOfWork,
 ):
-
     first_day_of_month = timezone.localdate() - relativedelta(day=1)
     if event.operation_date.month != first_day_of_month.month:
         if isinstance(event, events.TransactionUpdated) and not event.quantity_diff:

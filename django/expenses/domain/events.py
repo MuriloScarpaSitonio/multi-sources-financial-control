@@ -1,10 +1,11 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from decimal import Decimal
 
 from .models import Expense
 
 
-class Event: ...
+class Event:
+    ...
 
 
 @dataclass
@@ -12,7 +13,8 @@ class ExpenseEvent(Event):
     expense: Expense
 
 
-class ExpenseCreated(ExpenseEvent): ...
+class ExpenseCreated(ExpenseEvent):
+    ...
 
 
 @dataclass
@@ -20,7 +22,8 @@ class ExpenseUpdated(ExpenseEvent):
     previous_value: Decimal
 
 
-class ExpenseDeleted(ExpenseEvent): ...
+class ExpenseDeleted(ExpenseEvent):
+    ...
 
 
 @dataclass
@@ -38,19 +41,27 @@ class RevenueDeleted(Event):
     value: Decimal
 
 
-class BankAccountNegative(Event): ...
+class BankAccountNegative(Event):
+    ...
 
 
 @dataclass
 class RelatedExpenseEntityUpdated(Event):
     prev_name: str
     name: str
+    new_id: int
+
+    def as_dict(self) -> dict:
+        return asdict(self)
 
 
-class ExpenseCategoryUpdated(RelatedExpenseEntityUpdated): ...
+class ExpenseCategoryUpdated(RelatedExpenseEntityUpdated):
+    ...
 
 
-class ExpenseSourceUpdated(RelatedExpenseEntityUpdated): ...
+class ExpenseSourceUpdated(RelatedExpenseEntityUpdated):
+    ...
 
 
-class RevenueCategoryUpdated(RelatedExpenseEntityUpdated): ...
+class RevenueCategoryUpdated(RelatedExpenseEntityUpdated):
+    ...

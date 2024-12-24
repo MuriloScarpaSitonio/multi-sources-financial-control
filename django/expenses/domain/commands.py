@@ -5,7 +5,8 @@ from .models import Expense as ExpenseDomainModel
 from .models import Revenue as RevenueDomainModel
 
 
-class Command: ...
+class Command:
+    ...
 
 
 @dataclass
@@ -14,7 +15,8 @@ class ExpenseCommand(Command):
     perform_actions_on_future_fixed_entities: bool
 
 
-class CreateExpense(ExpenseCommand): ...
+class CreateExpense(ExpenseCommand):
+    ...
 
 
 @dataclass
@@ -23,7 +25,8 @@ class UpdateExpense(ExpenseCommand):
 
 
 @dataclass
-class DeleteExpense(ExpenseCommand): ...
+class DeleteExpense(ExpenseCommand):
+    ...
 
 
 @dataclass
@@ -32,7 +35,8 @@ class RevenueCommand(Command):
 
 
 @dataclass
-class CreateFutureFixedRevenues(RevenueCommand): ...
+class CreateFutureFixedRevenues(RevenueCommand):
+    ...
 
 
 @dataclass
@@ -41,4 +45,5 @@ class UpdateFutureFixedRevenues(RevenueCommand):
 
 
 @dataclass
-class DeleteFutureFixedRevenues(RevenueCommand): ...
+class DeleteFutureFixedRevenues(RevenueCommand):
+    ...

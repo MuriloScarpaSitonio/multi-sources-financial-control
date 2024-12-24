@@ -12,7 +12,7 @@ from .domain.models import Revenue as RevenueDomainModel
 from .managers import ExpenseQueryset, RevenueQueryset
 
 
-class _RelatedEntity(models.Model):
+class RelatedEntity(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     name = models.CharField(max_length=100)
@@ -33,13 +33,13 @@ class _RelatedEntity(models.Model):
     __repr__ = __str__
 
 
-class ExpenseCategory(_RelatedEntity):
+class ExpenseCategory(RelatedEntity):
     user = models.ForeignKey(
         to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="expense_categories"
     )
 
 
-class ExpenseSource(_RelatedEntity):
+class ExpenseSource(RelatedEntity):
     user = models.ForeignKey(
         to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="expense_sources"
     )
@@ -161,7 +161,7 @@ class Expense(models.Model):
         )
 
 
-class RevenueCategory(_RelatedEntity):
+class RevenueCategory(RelatedEntity):
     user = models.ForeignKey(
         to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="revenue_categories"
     )

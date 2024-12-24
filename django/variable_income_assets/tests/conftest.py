@@ -841,12 +841,14 @@ def loss_asset_previously_closed_w_incomes_and_profit_loss(
 
 # 24 ativo fechado, lucro
 @pytest.fixture
-def profit_asset_closed(stock_asset_closed_operation, stock_asset_metadata): ...
+def profit_asset_closed(stock_asset_closed_operation, stock_asset_metadata):
+    ...
 
 
 # 6.dollar - ativo aberto, apenas transações de compra, lucro
 @pytest.fixture
-def profit_asset_usa_bought_transactions(stock_usa_asset_metadata, stock_usa_transaction): ...
+def profit_asset_usa_bought_transactions(stock_usa_asset_metadata, stock_usa_transaction):
+    ...
 
 
 # 7.dollar - ativo aberto, apenas transações de compra, prejuízo
@@ -860,7 +862,8 @@ def loss_asset_usa_bought_transactions(stock_usa_asset_metadata, stock_usa_trans
 @pytest.fixture
 def loss_asset_usa_bought_transactions_incomes_profit(
     loss_asset_usa_bought_transactions, another_income
-): ...
+):
+    ...
 
 
 # 10.dollar - ativo aberto, apenas transações de compra, prejuízo + incomes = prejuízo
@@ -900,7 +903,8 @@ def loss_asset_usa_both_transactions(stock_usa_asset, loss_asset_usa_bought_tran
 @pytest.fixture
 def loss_asset_usa_both_transactions_incomes_profit(
     loss_asset_usa_both_transactions, another_income
-): ...
+):
+    ...
 
 
 # 15.dollar - ativo aberto, transações de compra e venda, prejuízo + incomes = prejuízo

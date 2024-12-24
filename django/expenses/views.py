@@ -358,7 +358,7 @@ class _ExpenseRelatedEntityViewSet(
             with ExpenseUnitOfWork(user_id=self.request.user.id) as uow:
                 messagebus.handle(
                     message=self.entity_updated_event_class(
-                        prev_name=prev_name, name=instance.name
+                        prev_name=prev_name, name=instance.name, new_id=instance.id
                     ),
                     uow=uow,
                 )
@@ -419,7 +419,9 @@ class RevenueCategoryViewSet(
         if prev_name != instance.name:
             with RevenueUnitOfWork(user_id=self.request.user.id) as uow:
                 messagebus.handle(
-                    message=events.RevenueCategoryUpdated(prev_name=prev_name, name=instance.name),
+                    message=events.RevenueCategoryUpdated(
+                        prev_name=prev_name, name=instance.name, new_id=instance.id
+                    ),
                     uow=uow,
                 )
 

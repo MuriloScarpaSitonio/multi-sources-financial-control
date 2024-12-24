@@ -248,7 +248,8 @@ class _TokenSerializer(serializers.Serializer):
             raise serializers.ValidationError("Token inválido")
 
 
-class ResetPasswordSerializer(_TokenSerializer, _ResetPasswordSerializer): ...
+class ResetPasswordSerializer(_TokenSerializer, _ResetPasswordSerializer):
+    ...
 
 
 class ChangePasswordSerializer(_ResetPasswordSerializer):
@@ -260,7 +261,8 @@ class ChangePasswordSerializer(_ResetPasswordSerializer):
         return value
 
 
-class ActivateUserSerializer(_TokenSerializer): ...
+class ActivateUserSerializer(_TokenSerializer):
+    ...
 
 
 class ResetPasswordRequestSerializer(serializers.Serializer):

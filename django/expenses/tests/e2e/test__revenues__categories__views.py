@@ -88,7 +88,7 @@ def test__create(client, user):
     data = {"name": "name", "hex_color": Colors.orange1}
 
     # WHEN
-    response = client.post(f"{URL}", data=data)
+    response = client.post(URL, data=data)
 
     # THEN
     assert response.status_code == HTTP_201_CREATED
@@ -96,12 +96,30 @@ def test__create(client, user):
     assert RevenueCategory.objects.filter(user=user, **data).exists()
 
 
+def test__create__categories__undo_soft_delete(client, user, default_revenue_categories):
+    # GIVEN
+    data = {"name": "Presente", "hex_color": Colors.orange1}
+    gift_category: RevenueCategory = next(
+        c for c in default_revenue_categories if c.name == data["name"]
+    )
+    gift_category.deleted = True
+    gift_category.save()
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+
+    assert RevenueCategory.objects.filter(user=user, deleted=False, **data).exists()
+
+
 def test__create__validate_unique_name(client):
     # GIVEN
     data = {"name": "Bônus", "hex_color": Colors.orange1}
 
     # WHEN
-    response = client.post(f"{URL}", data=data)
+    response = client.post(URL, data=data)
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
@@ -114,7 +132,7 @@ def test__create__validate_color(client):
     data = {"name": "name", "hex_color": "#4287f5"}
 
     # WHEN
-    response = client.post(f"{URL}", data=data)
+    response = client.post(URL, data=data)
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
@@ -142,6 +160,38 @@ def test__update(client):
 
     assert not Revenue.objects.filter(category="Salário").exists()
     assert Revenue.objects.filter(category=data["name"], expanded_category=category).exists()
+
+
+@pytest.mark.usefixtures("fixed_revenues", "yet_another_revenue")
+def test__update__categories__undo_soft_delete(client, user, default_revenue_categories):
+    # GIVEN
+    data = {"name": "Salário", "hex_color": Colors.orange1}
+    salary_category: RevenueCategory = next(
+        c for c in default_revenue_categories if c.name == data["name"]
+    )
+    salary_category.deleted = True
+    salary_category.save()
+
+    gift_category: RevenueCategory = next(
+        c for c in default_revenue_categories if c.name == "Presente"
+    )
+
+    # WHEN
+    response = client.put(f"{URL}/{gift_category.id}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    salary_category.refresh_from_db()
+    assert salary_category.name == data["name"]
+    assert salary_category.hex_color == data["hex_color"]
+    assert not salary_category.deleted
+
+    assert not Revenue.objects.filter(category="Presente").exists()
+    assert Revenue.objects.filter(category=data["name"], expanded_category=salary_category).exists()
+
+    gift_category.refresh_from_db()
+    assert gift_category.deleted
 
 
 def test__update__validate_unique_name(client):

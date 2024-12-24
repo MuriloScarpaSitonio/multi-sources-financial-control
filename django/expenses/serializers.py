@@ -10,7 +10,15 @@ from rest_framework import serializers
 from .domain import commands
 from .domain.exceptions import ValidationError as DomainValidationError
 from .domain.models import Expense as ExpenseDomainModel
-from .models import BankAccount, Expense, ExpenseCategory, ExpenseSource, Revenue, RevenueCategory
+from .models import (
+    BankAccount,
+    Expense,
+    ExpenseCategory,
+    ExpenseSource,
+    RelatedEntity,
+    Revenue,
+    RevenueCategory,
+)
 from .service_layer import messagebus
 from .service_layer.unit_of_work import ExpenseUnitOfWork
 
@@ -154,14 +162,16 @@ class ExpenseReportCategorySerializer(TotalSerializer):
     category = serializers.CharField()
 
 
-class ExpenseReportAvgCategorySerializer(ExpenseReportCategorySerializer, AvgSerializer): ...
+class ExpenseReportAvgCategorySerializer(ExpenseReportCategorySerializer, AvgSerializer):
+    ...
 
 
 class ExpenseReportSourceSerializer(TotalSerializer):
     source = serializers.CharField()
 
 
-class ExpenseReportAvgSourceSerializer(ExpenseReportSourceSerializer, AvgSerializer): ...
+class ExpenseReportAvgSourceSerializer(ExpenseReportSourceSerializer, AvgSerializer):
+    ...
 
 
 class ExpenseReportTypeSerializer(TotalSerializer):
@@ -172,7 +182,8 @@ class ExpenseReportTypeSerializer(TotalSerializer):
         return "Fixo" if data["is_fixed"] is True else "Variável"
 
 
-class ExpenseReportAvgTypeSerializer(ExpenseReportTypeSerializer, AvgSerializer): ...
+class ExpenseReportAvgTypeSerializer(ExpenseReportTypeSerializer, AvgSerializer):
+    ...
 
 
 class ExpenseHistoricSerializer(TotalSerializer):
@@ -202,8 +213,37 @@ class _ExpenseRelatedEntitySerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
     class Meta:
+        model: RelatedEntity
+
         fields = ("id", "user", "name", "hex_color")
         extra_kwargs = {"id": {"read_only": True}}
+
+    def create(self, validated_data: dict) -> RelatedEntity:
+        if entity := self.Meta.model.objects.filter(
+            user=self.validated_data["user"], name=self.validated_data["name"], deleted=True
+        ).first():
+            entity.deleted = False
+            entity.hex_color = self.validated_data["hex_color"]
+            entity.save(update_fields=("deleted", "hex_color"))
+            return entity
+        return super().create(validated_data)
+
+    def update(self, instance: RelatedEntity, validated_data: dict) -> RelatedEntity:
+        if instance.name != validated_data["name"] and (
+            entity := self.Meta.model.objects.filter(
+                user=validated_data["user"], name=validated_data["name"], deleted=True
+            ).first()
+        ):
+            entity.deleted = False
+            entity.hex_color = validated_data["hex_color"]
+            entity.name = validated_data["name"]
+            entity.save(update_fields=("deleted", "hex_color", "name"))
+
+            instance.deleted = True
+            instance.save(update_fields=("deleted",))
+            return entity
+
+        return super().update(instance, validated_data)
 
     def save(self, **kwargs):
         try:

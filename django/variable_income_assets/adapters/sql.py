@@ -31,11 +31,13 @@ class AbstractEntityRepository(ABC):
 
     @overload
     @abstractmethod
-    def _add(self, dto: TransactionDTO) -> Transaction: ...
+    def _add(self, dto: TransactionDTO) -> Transaction:
+        ...
 
     @overload
     @abstractmethod
-    def _add(self, dto: PassiveIncomeDTO) -> PassiveIncome: ...
+    def _add(self, dto: PassiveIncomeDTO) -> PassiveIncome:
+        ...
 
     @abstractmethod
     def _add(self, dto: EntityDTO) -> Entity:
@@ -46,10 +48,12 @@ class AbstractEntityRepository(ABC):
         self.seen.add(e)
 
     @overload
-    def update(self, dto: TransactionDTO, entity: Transaction) -> None: ...
+    def update(self, dto: TransactionDTO, entity: Transaction) -> None:
+        ...
 
     @overload
-    def update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> None: ...
+    def update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> None:
+        ...
 
     def update(self, dto: EntityDTO, entity: Entity) -> None:
         e = self._update(dto=dto, entity=entity)
@@ -57,11 +61,13 @@ class AbstractEntityRepository(ABC):
 
     @overload
     @abstractmethod
-    def _update(self, dto: TransactionDTO, entity: Transaction) -> Transaction: ...
+    def _update(self, dto: TransactionDTO, entity: Transaction) -> Transaction:
+        ...
 
     @overload
     @abstractmethod
-    def _update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> Transaction: ...
+    def _update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> Transaction:
+        ...
 
     @abstractmethod
     def _update(self, dto: EntityDTO, entity: Entity) -> Entity:
@@ -247,7 +253,6 @@ class DjangoSQLAssetTotalInvestedSnapshotRepository(AbstractAssetTotalInvestedSn
     def update_total_from_diff(
         self, user_id: int, operation_date: date, total_change: Decimal
     ) -> int:
-
         return AssetsTotalInvestedSnapshot.objects.filter(
             user_id=user_id, operation_date=operation_date
         ).update(total=F("total") + total_change)

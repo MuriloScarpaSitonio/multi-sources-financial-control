@@ -56,7 +56,9 @@ def test__list__categories(client):
 def test__list__categories__most_common_ordering(client, direction):
     # GIVEN
     house_category = ExpenseCategory.objects.values("id", "name", "hex_color").get(name="Casa")
-    fun_category = ExpenseCategory.objects.values("id", "name", "hex_color").get(name="Lazer")
+    fun_category: ExpenseCategory = ExpenseCategory.objects.values("id", "name", "hex_color").get(
+        name="Lazer"
+    )
     expected = [fun_category, house_category]
     if direction == "desc":
         expected = list(reversed(expected))
@@ -98,6 +100,22 @@ def test__create__categories(client, user):
     assert response.status_code == HTTP_201_CREATED
 
     assert ExpenseCategory.objects.filter(user=user, **data).exists()
+
+
+def test__create__categories__undo_soft_delete(client, user, default_categories):
+    # GIVEN
+    data = {"name": "Lazer", "hex_color": Colors.orange1}
+    fun_category: ExpenseCategory = next(c for c in default_categories if c.name == data["name"])
+    fun_category.deleted = True
+    fun_category.save()
+
+    # WHEN
+    response = client.post(f"{URL}/categories", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+
+    assert ExpenseCategory.objects.filter(user=user, deleted=False, **data).exists()
 
 
 def test__create__categories__validate_unique_name(client):
@@ -146,6 +164,34 @@ def test__update__categories(client):
 
     assert not Expense.objects.filter(category="Casa").exists()
     assert Expense.objects.filter(category=data["name"], expanded_category=category).exists()
+
+
+@pytest.mark.usefixtures("fixed_expenses", "yet_another_expense")
+def test__update__categories__undo_soft_delete(client, user, default_categories):
+    # GIVEN
+    data = {"name": "Lazer", "hex_color": Colors.orange1}
+    fun_category: ExpenseCategory = next(c for c in default_categories if c.name == data["name"])
+    fun_category.deleted = True
+    fun_category.save()
+
+    house_category: ExpenseCategory = next(c for c in default_categories if c.name == "Casa")
+
+    # WHEN
+    response = client.put(f"{URL}/categories/{house_category.id}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    fun_category.refresh_from_db()
+    assert fun_category.name == data["name"]
+    assert fun_category.hex_color == data["hex_color"]
+    assert not fun_category.deleted
+
+    assert not Expense.objects.filter(category="Casa").exists()
+    assert Expense.objects.filter(category=data["name"], expanded_category=fun_category).exists()
+
+    house_category.refresh_from_db()
+    assert house_category.deleted
 
 
 def test__update__categories__validate_unique_name(client):
@@ -322,6 +368,22 @@ def test__create__sources__validate_unique_name(client):
     assert response.json() == {"name": "Os nomes precisam ser únicos"}
 
 
+def test__create__sources__undo_soft_delete(client, user, default_sources):
+    # GIVEN
+    data = {"name": MONEY_SOURCE, "hex_color": Colors.orange1}
+    money_source = next(s for s in default_sources if s.name == data["name"])
+    money_source.deleted = True
+    money_source.save()
+
+    # WHEN
+    response = client.post(f"{URL}/sources", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+
+    assert ExpenseSource.objects.filter(user=user, deleted=False, **data).exists()
+
+
 def test__create__sources__validate_color(client):
     # GIVEN
     data = {"name": "name", "hex_color": "#4287f5"}
@@ -355,6 +417,34 @@ def test__update__sources(client):
 
     assert not Expense.objects.filter(source=CREDIT_CARD_SOURCE).exists()
     assert Expense.objects.filter(source=data["name"], expanded_source=source).exists()
+
+
+@pytest.mark.usefixtures("fixed_expenses", "yet_another_expense")
+def test__update__sources__undo_soft_delete(client, user, default_sources):
+    # GIVEN
+    data = {"name": CREDIT_CARD_SOURCE, "hex_color": Colors.orange1}
+    credit_card_source: ExpenseSource = next(c for c in default_sources if c.name == data["name"])
+    credit_card_source.deleted = True
+    credit_card_source.save()
+
+    money_source: ExpenseSource = next(c for c in default_sources if c.name == MONEY_SOURCE)
+
+    # WHEN
+    response = client.put(f"{URL}/sources/{money_source.id}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    credit_card_source.refresh_from_db()
+    assert credit_card_source.name == data["name"]
+    assert credit_card_source.hex_color == data["hex_color"]
+    assert not credit_card_source.deleted
+
+    assert not Expense.objects.filter(source=MONEY_SOURCE).exists()
+    assert Expense.objects.filter(source=data["name"], expanded_source=credit_card_source).exists()
+
+    money_source.refresh_from_db()
+    assert money_source.deleted
 
 
 def test__update__sources__validate_unique_name(client):

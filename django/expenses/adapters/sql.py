@@ -90,11 +90,11 @@ class AbstractExpenseRepository(AbstractEntityRepository):
         raise NotImplementedError
 
     @abstractmethod
-    def change_all_category_name(self, *, prev_name: str, name: str) -> int:
+    def change_all_categories(self, *, prev_name: str, name: str) -> int:
         raise NotImplementedError
 
     @abstractmethod
-    def change_all_source_name(self, *, prev_name: str, name: str) -> int:
+    def change_all_sources(self, *, prev_name: str, name: str) -> int:
         raise NotImplementedError
 
 
@@ -248,17 +248,19 @@ class ExpenseRepository(AbstractExpenseRepository):
             else []
         )
 
-    def change_all_category_name(self, *, prev_name: str, name: str) -> int:
+    def change_all_categories(self, *, prev_name: str, name: str, new_id: int) -> int:
         from ..models import Expense
 
         return Expense.objects.filter(user_id=self.user_id, category=prev_name).update(
-            category=name
+            category=name, expanded_category_id=new_id
         )
 
-    def change_all_source_name(self, *, prev_name: str, name: str) -> int:
+    def change_all_sources(self, *, prev_name: str, name: str, new_id: int) -> int:
         from ..models import Expense
 
-        return Expense.objects.filter(user_id=self.user_id, source=prev_name).update(source=name)
+        return Expense.objects.filter(user_id=self.user_id, source=prev_name).update(
+            source=name, expanded_source_id=new_id
+        )
 
 
 class AbstractBankAccountRepository(ABC):
@@ -293,9 +295,15 @@ class DjangoBankAccountRepository(AbstractBankAccountRepository):
 
 
 class AbstractRevenueRepository(AbstractEntityRepository):
-    def _add(self, *_, **__) -> None: ...
-    def _update(self, *_, **__) -> None: ...
-    def _delete(self, *_, **__) -> None: ...
+    def _add(self, *_, **__) -> None:
+        ...
+
+    def _update(self, *_, **__) -> None:
+        ...
+
+    def _delete(self, *_, **__) -> None:
+        ...
+
     def add_fixed_future_revenues(self, dto: RevenueDTO) -> list[Revenue]:
         raise NotImplementedError
 
@@ -356,9 +364,9 @@ class RevenueRepository(AbstractRevenueRepository):
             recurring_id=dto.recurring_id, created_at__gt=dto.created_at
         ).delete()
 
-    def change_all_category_name(self, *, prev_name: str, name: str) -> int:
+    def change_all_categories(self, *, prev_name: str, name: str, new_id: int = 0) -> int:
         from ..models import Revenue
 
         return Revenue.objects.filter(user_id=self.user_id, category=prev_name).update(
-            category=name
+            category=name, expanded_category_id=new_id
         )
