@@ -64,6 +64,7 @@ class PassiveIncomeTypes(DjangoChoices):
     dividend = ChoiceItem("DIVIDEND", label="Dividendo")
     jcp = ChoiceItem("JCP", label="Juros sobre capital próprio")
     income = ChoiceItem("INCOME", label="Rendimento")
+    reimbursement = ChoiceItem("REIMBURSEMENT", label="Reembolso")
 
 
 class PassiveIncomeEventTypes(DjangoChoices):

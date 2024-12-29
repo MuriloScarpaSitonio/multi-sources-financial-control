@@ -138,7 +138,7 @@ class Transaction(models.Model):
 
 
 class PassiveIncome(models.Model):
-    type = models.CharField(max_length=8, validators=[PassiveIncomeTypes.validator])
+    type = models.CharField(max_length=20, validators=[PassiveIncomeTypes.validator])
     event_type = models.CharField(max_length=11, validators=[PassiveIncomeEventTypes.validator])
     amount = models.DecimalField(decimal_places=2, max_digits=12)
     operation_date = models.DateField()
