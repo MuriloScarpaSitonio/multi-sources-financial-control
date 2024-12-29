@@ -78,6 +78,9 @@ export const useFormPlus = ({
               propName
             ]
           : fieldError;
+
+      if (Array.isArray(error))
+        return (error[0]?.message || apiErrors[fieldName]) as string;
       return (error?.message || apiErrors[fieldName]) as string;
     },
     [errors, apiErrors],

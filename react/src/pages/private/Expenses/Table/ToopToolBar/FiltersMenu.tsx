@@ -12,11 +12,11 @@ import { yupResolver } from "@hookform/resolvers/yup";
 
 import * as yup from "yup";
 
-import { AutoCompleteMultiInput } from "../../../../../design-system/components";
-import { Text } from "../../../../../design-system";
+import { AutoCompleteMultiInput, Text } from "../../../../../design-system";
 import { Filters } from "../../types";
 import { ExpensesContext } from "../../context";
 import { isFilteringWholeMonth } from "../../utils";
+import TagsAutoComplete from "../../components/TagsAutoComplete";
 
 type Options = { label: string; value: string }[] | undefined;
 
@@ -29,6 +29,7 @@ const schema = yup.object().shape({
     .of(yup.object().shape({ value: yup.string(), label: yup.string() })),
   start_date: yup.date(),
   end_date: yup.date(),
+  tags: yup.array().of(yup.string().required("Uma tag vazia não é permitida")),
 });
 
 export const FiltersMenu = ({
@@ -51,17 +52,19 @@ export const FiltersMenu = ({
     categories,
     sources,
   } = useContext(ExpensesContext);
-  const { control, getValues } = useForm({
+  const { control, watch, getValues } = useForm({
     resolver: yupResolver(schema),
     defaultValues: {
       source: [],
       category: [],
+      tags: [],
     },
     mode: "onSubmit",
     reValidateMode: "onSubmit",
   });
 
   const { category: selectedCategoris, source: selectedSources } = getValues();
+  const selectedTags = watch("tags") as string[];
 
   const handleChange = (
     values: Options,
@@ -194,6 +197,15 @@ export const FiltersMenu = ({
                 }))}
               />
             )}
+          />
+          <TagsAutoComplete
+            control={control}
+            isFieldInvalid={() => false}
+            getFieldHasError={() => false}
+            getErrorMessage={() => ""}
+            selectedTags={selectedTags}
+            creatable={false}
+            setFilters={setFilters}
           />
         </Stack>
       </form>

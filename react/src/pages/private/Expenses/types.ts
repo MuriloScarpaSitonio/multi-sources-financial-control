@@ -51,4 +51,5 @@ export type HistoricReportResponse = {
 export type Filters = {
   category?: string[];
   source?: string[];
+  tag?: string[];
 };

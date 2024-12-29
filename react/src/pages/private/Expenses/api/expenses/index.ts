@@ -101,6 +101,7 @@ type Params = {
   with_installments?: boolean;
   category?: string[];
   source?: string[];
+  tag?: string[];
 };
 export const getExpenses = async (
   params: Params = {},
@@ -249,3 +250,6 @@ export const addSource = async (data: {
   hex_color: string;
 }): Promise<ExpenseRelatedEntity> =>
   (await apiProvider.post(`${RESOURCE}/sources`, data)).data;
+
+export const getTags = async (): Promise<string[]> =>
+  (await apiProvider.get(`${RESOURCE}/tags`)).data;

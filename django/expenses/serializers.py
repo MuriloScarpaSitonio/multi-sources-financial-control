@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
+from django.db.models import Manager
 from django.db.utils import IntegrityError
 
 from rest_framework import serializers
@@ -15,17 +17,34 @@ from .models import (
     Expense,
     ExpenseCategory,
     ExpenseSource,
-    RelatedEntity,
     Revenue,
     RevenueCategory,
 )
+from .models.abstract import RelatedEntity
 from .service_layer import messagebus
 from .service_layer.unit_of_work import ExpenseUnitOfWork
+
+
+class FlatManyToManySerializer(serializers.ListSerializer):
+    child = serializers.CharField()
+    m2m_field_name = "name"
+
+    def to_internal_value(self, data: Iterable) -> set:
+        return set(super().to_internal_value(data))
+
+    def to_representation(self, data: Manager | set) -> list:
+        if isinstance(data, Manager):
+            return [
+                self.child.to_representation(item)
+                for item in data.values_list(self.m2m_field_name, flat=True)
+            ]
+        return super().to_representation(data)
 
 
 class ExpenseSerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     installments = serializers.IntegerField(default=1, write_only=True, allow_null=True)
+    tags = FlatManyToManySerializer(required=False)
 
     class Meta:
         model = Expense
@@ -40,6 +59,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
             "user",
             "installments",
             "full_description",
+            "tags",
         )
         extra_kwargs = {"id": {"read_only": True}, "full_description": {"read_only": True}}
 
@@ -162,16 +182,14 @@ class ExpenseReportCategorySerializer(TotalSerializer):
     category = serializers.CharField()
 
 
-class ExpenseReportAvgCategorySerializer(ExpenseReportCategorySerializer, AvgSerializer):
-    ...
+class ExpenseReportAvgCategorySerializer(ExpenseReportCategorySerializer, AvgSerializer): ...
 
 
 class ExpenseReportSourceSerializer(TotalSerializer):
     source = serializers.CharField()
 
 
-class ExpenseReportAvgSourceSerializer(ExpenseReportSourceSerializer, AvgSerializer):
-    ...
+class ExpenseReportAvgSourceSerializer(ExpenseReportSourceSerializer, AvgSerializer): ...
 
 
 class ExpenseReportTypeSerializer(TotalSerializer):
@@ -182,8 +200,7 @@ class ExpenseReportTypeSerializer(TotalSerializer):
         return "Fixo" if data["is_fixed"] is True else "Variável"
 
 
-class ExpenseReportAvgTypeSerializer(ExpenseReportTypeSerializer, AvgSerializer):
-    ...
+class ExpenseReportAvgTypeSerializer(ExpenseReportTypeSerializer, AvgSerializer): ...
 
 
 class ExpenseHistoricSerializer(TotalSerializer):

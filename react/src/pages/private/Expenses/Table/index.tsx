@@ -34,6 +34,7 @@ import { ExpensesContext } from "../context";
 import { useInvalidateExpenseQueries } from "../hooks";
 import DeleteExpenseDialog from "./DeleteExpenseDialog";
 import TopToolBar from "./ToopToolBar";
+import { Chip } from "@mui/material";
 
 type GroupedExpense = Expense & { type: string };
 
@@ -186,6 +187,21 @@ const Table = () => {
                 color={sources.hexColorMapping.get(source)}
               />
               <span>{source}</span>
+            </Stack>
+          );
+        },
+      },
+      {
+        header: "Tags",
+        accessorKey: "tags",
+        size: 80,
+        Cell: ({ cell }) => {
+          const tags = cell.getValue<string[]>();
+          return (
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              {tags.map((tag) => (
+                <Chip id={`tag-chip-${tag}`} label={tag} size="small" />
+              ))}
             </Stack>
           );
         },

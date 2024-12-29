@@ -9,6 +9,7 @@ export type Expense = {
   source: string;
   is_fixed: boolean;
   full_description: string;
+  tags: string[];
 };
 
 export type BankAccount = {

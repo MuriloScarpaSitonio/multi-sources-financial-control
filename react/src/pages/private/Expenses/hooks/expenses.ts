@@ -9,7 +9,7 @@ import {
   useInvalidateExpensesHistoricReportQueries,
 } from "../Reports/hooks";
 import { useInvalidateBankAccountQueries } from "./bank_account";
-import { getCategories, getSources } from "../api/expenses";
+import { getCategories, getSources, getTags } from "../api/expenses";
 
 export const useInvalidateExpenseQueries = (client?: QueryClient) => {
   const queryClient = useQueryClient(client);
@@ -24,13 +24,17 @@ export const useInvalidateExpenseQueries = (client?: QueryClient) => {
     useInvalidateExpensesHistoricReportQueries(queryClient);
   const { invalidate: invalidateBankAccountQueries } =
     useInvalidateBankAccountQueries(queryClient);
+  const { invalidate: invalidateTagsQuery } =
+    useInvalidateTagsQueries(queryClient);
 
   const invalidate = async ({
     isUpdatingValue = true,
     invalidateTableQuery = true,
+    tags = [],
   }: {
     isUpdatingValue?: boolean;
     invalidateTableQuery?: boolean;
+    tags?: string[];
   }) => {
     if (isUpdatingValue) {
       await invalidateIndicatorsQueries();
@@ -41,6 +45,12 @@ export const useInvalidateExpenseQueries = (client?: QueryClient) => {
       await queryClient.invalidateQueries({
         queryKey: [EXPENSES_QUERY_KEY],
       });
+    if (tags.length) {
+      const cachedData = (queryClient.getQueryData([EXPENSES_TAGS_QUERY_KEY]) ??
+        []) as string[];
+      if (tags.filter((t) => !cachedData.includes(t)).length)
+        await invalidateTagsQuery();
+    }
     await invalidateAvgComparasionReportQueries();
     await invalidatePercentageReportQueries();
   };
@@ -98,6 +108,23 @@ export const useInvalidateSourcesQueries = (client?: QueryClient) => {
   const invalidate = async () => {
     await queryClient.invalidateQueries({
       queryKey: [EXPENSES_SOURCES_QUERY_KEY],
+    });
+  };
+
+  return { invalidate };
+};
+
+const EXPENSES_TAGS_QUERY_KEY = "expenses-tags";
+
+export const useGetTags = () =>
+  useQuery({ queryKey: [EXPENSES_TAGS_QUERY_KEY], queryFn: getTags });
+
+export const useInvalidateTagsQueries = (client?: QueryClient) => {
+  const queryClient = useQueryClient(client);
+
+  const invalidate = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: [EXPENSES_TAGS_QUERY_KEY],
     });
   };
 

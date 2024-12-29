@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import asdict
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -15,10 +16,11 @@ from ..domain.models import Revenue as RevenueDTO
 
 if TYPE_CHECKING:
     from ..domain.models import Expense as ExpenseDomainModel
-    from ..models import Expense, Revenue
+    from ..models import Expense, ExpenseTag, Revenue
 
     Entity = Expense | Revenue
     EntityDTO = ExpenseDTO | RevenueDTO
+    ExpenseTagThrough = Expense.tags.through
 
 
 class AbstractEntityRepository(ABC):
@@ -90,16 +92,36 @@ class AbstractExpenseRepository(AbstractEntityRepository):
         raise NotImplementedError
 
     @abstractmethod
-    def change_all_categories(self, *, prev_name: str, name: str) -> int:
+    def change_all_categories(self, *, prev_name: str, name: str, new_id: int) -> int:
         raise NotImplementedError
 
     @abstractmethod
-    def change_all_sources(self, *, prev_name: str, name: str) -> int:
+    def change_all_sources(self, *, prev_name: str, name: str, new_id: int) -> int:
         raise NotImplementedError
 
 
 class ExpenseRepository(AbstractExpenseRepository):
     seen: set[ExpenseDTO]
+
+    def _get_tags_references(self, tags: Iterable[str]) -> list[ExpenseTag | int]:
+        if not tags:
+            return []
+
+        from ..models import ExpenseTag
+
+        existing_tag_ids, existing_tag_names = [], set()
+        for existing_tag in ExpenseTag.objects.only("pk", "name").filter(
+            user_id=self.user_id, name__in=tags
+        ):
+            existing_tag_ids.append(existing_tag.pk)
+            existing_tag_names.add(existing_tag.name)
+
+        tag_objs = ExpenseTag.objects.bulk_create(
+            [ExpenseTag(user_id=self.user_id, name=tag) for tag in tags - existing_tag_names],
+            # ideally we'd set `ignore_conflicts=True` to mimic a bulk `get_or_create`
+            # but unfortunately Django does not return the PKs when setting such flag
+        )
+        return tag_objs + existing_tag_ids
 
     def _add(self, dto: ExpenseDTO) -> None:
         from ..models import Expense
@@ -109,7 +131,46 @@ class ExpenseRepository(AbstractExpenseRepository):
         data.pop("installments_id")
         data.pop("installments_qty")
         extra_data = data.pop("extra_data")
-        Expense.objects.create(user_id=self.user_id, **data, **extra_data)
+        tags = data.pop("tags")
+        expense = Expense.objects.create(user_id=self.user_id, **data, **extra_data)
+
+        expense.tags.set(self._get_tags_references(tags))
+
+    def _persist_tags_to_expenses(
+        self, expenses: list[Expense | int], tags: Iterable[str], clear: bool = False
+    ) -> None:
+        from ..models import Expense
+
+        tags_references = self._get_tags_references(tags)
+        if not tags_references:
+            if clear:
+                for expense in expenses:
+                    expense_kwarg = (
+                        {"expense_id": expense}
+                        if isinstance(expense, int)
+                        else {"expense": expense}
+                    )
+                    Expense.tags.through.objects.filter(**expense_kwarg).delete()
+            return
+
+        through_objs: list[ExpenseTagThrough] = []
+        for expense in expenses:
+            expense_kwarg = (
+                {"expense_id": expense} if isinstance(expense, int) else {"expense": expense}
+            )
+
+            if clear:
+                Expense.tags.through.objects.filter(**expense_kwarg).delete()
+
+            through_objs.extend(
+                Expense.tags.through(
+                    **expense_kwarg,
+                    **({"expensetag_id": tag} if isinstance(tag, int) else {"expensetag": tag}),
+                )
+                for tag in tags_references
+            )
+
+        Expense.tags.through.objects.bulk_create(through_objs)
 
     def _add_installments(self, dto: ExpenseDTO) -> list[Expense]:
         from ..models import Expense
@@ -120,7 +181,8 @@ class ExpenseRepository(AbstractExpenseRepository):
         data["value"] /= installments
         created_at = data.pop("created_at")
         extra_data = data.pop("extra_data")
-        return Expense.objects.bulk_create(
+        tags = data.pop("tags")
+        expenses = Expense.objects.bulk_create(
             objs=(
                 Expense(
                     user_id=self.user_id,
@@ -134,6 +196,10 @@ class ExpenseRepository(AbstractExpenseRepository):
             )
         )
 
+        self._persist_tags_to_expenses(expenses, tags)
+
+        return expenses
+
     def add_future_fixed_expenses(self, dto: ExpenseDTO) -> list[Expense]:
         from ..models import Expense
 
@@ -145,7 +211,9 @@ class ExpenseRepository(AbstractExpenseRepository):
 
         created_at = data.pop("created_at")
         extra_data = data.pop("extra_data")
-        return Expense.objects.bulk_create(
+        tags = data.pop("tags")
+
+        expenses = Expense.objects.bulk_create(
             objs=(
                 Expense(
                     user_id=self.user_id,
@@ -157,6 +225,10 @@ class ExpenseRepository(AbstractExpenseRepository):
             )
         )
 
+        self._persist_tags_to_expenses(expenses, tags)
+
+        return expenses
+
     def _update(self, dto: ExpenseDTO) -> None:
         from ..models import Expense
 
@@ -164,8 +236,16 @@ class ExpenseRepository(AbstractExpenseRepository):
         data.pop("installments")
         data.pop("installments_id")
         data.pop("installments_qty")
+
+        tags = data.pop("tags")
         extra_data = data.pop("extra_data")
-        Expense.objects.filter(id=dto.id).update(**data, **extra_data)
+
+        expense = Expense.objects.get(id=dto.id)
+        for key, value in {**data, **extra_data}.items():
+            setattr(expense, key, value)
+        expense.save()
+
+        expense.tags.set(self._get_tags_references(tags), clear=True)
 
     def _update_installments(self, dto: ExpenseDTO, created_at_changed: bool) -> None:
         from ..models import Expense
@@ -189,7 +269,12 @@ class ExpenseRepository(AbstractExpenseRepository):
         data.pop("created_at")
         data.pop("id")
         extra_data = data.pop("extra_data")
+        tags = data.pop("tags")
         installments_qs.update(**data, **extra_data)
+
+        self._persist_tags_to_expenses(
+            installments_qs.values_list("id", flat=True), tags, clear=True
+        )
 
     def _delete(self, dto: ExpenseDTO) -> None:
         from ..models import Expense
@@ -222,7 +307,10 @@ class ExpenseRepository(AbstractExpenseRepository):
         data.pop("installments_id")
         data.pop("installments_qty")
         extra_data = data.pop("extra_data")
+        tags = data.pop("tags")
         future_qs.update(**data, **extra_data)
+
+        self._persist_tags_to_expenses(future_qs.values_list("id", flat=True), tags, clear=True)
 
     def _delete_installments(self, dto: ExpenseDTO) -> None:
         from ..models import Expense
@@ -295,14 +383,11 @@ class DjangoBankAccountRepository(AbstractBankAccountRepository):
 
 
 class AbstractRevenueRepository(AbstractEntityRepository):
-    def _add(self, *_, **__) -> None:
-        ...
+    def _add(self, *_, **__) -> None: ...
 
-    def _update(self, *_, **__) -> None:
-        ...
+    def _update(self, *_, **__) -> None: ...
 
-    def _delete(self, *_, **__) -> None:
-        ...
+    def _delete(self, *_, **__) -> None: ...
 
     def add_fixed_future_revenues(self, dto: RevenueDTO) -> list[Revenue]:
         raise NotImplementedError

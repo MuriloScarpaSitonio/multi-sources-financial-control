@@ -32,7 +32,15 @@ from .domain import commands, events
 from .domain.exceptions import OnlyUpdateFixedRevenueDateWithinMonthException
 from .domain.models import Revenue as RevenueDomainModel
 from .managers import ExpenseQueryset, RevenueQueryset
-from .models import BankAccount, Expense, ExpenseCategory, ExpenseSource, Revenue, RevenueCategory
+from .models import (
+    BankAccount,
+    Expense,
+    ExpenseCategory,
+    ExpenseSource,
+    ExpenseTag,
+    Revenue,
+    RevenueCategory,
+)
 from .permissions import PersonalFinancesModulePermission
 from .service_layer import messagebus
 from .service_layer.unit_of_work import ExpenseUnitOfWork, RevenueUnitOfWork
@@ -177,6 +185,11 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
             data=request.GET, queryset=self.get_queryset()
         )
         return Response(self._get_report_data(filterset=filterset, avg=False), status=HTTP_200_OK)
+
+    @action(methods=("GET",), detail=False)
+    def tags(self, request: Request) -> Response:
+        qs = ExpenseTag.objects.filter(user_id=request.user.id)
+        return Response(qs.values_list("name", flat=True), status=HTTP_200_OK)
 
 
 class RevenueViewSet(_PersonalFinanceViewSet):

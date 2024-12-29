@@ -18,8 +18,7 @@ import {
   AssetsSectorsMapping,
   AssetsTypesMapping,
 } from "../../consts";
-import { AutoCompleteMultiInput } from "../../../../../design-system/components";
-import { Text } from "../../../../../design-system";
+import { AutoCompleteMultiInput, Text } from "../../../../../design-system";
 import { Filters } from "../types";
 
 type Options = { label: string; value: string }[] | undefined;

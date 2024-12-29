@@ -62,6 +62,7 @@ class _PersonalFinanceFilterSet(django_filters.FilterSet):
 class ExpenseFilterSet(_PersonalFinanceFilterSet):
     category = django_filters.CharFilter(method="filter_category")
     source = django_filters.CharFilter(method="filter_source")
+    tag = django_filters.CharFilter(method="filter_tag")
     with_installments = django_filters.BooleanFilter(method="filter_with_installments")
 
     class Meta(_PersonalFinanceFilterSet.Meta):
@@ -77,6 +78,10 @@ class ExpenseFilterSet(_PersonalFinanceFilterSet):
 
     def filter_source(self, queryset: ExpenseQueryset, *_, **__) -> ExpenseQueryset:
         return queryset.filter(source__in=self.request.GET.getlist("source"))
+
+    def filter_tag(self, queryset: ExpenseQueryset, *_, **__) -> ExpenseQueryset:
+        # TODO: write some tests
+        return queryset.filter(tags__name__in=self.request.GET.getlist("tag"))
 
 
 class RevenueFilterSet(_PersonalFinanceFilterSet):

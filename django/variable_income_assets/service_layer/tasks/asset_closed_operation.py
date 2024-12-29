@@ -23,7 +23,7 @@ def create(asset_pk: int) -> AssetClosedOperation:
         # hipótese aceita como verdade:
         # um ativo nao será fechado no dia X e recomprado no mesmo dia X
         # (se quebrar relativamente menos problematico pois espera-se que isso rode sync)
-        default_filters["operation_date__gt"] = last_finished_operation_datetime.date()
+        default_filters["operation_date__gt"] = timezone.localdate(last_finished_operation_datetime)
 
     transactions = Transaction.objects.filter(**default_filters)
     incomes = PassiveIncome.objects.filter(**default_filters)

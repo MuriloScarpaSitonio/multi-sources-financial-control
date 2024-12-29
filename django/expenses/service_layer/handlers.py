@@ -51,7 +51,6 @@ def update_expense(cmd: commands.UpdateExpense, uow: ExpenseUnitOfWork) -> None:
                     # the related expenses
                     cmd.expense.recurring_id = cmd.data_instance.recurring_id
                     uow.expenses.delete_future_fixed_expenses(cmd.expense)
-
             else:
                 uow.expenses.update(cmd.expense)
 

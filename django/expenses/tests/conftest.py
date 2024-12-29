@@ -5,6 +5,7 @@ from django.utils import timezone
 
 import pytest
 from dateutil.relativedelta import relativedelta
+from factory import RelatedFactoryList, post_generation
 from factory.django import DjangoModelFactory
 
 from authentication.tests.conftest import client, secrets, user
@@ -20,14 +21,28 @@ from expenses.models import (
     Expense,
     ExpenseCategory,
     ExpenseSource,
+    ExpenseTag,
     Revenue,
     RevenueCategory,
 )
 
 
+class ExpenseTagFactory(DjangoModelFactory):
+    class Meta:
+        model = ExpenseTag
+
+
 class ExpenseFactory(DjangoModelFactory):
     class Meta:
         model = Expense
+
+    @post_generation
+    def _tags(self, create: bool, tags: list[str]):
+        if not create:
+            return
+
+        if tags:
+            self.tags.set([ExpenseTagFactory(name=tag, user=self.user) for tag in tags])
 
 
 class ExpenseCategoryFactory(DjangoModelFactory):
@@ -112,6 +127,23 @@ def expense(user, default_categories_map, default_sources_map) -> Expense:
         is_fixed=True,
         user=user,
         recurring_id=uuid4(),
+    )
+
+
+@pytest.fixture
+def expense_w_tags(user, default_categories_map, default_sources_map) -> Expense:
+    return ExpenseFactory(
+        value=50,
+        description="Expense",
+        category="Casa",
+        expanded_category_id=default_categories_map["Casa"],
+        created_at=timezone.localdate(),
+        source=CREDIT_CARD_SOURCE,
+        expanded_source_id=default_sources_map[CREDIT_CARD_SOURCE],
+        is_fixed=False,
+        user=user,
+        recurring_id=None,
+        _tags=["abc"],
     )
 
 

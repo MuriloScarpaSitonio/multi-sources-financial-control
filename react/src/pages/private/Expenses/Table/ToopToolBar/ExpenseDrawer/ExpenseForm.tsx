@@ -24,6 +24,7 @@ import { EXPENSES_QUERY_KEY } from "../../../consts";
 import {
   DateInput,
   PriceWithCurrencyInput,
+  FormFeedbackError,
 } from "../../../../../../design-system";
 import useFormPlus from "../../../../../../hooks/useFormPlus";
 import { createExpense, editExpense } from "../../../api/expenses";
@@ -33,13 +34,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ApiListResponse } from "../../../../../../types";
 import { ExpensesContext } from "../../../context";
 import { AutoCompleteForRelatedEntities } from "../../../components";
+import TagsAutoComplete from "../../../components/TagsAutoComplete";
 
 const schema = yup.object().shape({
   description: yup.string().required("A descrição é obrigatória"),
   value: yup
     .number()
-    .required("O preço é obrigatório")
-    .positive("Apenas números positivos"),
+    .required("O valor é obrigatório")
+    .positive("Apenas números positivos")
+    .typeError("O valor é obrigatório"),
   created_at: yup
     .date()
     .required("A data é obrigatória")
@@ -64,6 +67,7 @@ const schema = yup.object().shape({
     .number()
     .required("A quantidade de parcelas é obrigatório")
     .positive("Apenas números positivos"),
+  tags: yup.array().of(yup.string().required("Uma tag vazia não é permitida")),
 });
 
 const createExpenseMutation = async (data: yup.Asserts<typeof schema>) => {
@@ -72,6 +76,7 @@ const createExpenseMutation = async (data: yup.Asserts<typeof schema>) => {
     source,
     installments,
     isFixed,
+    tags,
     performActionsOnFutureFixedEntities,
     ...rest
   } = data;
@@ -79,6 +84,7 @@ const createExpenseMutation = async (data: yup.Asserts<typeof schema>) => {
     category: category.value as string,
     source: source.value as string,
     is_fixed: isFixed,
+    tags: tags ?? [],
     ...rest,
     ...(isFixed
       ? { installments: 1, performActionsOnFutureFixedEntities }
@@ -95,6 +101,7 @@ const editExpenseMutation = async (
     source,
     installments,
     isFixed,
+    tags,
     performActionsOnFutureFixedEntities,
     ...rest
   } = data;
@@ -104,6 +111,7 @@ const editExpenseMutation = async (
       category: category.value as string,
       source: source.value as string,
       is_fixed: isFixed,
+      tags: tags ?? [],
       ...rest,
       ...(isFixed
         ? { installments: 1, performActionsOnFutureFixedEntities }
@@ -222,6 +230,7 @@ const ExpenseForm = ({
       await invalidateExpensesQueries({
         isUpdatingValue: data.value !== defaultValues.value,
         invalidateTableQuery: !expenseId,
+        tags: data.tags ?? [],
       });
 
       enqueueSnackbar(
@@ -236,8 +245,10 @@ const ExpenseForm = ({
       } else reset({ ...data, description: "", value: "" });
     },
   });
+
   const isFixed = watch("isFixed");
   const installments = watch("installments");
+  const selectedTags = watch("tags");
 
   useEffect(() => setIsSubmitting(isPending), [isPending, setIsSubmitting]);
   useEffect(() => setIsDisabled?.(!isDirty), [isDirty, setIsDisabled]);
@@ -258,14 +269,18 @@ const ExpenseForm = ({
         control={control}
         rules={{ required: true }}
         render={({ field }) => (
-          <TextField
-            {...field}
-            label="Descrição"
-            required
-            error={getFieldHasError(field.name)}
-            helperText={getErrorMessage(field.name)}
-            variant="standard"
-          />
+          <Stack spacing={0.5}>
+            <TextField
+              {...field}
+              label="Descrição"
+              required
+              error={isFieldInvalid(field)}
+              variant="standard"
+            />
+            {getFieldHasError(field.name) && (
+              <FormFeedbackError message={getErrorMessage(field.name)} />
+            )}
+          </Stack>
         )}
       />
       <Stack direction="row" spacing={1}>
@@ -373,6 +388,13 @@ const ExpenseForm = ({
         isFieldInvalid={isFieldInvalid}
         getFieldHasError={getFieldHasError}
         getErrorMessage={getErrorMessage}
+      />
+      <TagsAutoComplete
+        control={control}
+        isFieldInvalid={isFieldInvalid}
+        getFieldHasError={getFieldHasError}
+        getErrorMessage={getErrorMessage}
+        selectedTags={selectedTags}
       />
     </Stack>
   );

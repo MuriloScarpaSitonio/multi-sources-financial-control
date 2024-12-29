@@ -37,7 +37,7 @@ def test__previously_closed(request, fixture, asset_fixture, current_currency_co
         "asset": asset,
         "current_currency_conversion_rate": current_currency_conversion_rate,
     }
-    operation_date = AssetClosedOperation.objects.first().operation_datetime.date()
+    operation_date = timezone.localdate(AssetClosedOperation.objects.first().operation_datetime)
     PassiveIncomeFactory(  # disregard old incomes
         operation_date=operation_date - timedelta(days=2),
         event_type=PassiveIncomeEventTypes.credited,

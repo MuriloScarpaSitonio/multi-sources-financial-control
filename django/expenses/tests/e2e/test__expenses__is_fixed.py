@@ -2,6 +2,7 @@ import operator
 from datetime import date
 
 from django.db.models import Q
+from django.utils import timezone
 
 import pytest
 from dateutil.relativedelta import relativedelta
@@ -14,8 +15,8 @@ from rest_framework.status import (
 
 from config.settings.base import BASE_API_URL
 
-from ...choices import CREDIT_CARD_SOURCE, DEFAULT_CATEGORIES_MAP, DEFAULT_SOURCES_MAP
-from ...models import Expense
+from ...choices import CREDIT_CARD_SOURCE
+from ...models import Expense, ExpenseTag
 
 pytestmark = pytest.mark.django_db
 
@@ -99,6 +100,83 @@ def test__create__installments__gt_1__is_fixed(client):
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {"installments": "Despesas fixas não podem ser parceladas"}
+
+
+def test__create__is_fixed__tags(client, bank_account):
+    # GIVEN
+    data = {
+        "value": 12.00,
+        "description": "Test",
+        "category": "Casa",
+        "created_at": "01/01/2021",
+        "source": CREDIT_CARD_SOURCE,
+        "installments": None,
+        "is_fixed": True,
+        "tags": ["a", "b", "c"],
+    }
+    previous_bank_account_amount = bank_account.amount
+
+    # WHEN
+    response = client.post(f"{URL}?perform_actions_on_future_fixed_entities=true", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+    qs = Expense.objects.filter(
+        recurring_id__isnull=False,
+        value=12,
+        description="Test",
+        category="Casa",
+        source=CREDIT_CARD_SOURCE,
+        is_fixed=True,
+    )
+    assert qs.count() == 12
+    assert Expense.objects.only("created_at").latest("created_at").created_at == date(
+        year=2021, month=12, day=1
+    )
+
+    for expense in qs:
+        assert list(expense.tags.values_list("name", flat=True).order_by("name")) == data["tags"]
+
+
+def test__create__is_fixed__tags__reuse(client, user, bank_account, expense_w_tags):
+    # GIVEN
+    existing_tags = list(expense_w_tags.tags.all())
+    tags = [t.name for t in existing_tags] + ["def"]
+
+    data = {
+        "value": 12.00,
+        "description": "Test",
+        "category": "Casa",
+        "created_at": "01/01/2021",
+        "source": CREDIT_CARD_SOURCE,
+        "installments": None,
+        "is_fixed": True,
+        "tags": tags,
+    }
+    previous_bank_account_amount = bank_account.amount
+
+    # WHEN
+    response = client.post(f"{URL}?perform_actions_on_future_fixed_entities=true", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+    assert (
+        list(ExpenseTag.objects.filter(user=user).values_list("name", flat=True).order_by("name"))
+        == tags
+    )
+
+    assert list(expense_w_tags.tags.all()) == existing_tags
+
+    for expense in Expense.objects.filter(recurring_id__isnull=False):
+        assert list(expense.tags.values_list("name", flat=True).order_by("name")) == data["tags"]
 
 
 @pytest.mark.parametrize("value", (10, -10))
@@ -699,6 +777,584 @@ def test__update__is_fixed__future__created_at__to_another_month(client, fixed_e
     assert response.json() == {
         "created_at": "Você só pode alterar a data de uma despesa fixa passada dentro do mesmo mês"
     }
+
+
+def test__update__is_fixed__past__tags(client, fixed_expenses, bank_account):
+    # GIVEN
+    expense = fixed_expenses[0]
+    previous_bank_account_amount = bank_account.amount
+
+    data = {
+        "value": expense.value,
+        "description": expense.description,
+        "category": expense.category,
+        "created_at": expense.created_at.strftime("%d/%m/%Y"),
+        "source": expense.source,
+        "is_fixed": True,
+        "tags": ["abc"],
+    }
+    # WHEN
+    response = client.put(
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=true", data=data
+    )
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+    for e in Expense.objects.filter(recurring_id=expense.recurring_id).exclude(pk=expense.pk):
+        assert list(e.tags.values_list("name", flat=True).order_by("name")) == []
+
+    assert list(expense.tags.values_list("name", flat=True).order_by("name")) == data["tags"]
+
+    assert Expense.objects.values("created_at__month", "created_at__year").distinct().count() == 12
+
+
+def test__update__is_fixed__current__tags(client, fixed_expenses, bank_account):
+    # GIVEN
+    expense = fixed_expenses[2]
+    previous_bank_account_amount = bank_account.amount
+
+    data = {
+        "value": expense.value,
+        "description": expense.description,
+        "category": expense.category,
+        "created_at": expense.created_at.strftime("%d/%m/%Y"),
+        "source": expense.source,
+        "is_fixed": True,
+        "tags": ["abc", "def"],
+    }
+
+    # WHEN
+    response = client.put(
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=true", data=data
+    )
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+    assert (
+        Expense.objects.filter(
+            recurring_id__isnull=False, recurring_id=expense.recurring_id, tags__isnull=False
+        )
+        .distinct()
+        .count()
+        == 10
+    )
+    assert list(
+        Expense.objects.filter(
+            recurring_id__isnull=False, recurring_id=expense.recurring_id, tags__isnull=True
+        ).values_list("id", flat=True)
+    ) == [fixed_expenses[0].id, fixed_expenses[1].id]
+    assert Expense.objects.values("created_at__month", "created_at__year").distinct().count() == 12
+    assert (
+        list(
+            Expense.objects.filter(
+                recurring_id__isnull=False,
+                recurring_id=expense.recurring_id,
+                tags__isnull=False,
+            )
+            .distinct()
+            .values_list("tags__name", flat=True)
+            .order_by("tags__name")
+        )
+        == data["tags"]
+    )
+
+
+def test__update__is_fixed__current__tags__only_current(client, fixed_expenses, bank_account):
+    # GIVEN
+    expense = fixed_expenses[2]
+    previous_bank_account_amount = bank_account.amount
+
+    data = {
+        "value": expense.value,
+        "description": expense.description,
+        "category": expense.category,
+        "created_at": expense.created_at.strftime("%d/%m/%Y"),
+        "source": expense.source,
+        "is_fixed": True,
+        "tags": ["abc", "def"],
+    }
+
+    # WHEN
+    response = client.put(
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=false", data=data
+    )
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+    assert (
+        Expense.objects.distinct().get(
+            recurring_id__isnull=False, recurring_id=expense.recurring_id, tags__isnull=False
+        )
+        == expense
+    )
+
+    assert Expense.objects.values("created_at__month", "created_at__year").distinct().count() == 12
+    assert (
+        list(
+            Expense.objects.filter(
+                recurring_id__isnull=False,
+                recurring_id=expense.recurring_id,
+                tags__isnull=False,
+            )
+            .distinct()
+            .values_list("tags__name", flat=True)
+            .order_by("tags__name")
+        )
+        == data["tags"]
+    )
+
+
+# TODO: repeat for past and future
+def test__update__is_fixed__current__tags__clear(client, user, fixed_expenses, bank_account):
+    # GIVEN
+    tag = ExpenseTag.objects.create(name="def", user=user)
+    for e in fixed_expenses:
+        e.tags.add(tag)
+
+    expense = fixed_expenses[2]
+    previous_bank_account_amount = bank_account.amount
+
+    data = {
+        "value": expense.value,
+        "description": expense.description,
+        "category": expense.category,
+        "created_at": expense.created_at.strftime("%d/%m/%Y"),
+        "source": expense.source,
+        "is_fixed": True,
+    }
+
+    # WHEN
+    response = client.put(
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=true", data=data
+    )
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+    assert (
+        Expense.objects.filter(
+            recurring_id__isnull=False, recurring_id=expense.recurring_id, tags__isnull=True
+        )
+        .distinct()
+        .count()
+        == 10
+    )
+    assert list(
+        Expense.objects.filter(
+            recurring_id__isnull=False, recurring_id=expense.recurring_id, tags__isnull=False
+        ).values_list("id", flat=True)
+    ) == [fixed_expenses[0].id, fixed_expenses[1].id]
+    assert Expense.objects.values("created_at__month", "created_at__year").distinct().count() == 12
+    assert list(
+        Expense.objects.filter(
+            recurring_id__isnull=False,
+            recurring_id=expense.recurring_id,
+            tags__isnull=False,
+        )
+        .distinct()
+        .values_list("tags__name", flat=True)
+        .order_by("tags__name")
+    ) == [tag.name]
+
+
+def test__update__is_fixed__current__tags__clear__only_current(
+    client, user, fixed_expenses, bank_account
+):
+    # GIVEN
+    tag = ExpenseTag.objects.create(name="def", user=user)
+    for e in fixed_expenses:
+        e.tags.add(tag)
+
+    expense = fixed_expenses[2]
+    previous_bank_account_amount = bank_account.amount
+
+    data = {
+        "value": expense.value,
+        "description": expense.description,
+        "category": expense.category,
+        "created_at": expense.created_at.strftime("%d/%m/%Y"),
+        "source": expense.source,
+        "is_fixed": True,
+    }
+
+    # WHEN
+    response = client.put(
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=false", data=data
+    )
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+    assert (
+        Expense.objects.filter(
+            recurring_id__isnull=False, recurring_id=expense.recurring_id, tags__isnull=True
+        )
+        .distinct()
+        .count()
+        == 1
+    )
+    assert list(
+        Expense.objects.filter(
+            recurring_id__isnull=False, recurring_id=expense.recurring_id, tags__isnull=False
+        )
+        .values_list("id", flat=True)
+        .distinct()
+    ) == [e.id for e in fixed_expenses if e != expense]
+    assert Expense.objects.values("created_at__month", "created_at__year").distinct().count() == 12
+    assert list(expense.tags.values_list("name", flat=True).order_by("name")) == []
+
+
+# TODO: repeat for past, future and only_current
+def test__update__is_fixed__current__tags__replace(
+    client, user, fixed_expenses, expense_w_tags, bank_account
+):
+    # GIVEN
+    tag = ExpenseTag.objects.create(name="def", user=user)
+    for e in fixed_expenses:
+        e.tags.add(tag)
+
+    other_tags = list(expense_w_tags.tags.all())
+    tags = [t.name for t in other_tags]
+
+    expense = fixed_expenses[2]
+    previous_bank_account_amount = bank_account.amount
+
+    data = {
+        "value": expense.value,
+        "description": expense.description,
+        "category": expense.category,
+        "created_at": expense.created_at.strftime("%d/%m/%Y"),
+        "source": expense.source,
+        "is_fixed": True,
+        "tags": tags,
+    }
+
+    # WHEN
+    response = client.put(
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=true", data=data
+    )
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+    assert (
+        Expense.objects.filter(
+            recurring_id__isnull=False, recurring_id=expense.recurring_id, tags__isnull=True
+        )
+        .distinct()
+        .count()
+        == 0
+    )
+
+    assert Expense.objects.values("created_at__month", "created_at__year").distinct().count() == 12
+    assert (
+        list(
+            Expense.objects.filter(
+                recurring_id__isnull=False,
+                recurring_id=expense.recurring_id,
+                tags__isnull=False,
+            )
+            .exclude(id__in=(fixed_expenses[0].id, fixed_expenses[1].id))
+            .distinct()
+            .values_list("tags__name", flat=True)
+            .order_by("tags__name")
+        )
+        == tags
+    )
+    assert list(
+        Expense.objects.filter(id__in=(fixed_expenses[0].id, fixed_expenses[1].id))
+        .distinct()
+        .values_list("tags__name", flat=True)
+        .order_by("tags__name")
+    ) == [tag.name]
+
+    assert list(
+        ExpenseTag.objects.filter(user=expense.user).values_list("name", flat=True).order_by("name")
+    ) == tags + [tag.name]
+
+    expense_w_tags.refresh_from_db()
+    assert list(expense_w_tags.tags.all()) == other_tags
+
+    assert ExpenseTag.objects.count() == 2
+
+
+# TODO: repeat for past, future and only_current
+def test__update__is_fixed__current__tags__reuse__empty(
+    client, fixed_expenses, expense_w_tags, bank_account
+):
+    # GIVEN
+    existing_tags = list(expense_w_tags.tags.all())
+    tags = [t.name for t in existing_tags] + ["def"]
+
+    expense = fixed_expenses[2]
+    previous_bank_account_amount = bank_account.amount
+
+    data = {
+        "value": expense.value,
+        "description": expense.description,
+        "category": expense.category,
+        "created_at": expense.created_at.strftime("%d/%m/%Y"),
+        "source": expense.source,
+        "is_fixed": True,
+        "tags": tags,
+    }
+
+    # WHEN
+    response = client.put(
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=true", data=data
+    )
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+    assert (
+        Expense.objects.filter(
+            recurring_id__isnull=False, recurring_id=expense.recurring_id, tags__isnull=False
+        )
+        .distinct()
+        .count()
+        == 10
+    )
+    assert list(
+        Expense.objects.filter(
+            recurring_id__isnull=False, recurring_id=expense.recurring_id, tags__isnull=True
+        ).values_list("id", flat=True)
+    ) == [fixed_expenses[0].id, fixed_expenses[1].id]
+
+    assert Expense.objects.values("created_at__month", "created_at__year").distinct().count() == 12
+    assert (
+        list(
+            Expense.objects.filter(
+                recurring_id__isnull=False,
+                recurring_id=expense.recurring_id,
+                tags__isnull=False,
+            )
+            .exclude(id__in=(fixed_expenses[0].id, fixed_expenses[1].id))
+            .distinct()
+            .values_list("tags__name", flat=True)
+            .order_by("tags__name")
+        )
+        == tags
+    )
+
+    assert (
+        list(
+            ExpenseTag.objects.filter(user=expense.user)
+            .values_list("name", flat=True)
+            .order_by("name")
+        )
+        == tags
+    )
+
+    expense_w_tags.refresh_from_db()
+    assert list(expense_w_tags.tags.all()) == existing_tags
+
+    assert ExpenseTag.objects.count() == 2
+
+
+# TODO: repeat for past, future and only_current
+def test__update__is_fixed__current__tags__reuse__replace(
+    client, user, fixed_expenses, expense_w_tags, bank_account
+):
+    # GIVEN
+    tag = ExpenseTag.objects.create(name="def", user=user)
+    for e in fixed_expenses:
+        e.tags.add(tag)
+
+    other_tags = list(expense_w_tags.tags.all())
+    tags = [t.name for t in other_tags]
+
+    expense = fixed_expenses[2]
+    previous_bank_account_amount = bank_account.amount
+
+    data = {
+        "value": expense.value,
+        "description": expense.description,
+        "category": expense.category,
+        "created_at": expense.created_at.strftime("%d/%m/%Y"),
+        "source": expense.source,
+        "is_fixed": True,
+        "tags": tags,
+    }
+
+    # WHEN
+    response = client.put(
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=true", data=data
+    )
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+    assert (
+        Expense.objects.filter(
+            recurring_id__isnull=False, recurring_id=expense.recurring_id, tags__isnull=False
+        )
+        .distinct()
+        .count()
+        == 12
+    )
+
+    assert Expense.objects.values("created_at__month", "created_at__year").distinct().count() == 12
+    assert (
+        list(
+            Expense.objects.filter(
+                recurring_id__isnull=False,
+                recurring_id=expense.recurring_id,
+                tags__isnull=False,
+            )
+            .exclude(id__in=(fixed_expenses[0].id, fixed_expenses[1].id))
+            .distinct()
+            .values_list("tags__name", flat=True)
+            .order_by("tags__name")
+        )
+        == tags
+    )
+    assert list(
+        Expense.objects.filter(id__in=(fixed_expenses[0].id, fixed_expenses[1].id))
+        .distinct()
+        .values_list("tags__name", flat=True)
+        .order_by("tags__name")
+    ) == [tag.name]
+
+    assert list(
+        ExpenseTag.objects.filter(user=expense.user).values_list("name", flat=True).order_by("name")
+    ) == tags + [tag.name]
+
+    expense_w_tags.refresh_from_db()
+    assert list(expense_w_tags.tags.all()) == other_tags
+
+    assert ExpenseTag.objects.count() == 2
+
+
+def test__update__is_fixed__future__tags(client, fixed_expenses, bank_account):
+    # GIVEN
+    expense = fixed_expenses[3]
+    previous_bank_account_amount = bank_account.amount
+
+    data = {
+        "value": expense.value,
+        "description": expense.description,
+        "category": expense.category,
+        "created_at": expense.created_at.strftime("%d/%m/%Y"),
+        "source": expense.source,
+        "is_fixed": True,
+        "tags": ["abc", "def"],
+    }
+
+    # WHEN
+    response = client.put(
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=true", data=data
+    )
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+    assert (
+        Expense.objects.filter(
+            recurring_id__isnull=False, recurring_id=expense.recurring_id, tags__isnull=False
+        )
+        .distinct()
+        .count()
+        == 9
+    )
+    assert list(
+        Expense.objects.filter(
+            recurring_id__isnull=False, recurring_id=expense.recurring_id, tags__isnull=True
+        ).values_list("id", flat=True)
+    ) == [fixed_expenses[0].id, fixed_expenses[1].id, fixed_expenses[2].id]
+    assert Expense.objects.values("created_at__month", "created_at__year").distinct().count() == 12
+    assert (
+        list(
+            Expense.objects.filter(
+                recurring_id__isnull=False,
+                recurring_id=expense.recurring_id,
+                tags__isnull=False,
+            )
+            .distinct()
+            .values_list("tags__name", flat=True)
+            .order_by("tags__name")
+        )
+        == data["tags"]
+    )
+
+
+def test__update__is_fixed__future__tags__only_current(client, fixed_expenses, bank_account):
+    # GIVEN
+    expense = fixed_expenses[3]
+    previous_bank_account_amount = bank_account.amount
+
+    data = {
+        "value": expense.value,
+        "description": expense.description,
+        "category": expense.category,
+        "created_at": expense.created_at.strftime("%d/%m/%Y"),
+        "source": expense.source,
+        "is_fixed": True,
+        "tags": ["abc", "def"],
+    }
+
+    # WHEN
+    response = client.put(
+        f"{URL}/{expense.pk}?perform_actions_on_future_fixed_entities=false", data=data
+    )
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    bank_account.refresh_from_db()
+    assert previous_bank_account_amount == bank_account.amount
+
+    assert (
+        Expense.objects.distinct().get(
+            recurring_id__isnull=False, recurring_id=expense.recurring_id, tags__isnull=False
+        )
+        == expense
+    )
+
+    assert Expense.objects.values("created_at__month", "created_at__year").distinct().count() == 12
+    assert (
+        list(
+            Expense.objects.filter(
+                recurring_id__isnull=False,
+                recurring_id=expense.recurring_id,
+                tags__isnull=False,
+            )
+            .distinct()
+            .values_list("tags__name", flat=True)
+            .order_by("tags__name")
+        )
+        == data["tags"]
+    )
 
 
 def test__update__installments__is_fixed(client, expenses_w_installments):

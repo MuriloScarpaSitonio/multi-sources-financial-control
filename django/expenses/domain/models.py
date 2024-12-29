@@ -66,6 +66,7 @@ class Expense(IsPastOrFutureMixin):
     recurring_id: UUID | None = None
     installments_id: UUID | None = None
     installments: list[Expense] = field(default_factory=list)
+    tags: set[str] = field(default_factory=set)
     # not really something related to the domain model
     # but rather fields that need to be persisted in the DB
     extra_data: dict = field(default_factory=dict)
