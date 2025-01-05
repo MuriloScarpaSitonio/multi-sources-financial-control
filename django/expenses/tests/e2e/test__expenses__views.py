@@ -1053,19 +1053,11 @@ def test__update__installments__created_at_and_value(client, expenses_w_installm
     # WHEN
     response = client.put(f"{URL}/{e.pk}", data=data)
 
-    already_decremented_expenses_count = Expense.objects.filter(
-        installments_id=e.installments_id, created_at__lte=timezone.localdate()
-    ).count()
-
     # THEN
     assert response.status_code == HTTP_200_OK
 
     bank_account.refresh_from_db()
-    assert (
-        previous_bank_account_amount
-        - (already_decremented_expenses_count * (data["value"] - e.value))
-        == bank_account.amount
-    )
+    assert previous_bank_account_amount == bank_account.amount
 
     for i, expense in enumerate(
         Expense.objects.filter(installments_id=e.installments_id, value=data["value"]).order_by(

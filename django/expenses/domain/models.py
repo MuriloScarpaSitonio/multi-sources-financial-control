@@ -31,8 +31,8 @@ class IsPastOrFutureMixin:
     @property
     def is_past_month(self) -> bool:
         return (
-            self.created_at.month < self._today.month and self.created_at.year <= self._today.year
-        )
+            self.created_at.month < self._today.month and self.created_at.year == self._today.year
+        ) or self.created_at.year < self._today.year
 
     @property
     def is_past(self):

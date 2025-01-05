@@ -73,6 +73,7 @@ class AssetReadModel(models.Model):
 
     @cached_property
     def adjusted_avg_price(self) -> Decimal:
+        # TODO check why this is needed
         try:
             return (
                 (self.quantity_balance * self.avg_price) - self.credited_incomes

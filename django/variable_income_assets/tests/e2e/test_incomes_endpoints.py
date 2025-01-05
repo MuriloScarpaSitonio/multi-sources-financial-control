@@ -479,7 +479,7 @@ def test__indicators(client):
         .credited()
         .trunc_months()
         .aggregate(avg=Avg("total"))["avg"]
-    )
+    ) or 0
 
     # WHEN
     response = client.get(f"{URL}/indicators")
@@ -491,7 +491,7 @@ def test__indicators(client):
         "current_credited": convert_and_quantitize(current_credited),
         "provisioned_future": convert_and_quantitize(provisioned_future),
         "diff_percentage": convert_and_quantitize(
-            ((current_credited / avg) - Decimal("1.0")) * Decimal("100.0")
+            ((current_credited / avg) - Decimal("1.0")) * Decimal("100.0") if avg else 0
         ),
     }
 
