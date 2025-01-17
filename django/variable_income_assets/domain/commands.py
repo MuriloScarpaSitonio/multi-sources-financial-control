@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from ..models import Transaction
+from ..models import Asset, Transaction
 from .models import Asset as AssetDomainModel
 
 
@@ -24,3 +24,14 @@ class UpdateTransaction(Command):
 class DeleteTransaction(Command):
     transaction: Transaction
     asset: AssetDomainModel
+
+
+@dataclass
+class CreateAsset(Command):
+    asset: AssetDomainModel
+
+
+@dataclass
+class UpdateAsset(Command):
+    asset: AssetDomainModel
+    db_instance: Asset

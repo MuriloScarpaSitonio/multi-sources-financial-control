@@ -5,35 +5,42 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from django.template.defaultfilters import slugify
 from django.utils import timezone
 
 from shared.utils import choices_to_enum
 
 from ..choices import (
+    AssetObjectives,
+    AssetTypes,
     Currencies,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
     TransactionActions,
 )
-from .events import AssetOperationClosed, Event
 from .exceptions import (
+    AssetHeldInSelfCustodyButNotFixedException,
+    AssetNotHeldInSelfCustodyWithoutQuantityException,
     CurrencyConversionRateNullOrOneForNonBrlAssets,
     FutureTransactionNotAllowedException,
+    InvalidAssetCurrentException,
     NegativeQuantityNotAllowedException,
+    SpaceNotAllowedInB3AssetCode,
 )
 
 if TYPE_CHECKING:
     from ..models import Transaction
+    from .events import Event
 
 
 @dataclass
 class TransactionDTO:
     action: choices_to_enum(TransactionActions)
-    quantity: Decimal
     price: Decimal
     operation_date: date
+    quantity: Decimal | None = None
     current_currency_conversion_rate: Decimal | None = None
-    external_id: str | None = None
+    external_id: str = ""
 
     @property
     def is_sale(self) -> bool:
@@ -50,23 +57,55 @@ class PassiveIncomeDTO:  # TODO?
     current_currency_conversion_rate: Decimal | None = None
 
 
+@dataclass(unsafe_hash=True)
 class Asset:
-    def __init__(
-        self,
-        id: int,
-        quantity_balance: Decimal,
-        currency: Currencies | None = None,
-        avg_price: Decimal | None = None,
-    ) -> None:
-        self._id = id
-        self.quantity_balance = quantity_balance
-        self.currency = currency
-        self.avg_price = avg_price
+    type: choices_to_enum(AssetTypes)
+    code: str = ""
+    id: int | None = None
+    description: str = ""
+    objective: choices_to_enum(AssetObjectives) = AssetObjectives.unknown
+    description: str = ""
+    quantity_balance: Decimal | None = None
+    currency: Currencies | None = None
+    avg_price: Decimal | None = None
 
+    # é um ativo custodiado pelo banco emissor?
+    # (ou seja, aplica-se apenas para renda fixa e  nao pode ser sincronizado pela b3)
+    is_held_in_self_custody: bool = False
+
+    def __post_init__(self) -> None:
         self._transactions: list[TransactionDTO] = []
         self.events: list[Event] = []
 
+        if self.is_held_in_self_custody:
+            self.code = self.description
+            self.code = slugify(self.description)
+        else:
+            self.code = self.code.upper()
+
+    def validate(self) -> None:
+        if self.currency not in AssetTypes.get_choice(self.type).valid_currencies:
+            raise InvalidAssetCurrentException(
+                message_interpolation_params={"currency": self.currency, "type": self.type}
+            )
+
+        if self.is_held_in_self_custody:
+            if self.type != AssetTypes.fixed_br:
+                raise AssetHeldInSelfCustodyButNotFixedException
+        else:
+            if " " in self.code:
+                raise SpaceNotAllowedInB3AssetCode
+
+    @property
+    def is_fixed_br(self) -> bool:
+        return self.type == AssetTypes.fixed_br
+
     def add_transaction(self, transaction_dto: TransactionDTO) -> None:
+        from .events import AssetOperationClosed
+
+        if transaction_dto.quantity is None and not self.is_held_in_self_custody:
+            raise AssetNotHeldInSelfCustodyWithoutQuantityException
+
         if transaction_dto.operation_date > timezone.localdate():
             raise FutureTransactionNotAllowedException
 
@@ -81,11 +120,16 @@ class Asset:
                 raise NegativeQuantityNotAllowedException
 
             if transaction_dto.quantity - self.quantity_balance == 0:
-                self.events.append(AssetOperationClosed(asset_pk=self._id))
+                self.events.append(AssetOperationClosed(asset_pk=self.id))
 
         self._transactions.append(transaction_dto)
 
     def update_transaction(self, dto: TransactionDTO, transaction: Transaction) -> TransactionDTO:
+        from .events import AssetOperationClosed
+
+        if dto.quantity is None and not self.is_held_in_self_custody:
+            raise AssetNotHeldInSelfCustodyWithoutQuantityException
+
         if dto.operation_date > timezone.localdate():
             raise FutureTransactionNotAllowedException
 
@@ -105,7 +149,7 @@ class Asset:
                 raise NegativeQuantityNotAllowedException
 
             if dto.quantity - self.quantity_balance == 0:
-                self.events.append(AssetOperationClosed(asset_pk=self._id))
+                self.events.append(AssetOperationClosed(asset_pk=self.id))
 
         self._transactions.append(dto)
         return dto

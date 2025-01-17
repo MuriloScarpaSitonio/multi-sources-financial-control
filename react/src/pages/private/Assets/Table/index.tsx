@@ -4,6 +4,8 @@ import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
+import IconButton from "@mui/material/IconButton";
+import EditIcon from "@mui/icons-material/Edit";
 
 import {
   MaterialReactTable,
@@ -22,6 +24,7 @@ import AssetsForm from "./AssetForm";
 import TopToolBar from "./TopToolbar";
 import IncomesTable from "./IncomesTable";
 import TransactionTable from "./TransactionTable";
+import AssetUpdatePriceDrawer from "./AssetUpdatePriceDrawer";
 
 const DetailPanel = ({
   row,
@@ -71,6 +74,7 @@ const DetailPanel = ({
 const Table = () => {
   const [tabValues, setTabValues] = useState<Record<string, number>>({});
   const [columnVisibility, setColumnVisibility] = useState({});
+  const [assetToUpdatePrice, setAssetToUpdatePrice] = useState<Asset>();
 
   const columns = useMemo<Column<Asset>[]>(
     () => [
@@ -79,11 +83,16 @@ const Table = () => {
         accessorKey: "code",
         size: 50,
         Cell: ({ row: { original } }) => (
-          <Stack direction="row" spacing={1} alignItems="center">
-            <StatusDot
-              variant={original.normalized_roi > 0 ? "success" : "danger"}
-            />
-            <span>{original.code}</span>
+          <Stack spacing={1}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <StatusDot
+                variant={original.normalized_roi > 0 ? "success" : "danger"}
+              />
+              <span>{original.code}</span>
+            </Stack>
+            {!!original.description && (
+              <span style={{ marginLeft: "20px" }}>{original.description}</span>
+            )}
           </Stack>
         ),
       },
@@ -116,7 +125,19 @@ const Table = () => {
             minimumFractionDigits: 2,
             maximumFractionDigits: 4,
           });
-          return `${AssetCurrencyMap[original.currency].symbol} ${price}`;
+          return original.is_held_in_self_custody ? (
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <span>{`${AssetCurrencyMap[original.currency].symbol} ${price}`}</span>
+              <IconButton
+                sx={{ color: getColor(Colors.neutral300) }}
+                onClick={() => setAssetToUpdatePrice(original)}
+              >
+                <EditIcon />
+              </IconButton>
+            </Stack>
+          ) : (
+            `${AssetCurrencyMap[original.currency].symbol} ${price}`
+          );
         },
       },
       {
@@ -124,7 +145,10 @@ const Table = () => {
         accessorKey: "quantity_balance",
         enableSorting: false,
         size: 40,
-        Cell: ({ cell }) => cell.getValue<number>().toLocaleString("pt-br"),
+        Cell: ({ row: { original } }) =>
+          original.is_held_in_self_custody
+            ? "-"
+            : original.quantity_balance.toLocaleString("pt-br"),
       },
       {
         header: "Total investido",
@@ -259,7 +283,18 @@ const Table = () => {
     });
   }, [filters.status]);
 
-  return <MaterialReactTable table={table} />;
+  return (
+    <>
+      <MaterialReactTable table={table} />
+      {assetToUpdatePrice && (
+        <AssetUpdatePriceDrawer
+          asset={assetToUpdatePrice}
+          open={!!assetToUpdatePrice}
+          onClose={() => setAssetToUpdatePrice(undefined)}
+        />
+      )}
+    </>
+  );
 };
 
 export default Table;

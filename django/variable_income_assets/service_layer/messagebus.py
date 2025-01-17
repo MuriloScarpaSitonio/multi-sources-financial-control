@@ -43,6 +43,8 @@ COMMAND_HANDLERS: dict[type[commands.Command], MessageCallable] = {
     commands.CreateTransactions: handlers.create_transactions,
     commands.UpdateTransaction: handlers.update_transaction,
     commands.DeleteTransaction: handlers.delete_transaction,
+    commands.CreateAsset: handlers.create_asset,
+    commands.UpdateAsset: handlers.update_asset,
 }
 
 

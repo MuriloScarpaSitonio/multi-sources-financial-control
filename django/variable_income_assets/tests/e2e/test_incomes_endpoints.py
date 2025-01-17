@@ -62,7 +62,11 @@ def test__create__stock(client, data, stock_asset, mocker):
 
     # THEN
     assert mocked_task.call_count == 1
-    assert mocked_task.call_args.kwargs == {"asset_id": stock_asset.pk, "is_aggregate_upsert": True}
+    assert mocked_task.call_args.kwargs == {
+        "asset_id": stock_asset.pk,
+        "is_aggregate_upsert": True,
+        "is_held_in_self_custody": False,
+    }
 
     assert response.status_code == HTTP_201_CREATED
     assert PassiveIncome.objects.filter(current_currency_conversion_rate=1).count() == 1
@@ -91,6 +95,7 @@ def test__create__stock_usa(client, stock_usa_asset, mocker):
     assert mocked_task.call_args.kwargs == {
         "asset_id": stock_usa_asset.pk,
         "is_aggregate_upsert": True,
+        "is_held_in_self_custody": False,
     }
 
     assert response.status_code == HTTP_201_CREATED
@@ -221,6 +226,7 @@ def test__update(client, simple_income, mocker):
     assert mocked_task.call_args.kwargs == {
         "asset_id": simple_income.asset_id,
         "is_aggregate_upsert": True,
+        "is_held_in_self_custody": False,
     }
 
     assert response.status_code == HTTP_200_OK
@@ -247,6 +253,7 @@ def test__update__w_asset_pk(client, simple_income, mocker):
     assert mocked_task.call_args.kwargs == {
         "asset_id": simple_income.asset_id,
         "is_aggregate_upsert": True,
+        "is_held_in_self_custody": False,
     }
 
     assert response.status_code == HTTP_200_OK
@@ -406,6 +413,7 @@ def test__list__sanity_check(client, simple_income):
                     "code": simple_income.asset.code,
                     "type": AssetTypes.get_choice(simple_income.asset.type).label,
                     "currency": Currencies.get_choice(simple_income.asset.currency).label,
+                    "description": simple_income.asset.description,
                 },
             }
         ],
@@ -447,6 +455,7 @@ def test__delete(client, simple_income, mocker):
     assert mocked_task.call_args.kwargs == {
         "asset_id": simple_income.asset_id,
         "is_aggregate_upsert": True,
+        "is_held_in_self_custody": False,
     }
 
     assert response.status_code == HTTP_204_NO_CONTENT

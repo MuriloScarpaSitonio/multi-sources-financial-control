@@ -82,11 +82,15 @@ class AssetQuerySet(QuerySet):
 
     def annotate_normalized_total_bought(self) -> Self:
         return self.annotate(
-            normalized_total_bought=self.expressions.get_normalized_current_total_bought()
+            normalized_total_bought=self.expressions.get_normalized_current_total_bought(),
+            total_bought=self.expressions.get_normalized_total_bought(),
+            closed_operations_normalized_total_bought=self.expressions.get_closed_operations_normalized_total_bought(),
         )
 
     def annotate_current_normalized_total_sold(self) -> Self:
-        return self.annotate(normalized_total_sold=self.expressions.current_normalized_total_sold)
+        return self.annotate(
+            normalized_total_sold=self.expressions.get_current_normalized_total_sold()
+        )
 
     def annotate_normalized_closed_roi(self) -> Self:
         return self.annotate(normalized_closed_roi=self.expressions.normalized_closed_roi)
@@ -147,7 +151,9 @@ class AssetQuerySet(QuerySet):
     def annotate_for_domain(self) -> Self:
         return self.annotate_quantity_balance().annotate_current_avg_price()
 
-    def annotate_read_fields(self) -> Self:
+    def annotate_read_fields(self, is_held_in_self_custody: bool = False) -> Self:
+        if is_held_in_self_custody:
+            return self._annotate_read_fields_for_is_held_in_self_custody()
         return (
             self.annotate_for_domain()
             .annotate_current_normalized_avg_price()
@@ -155,6 +161,27 @@ class AssetQuerySet(QuerySet):
             .annotate_current_normalized_total_sold()
             .annotate_normalized_closed_roi()
             .annotate_current_credited_incomes()
+        )
+
+    def annotate_for_update_price_asset_is_held_in_self_custody(self) -> Self:
+        return self.annotate(
+            quantity_balance=Value(1),
+            avg_price=self.expressions.get_total_bought(),
+            normalized_avg_price=self.expressions.get_normalized_total_bought(),
+            normalized_total_bought=self.expressions.get_normalized_current_total_bought(),
+        )
+
+    def _annotate_read_fields_for_is_held_in_self_custody(self) -> Self:
+        return (
+            self.annotate_for_update_price_asset_is_held_in_self_custody()
+            .annotate(
+                normalized_total_sold=self.expressions.get_current_normalized_total_sold(
+                    is_held_in_self_custody=True
+                ),
+                credited_incomes=Value(0),
+                normalized_credited_incomes=Value(0),
+            )
+            .annotate_normalized_closed_roi()
         )
 
     def annotate_for_simulation(self) -> Self:
@@ -239,7 +266,7 @@ class TransactionQuerySet(QuerySet):
     def _annotate_totals(self) -> Self:
         return self.annotate(
             total_bought=self.expressions.get_normalized_total_bought(),
-            total_sold=self.expressions.normalized_total_sold,
+            total_sold=self.expressions.get_normalized_total_sold(),
         )
 
     @property
@@ -303,7 +330,7 @@ class TransactionQuerySet(QuerySet):
 
     def aggregate_normalized_totals(self) -> dict[str, Decimal]:
         return self.aggregate(
-            normalized_total_sold=self.expressions.normalized_total_sold,
+            normalized_total_sold=self.expressions.get_normalized_total_sold(),
             normalized_total_bought=self.expressions.get_normalized_total_bought(),
             total_bought=self.expressions.get_total_bought(),
             quantity_bought=self.expressions.get_quantity_bought(),

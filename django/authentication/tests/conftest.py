@@ -61,6 +61,24 @@ def client(user):
 
 
 @pytest.fixture
+def another_secrets():
+    return IntegrationSecretFactory(cpf="52245911040")
+
+
+@pytest.fixture
+def another_user(another_secrets):
+    return UserFactory(email="murilo2@gmail.com", username="murilo2", secrets=another_secrets)
+
+
+@pytest.fixture
+def another_client(another_user):
+    refresh = RefreshToken.for_user(another_user)
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+    return client
+
+
+@pytest.fixture
 def refresh_token(user):
     return RefreshToken.for_user(user)
 

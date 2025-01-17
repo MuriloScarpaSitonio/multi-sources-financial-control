@@ -1,4 +1,10 @@
-import { Dispatch, FunctionComponent, SetStateAction, useState } from "react";
+import type {
+  Dispatch,
+  FunctionComponent,
+  SetStateAction,
+  ReactNode,
+} from "react";
+import { useState } from "react";
 
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -17,7 +23,7 @@ const FormDrawer = ({
   FormComponent,
   initialData,
 }: {
-  title: string;
+  title: string | ReactNode;
   open: boolean;
   onClose: () => void;
   formId: string;
@@ -33,6 +39,7 @@ const FormDrawer = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDisabled, setIsDisabled] = useState(false);
 
+  const label = initialData ? "Editar" : "Adicionar";
   return (
     <Drawer
       open={open}
@@ -47,7 +54,7 @@ const FormDrawer = ({
       }}
     >
       <Stack spacing={5} sx={{ p: 3 }}>
-        <Text>{title}</Text>
+        {typeof title === "string" ? <Text>{title}</Text> : title}
         <FormComponent
           id={formId}
           setIsSubmitting={setIsSubmitting}
@@ -67,10 +74,8 @@ const FormDrawer = ({
           >
             {isSubmitting ? (
               <CircularProgress color="inherit" size={24} />
-            ) : initialData ? (
-              "Editar"
             ) : (
-              "Adicionar"
+              label
             )}
           </Button>
         </Stack>

@@ -9,10 +9,14 @@ import {
 import Divider from "@mui/material/Divider";
 import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
+import FormLabel from "@mui/material/FormLabel";
+import Grid from "@mui/material/Grid";
 import Radio from "@mui/material/Radio";
 import RadioGroup from "@mui/material/RadioGroup";
 import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 
 import { enqueueSnackbar } from "notistack";
 import { Controller } from "react-hook-form";
@@ -31,7 +35,7 @@ import {
   AssetCurrencyMap,
   AssetsTypesMapping,
 } from "../../../consts";
-import { createAsset, createTransaction } from "../../../api";
+import { createAsset, createTransaction, updateAssetPrice } from "../../../api";
 import { getCurrencyFromType } from "../utils";
 import { useInvalidateAssetsReportsQueries } from "../../../Reports/hooks";
 import { useInvalidateAssetsIndicatorsQueries } from "../../../Indicators/hooks";
@@ -49,11 +53,22 @@ const transactionShape = {
   asset: yup
     .object()
     .shape({
-      label: yup.string().required("O ativo é obrigatório"),
+      label: yup.string(),
       value: yup.number(),
       currency: yup.string(),
     })
-    .required("O ativo é obrigatório"),
+    .test(
+      "AssetRequired",
+      "O ativo é obrigatório",
+      // it has to be function definition to use `this`
+      function (asset) {
+        const { is_held_in_self_custody } = this.parent;
+        if (is_held_in_self_custody) {
+          return !asset.label;
+        }
+        return !!asset.label;
+      },
+    ),
   action: yup.string().required("A ação é obrigatória"),
   price: yup
     .number()
@@ -62,9 +77,20 @@ const transactionShape = {
     .typeError("Preço inválido"),
   quantity: yup
     .number()
-    .required("A quantidade é obrigatória")
     .positive("Apenas números positivos")
-    .typeError("Quantidade inválida"),
+    .transform((_, v) => (v === "" ? undefined : v))
+    .test(
+      "QuantityRequired",
+      "A quantidade é obrigatória",
+      // it has to be function definition to use `this`
+      function (quantity) {
+        const { is_held_in_self_custody } = this.parent;
+        if (is_held_in_self_custody) {
+          return !quantity;
+        }
+        return !!quantity;
+      },
+    ),
   operation_date: yup
     .date()
     .required("A data é obrigatória")
@@ -87,6 +113,8 @@ const transactionShape = {
         return true;
       },
     ),
+  is_held_in_self_custody: yup.boolean().default(false),
+  asset_description: yup.string(),
 };
 
 const assetShape = {
@@ -113,24 +141,38 @@ const newAssetTransactionSchema = yup
 const createTransactionAndAsset = async (
   data: yup.Asserts<typeof newAssetTransactionSchema>,
 ) => {
-  const { objective, type, asset: code, currency, ...transaction } = data;
-  const assetCurrency =
-    currency ?? (getCurrencyFromType(type.value as string) as string);
+  const {
+    objective,
+    type,
+    asset: code,
+    currency,
+    is_held_in_self_custody,
+    asset_description: description,
+    ...transaction
+  } = data;
+  const assetCurrency = currency ?? (getCurrencyFromType(type.value) as string);
   const asset = await createAsset({
-    code: code.label as string,
-    type: type.value as string,
+    type: type.value,
     currency: assetCurrency,
     objective,
+    is_held_in_self_custody,
+    description,
+    ...(is_held_in_self_custody ? {} : { code: code.label }),
   });
 
-  const { current_currency_conversion_rate, ...rest } = transaction;
+  const { current_currency_conversion_rate, quantity, price, ...rest } =
+    transaction;
   await createTransaction({
     asset_pk: asset.id,
+    price,
     ...rest,
     ...(assetCurrency === AssetCurrencies.USD
       ? { current_currency_conversion_rate }
       : {}),
+    ...(is_held_in_self_custody ? {} : { quantity }),
   });
+  if (is_held_in_self_custody)
+    await updateAssetPrice({ id: asset.id, data: { current_price: price } });
 };
 
 const createTransactionMutation = async (
@@ -187,6 +229,7 @@ const NewTransactionForm = ({
     getFieldHasError,
     getErrorMessage,
     getValues,
+    setValue,
   } = useFormPlus({
     mutationFn: newCode ? createTransactionAndAsset : createTransactionMutation,
     schema: newCode ? newAssetTransactionSchema : transactionSchema,
@@ -196,6 +239,7 @@ const NewTransactionForm = ({
           type: { label: "", value: "" },
           objective: "",
           currency: "",
+          asset_description: "",
         }
       : defaultValues,
     context: { isCrypto },
@@ -215,12 +259,12 @@ const NewTransactionForm = ({
       reset({ ...getValues(), asset: defaultValues.asset });
     },
   });
-
   useEffect(() => setIsSubmitting(isPending), [isPending, setIsSubmitting]);
 
   const assetObj = watch("asset");
   const assetType = watch("type");
   const assetCurrency = watch("currency");
+  const isHeldInSelfCustody = watch("is_held_in_self_custody");
 
   const getCurrencySymbol = useCallback(() => {
     if (assetObj?.currency)
@@ -257,7 +301,98 @@ const NewTransactionForm = ({
         isFieldInvalid={isFieldInvalid}
         getFieldHasError={getFieldHasError}
         getErrorMessage={getErrorMessage}
+        isHeldInSelfCustody={isHeldInSelfCustody}
       />
+      {newCode && (
+        <>
+          <AssetTypeAutoComplete
+            control={control}
+            setIsCrypto={setIsCrypto}
+            isFieldInvalid={isFieldInvalid}
+            getFieldHasError={getFieldHasError}
+            getErrorMessage={getErrorMessage}
+          />
+          {assetType?.value === AssetsTypesMapping["Renda fixa BR"].value && (
+            <Typography component="div">
+              <FormLabel>É um ativo custodiado fora da B3?</FormLabel>
+              <Grid component="label" container alignItems="center" spacing={1}>
+                <Grid item>Não</Grid>
+                <Grid item>
+                  <Controller
+                    name="is_held_in_self_custody"
+                    control={control}
+                    render={({ field: { value, onChange } }) => (
+                      <Switch
+                        color="primary"
+                        checked={value}
+                        onChange={(_, v) => {
+                          onChange(v);
+                          const {
+                            asset: { label: code },
+                            asset_description: description,
+                          } = getValues();
+
+                          if (v) {
+                            if (!description)
+                              setValue("asset_description", code);
+                            setValue("asset", defaultValues.asset);
+                            setValue("quantity", "");
+                          } else {
+                            if (!code) {
+                              setValue("asset", {
+                                ...defaultValues.asset,
+                                label: description,
+                              });
+                              setValue("asset_description", "");
+                            }
+                          }
+                        }}
+                      />
+                    )}
+                  />
+                </Grid>
+                <Grid item>Sim</Grid>
+              </Grid>
+            </Typography>
+          )}
+          <Controller
+            name="asset_description"
+            control={control}
+            render={({ field }) => (
+              <Stack spacing={0.5}>
+                <TextField
+                  {...field}
+                  label="Descrição do ativo"
+                  error={isFieldInvalid(field)}
+                  variant="standard"
+                />
+                {getFieldHasError("asset_description") && (
+                  <FormFeedbackError
+                    message={getErrorMessage("asset_description")}
+                  />
+                )}
+              </Stack>
+            )}
+          />
+          <AssetObjectives
+            prefix="create-transaction"
+            control={control}
+            isFieldInvalid={isFieldInvalid}
+            getFieldHasError={getFieldHasError}
+            getErrorMessage={getErrorMessage}
+          />
+          {isCrypto && (
+            <AssetCurrenciesInput
+              prefix="create-transaction"
+              control={control}
+              isFieldInvalid={isFieldInvalid}
+              getFieldHasError={getFieldHasError}
+              getErrorMessage={getErrorMessage}
+            />
+          )}
+        </>
+      )}
+      {newCode && <Divider />}
       <DateInput control={control} />
       <FormControl>
         <Controller
@@ -294,6 +429,7 @@ const NewTransactionForm = ({
           isFieldInvalid={isFieldInvalid}
           getFieldHasError={getFieldHasError}
           getErrorMessage={getErrorMessage}
+          isHeldInSelfCustody={isHeldInSelfCustody}
         />
       </Stack>
       {currencySymbol === AssetCurrencyMap.USD.symbol && (
@@ -321,34 +457,6 @@ const NewTransactionForm = ({
             </Stack>
           )}
         />
-      )}
-      {newCode && (
-        <>
-          <Divider />
-          <AssetObjectives
-            prefix="create-transaction"
-            control={control}
-            isFieldInvalid={isFieldInvalid}
-            getFieldHasError={getFieldHasError}
-            getErrorMessage={getErrorMessage}
-          />
-          <AssetTypeAutoComplete
-            control={control}
-            setIsCrypto={setIsCrypto}
-            isFieldInvalid={isFieldInvalid}
-            getFieldHasError={getFieldHasError}
-            getErrorMessage={getErrorMessage}
-          />
-          {isCrypto && (
-            <AssetCurrenciesInput
-              prefix="create-transaction"
-              control={control}
-              isFieldInvalid={isFieldInvalid}
-              getFieldHasError={getFieldHasError}
-              getErrorMessage={getErrorMessage}
-            />
-          )}
-        </>
       )}
     </Stack>
   );

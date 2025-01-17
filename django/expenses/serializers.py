@@ -182,14 +182,16 @@ class ExpenseReportCategorySerializer(TotalSerializer):
     category = serializers.CharField()
 
 
-class ExpenseReportAvgCategorySerializer(ExpenseReportCategorySerializer, AvgSerializer): ...
+class ExpenseReportAvgCategorySerializer(ExpenseReportCategorySerializer, AvgSerializer):
+    ...
 
 
 class ExpenseReportSourceSerializer(TotalSerializer):
     source = serializers.CharField()
 
 
-class ExpenseReportAvgSourceSerializer(ExpenseReportSourceSerializer, AvgSerializer): ...
+class ExpenseReportAvgSourceSerializer(ExpenseReportSourceSerializer, AvgSerializer):
+    ...
 
 
 class ExpenseReportTypeSerializer(TotalSerializer):
@@ -200,7 +202,8 @@ class ExpenseReportTypeSerializer(TotalSerializer):
         return "Fixo" if data["is_fixed"] is True else "Variável"
 
 
-class ExpenseReportAvgTypeSerializer(ExpenseReportTypeSerializer, AvgSerializer): ...
+class ExpenseReportAvgTypeSerializer(ExpenseReportTypeSerializer, AvgSerializer):
+    ...
 
 
 class ExpenseHistoricSerializer(TotalSerializer):

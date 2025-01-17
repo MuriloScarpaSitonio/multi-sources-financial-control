@@ -6,6 +6,7 @@ export const AssetsTypesMapping: Record<
   "Ação EUA": { value: "STOCK_USA", color: "#906ccc" },
   Cripto: { value: "CRYPTO", color: "#ccc86c" },
   FII: { value: "FII", color: "#6cccc6" },
+  "Renda fixa BR": { value: "FIXED_BR", color: "#d9a648" },
 };
 
 export const AssetsObjectivesMapping = {

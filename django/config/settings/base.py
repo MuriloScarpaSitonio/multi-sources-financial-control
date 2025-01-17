@@ -1,3 +1,4 @@
+from decimal import Decimal
 from pathlib import Path
 
 from decouple import Csv
@@ -213,3 +214,6 @@ STRIPE_WEBHOOK_SECRET = secret("STRIPE_WEBHOOK_SECRET", default="")
 STRIPE_TRIAL_SUBSCRIPTION_PRICE_ID = secret("STRIPE_TRIAL_SUBSCRIPTION_PRICE_ID", default="")
 
 DEFAULT_TRIAL_PERIOD_IN_DAYS = secret("DEFAULT_TRIAL_PERIOD_IN_DAYS", default=7, cast=int)
+
+DEFAULT_DOLLAR_CONVERSION_RATE = secret("DEFAULT_DOLLAR_CONVERSION_RATE", 6.06, cast=Decimal)
+DOLLAR_CONVERSION_RATE_KEY = secret("DOLLAR_CONVERSION_RATE_KEY", default="DOLLAR_CONVERSION_RATE")

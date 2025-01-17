@@ -45,10 +45,48 @@ def test__create__buy(client, stock_asset, mocker):
 
     # THEN
     assert mocked_task.call_count == 1
-    assert mocked_task.call_args.kwargs == {"asset_id": stock_asset.pk, "is_aggregate_upsert": True}
+    assert mocked_task.call_args.kwargs == {
+        "asset_id": stock_asset.pk,
+        "is_aggregate_upsert": True,
+        "is_held_in_self_custody": False,
+    }
 
     assert response.status_code == HTTP_201_CREATED
     assert Transaction.objects.filter(current_currency_conversion_rate=1).count() == 1
+
+
+def test__create__buy__asset_held_in_self_custody(client, fixed_asset_held_in_self_custody, mocker):
+    # GIVEN
+    data = {
+        "action": TransactionActions.buy,
+        "price": 10_000,
+        "asset_pk": fixed_asset_held_in_self_custody.pk,
+        "operation_date": "12/12/2022",
+    }
+    mocked_task = mocker.patch(
+        "variable_income_assets.service_layer.handlers.upsert_asset_read_model"
+    )
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert mocked_task.call_count == 1
+    assert mocked_task.call_args.kwargs == {
+        "asset_id": fixed_asset_held_in_self_custody.pk,
+        "is_aggregate_upsert": True,
+        "is_held_in_self_custody": True,
+    }
+
+    assert response.status_code == HTTP_201_CREATED
+    assert (
+        Transaction.objects.filter(
+            current_currency_conversion_rate=1,
+            quantity__isnull=True,
+            asset_id=fixed_asset_held_in_self_custody.pk,
+        ).count()
+        == 1
+    )
 
 
 def test__create__future(client, stock_asset):
@@ -267,6 +305,7 @@ def test__update(client, buy_transaction, mocker):
     assert mocked_task.call_args.kwargs == {
         "asset_id": buy_transaction.asset_id,
         "is_aggregate_upsert": True,
+        "is_held_in_self_custody": False,
     }
 
     assert response.status_code == HTTP_200_OK
@@ -516,6 +555,7 @@ def test__delete(client, buy_transaction, mocker):
     assert mocked_task.call_args.kwargs == {
         "asset_id": buy_transaction.asset_id,
         "is_aggregate_upsert": True,
+        "is_held_in_self_custody": False,
     }
 
     assert response.status_code == HTTP_204_NO_CONTENT
@@ -584,6 +624,7 @@ def test__list__sanity_check(client, buy_transaction):
                     "code": buy_transaction.asset.code,
                     "type": AssetTypes.get_choice(buy_transaction.asset.type).label,
                     "currency": Currencies.get_choice(buy_transaction.asset.currency).label,
+                    "description": buy_transaction.asset.description,
                 },
             }
         ],

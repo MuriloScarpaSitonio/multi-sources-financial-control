@@ -9,6 +9,7 @@ import {
 export type Asset = {
   write_model_pk: number;
   code: string;
+  description: string;
   type: keyof typeof AssetsTypesMapping;
   objective: keyof typeof AssetsObjectivesMapping;
   quantity_balance: number;
@@ -21,6 +22,7 @@ export type Asset = {
   currency: AssetCurrencies;
   percentage_invested: number;
   current_percentage: number;
+  is_held_in_self_custody: boolean;
 };
 
 export type AssetWrite = Omit<
@@ -41,7 +43,7 @@ export type Transaction = {
   id: number;
   action: "Compra" | "Venda";
   price: number;
-  quantity: number;
+  quantity: number | null;
   operation_date: RawDateString;
   current_currency_conversion_rate: number;
   asset: AssetWrite;

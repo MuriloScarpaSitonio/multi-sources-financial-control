@@ -1,28 +1,24 @@
-from functools import singledispatch
-
 from django.utils import timezone
 
 from ...adapters import DjangoSQLAssetMetaDataRepository
-from ...models import Asset
+from ...domain.models import Asset as AssetDomainModel
 
 
-# TODO: UoW?!
-@singledispatch
-def maybe_create_asset_metadata(asset: int, **defaults) -> None:
-    asset: Asset = Asset.objects.only("code", "type", "currency").get(pk=asset)
+def maybe_create_asset_metadata(asset: AssetDomainModel, **defaults) -> None:
     _maybe_create_asset_metadata(asset=asset, **defaults)
 
 
-@maybe_create_asset_metadata.register
-def _(asset: Asset, **defaults) -> None:
-    _maybe_create_asset_metadata(asset=asset, **defaults)
-
-
-def _maybe_create_asset_metadata(asset: Asset, **defaults) -> None:
+def _maybe_create_asset_metadata(asset: AssetDomainModel, **defaults) -> None:
     from ...integrations.helpers import fetch_asset_current_price, fetch_asset_sector
 
+    # is_held_in_self_custody =
+    # é um ativo custodiado pelo banco emissor?
+    # (ou seja, aplica-se apenas para renda fixa e  nao pode ser sincronizado pela b3)
     repository = DjangoSQLAssetMetaDataRepository(
-        code=asset.code, type=asset.type, currency=asset.currency
+        code=asset.code,
+        type=asset.type,
+        currency=asset.currency,
+        asset_id=asset.id if asset.is_held_in_self_custody else None,
     )
     if not repository.exists():
         repository.create(

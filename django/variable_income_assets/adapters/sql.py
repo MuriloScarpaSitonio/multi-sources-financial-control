@@ -18,10 +18,16 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet
 
     from ..choices import AssetSectors, AssetTypes, Currencies
-    from ..models import AssetMetaData, AssetsTotalInvestedSnapshot, PassiveIncome, Transaction
+    from ..models import (
+        Asset,
+        AssetMetaData,
+        AssetsTotalInvestedSnapshot,
+        PassiveIncome,
+        Transaction,
+    )
 
-    Entity = Transaction | PassiveIncome
-    EntityDTO = TransactionDTO | PassiveIncomeDTO
+    Entity = Transaction | PassiveIncome | Asset
+    EntityDTO = TransactionDTO | PassiveIncomeDTO | AssetDomainModel
 
 
 class AbstractEntityRepository(ABC):
@@ -37,6 +43,11 @@ class AbstractEntityRepository(ABC):
     @overload
     @abstractmethod
     def _add(self, dto: PassiveIncomeDTO) -> PassiveIncome:
+        ...
+
+    @overload
+    @abstractmethod
+    def _add(self, dto: AssetDomainModel) -> Asset:
         ...
 
     @abstractmethod
@@ -55,6 +66,10 @@ class AbstractEntityRepository(ABC):
     def update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> None:
         ...
 
+    @overload
+    def update(self, dto: AssetDomainModel, entity: Asset) -> None:
+        ...
+
     def update(self, dto: EntityDTO, entity: Entity) -> None:
         e = self._update(dto=dto, entity=entity)
         self.seen.add(e)
@@ -66,7 +81,7 @@ class AbstractEntityRepository(ABC):
 
     @overload
     @abstractmethod
-    def _update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> Transaction:
+    def _update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> PassiveIncome:
         ...
 
     @abstractmethod
@@ -113,11 +128,50 @@ class AssetRepository:
         self,
         transactions_repository: TransactionRepository,
         incomes_repository: PassiveIncomeRepository,
+        user_id: int,
     ) -> None:
         self.transactions = transactions_repository
         self.incomes = incomes_repository
+        self.user_id = user_id
 
         self.seen: set[AssetDomainModel] = set()
+
+    def add(self, dto: AssetDomainModel) -> Asset:
+        from ..models import Asset
+
+        data = asdict(dto)
+        data.pop("id")
+        data.pop("is_held_in_self_custody")
+        data.pop("quantity_balance")
+        data.pop("avg_price")
+
+        asset = Asset.objects.create(**data, user_id=self.user_id)
+        dto.id = asset.pk
+        self.seen.add(dto)
+        return asset
+
+    def update(self, dto: AssetDomainModel, entity: Asset) -> Asset:
+        data = asdict(dto)
+        data.pop("id")
+        data.pop("is_held_in_self_custody")
+        data.pop("quantity_balance")
+        data.pop("avg_price")
+        for key, value in data.items():
+            setattr(entity, key, value)
+
+        entity.save()
+        self.seen.add(dto)
+        return entity
+
+    def exists(self, dto: AssetDomainModel) -> bool:
+        from ..models import Asset
+
+        qs = Asset.objects.filter(
+            user_id=self.user_id, code=dto.code, type=dto.type, currency=dto.currency
+        )
+        if pk := dto.id:
+            qs = qs.exclude(pk=pk)
+        return qs.exists()
 
 
 class AbstractAssetMetaDataRepository(ABC):
@@ -126,10 +180,12 @@ class AbstractAssetMetaDataRepository(ABC):
         code: str | None = None,
         type: AssetTypes | None = None,
         currency: Currencies | None = None,
+        asset_id: int | None = None,
     ) -> None:
         self.code = code
         self.type = type
         self.currency = currency
+        self.asset_id = asset_id
 
     @abstractmethod
     def filter_one(self) -> Any:
@@ -169,12 +225,15 @@ class DjangoSQLAssetMetaDataRepository(AbstractAssetMetaDataRepository):
         code: str | None = None,
         type: AssetTypes | None = None,
         currency: Currencies | None = None,
+        asset_id: int | None = None,
     ) -> None:
-        super().__init__(code=code, type=type, currency=currency)
+        super().__init__(code=code, type=type, currency=currency, asset_id=asset_id)
 
     def filter_one(self) -> QuerySet[AssetMetaData]:
         from ..models import AssetMetaData
 
+        if self.asset_id:
+            return AssetMetaData.objects.filter(asset_id=self.asset_id)
         return AssetMetaData.objects.filter(
             code=self.code,
             type=self.type,
@@ -199,6 +258,7 @@ class DjangoSQLAssetMetaDataRepository(AbstractAssetMetaDataRepository):
             sector=sector,
             current_price=current_price,
             current_price_updated_at=current_price_updated_at,
+            asset_id=self.asset_id,
         )
 
     @staticmethod

@@ -8,7 +8,6 @@ import { getReports } from "../../api";
 const QUERY_KEY = "assets-reports";
 
 type Params = {
-  kind: Kinds;
   opened?: boolean;
   closed?: boolean;
   percentage?: boolean;
@@ -16,7 +15,10 @@ type Params = {
 };
 
 export const useAssetsReports = (
-  params: Params & { group_by: GroupBy },
+  params: Params & {
+    kind: Kinds;
+    group_by: GroupBy;
+  },
 ): UseQueryResult<ReportUnknownAggregationData> =>
   useQuery({
     queryKey: [QUERY_KEY, params],
@@ -26,7 +28,9 @@ export const useAssetsReports = (
 export const useInvalidateAssetsReportsQueries = () => {
   const queryClient = useQueryClient();
 
-  const invalidate = async (params?: Params & { group_by?: GroupBy }) => {
+  const invalidate = async (
+    params?: Params & { group_by?: GroupBy; kind?: Kinds },
+  ) => {
     await queryClient.invalidateQueries({
       queryKey: [QUERY_KEY, ...(params ? [params] : [])],
     });

@@ -1,13 +1,13 @@
 from decimal import Decimal
 
-from config.key_value_store import key_value_backend
+from django.conf import settings
 
-DOLLAR_CONVERSION_RATE_KEY = "DOLLAR_CONVERSION_RATE"
+from config.key_value_store import key_value_backend
 
 
 def get_dollar_conversion_rate() -> Decimal:
-    value = key_value_backend.get(key=DOLLAR_CONVERSION_RATE_KEY)
-    return value if value is not None else Decimal("6.0")
+    value = key_value_backend.get(key=settings.DOLLAR_CONVERSION_RATE_KEY)
+    return value if value is not None else settings.DEFAULT_DOLLAR_CONVERSION_RATE
 
 
 def update_dollar_conversion_rate(value: Decimal | None = None) -> Decimal:
@@ -18,8 +18,8 @@ def update_dollar_conversion_rate(value: Decimal | None = None) -> Decimal:
             value = fetch_dollar_to_real_conversion_value()
         except Exception:
             # TODO: log error
-            value = Decimal("6.0")
+            value = settings.DEFAULT_DOLLAR_CONVERSION_RATE
 
-    key_value_backend.set(key=DOLLAR_CONVERSION_RATE_KEY, value=value)
+    key_value_backend.set(key=settings.DOLLAR_CONVERSION_RATE_KEY, value=value)
 
     return value

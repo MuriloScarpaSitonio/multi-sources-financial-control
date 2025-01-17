@@ -25,7 +25,7 @@ const roundDown = (value: number) => {
 const roundUp = (value: number) => {
   if (value < 100_000) return Math.ceil(value / 10_000) * 10_000;
   else if (value < 1_000_000) return Math.ceil(value / 100_000) * 100_000;
-  else return Math.ceil(value / 500_000) * 500_000;
+  else return Math.ceil(value / 100_000) * 100_000;
 };
 
 const CHART_WIDTH = 550;

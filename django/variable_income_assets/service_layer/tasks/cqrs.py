@@ -2,7 +2,9 @@ from ...adapters import DjangoSQLAssetMetaDataRepository
 from ...models import Asset, AssetReadModel
 
 
-def upsert_asset_read_model(asset_id: int, is_aggregate_upsert: bool | None = None) -> None:
+def upsert_asset_read_model(
+    asset_id: int, is_aggregate_upsert: bool | None = None, is_held_in_self_custody: bool = False
+) -> None:
     """Upsert the respective `AssetReadModel` of a given `Asset` (write model).
 
     Args:
@@ -15,9 +17,11 @@ def upsert_asset_read_model(asset_id: int, is_aggregate_upsert: bool | None = No
             3) If `None`, update all fields. Used in commands and tests contexts.
 
             Defaults to `None`.
+        is_held_in_self_custody (bool): é um ativo custodiado pelo banco emissor?
+            (ou seja, aplica-se apenas para renda fixa e  nao pode ser sincronizado pela b3)
     """
     if is_aggregate_upsert is True:
-        asset = Asset.objects.annotate_read_fields().get(pk=asset_id)
+        asset = Asset.objects.annotate_read_fields(is_held_in_self_custody).get(pk=asset_id)
 
         AssetReadModel.objects.update_or_create(
             write_model_pk=asset.pk,
@@ -43,6 +47,7 @@ def upsert_asset_read_model(asset_id: int, is_aggregate_upsert: bool | None = No
             defaults={
                 "user_id": asset.user_id,
                 "code": asset.code,
+                "description": asset.description,
                 "type": asset.type,
                 "currency": asset.currency,
                 "objective": asset.objective,
@@ -50,9 +55,12 @@ def upsert_asset_read_model(asset_id: int, is_aggregate_upsert: bool | None = No
             },
         )
     elif is_aggregate_upsert is None:
-        asset: Asset = Asset.objects.annotate_read_fields().get(pk=asset_id)
+        asset: Asset = Asset.objects.annotate_read_fields(is_held_in_self_custody).get(pk=asset_id)
         metadata = DjangoSQLAssetMetaDataRepository(
-            code=asset.code, type=asset.type, currency=asset.currency
+            code=asset.code,
+            type=asset.type,
+            currency=asset.currency,
+            asset_id=asset_id if is_held_in_self_custody else None,
         ).get("pk")
 
         AssetReadModel.objects.update_or_create(
@@ -61,6 +69,7 @@ def upsert_asset_read_model(asset_id: int, is_aggregate_upsert: bool | None = No
                 "user_id": asset.user_id,
                 "metadata_id": metadata.pk,
                 "code": asset.code,
+                "description": asset.description,
                 "type": asset.type,
                 "objective": asset.objective,
                 "currency": asset.currency,

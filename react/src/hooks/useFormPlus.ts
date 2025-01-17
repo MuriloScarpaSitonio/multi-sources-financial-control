@@ -28,6 +28,7 @@ export const useFormPlus = ({
     reset,
     formState: { errors, isDirty },
     watch,
+    setValue,
   } = useForm({
     resolver: yupResolver(schema),
     defaultValues,
@@ -80,8 +81,12 @@ export const useFormPlus = ({
           : fieldError;
 
       if (Array.isArray(error))
-        return (error[0]?.message || apiErrors[fieldName]) as string;
-      return (error?.message || apiErrors[fieldName]) as string;
+        return (error[0]?.message ||
+          apiErrors[fieldName] ||
+          apiErrors[name]) as string;
+      return (error?.message ||
+        apiErrors[fieldName] ||
+        apiErrors[name]) as string;
     },
     [errors, apiErrors],
   );
@@ -99,6 +104,8 @@ export const useFormPlus = ({
     reset,
     watch,
     apiErrors,
+    setValue,
+    errors,
   };
 };
 

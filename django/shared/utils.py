@@ -5,6 +5,8 @@ from datetime import date
 from enum import Enum
 from typing import TYPE_CHECKING, Required, TypedDict
 
+from django.db.transaction import atomic
+
 from dateutil.relativedelta import relativedelta
 
 if TYPE_CHECKING:
@@ -46,3 +48,20 @@ def _insert_zeros_in_between(
 
 def choices_to_enum(choices_class: type[DjangoChoices]) -> Enum:
     return Enum(choices_class.__name__ + "Enum", {choice[1]: choice[0] for choice in choices_class})
+
+
+class DryRunException(Exception):
+    ...  # pragma: no cover
+
+
+def dry_run_decorator(function):  # pragma: no cover
+    def wrap(*args, **kwargs):
+        with atomic():
+            result = function(*args, **kwargs)
+
+            if kwargs.get("dry_run", True):
+                raise DryRunException
+
+            return result
+
+    return wrap

@@ -39,8 +39,9 @@ class AbstractUnitOfWork(ABC):
 
 
 class DjangoUnitOfWork(AbstractUnitOfWork):
-    def __init__(self, asset_pk: int) -> None:
+    def __init__(self, asset_pk: int | None = None, user_id: int | None = None) -> None:
         super().__init__(asset_pk)
+        self.user_id = user_id
 
         # From the docs:
         # https://docs.djangoproject.com/en/4.1/topics/db/transactions/#django.db.transaction.set_autocommit
@@ -54,6 +55,7 @@ class DjangoUnitOfWork(AbstractUnitOfWork):
         self.assets = AssetRepository(
             transactions_repository=TransactionRepository(asset_pk=self.asset_pk),
             incomes_repository=PassiveIncomeRepository(asset_pk=self.asset_pk),
+            user_id=self.user_id,
         )
         if not self._inside_atomic_block:
             djtransaction.set_autocommit(False)

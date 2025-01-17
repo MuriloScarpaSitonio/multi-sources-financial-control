@@ -3,6 +3,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from random import randrange
 
 from django.db.models import F
+from django.template.defaultfilters import slugify
 from django.utils import timezone
 
 import pytest
@@ -119,6 +120,7 @@ def test__create(client, asset_type, asset_sector, currency, mock_path, mocker):
             sector=asset_sector,
             current_price_updated_at__isnull=False,
             current_price=current_price,
+            asset__isnull=True,
         ).count()
         == 1
     )
@@ -139,7 +141,6 @@ def test__create(client, asset_type, asset_sector, currency, mock_path, mocker):
 )
 def test__create__validate_currency(client, type, currency, status_code, mocker):
     # GIVEN
-    mocker.patch("variable_income_assets.views.messagebus.handle")
     data = {
         "type": type,
         "objective": AssetObjectives.growth,
@@ -154,7 +155,7 @@ def test__create__validate_currency(client, type, currency, status_code, mocker)
     assert response.status_code == status_code
     if status_code == HTTP_400_BAD_REQUEST:
         assert response.json() == {
-            "currency__type": [f"{currency} is not valid for an asset of type {type}"]
+            "currency": f"{currency} não é válido(a) para ativos de classe {type}"
         }
 
 
@@ -193,15 +194,12 @@ def test__create__code_type_currency_user_unique(client, crypto_asset):
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {
-        "code__currency__type__user__unique": [
-            "You can't have two assets with the same code, currency and type"
-        ]
+        "asset": "Você não pode ter dois ativos com o mesmo código, moeda e categoria"
     }
 
 
-def test__create__uppercase_code(client, mocker):
+def test__create__uppercase_code(client):
     # GIVEN
-    mocker.patch("variable_income_assets.views.messagebus.handle")
     data = {
         "type": AssetTypes.stock,
         "objective": AssetObjectives.dividend,
@@ -215,6 +213,79 @@ def test__create__uppercase_code(client, mocker):
     # THEN
     assert response.status_code == HTTP_201_CREATED
     assert Asset.objects.filter(code="BBAS3").exists()
+
+
+def test__create__fixed__held_custody(client, user):
+    # GIVEN
+    data = {
+        "type": AssetTypes.fixed_br,
+        "objective": AssetObjectives.dividend,
+        "currency": Currencies.real,
+        "description": "CDB Inter liquidez diária",
+        "is_held_in_self_custody": True,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+    assert Asset.objects.filter(
+        code=slugify(data["description"]),
+        description=data["description"],
+        metadata__isnull=False,
+        user=user,
+    ).exists()
+
+    assert (
+        AssetReadModel.objects.filter(
+            code=slugify(data["description"]),
+            type=data["type"],
+            objective=data["objective"],
+            currency=data["currency"],
+            quantity_balance=1,
+            avg_price=0,
+            normalized_avg_price=0,
+            normalized_total_bought=0,
+            normalized_total_sold=0,
+            normalized_closed_roi=0,
+            normalized_credited_incomes=0,
+            credited_incomes=0,
+            metadata__isnull=False,
+            user_id=user.pk,
+        ).count()
+        == 1
+    )
+    assert (
+        AssetMetaData.objects.filter(
+            code=slugify(data["description"]),
+            type=data["type"],
+            sector=AssetSectors.finance,
+            current_price_updated_at__isnull=False,
+            current_price=0,
+            asset__user=user,
+        ).count()
+        == 1
+    )
+
+
+def test__create__code__w_space_and_not_held_custody(client):
+    # GIVEN
+    data = {
+        "type": AssetTypes.fixed_br,
+        "objective": AssetObjectives.dividend,
+        "currency": Currencies.real,
+        "code": "CDB Inter liquidez diária",
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "code": "O código de um ativo só pode ter espaços se não for custodiado pela b3"
+    }
 
 
 @pytest.mark.django_db(transaction=True)
@@ -282,9 +353,8 @@ def test__update__validate_currency(client, stock_asset):
     assert response.status_code == HTTP_400_BAD_REQUEST
 
 
-def test__update__uppercase_code(client, stock_asset, mocker):
+def test__update__uppercase_code(client, stock_asset):
     # GIVEN
-    mocker.patch("variable_income_assets.views.messagebus.handle")
     data = {
         "type": stock_asset.type,
         "objective": stock_asset.objective,
@@ -298,6 +368,59 @@ def test__update__uppercase_code(client, stock_asset, mocker):
     # THEN
     assert response.status_code == HTTP_200_OK
     assert Asset.objects.filter(code=stock_asset.code.upper()).exists()
+
+
+def test__update__fixed__held_custody(client, stock_asset):
+    # GIVEN
+    data = {
+        "type": stock_asset.type,
+        "objective": stock_asset.objective,
+        "currency": stock_asset.currency,
+        "description": "CDB Inter liquidez diária",
+        "is_held_in_self_custody": True,
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{stock_asset.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "is_held_in_self_custody": [
+            "Você não pode alterar esse campo. Se necessário, delete este ativo e adicione um novo"
+        ]
+    }
+
+
+def test__update__current_price(client, fixed_asset_held_in_self_custody):
+    # GIVEN
+    data = {"current_price": 50_000}
+
+    # WHEN
+    response = client.patch(f"{URL}/{fixed_asset_held_in_self_custody.pk}/update_price", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_204_NO_CONTENT
+
+    fixed_asset_held_in_self_custody.metadata.refresh_from_db()
+    assert fixed_asset_held_in_self_custody.metadata.current_price == data["current_price"]
+
+
+def test__update__current_price__not_is_held_in_self_custody(client, stock_asset):
+    # GIVEN
+    data = {"current_price": 50_000}
+
+    # WHEN
+    response = client.patch(f"{URL}/{stock_asset.pk}/update_price", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+
+    assert response.json() == {
+        "is_held_in_self_custody": [
+            "Apenas ativos custodiados fora da b3 podem ter os preços atualizados diretamente"
+        ]
+    }
 
 
 @pytest.mark.usefixtures(
@@ -314,8 +437,6 @@ def test__update__uppercase_code(client, stock_asset, mocker):
     (
         ("", 2),
         ("code=ALUP", 1),
-        # ("ROI_type=PROFIT", 1),
-        # ("ROI_type=LOSS", 0),
         ("type=STOCK", 2),
         ("type=STOCK_USA", 0),
         ("sector=UTILITIES", 1),

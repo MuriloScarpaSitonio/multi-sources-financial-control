@@ -26,22 +26,17 @@ from .service_layer.unit_of_work import DjangoUnitOfWork
 # region: custom fields
 
 
-class UpperCharField(serializers.CharField):
-    def to_internal_value(self, data) -> str:
-        return super().to_internal_value(data).upper()
-
-
 # endregion: custom fields
 
 
 class MinimalAssetSerializer(serializers.ModelSerializer):
     type = CustomChoiceField(choices=choices.AssetTypes.choices)
     currency = CustomChoiceField(choices=choices.Currencies.choices)
-    code = UpperCharField(max_length=10)
+    code = serializers.CharField(max_length=100, required=False)
 
     class Meta:
         model = Asset
-        fields = ("pk", "code", "type", "currency")
+        fields = ("pk", "code", "type", "currency", "description")
 
 
 class TransactionSimulateSerializer(serializers.Serializer):
@@ -227,36 +222,55 @@ class AssetSerializer(MinimalAssetSerializer):
     objective = CustomChoiceField(choices=choices.AssetObjectives.choices)
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
+    # é um ativo custodiado pelo banco emissor?
+    # (ou seja, aplica-se apenas para renda fixa e  nao pode ser sincronizado pela b3)
+    is_held_in_self_custody = serializers.BooleanField(
+        default=False, required=False, write_only=True
+    )
+
     class Meta:
         model = Asset
-        fields = MinimalAssetSerializer.Meta.fields + ("id", "objective", "user")
+        fields = MinimalAssetSerializer.Meta.fields + (
+            "id",
+            "objective",
+            "user",
+            "description",
+            "is_held_in_self_custody",
+        )
+        extra_kwargs = {"description": {"default": ""}}
 
-    def validate(self, attrs: dict) -> dict:
-        if attrs["currency"] not in choices.AssetTypes.get_choice(attrs["type"]).valid_currencies:
+    def validate_is_held_in_self_custody(self, value: bool) -> bool:
+        if self.instance is not None and value:
             raise serializers.ValidationError(
-                {
-                    "currency__type": (
-                        f"{attrs['currency']} is not valid for an asset of type {attrs['type']}"
-                    )
-                }
+                "Você não pode alterar esse campo. Se necessário, delete este ativo "
+                "e adicione um novo"
             )
-        if (
-            self.instance is None
-            or (self.instance is not None and self.instance.currency != attrs["currency"])
-        ) and Asset.objects.filter(
-            user=self.context["request"].user,
-            code=attrs["code"],
-            type=attrs["type"],
-            currency=attrs["currency"],
-        ).exists():
-            raise serializers.ValidationError(
-                {
-                    "code__currency__type__user__unique": (
-                        "You can't have two assets with the same code, currency and type"
-                    )
-                }
+        return value
+
+    def update(self, instance: Asset, validated_data: dict) -> Asset:
+        try:
+            validated_data.pop("user")
+            uow = DjangoUnitOfWork(asset_pk=instance.pk)
+
+            messagebus.handle(
+                message=commands.UpdateAsset(
+                    asset=AssetDomainModel(id=instance.pk, **validated_data), db_instance=instance
+                ),
+                uow=uow,
             )
-        return attrs
+            return uow.assets.seen.pop()  # hacky for DRF
+        except DomainValidationError as e:
+            raise serializers.ValidationError(e.detail) from e
+
+    def create(self, validated_data: dict) -> Asset:
+        try:
+            uow = DjangoUnitOfWork(user_id=validated_data.pop("user").pk)
+            messagebus.handle(
+                message=commands.CreateAsset(asset=AssetDomainModel(**validated_data)), uow=uow
+            )
+            return uow.assets.seen.pop()  # hacky for DRF
+        except DomainValidationError as e:
+            raise serializers.ValidationError(e.detail) from e
 
 
 class AssetSimulateSerializer(serializers.ModelSerializer):
@@ -324,6 +338,7 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
         fields = (
             "write_model_pk",
             "code",
+            "description",
             "type",
             "sector",
             "objective",
@@ -336,6 +351,7 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
             "normalized_total_invested",
             "currency",
             "percentage_invested",
+            "is_held_in_self_custody",
         )
 
     def get_percentage_invested(self, obj: AssetReadModel) -> Decimal:
@@ -448,4 +464,24 @@ class AssetsTotalInvestedSnapshotSerializer(serializers.ModelSerializer):
     class Meta:
         model = AssetsTotalInvestedSnapshot
         fields = ("operation_date", "total")
-        fields = ("operation_date", "total")
+
+
+class AssetMetadataWriteSerializer(serializers.Serializer):
+    instance: Asset
+
+    current_price = serializers.DecimalField(max_digits=13, decimal_places=6, write_only=True)
+
+    class Meta:
+        fields = ("current_price",)
+
+    def validate(self, attrs):
+        if not self.instance.is_held_in_self_custody:
+            raise serializers.ValidationError(
+                {
+                    "is_held_in_self_custody": (
+                        "Apenas ativos custodiados fora da b3 podem ter os "
+                        "preços atualizados diretamente"
+                    )
+                }
+            )
+        return super().validate(attrs)

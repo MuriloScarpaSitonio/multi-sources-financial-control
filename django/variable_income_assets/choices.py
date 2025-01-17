@@ -38,6 +38,12 @@ class AssetTypes(DjangoChoices):
         monthly_sell_threshold=settings.FII_MONTHLY_SELL_EXEMPTION_THRESHOLD,
         valid_currencies=(Currencies.real,),
     )
+    fixed_br = ChoiceItem(
+        "FIXED_BR",
+        label="Renda fixa BR",
+        monthly_sell_threshold=0,
+        valid_currencies=(Currencies.real,),
+    )
 
 
 class AssetSectors(DjangoChoices):

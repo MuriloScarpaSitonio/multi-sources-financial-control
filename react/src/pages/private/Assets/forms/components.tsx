@@ -3,6 +3,7 @@ import { type Dispatch, type SetStateAction, useMemo } from "react";
 import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
 import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
+import FormHelperText from "@mui/material/FormHelperText";
 import FormLabel from "@mui/material/FormLabel";
 import Radio from "@mui/material/Radio";
 import RadioGroup from "@mui/material/RadioGroup";
@@ -49,6 +50,7 @@ export const AssetCodeAutoComplete = ({
   isFieldInvalid,
   getFieldHasError,
   getErrorMessage,
+  isHeldInSelfCustody = false,
 }: AssetCodeAutoCompleteProps | CreatableAssetCodeAutoCompleteProps) => {
   const { data: assets, isPending: isFetchingAssets } =
     useAssetsMinimalData(filters);
@@ -64,90 +66,97 @@ export const AssetCodeAutoComplete = ({
   );
 
   return (
-    <Stack spacing={1} direction="row">
-      <Controller
-        name="asset"
-        control={control}
-        render={({ field }) => (
-          <Stack spacing={0.5} sx={{ width: creatable ? "40%" : "100%" }}>
-            <Autocomplete
-              {...field}
-              clearText="Limpar"
-              noOptionsText="Nenhum ativo encontrado"
-              loadingText="Carregando ativos..."
-              loading={isFetchingAssets}
-              options={options}
-              getOptionLabel={(option) => option.label}
-              onChange={(_, asset, reason) => {
-                if (!creatable) return field.onChange(asset);
-                if (reason === "clear") {
-                  field.onChange(asset);
-                  setNewCode("");
-                  return;
-                }
-                const { label, value, currency, inputValue } = asset;
-                setNewCode(inputValue);
-                field.onChange({
-                  label: inputValue ?? label,
-                  value: inputValue ? 0 : value,
-                  currency,
-                });
-              }}
-              filterOptions={
-                !creatable
-                  ? undefined
-                  : (options, params) => {
-                      const filtered = filter(options, params);
+    <Stack spacing={1}>
+      <Stack spacing={1} direction="row">
+        <Controller
+          name="asset"
+          control={control}
+          render={({ field }) => (
+            <Stack spacing={0.5} sx={{ width: creatable ? "40%" : "100%" }}>
+              <Autocomplete
+                {...field}
+                clearText="Limpar"
+                noOptionsText="Nenhum ativo encontrado"
+                loadingText="Carregando ativos..."
+                loading={isFetchingAssets}
+                options={options}
+                disabled={isHeldInSelfCustody}
+                getOptionLabel={(option) => option.label}
+                onChange={(_, asset, reason) => {
+                  if (!creatable) return field.onChange(asset);
+                  if (reason === "clear") {
+                    field.onChange(asset);
+                    setNewCode("");
+                    return;
+                  }
+                  const { label, value, currency, inputValue } = asset;
+                  setNewCode(inputValue);
+                  field.onChange({
+                    label: inputValue ?? label,
+                    value: inputValue ? 0 : value,
+                    currency,
+                  });
+                }}
+                filterOptions={
+                  !creatable
+                    ? undefined
+                    : (options, params) => {
+                        const filtered = filter(options, params);
 
-                      const { inputValue } = params;
-                      const isExisting = options.some(
-                        (option) => inputValue === option.label,
-                      );
-                      if (inputValue && !isExisting) {
-                        const upperInputValue = inputValue.toUpperCase();
-                        filtered.push({
-                          inputValue: upperInputValue,
-                          label: `Adicionar "${upperInputValue}"`,
-                          value: "",
-                        });
+                        const { inputValue } = params;
+                        const isExisting = options.some(
+                          (option) => inputValue === option.label,
+                        );
+                        if (inputValue && !isExisting) {
+                          filtered.push({
+                            inputValue: inputValue,
+                            label: `Adicionar "${inputValue}"`,
+                            value: "",
+                          });
+                        }
+
+                        return filtered;
                       }
-
-                      return filtered;
-                    }
-              }
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  error={isFieldInvalid(field)}
-                  required
-                  label="Ativo"
-                  variant="standard"
-                />
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    error={isFieldInvalid(field)}
+                    required
+                    label="Ativo"
+                    variant="standard"
+                  />
+                )}
+              />
+              {getFieldHasError("asset") && (
+                <FormFeedbackError message={getErrorMessage("asset")} />
               )}
-            />
-            {getFieldHasError("asset") && (
-              <FormFeedbackError message={getErrorMessage("asset.label")} />
-            )}
-          </Stack>
-        )}
-      />
-      <Stack
-        spacing={1}
-        direction="row"
-        alignItems="center"
-        sx={{
-          p: 0.5,
-          borderRadius: "5px",
-          backgroundColor: getColor(Colors.neutral400),
-          width: "50%",
-          display: newCode ? "" : "none",
-        }}
-      >
-        <InfoOutlinedIcon sx={{ color: "#CCC86C" }} />
-        <Text weight={FontWeights.LIGHT} size={FontSizes.EXTRA_SMALL}>
-          Este é um novo ativo na sua carteira.
-        </Text>
+            </Stack>
+          )}
+        />
+        <Stack
+          spacing={1}
+          direction="row"
+          alignItems="center"
+          sx={{
+            p: 0.5,
+            borderRadius: "5px",
+            backgroundColor: getColor(Colors.neutral400),
+            width: "50%",
+            display: newCode ? "" : "none",
+          }}
+        >
+          <InfoOutlinedIcon sx={{ color: "#CCC86C" }} />
+          <Text weight={FontWeights.LIGHT} size={FontSizes.EXTRA_SMALL}>
+            Este é um novo ativo na sua carteira.
+          </Text>
+        </Stack>
       </Stack>
+      {isHeldInSelfCustody && (
+        <FormHelperText>
+          Ativos custodiados fora da b3 não apresentam código específico
+        </FormHelperText>
+      )}
     </Stack>
   );
 };
@@ -274,7 +283,11 @@ export const TransactionQuantity = ({
   isFieldInvalid,
   getFieldHasError,
   getErrorMessage,
-}: ReactHookFormsInputCustomProps & { required?: boolean }) => (
+  isHeldInSelfCustody = false,
+}: ReactHookFormsInputCustomProps & {
+  required?: boolean;
+  isHeldInSelfCustody?: boolean;
+}) => (
   <Controller
     name="quantity"
     control={control}
@@ -283,6 +296,7 @@ export const TransactionQuantity = ({
         <TextField
           {...field}
           required={required}
+          disabled={isHeldInSelfCustody}
           label="Quantidade"
           InputProps={{
             inputComponent: NumberFormat,
@@ -292,6 +306,16 @@ export const TransactionQuantity = ({
         />
         {getFieldHasError("quantity") && (
           <FormFeedbackError message={getErrorMessage("quantity")} />
+        )}
+        {isHeldInSelfCustody && (
+          <Stack>
+            <FormHelperText>
+              Ativos custodiados fora da b3 não apresentam
+            </FormHelperText>
+            <FormHelperText>
+              transações com quantidade específica
+            </FormHelperText>
+          </Stack>
         )}
       </Stack>
     )}

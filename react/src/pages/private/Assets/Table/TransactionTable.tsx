@@ -42,7 +42,8 @@ const TransactionTable = ({
         header: "Quantidade",
         accessorKey: "quantity",
         enableSorting: false,
-        Cell: ({ cell }) => cell.getValue<number>().toLocaleString("pt-br"),
+        Cell: ({ cell }) =>
+          cell.getValue<number | null>()?.toLocaleString("pt-br") ?? "",
       },
       {
         header: "Data",

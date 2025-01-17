@@ -18,7 +18,7 @@ from rest_framework.mixins import (
     UpdateModelMixin,
 )
 from rest_framework.response import Response
-from rest_framework.status import HTTP_200_OK
+from rest_framework.status import HTTP_200_OK, HTTP_204_NO_CONTENT
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from shared.permissions import SubscriptionEndedPermission
@@ -29,6 +29,7 @@ from .adapters.key_value_store import get_dollar_conversion_rate
 from .domain import events
 from .models import (
     Asset,
+    AssetMetaData,
     AssetReadModel,
     AssetsTotalInvestedSnapshot,
     PassiveIncome,
@@ -60,7 +61,7 @@ class AssetViewSet(
     ordering_fields = ("code", "normalized_total_invested", "normalized_roi", "roi_percentage")
 
     def _is_write_action(self) -> bool:
-        return self.action in ("create", "update", "destroy")
+        return self.action in ("create", "update", "destroy", "update_price")
 
     def get_queryset(self) -> AssetReadModelQuerySet[AssetReadModel] | AssetQuerySet[Asset]:
         if self.request.user.is_authenticated:
@@ -100,22 +101,6 @@ class AssetViewSet(
             if self.action == "list"
             else context
         )
-
-    @djtransaction.atomic
-    def perform_create(self, serializer: serializers.AssetSerializer) -> None:
-        super().perform_create(serializer)
-        with DjangoUnitOfWork(asset_pk=serializer.instance.pk) as uow:
-            messagebus.handle(
-                message=events.AssetCreated(asset_pk=serializer.instance.pk, sync=True), uow=uow
-            )
-
-    @djtransaction.atomic
-    def perform_update(self, serializer: serializers.AssetReadModelSerializer) -> None:
-        super().perform_update(serializer)
-        with DjangoUnitOfWork(asset_pk=serializer.instance.pk) as uow:
-            messagebus.handle(
-                message=events.AssetUpdated(asset_pk=serializer.instance.pk, sync=True), uow=uow
-            )
 
     @djtransaction.atomic
     def perform_destroy(self, instance: Asset) -> None:
@@ -179,6 +164,16 @@ class AssetViewSet(
             .order_by("code"),
             status=HTTP_200_OK,
         )
+
+    @action(methods=("PATCH",), detail=True)
+    def update_price(self, request: Request, **_) -> Response:
+        serializer = serializers.AssetMetadataWriteSerializer(self.get_object(), data=request.data)
+        serializer.is_valid(raise_exception=True)
+        AssetMetaData.objects.filter(asset_id=serializer.instance.id).update(
+            current_price=serializer.validated_data["current_price"],
+            current_price_updated_at=timezone.now(),
+        )
+        return Response(status=HTTP_204_NO_CONTENT)
 
 
 class TransactionViewSet(ModelViewSet):

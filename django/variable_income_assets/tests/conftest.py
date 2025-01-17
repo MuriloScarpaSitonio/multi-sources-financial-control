@@ -4,6 +4,7 @@ from functools import partial
 from random import choice, randint
 from time import time
 
+from django.template.defaultfilters import slugify
 from django.utils import timezone
 
 import pytest
@@ -12,6 +13,9 @@ from factory.django import DjangoModelFactory
 
 from authentication.models import CustomUser
 from authentication.tests.conftest import (
+    another_client,
+    another_secrets,
+    another_user,
     binance_client,
     binance_secrets,
     client,
@@ -45,6 +49,7 @@ from ..models import (
     PassiveIncome,
     Transaction,
 )
+from ..service_layer.tasks import upsert_asset_read_model
 
 
 class AssetFactory(DjangoModelFactory):
@@ -1111,3 +1116,29 @@ def irpf_transactions_data(stock_usa_asset):
 @pytest.fixture
 def assets_total_invested_snapshot_factory(user):
     return partial(AssetsTotalInvestedSnapshotFactory, user=user)
+
+
+@pytest.fixture
+def fixed_asset_held_in_self_custody(user):
+    description = "CDB Inter liquidez diária"
+    code = slugify(description)
+    asset = AssetFactory(
+        type=AssetTypes.fixed_br,
+        objective=AssetObjectives.dividend,
+        currency=Currencies.real,
+        code=code,
+        description=description,
+        user=user,
+    )
+    AssetMetaDataFactory(
+        type=AssetTypes.fixed_br,
+        sector=AssetSectors.finance,
+        currency=Currencies.real,
+        code=code,
+        current_price=10_000,
+        current_price_updated_at=timezone.now(),
+        asset=asset,
+    )
+    upsert_asset_read_model(asset.id, is_held_in_self_custody=True)
+
+    return asset

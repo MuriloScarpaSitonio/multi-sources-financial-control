@@ -16,7 +16,8 @@ from .write import AssetMetaData
 
 class AssetReadModel(models.Model):
     # region: write model fields
-    code = models.CharField(max_length=10)
+    code = models.CharField(max_length=200)
+    description = models.CharField(max_length=100, blank=True, default="")
     type = models.CharField(max_length=10, validators=[AssetTypes.validator])
     objective = models.CharField(
         max_length=50,
@@ -30,7 +31,6 @@ class AssetReadModel(models.Model):
     currency = models.CharField(max_length=6, blank=True, validators=[Currencies.validator])
     quantity_balance = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
     avg_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
-    adjusted_avg_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
     normalized_avg_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
     normalized_total_bought = models.DecimalField(
         decimal_places=4, max_digits=20, default=Decimal()
@@ -57,6 +57,12 @@ class AssetReadModel(models.Model):
 
     __repr__ = __str__
 
+    @property
+    def is_held_in_self_custody(self) -> bool:
+        # ativos custodiados fora da b3 sao diretamente "conectados"
+        # a um metadata
+        return bool(self.metadata.asset_id)
+
     @cached_property
     def normalized_roi(self) -> Decimal:
         current_price = (
@@ -73,7 +79,6 @@ class AssetReadModel(models.Model):
 
     @cached_property
     def adjusted_avg_price(self) -> Decimal:
-        # TODO check why this is needed
         try:
             return (
                 (self.quantity_balance * self.avg_price) - self.credited_incomes

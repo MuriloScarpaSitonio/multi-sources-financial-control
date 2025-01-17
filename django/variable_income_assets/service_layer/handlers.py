@@ -10,6 +10,7 @@ from tasks.models import TaskHistory
 
 from ..choices import AssetTypes
 from ..domain import commands, events
+from ..domain.exceptions import AssetCodeTypeCurrencyAlreadyExistsException
 from ..models import Transaction
 from .tasks import (
     create_asset_closed_operation,
@@ -31,6 +32,8 @@ def create_transactions(cmd: commands.CreateTransactions, uow: AbstractUnitOfWor
                     asset_pk=uow.asset_pk,
                     operation_date=dto.operation_date,
                     quantity_diff=dto.quantity,
+                    fixed_br_asset=cmd.asset.is_fixed_br,
+                    is_held_in_self_custody=cmd.asset.is_held_in_self_custody,
                 )
             )
 
@@ -51,7 +54,6 @@ def update_transaction(cmd: commands.UpdateTransaction, uow: AbstractUnitOfWork)
         )
         uow.assets.seen.add(cmd.asset)
         uow.commit()
-    return cmd.transaction
 
 
 def delete_transaction(cmd: commands.DeleteTransaction, uow: AbstractUnitOfWork) -> None:
@@ -82,31 +84,43 @@ def upsert_read_model(
     ),
     _: AbstractUnitOfWork,
 ) -> None:
+    is_held_in_self_custody = getattr(event, "is_held_in_self_custody", False)
+    if not getattr(event, "new_asset", False):
+        if isinstance(event, events.AssetUpdated):
+            is_aggregate_upsert = False
+        elif isinstance(event, events.AssetCreated):
+            is_held_in_self_custody = event.asset.is_held_in_self_custody
+            is_aggregate_upsert = None if is_held_in_self_custody else False
+        else:
+            is_aggregate_upsert = True
+    else:
+        # It's possible that the `Asset` is created together with the first
+        # `Transaction` or `PassiveIncome` via an integration.
+        # If that's the case then we need to use `None` so all fields are updated.
+        # I prefered to do this together with these events other than emiting
+        # an specific event (i.e. `events.AssetCreated`) which would call this
+        # function with `is_aggregate_upsert=False` - and would thus update the
+        # `Asset`'s specific fields first because, in a production environment,
+        # these events would be processed asynchronously which means that
+        # unless we use some sort of `FIFO` queue we might process
+        # `events.TransactionsCreated | events.PassiveIncomeCreated` before
+        # `events.AssetCreated` even if the latter was emitted first
+        is_aggregate_upsert = None
+
     upsert_asset_read_model(
         asset_id=event.asset_pk,
-        is_aggregate_upsert=(
-            not isinstance(event, (events.AssetCreated | events.AssetUpdated))
-            # It's possible that the `Asset` is created together with the first
-            # `Transaction` or `PassiveIncome` via an integration.
-            # If that's the case then we need to use `None` so all fields are updated.
-            # I prefered to do this together with these events other than emiting
-            # an specific event (i.e. `events.AssetCreated`) which would call this
-            # function with `is_aggregate_upsert=False` - and would thus update the
-            # `Asset`'s specific fields first because, in a production environment,
-            # these events would be processed asynchronously which means that
-            # unless we use some sort of `FIFO` queue we might process
-            # `events.TransactionsCreated | events.PassiveIncomeCreated` before
-            # `events.AssetCreated` even if the latter was emitted first
-            if not getattr(event, "new_asset", False)
-            else None
-        ),
+        is_aggregate_upsert=is_aggregate_upsert,
+        is_held_in_self_custody=is_held_in_self_custody,
     )
 
 
 # TODO: convert to async
 def check_monthly_selling_transaction_threshold(
-    _: events.TransactionsCreated, uow: AbstractUnitOfWork
+    event: events.TransactionsCreated, uow: AbstractUnitOfWork
 ) -> None:  # pragma: no cover
+    if event.fixed_br_asset:
+        return
+
     transaction = next(iter(uow.assets.transactions.seen))
     total_sold = next(
         iter(
@@ -133,7 +147,7 @@ def check_monthly_selling_transaction_threshold(
 
 # TODO: convert to async
 def maybe_create_metadata(event: events.AssetCreated, _: AbstractUnitOfWork) -> None:
-    maybe_create_asset_metadata(event.asset_pk)
+    maybe_create_asset_metadata(event.asset)
 
 
 # TODO: convert to async
@@ -147,7 +161,9 @@ def create_asset_operation_closed_record(
 def maybe_update_snapshot(
     event: events.TransactionsCreated | events.TransactionUpdated | events.TransactionDeleted,
     _: AbstractUnitOfWork,
-):
+) -> None:
+    # TODO: check what to do for fixed assets
+
     first_day_of_month = timezone.localdate() - relativedelta(day=1)
     if event.operation_date.month != first_day_of_month.month:
         if isinstance(event, events.TransactionUpdated) and not event.quantity_diff:
@@ -157,3 +173,25 @@ def maybe_update_snapshot(
             snapshot_operation_date=date(event.operation_date.year, event.operation_date.month, 1),
             quantity_diff=event.quantity_diff,
         )
+
+
+def create_asset(cmd: commands.CreateAsset, uow: AbstractUnitOfWork) -> None:
+    with uow:
+        cmd.asset.validate()
+        if uow.assets.exists(cmd.asset):
+            raise AssetCodeTypeCurrencyAlreadyExistsException
+
+        uow.assets.add(cmd.asset)
+        cmd.asset.events.append(events.AssetCreated(asset=next(iter(uow.assets.seen)), sync=True))
+        uow.commit()
+
+
+def update_asset(cmd: commands.UpdateAsset, uow: AbstractUnitOfWork) -> None:
+    with uow:
+        cmd.asset.validate()
+        if uow.assets.exists(cmd.asset):
+            raise AssetCodeTypeCurrencyAlreadyExistsException
+
+        uow.assets.update(cmd.asset, cmd.db_instance)
+        cmd.asset.events.append(events.AssetUpdated(asset=next(iter(uow.assets.seen)), sync=True))
+        uow.commit()

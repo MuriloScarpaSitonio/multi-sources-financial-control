@@ -52,6 +52,8 @@ def fetch_asset_sector(code: str, asset_type: AssetTypes) -> AssetSectors:
         sector = AssetSectors.tech
     elif asset_type == AssetTypes.fii:
         sector = AssetSectors.essential_consumption
+    elif asset_type == AssetTypes.fixed_br:
+        sector = AssetSectors.finance
     return sector
 
 
@@ -64,6 +66,8 @@ def fetch_asset_current_price(code: str, asset_type: AssetTypes, currency: Curre
     elif asset_type == AssetTypes.crypto:
         coro = get_crypto_prices
         kwargs["currency"] = currency
+    else:
+        return Decimal()
 
     try:
         result = async_to_sync(coro)(**kwargs)
@@ -190,7 +194,7 @@ class TransactionsIntegrationOrchestrator:
         )
         if created:
             maybe_create_asset_metadata(
-                asset,
+                asset.to_domain(),
                 sector=AssetSectors.tech,
                 current_price=transaction.price,
                 current_price_updated_at=timezone.now(),

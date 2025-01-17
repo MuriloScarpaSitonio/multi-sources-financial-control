@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from django.db.models import DecimalField, F, Q, Sum
+from django.db.models import DecimalField, F, Q, Sum, Value
 from django.db.models.expressions import CombinedExpression
 from django.db.models.functions import Cast, Coalesce
 
@@ -11,7 +11,7 @@ from ...adapters.key_value_store import get_dollar_conversion_rate
 from ...choices import TransactionActions
 
 if TYPE_CHECKING:
-    from django.db.models import Expression
+    from django.db.models import Combinable, Expression
 
 
 class _GenericQueryHelperIntializer:
@@ -45,7 +45,7 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
     def normalized_total_raw_expression(self) -> CombinedExpression:
         return (
             F(f"{self.prefix}price")
-            * F(f"{self.prefix}quantity")
+            * self.get_quantity()
             * F(f"{self.prefix}current_currency_conversion_rate")
         )
 
@@ -85,19 +85,20 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
             cast=False,
         )
 
-    @property
-    def normalized_total_sold(self) -> CombinedExpression:
+    def get_normalized_total_sold(self) -> CombinedExpression:
         return self.sum(
             F(f"{self.prefix}price")
-            * F(f"{self.prefix}quantity")
+            * self.get_quantity()
             * F(f"{self.prefix}current_currency_conversion_rate"),
             filter=self.filters.sold,
             cast=True,
         )
 
-    @property
-    def current_normalized_total_sold(self) -> CombinedExpression:
-        return self.normalized_total_sold - self.closed_operations_normalized_total_sold
+    def get_current_normalized_total_sold(self) -> CombinedExpression:
+        return self.get_normalized_total_sold() - self.closed_operations_normalized_total_sold
+
+    def get_quantity(self) -> Combinable:
+        return Coalesce(F(f"{self.prefix}quantity"), Value(Decimal("1.0")))
 
     def get_closed_operations_normalized_total_bought(self, extra_filters: Q | None = None) -> Sum:
         extra_filters = extra_filters if extra_filters is not None else Q()
@@ -111,7 +112,7 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
     def get_total_bought(self, extra_filters: Q | None = None) -> CombinedExpression:
         extra_filters = extra_filters if extra_filters is not None else Q()
         return self.sum(
-            F(f"{self.prefix}price") * F(f"{self.prefix}quantity"),
+            F(f"{self.prefix}price") * self.get_quantity(),
             filter=Q(self.filters.bought, extra_filters),
         )
 
@@ -120,7 +121,7 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
         return self.sum(
             (
                 F(f"{self.prefix}price")
-                * F(f"{self.prefix}quantity")
+                * self.get_quantity()
                 * Coalesce(
                     F(f"{self.prefix}current_currency_conversion_rate"),
                     get_dollar_conversion_rate(),
