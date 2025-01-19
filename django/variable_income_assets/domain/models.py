@@ -20,6 +20,8 @@ from ..choices import (
 )
 from .exceptions import (
     AssetHeldInSelfCustodyButNotFixedException,
+    AssetHeldInSelfCustodyTransactionUpdateFromBuyToSellException,
+    AssetHeldInSelfCustodyWithQuantityException,
     AssetNotHeldInSelfCustodyWithoutQuantityException,
     CurrencyConversionRateNullOrOneForNonBrlAssets,
     FutureTransactionNotAllowedException,
@@ -116,11 +118,23 @@ class Asset:
                 raise CurrencyConversionRateNullOrOneForNonBrlAssets
 
         if transaction_dto.is_sale:
-            if transaction_dto.quantity > self.quantity_balance:
-                raise NegativeQuantityNotAllowedException
+            if self.is_held_in_self_custody:
+                if not self.avg_price:
+                    # primeira transaction nunca pode ser de venda
+                    raise NegativeQuantityNotAllowedException
 
-            if transaction_dto.quantity - self.quantity_balance == 0:
-                self.events.append(AssetOperationClosed(asset_pk=self.id))
+                if transaction_dto.price > self.avg_price:
+                    # aqui assumimos que uma renda fixa custodiada fora da b3 nunca terá um ROI
+                    # negativo
+                    # logo, se há uma transação de venda e ela supera o total de compras,
+                    # então devemos encerrar a operação
+                    self.events.append(AssetOperationClosed(asset_pk=self.id))
+            else:
+                if transaction_dto.quantity > self.quantity_balance:
+                    raise NegativeQuantityNotAllowedException
+
+                if transaction_dto.quantity - self.quantity_balance == 0:
+                    self.events.append(AssetOperationClosed(asset_pk=self.id))
 
         self._transactions.append(transaction_dto)
 
@@ -129,6 +143,9 @@ class Asset:
 
         if dto.quantity is None and not self.is_held_in_self_custody:
             raise AssetNotHeldInSelfCustodyWithoutQuantityException
+
+        if dto.quantity and self.is_held_in_self_custody:
+            raise AssetHeldInSelfCustodyWithQuantityException
 
         if dto.operation_date > timezone.localdate():
             raise FutureTransactionNotAllowedException
@@ -140,16 +157,29 @@ class Asset:
                 raise CurrencyConversionRateNullOrOneForNonBrlAssets
 
         if dto.is_sale:
-            if transaction.quantity != dto.quantity and dto.quantity > self.quantity_balance:
-                raise NegativeQuantityNotAllowedException
+            if self.is_held_in_self_custody:
+                if transaction.action != dto.action:
+                    # TODO pensar num outro jeito para evitar que a  primeira transaction
+                    # nunca seja de venda
+                    raise AssetHeldInSelfCustodyTransactionUpdateFromBuyToSellException
 
-            if transaction.action != dto.action and (
-                self.quantity_balance - (dto.quantity + transaction.quantity) < 0
-            ):
-                raise NegativeQuantityNotAllowedException
+                if dto.price > self.avg_price:
+                    # aqui assumimos que uma renda fixa custodiada fora da b3 nunca terá um ROI
+                    # negativo
+                    # logo, se há uma transação de venda e ela supera o total de compras,
+                    # então devemos encerrar a operação
+                    self.events.append(AssetOperationClosed(asset_pk=self.id))
+            else:
+                if transaction.quantity != dto.quantity and dto.quantity > self.quantity_balance:
+                    raise NegativeQuantityNotAllowedException
 
-            if dto.quantity - self.quantity_balance == 0:
-                self.events.append(AssetOperationClosed(asset_pk=self.id))
+                if transaction.action != dto.action and (
+                    self.quantity_balance - (dto.quantity + transaction.quantity) < 0
+                ):
+                    raise NegativeQuantityNotAllowedException
+
+                if dto.quantity - self.quantity_balance == 0:
+                    self.events.append(AssetOperationClosed(asset_pk=self.id))
 
         self._transactions.append(dto)
         return dto

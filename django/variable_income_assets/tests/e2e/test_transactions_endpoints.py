@@ -21,7 +21,6 @@ from tasks.models import TaskHistory
 
 from ...choices import AssetTypes, Currencies, TransactionActions
 from ...models import AssetClosedOperation, AssetReadModel, Transaction
-from ..shared import get_current_avg_price_bute_force
 
 pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "transactions"
@@ -211,7 +210,7 @@ def test__create__sell_transaction_and_no_transactions(client, stock_asset):
     assert not Transaction.objects.exists()
 
 
-def test__create__sell_transaction_and_no_asset(client, stock_asset):
+def test__create__sell__first_transaction(client, stock_asset):
     # GIVEN
     data = {
         "action": TransactionActions.sell,
@@ -219,6 +218,26 @@ def test__create__sell_transaction_and_no_asset(client, stock_asset):
         "quantity": 100,
         "operation_date": "12/12/2022",
         "asset_pk": stock_asset.pk,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"action": "Você não pode vender mais ativos que possui"}
+    assert not Transaction.objects.exists()
+
+
+def test__create__sell__first_transaction__asset_held_in_self_custody(
+    client, fixed_asset_held_in_self_custody
+):
+    # GIVEN
+    data = {
+        "action": TransactionActions.sell,
+        "price": 10000,
+        "operation_date": "12/12/2022",
+        "asset_pk": fixed_asset_held_in_self_custody.pk,
     }
 
     # WHEN
@@ -282,6 +301,87 @@ def test__create__sell_stock_gt_threshold(client, stock_asset, mocker):
     assert TaskHistory.objects.count() == 1
 
     assert response.status_code == HTTP_201_CREATED
+
+
+def test__create__sell__asset_held_in_self_custody__closed(
+    client, buy_transaction_from_fixed_asset_held_in_self_custody
+):
+    # GIVEN
+    t = buy_transaction_from_fixed_asset_held_in_self_custody
+    data = {
+        "action": TransactionActions.sell,
+        "price": t.price + 10_000,
+        "operation_date": t.operation_date.strftime("%d/%m/%Y"),
+        "asset_pk": t.asset.pk,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+
+    assert (
+        AssetReadModel.objects.filter(
+            write_model_pk=t.asset.pk,
+            normalized_total_sold=0,
+            normalized_total_bought=0,
+            normalized_avg_price=0,
+            avg_price=0,
+            quantity_balance=0,
+            normalized_closed_roi=10_000,
+            normalized_credited_incomes=0,
+            credited_incomes=0,
+        ).count()
+        == 1
+    )
+    assert (
+        AssetClosedOperation.objects.filter(
+            asset_id=t.asset.pk,
+            normalized_total_sold=data["price"],
+            normalized_total_bought=t.price,
+            total_bought=t.price,
+            quantity_bought=1,
+            normalized_credited_incomes=0,
+            credited_incomes=0,
+        ).count()
+        == 1
+    )
+
+
+def test__create__sell__asset_held_in_self_custody(
+    client, buy_transaction_from_fixed_asset_held_in_self_custody
+):
+    # GIVEN
+    t = buy_transaction_from_fixed_asset_held_in_self_custody
+    data = {
+        "action": TransactionActions.sell,
+        "price": t.price - 5_000,
+        "operation_date": t.operation_date.strftime("%d/%m/%Y"),
+        "asset_pk": t.asset.pk,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+
+    assert (
+        AssetReadModel.objects.filter(
+            write_model_pk=t.asset.pk,
+            normalized_total_sold=5_000,
+            normalized_total_bought=10_000,
+            normalized_avg_price=5_000,
+            avg_price=5_000,
+            quantity_balance=1,
+            normalized_closed_roi=0,
+            normalized_credited_incomes=0,
+            credited_incomes=0,
+        ).count()
+        == 1
+    )
+    assert AssetClosedOperation.objects.filter(asset_id=t.asset.pk).count() == 0
 
 
 @pytest.mark.usefixtures("stock_asset")
@@ -444,6 +544,154 @@ def test__update__sell__should_raise_error_if_negative_quantity(client, sell_tra
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {"action": "Você não pode vender mais ativos que possui"}
+
+
+def test__update__asset_held_in_self_custody(
+    client, buy_transaction_from_fixed_asset_held_in_self_custody
+):
+    # GIVEN
+    t = buy_transaction_from_fixed_asset_held_in_self_custody
+    read = AssetReadModel.objects.get(write_model_pk=t.asset_id)
+    prev_total_bought = read.normalized_total_bought
+
+    data = {
+        "action": t.action,
+        "price": t.price + 100,
+        "operation_date": t.operation_date.strftime("%d/%m/%Y"),
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{t.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    t.refresh_from_db()
+    assert t.price == data["price"]
+
+    read.refresh_from_db()
+    assert read.normalized_total_bought == (prev_total_bought + 100)
+    assert read.avg_price == (prev_total_bought + 100)
+    assert read.adjusted_avg_price == (prev_total_bought + 100)
+    assert read.quantity_balance == 1
+
+
+def test__update__asset_held_in_self_custody__w_quantity(
+    client, buy_transaction_from_fixed_asset_held_in_self_custody
+):
+    # GIVEN
+    t = buy_transaction_from_fixed_asset_held_in_self_custody
+    data = {
+        "action": t.action,
+        "price": t.price,
+        "quantity": 100,
+        "operation_date": t.operation_date.strftime("%d/%m/%Y"),
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{t.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "quantity": (
+            "Ativos de renda fixa custodiados fora da b3 não podem "
+            "ter transações com quantidades definidias"
+        )
+    }
+
+
+def test__update__wo_quantity(client, buy_transaction):
+    # GIVEN
+    data = {
+        "action": buy_transaction.action,
+        "price": buy_transaction.price + 1,
+        "operation_date": buy_transaction.operation_date.strftime("%d/%m/%Y"),
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{buy_transaction.pk}", data=data)
+
+    # THEN
+
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "quantity": (
+            "Apenas ativos de renda fixa custodiados fora da b3 podem "
+            "ter transações com quantidades nulas"
+        )
+    }
+
+
+def test__update__sell__first_transaction__asset_held_in_self_custody(
+    client, buy_transaction_from_fixed_asset_held_in_self_custody
+):
+    # GIVEN
+    t = buy_transaction_from_fixed_asset_held_in_self_custody
+    data = {
+        "action": TransactionActions.sell,
+        "price": t.price,
+        "operation_date": t.operation_date.strftime("%d/%m/%Y"),
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{t.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "action": (
+            "Você não pode alterar uma transação de um ativo de renda fixa custodiados fora da b3"
+            "de compra para venda. Por favor, delete a transação e insira uma nova."
+        )
+    }
+
+
+def test__update__sell__asset_held_in_self_custody__closed(
+    client, buy_transaction_from_fixed_asset_held_in_self_custody
+):
+    # GIVEN
+    t = buy_transaction_from_fixed_asset_held_in_self_custody
+    data = {
+        "action": TransactionActions.sell,
+        "price": t.price - 5_000,
+        "operation_date": t.operation_date.strftime("%d/%m/%Y"),
+        "asset_pk": t.asset.pk,
+    }
+    sell_transaction_id = client.post(URL, data=data).json()["id"]
+
+    # WHEN
+    response = client.put(f"{URL}/{sell_transaction_id}", data={**data, "price": t.price + 5_000})
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    assert (
+        AssetReadModel.objects.filter(
+            write_model_pk=t.asset.pk,
+            normalized_total_sold=0,
+            normalized_total_bought=0,
+            normalized_avg_price=0,
+            avg_price=0,
+            quantity_balance=0,
+            normalized_closed_roi=5_000,
+            normalized_credited_incomes=0,
+            credited_incomes=0,
+        ).count()
+        == 1
+    )
+    assert (
+        AssetClosedOperation.objects.filter(
+            asset_id=t.asset.pk,
+            normalized_total_sold=t.price + 5_000,
+            normalized_total_bought=t.price,
+            total_bought=t.price,
+            quantity_bought=1,
+            normalized_credited_incomes=0,
+            credited_incomes=0,
+        ).count()
+        == 1
+    )
 
 
 @pytest.mark.usefixtures("transactions_indicators_data")

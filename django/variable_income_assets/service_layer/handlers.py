@@ -49,7 +49,12 @@ def update_transaction(cmd: commands.UpdateTransaction, uow: AbstractUnitOfWork)
             events.TransactionUpdated(
                 asset_pk=uow.asset_pk,
                 operation_date=dto.operation_date,
-                quantity_diff=dto.quantity - cmd.transaction.quantity,
+                quantity_diff=(
+                    0
+                    if cmd.asset.is_held_in_self_custody
+                    else dto.quantity - cmd.transaction.quantity
+                ),
+                is_held_in_self_custody=cmd.asset.is_held_in_self_custody,
             )
         )
         uow.assets.seen.add(cmd.asset)
@@ -63,7 +68,8 @@ def delete_transaction(cmd: commands.DeleteTransaction, uow: AbstractUnitOfWork)
             events.TransactionDeleted(
                 asset_pk=uow.asset_pk,
                 operation_date=cmd.transaction.operation_date,
-                quantity_diff=-cmd.transaction.quantity,
+                quantity_diff=0 if cmd.asset.is_held_in_self_custody else -cmd.transaction.quantity,
+                is_held_in_self_custody=cmd.asset.is_held_in_self_custody,
             )
         )
         uow.assets.seen.add(cmd.asset)

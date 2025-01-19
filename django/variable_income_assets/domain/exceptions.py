@@ -89,3 +89,23 @@ class AssetNotHeldInSelfCustodyWithoutQuantityException(ValidationError):
 
     def __init__(self):
         super().__init__(field="quantity")
+
+
+class AssetHeldInSelfCustodyWithQuantityException(ValidationError):
+    default_message = (
+        "Ativos de renda fixa custodiados fora da b3 não podem "
+        "ter transações com quantidades definidias"
+    )
+
+    def __init__(self):
+        super().__init__(field="quantity")
+
+
+class AssetHeldInSelfCustodyTransactionUpdateFromBuyToSellException(ValidationError):
+    default_message = (
+        "Você não pode alterar uma transação de um ativo de renda fixa custodiados fora da b3"
+        "de compra para venda. Por favor, delete a transação e insira uma nova."
+    )
+
+    def __init__(self) -> None:
+        super().__init__(field="action")

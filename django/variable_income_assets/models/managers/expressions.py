@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from django.db.models import DecimalField, F, Q, Sum, Value
+from django.db.models import Case, DecimalField, F, Q, Sum, Value, When
 from django.db.models.expressions import CombinedExpression
 from django.db.models.functions import Cast, Coalesce
 
@@ -133,14 +133,14 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
     def get_quantity_bought(self, extra_filters: Q | None = None) -> Sum:
         extra_filters = extra_filters if extra_filters is not None else Q()
         return self.sum(
-            f"{self.prefix}quantity",
+            self.get_quantity(),
             filter=Q(self.filters.bought, extra_filters),
         )
 
     def get_quantity_balance(self, extra_filters: Q | None = None) -> CombinedExpression:
         extra_filters = extra_filters if extra_filters is not None else Q()
         return self.get_quantity_bought(extra_filters=extra_filters) - self.sum(
-            f"{self.prefix}quantity", filter=Q(self.filters.sold, extra_filters)
+            self.get_quantity(), filter=Q(self.filters.sold, extra_filters)
         )
 
     def get_avg_price(self, extra_filters: Q | None = None) -> Coalesce:
@@ -207,3 +207,25 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
     def sum(expression: Expression, cast: bool = True, **extra) -> Sum | CombinedExpression:
         s = Sum(expression, default=Decimal(), **extra)
         return s * Cast(1.0, DecimalField()) if cast else s
+
+    def get_avg_price_held_in_self_custody(self):
+        return Case(
+            # aqui assumimos que uma renda fixa custodiada fora da b3 nunca terá um ROI negativo
+            # logo, se há uma transação de venda e ela supera o total de compras, então devemos
+            # encerrar a operação e o preço médio deve ser zero
+            When(normalized_total_sold__gt=F("normalized_total_bought"), then=Value(Decimal())),
+            default=F("normalized_total_bought") - F("normalized_total_sold"),
+        )
+
+    def get_quantity_balance_held_in_self_custody(self):
+        return Case(
+            # aqui assumimos que uma renda fixa custodiada fora da b3 nunca terá um ROI negativo
+            # logo, se há uma transação de venda e ela supera o total de compras, então devemos
+            # encerrar a operação e a quantidade deve ser zero
+            When(
+                Q(normalized_total_sold__gt=F("normalized_total_bought"))
+                | Q(normalized_closed_roi__gt=0),
+                then=Value(Decimal()),
+            ),
+            default=Decimal("1.0"),
+        )

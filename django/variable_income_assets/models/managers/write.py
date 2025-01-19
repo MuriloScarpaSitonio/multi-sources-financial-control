@@ -163,25 +163,20 @@ class AssetQuerySet(QuerySet):
             .annotate_current_credited_incomes()
         )
 
-    def annotate_for_update_price_asset_is_held_in_self_custody(self) -> Self:
-        return self.annotate(
-            quantity_balance=Value(1),
-            avg_price=self.expressions.get_total_bought(),
-            normalized_avg_price=self.expressions.get_normalized_total_bought(),
-            normalized_total_bought=self.expressions.get_normalized_current_total_bought(),
-        )
-
     def _annotate_read_fields_for_is_held_in_self_custody(self) -> Self:
         return (
-            self.annotate_for_update_price_asset_is_held_in_self_custody()
-            .annotate(
-                normalized_total_sold=self.expressions.get_current_normalized_total_sold(
-                    is_held_in_self_custody=True
-                ),
-                credited_incomes=Value(0),
-                normalized_credited_incomes=Value(0),
+            self.annotate(
+                normalized_total_bought=self.expressions.get_normalized_current_total_bought(),
+                normalized_total_sold=self.expressions.get_current_normalized_total_sold(),
+                avg_price=self.expressions.get_avg_price_held_in_self_custody(),
+                # apenas ativos de renda fixa BRL sao aceitos no momento
+                normalized_avg_price=F("avg_price"),
+                #
+                credited_incomes=Value(Decimal()),
+                normalized_credited_incomes=Value(Decimal()),
             )
             .annotate_normalized_closed_roi()
+            .annotate(quantity_balance=self.expressions.get_quantity_balance_held_in_self_custody())
         )
 
     def annotate_for_simulation(self) -> Self:

@@ -1142,3 +1142,15 @@ def fixed_asset_held_in_self_custody(user):
     upsert_asset_read_model(asset.id, is_held_in_self_custody=True)
 
     return asset
+
+
+@pytest.fixture
+def buy_transaction_from_fixed_asset_held_in_self_custody(fixed_asset_held_in_self_custody):
+    t = TransactionFactory(
+        action=TransactionActions.buy,
+        price=10_000,
+        asset=fixed_asset_held_in_self_custody,
+        quantity=None,
+    )
+    upsert_asset_read_model(fixed_asset_held_in_self_custody.id, is_held_in_self_custody=True)
+    return t

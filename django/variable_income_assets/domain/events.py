@@ -19,22 +19,25 @@ class RelatedAssetEvent(Event):
     sync: bool = False
     #
 
-    operation_date: date | None = None
-    quantity_diff: Decimal | None = None
-
 
 @dataclass
-class TransactionsCreated(RelatedAssetEvent):
-    new_asset: bool = False
-    fixed_br_asset: bool = False
+class TransactionEvent(RelatedAssetEvent):
+    quantity_diff: Decimal | None = None
+    operation_date: date | None = None
     is_held_in_self_custody: bool = False
 
 
-class TransactionUpdated(RelatedAssetEvent):
+@dataclass
+class TransactionsCreated(TransactionEvent):
+    new_asset: bool = False
+    fixed_br_asset: bool = False
+
+
+class TransactionUpdated(TransactionEvent):
     ...
 
 
-class TransactionDeleted(RelatedAssetEvent):
+class TransactionDeleted(TransactionEvent):
     ...
 
 
