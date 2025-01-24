@@ -144,6 +144,7 @@ class AssetRepository:
         data.pop("is_held_in_self_custody")
         data.pop("quantity_balance")
         data.pop("avg_price")
+        data.pop("total_sold")
 
         asset = Asset.objects.create(**data, user_id=self.user_id)
         dto.id = asset.pk

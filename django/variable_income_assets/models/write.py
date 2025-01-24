@@ -113,6 +113,7 @@ class Asset(models.Model):
             # values MUST be already annotated!
             quantity_balance=getattr(self, "quantity_balance", None),
             avg_price=getattr(self, "avg_price", None),
+            total_sold=getattr(self, "total_sold", None),
             #
         )
 

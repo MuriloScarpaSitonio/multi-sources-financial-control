@@ -846,6 +846,76 @@ def test__delete__more_than_one_year_ago(client, buy_transaction, mocker):
     assert not Transaction.objects.exists()
 
 
+def test__delete__asset_held_in_self_custody(
+    client, buy_transaction_from_fixed_asset_held_in_self_custody
+):
+    # GIVEN
+    t = buy_transaction_from_fixed_asset_held_in_self_custody
+
+    # WHEN
+    response = client.delete(f"{URL}/{t.pk}")
+
+    # THEN
+    assert response.status_code == HTTP_204_NO_CONTENT
+    assert not Transaction.objects.exists()
+
+    assert (
+        AssetReadModel.objects.filter(
+            write_model_pk=t.asset.pk,
+            normalized_total_sold=0,
+            normalized_total_bought=0,
+            normalized_avg_price=0,
+            avg_price=0,
+            quantity_balance=0,
+            normalized_closed_roi=0,
+            normalized_credited_incomes=0,
+            credited_incomes=0,
+        ).count()
+        == 1
+    )
+
+
+def test__delete__sell__asset_held_in_self_custody(
+    client, buy_and_sell_transactions_from_closed_and_fixed_asset_held_in_self_custody
+):
+    # GIVEN
+    t_buy, t_sell = buy_and_sell_transactions_from_closed_and_fixed_asset_held_in_self_custody
+
+    # WHEN
+    response = client.delete(f"{URL}/{t_sell.pk}")
+
+    # THEN
+    assert response.status_code == HTTP_204_NO_CONTENT
+    assert (
+        AssetReadModel.objects.filter(
+            write_model_pk=t_sell.asset.pk,
+            normalized_total_sold=0,
+            normalized_total_bought=t_buy.price,
+            normalized_avg_price=t_buy.price,
+            avg_price=t_buy.price,
+            quantity_balance=1,
+            normalized_closed_roi=0,
+            normalized_credited_incomes=0,
+            credited_incomes=0,
+        ).count()
+        == 1
+    )
+
+
+def test__delete__asset_held_in_self_custody__negative_qty(
+    client, buy_and_sell_transactions_from_closed_and_fixed_asset_held_in_self_custody
+):
+    # GIVEN
+    t_buy, _ = buy_and_sell_transactions_from_closed_and_fixed_asset_held_in_self_custody
+
+    # WHEN
+    response = client.delete(f"{URL}/{t_buy.pk}")
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"action": "Você não pode vender mais ativos que possui"}
+
+
 def test__list__sanity_check(client, buy_transaction):
     # GIVEN
 

@@ -70,6 +70,7 @@ class Asset:
     quantity_balance: Decimal | None = None
     currency: Currencies | None = None
     avg_price: Decimal | None = None
+    total_sold: Decimal | None = None
 
     # é um ativo custodiado pelo banco emissor?
     # (ou seja, aplica-se apenas para renda fixa e  nao pode ser sincronizado pela b3)
@@ -163,7 +164,7 @@ class Asset:
                     # nunca seja de venda
                     raise AssetHeldInSelfCustodyTransactionUpdateFromBuyToSellException
 
-                if dto.price > self.avg_price:
+                if (dto.price + self.total_sold) > self.avg_price:
                     # aqui assumimos que uma renda fixa custodiada fora da b3 nunca terá um ROI
                     # negativo
                     # logo, se há uma transação de venda e ela supera o total de compras,
@@ -185,5 +186,10 @@ class Asset:
         return dto
 
     def validate_delete_transaction_command(self, dto: TransactionDTO) -> None:
-        if not dto.is_sale and (self.quantity_balance - dto.quantity) < 0:
-            raise NegativeQuantityNotAllowedException
+        if self.is_held_in_self_custody:
+            if not dto.is_sale and self.avg_price - dto.price <= 0 and self.total_sold:
+                raise NegativeQuantityNotAllowedException
+
+        else:
+            if not dto.is_sale and (self.quantity_balance - dto.quantity) < 0:
+                raise NegativeQuantityNotAllowedException

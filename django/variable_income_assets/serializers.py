@@ -15,6 +15,7 @@ from .domain.models import Asset as AssetDomainModel
 from .domain.models import TransactionDTO
 from .models import (
     Asset,
+    AssetMetaData,
     AssetReadModel,
     AssetsTotalInvestedSnapshot,
     PassiveIncome,
@@ -103,8 +104,13 @@ class TransactionListSerializer(TransactionSerializer):
             validated_data.pop("user")
             validated_data.pop("asset_pk", None)
 
+            is_held_in_self_custody = AssetMetaData.objects.filter(
+                asset_id=self.instance.asset_id
+            ).exists()
             asset_domain: AssetDomainModel = (
-                Asset.objects.annotate_for_domain().get(id=instance.asset_id).to_domain()
+                Asset.objects.annotate_for_domain(is_held_in_self_custody)
+                .get(id=instance.asset_id)
+                .to_domain()
             )
 
             asset_domain.update_transaction(
@@ -119,15 +125,20 @@ class TransactionListSerializer(TransactionSerializer):
             raise serializers.ValidationError(e.detail) from e
 
     def delete(self) -> None:
+        is_held_in_self_custody = AssetMetaData.objects.filter(
+            asset_id=self.instance.asset_id
+        ).exists()
         asset_domain: AssetDomainModel = (
-            Asset.objects.annotate_for_domain().get(id=self.instance.asset_id).to_domain()
+            Asset.objects.annotate_for_domain(is_held_in_self_custody)
+            .get(id=self.instance.asset_id)
+            .to_domain()
         )
         try:
             asset_domain.validate_delete_transaction_command(
                 dto=TransactionDTO(
                     action=self.instance.action,
                     quantity=self.instance.quantity,
-                    price=Decimal(),
+                    price=self.instance.price,
                     operation_date=self.instance.operation_date,
                 )
             )

@@ -224,7 +224,8 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
             # encerrar a operação e a quantidade deve ser zero
             When(
                 Q(normalized_total_sold__gt=F("normalized_total_bought"))
-                | Q(normalized_closed_roi__gt=0),
+                | Q(normalized_closed_roi__gt=0)
+                | Q(normalized_total_bought=0),
                 then=Value(Decimal()),
             ),
             default=Decimal("1.0"),

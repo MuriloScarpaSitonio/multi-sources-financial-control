@@ -1154,3 +1154,23 @@ def buy_transaction_from_fixed_asset_held_in_self_custody(fixed_asset_held_in_se
     )
     upsert_asset_read_model(fixed_asset_held_in_self_custody.id, is_held_in_self_custody=True)
     return t
+
+
+@pytest.fixture
+def buy_and_sell_transactions_from_closed_and_fixed_asset_held_in_self_custody(
+    fixed_asset_held_in_self_custody,
+):
+    t1 = TransactionFactory(
+        action=TransactionActions.buy,
+        price=10_000,
+        asset=fixed_asset_held_in_self_custody,
+        quantity=None,
+    )
+    t2 = TransactionFactory(
+        action=TransactionActions.sell,
+        price=15_000,
+        asset=fixed_asset_held_in_self_custody,
+        quantity=None,
+    )
+    upsert_asset_read_model(fixed_asset_held_in_self_custody.id, is_held_in_self_custody=True)
+    return t1, t2

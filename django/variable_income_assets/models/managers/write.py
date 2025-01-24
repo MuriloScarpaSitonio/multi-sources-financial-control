@@ -148,8 +148,13 @@ class AssetQuerySet(QuerySet):
             ),
         )
 
-    def annotate_for_domain(self) -> Self:
-        return self.annotate_quantity_balance().annotate_current_avg_price()
+    def annotate_for_domain(self, is_held_in_self_custody: bool = False) -> Self:
+        qs = self.annotate_quantity_balance().annotate_current_avg_price()
+        if is_held_in_self_custody:
+            return qs.annotate(
+                total_sold=self.expressions.get_normalized_total_sold(),
+            )
+        return qs
 
     def annotate_read_fields(self, is_held_in_self_custody: bool = False) -> Self:
         if is_held_in_self_custody:

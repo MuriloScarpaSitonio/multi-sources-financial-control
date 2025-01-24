@@ -243,7 +243,7 @@ def test__create__fixed__held_custody(client, user):
             type=data["type"],
             objective=data["objective"],
             currency=data["currency"],
-            quantity_balance=1,
+            quantity_balance=0,
             avg_price=0,
             normalized_avg_price=0,
             normalized_total_bought=0,
