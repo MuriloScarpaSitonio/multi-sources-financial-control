@@ -46,6 +46,7 @@ class AssetFilterSet(filters.FilterSet):
 
 class AssetReadStatusFilterSet(filters.FilterSet):
     status = filters.ChoiceFilter(choices=AssetStatus.choices, method="filter_status")
+    type = filters.MultipleChoiceFilter(choices=AssetTypes.choices)
 
     class Meta:
         model = AssetReadModel

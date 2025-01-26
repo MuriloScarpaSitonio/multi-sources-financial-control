@@ -130,7 +130,8 @@ def test__create__stock_usa__current_currency_conversion_rate(client, data, stoc
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {
         "current_currency_conversion_rate": [
-            "This value can't be ommited or set to 1 if the asset's currency is different than BRL"
+            "Esta propriedade não pode ser omitida ou ter valor igual a 1 se a "
+            f"moeda do ativo for diferente de {Currencies.real}"
         ]
     }
 
@@ -181,7 +182,10 @@ def test__create__provisioned__w_rate(client, stock_usa_asset):
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {
-        "current_currency_conversion_rate": ["This value must be ommited for PROVISIONED events"]
+        "current_currency_conversion_rate": [
+            "Esta propriedade precisa ser omitidata para eventos do tipo "
+            + PassiveIncomeEventTypes.provisioned
+        ]
     }
 
 
@@ -201,8 +205,26 @@ def test__create__credited__future(client, stock_usa_asset):
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {
-        "operation_date": ["The date can't be in the future if the income was already credited"]
+        "operation_date": ["Rendimentos já creditados não podem ser criados no futuro"]
     }
+
+
+def test__create__fixed_br(client, fixed_asset_held_in_self_custody):
+    # GIVEN
+    data = {
+        "type": PassiveIncomeTypes.dividend,
+        "event_type": PassiveIncomeEventTypes.credited,
+        "amount": 100,
+        "operation_date": "06/12/2022",
+        "asset_pk": fixed_asset_held_in_self_custody.pk,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.json() == {"type": ["Ativos de classe Renda fixa BR não aceitam rendimentos"]}
 
 
 @pytest.mark.django_db(transaction=True)
@@ -327,7 +349,8 @@ def test__create__stock_usa__current_currency_conversion_rate(client, extra_data
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {
         "current_currency_conversion_rate": [
-            "This value can't be ommited or set to 1 if the asset's currency is different than BRL"
+            "Esta propriedade não pode ser omitida ou ter valor igual a 1 se a "
+            f"moeda do ativo for diferente de {Currencies.real}"
         ]
     }
 
@@ -348,7 +371,10 @@ def test__update__provisioned__w_rate(client, another_income):
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {
-        "current_currency_conversion_rate": ["This value must be ommited for PROVISIONED events"]
+        "current_currency_conversion_rate": [
+            "Esta propriedade precisa ser omitidata para eventos do tipo "
+            + PassiveIncomeEventTypes.provisioned
+        ]
     }
 
 
@@ -384,7 +410,7 @@ def test__update__credited__future(client, another_income):
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {
-        "operation_date": ["The date can't be in the future if the income was already credited"]
+        "operation_date": ["Rendimentos já creditados não podem ser criados no futuro"]
     }
 
 

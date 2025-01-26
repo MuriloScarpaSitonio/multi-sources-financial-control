@@ -104,8 +104,15 @@ export const getAssetIncomes = async ({
 
 export const getAssetsMinimalData = async (params?: {
   status?: "OPENED" | "CLOSED";
+  type?: string[];
 }): Promise<{ code: string; currency: AssetCurrencies; pk: number }[]> =>
-  (await apiProvider.get(`${RESOURCE}/minimal_data`, { params })).data;
+  (
+    await apiProvider.get(`${RESOURCE}/minimal_data`, {
+      params,
+      paramsSerializer: (params: Params) =>
+        qs.stringify(params, { arrayFormat: "repeat" }),
+    })
+  ).data;
 
 export const simulateTransaction = async ({
   assetId,

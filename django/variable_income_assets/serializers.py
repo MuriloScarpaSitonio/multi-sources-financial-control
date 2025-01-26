@@ -183,16 +183,14 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {
                     "current_currency_conversion_rate": (
-                        "This value must be ommited for "
-                        f"{choices.PassiveIncomeEventTypes.provisioned} events"
+                        "Esta propriedade precisa ser omitidata para eventos do tipo "
+                        + choices.PassiveIncomeEventTypes.provisioned
                     )
                 }
             )
 
         try:
-            currency = (
-                Asset.objects.only("currency").get(user=attrs.pop("user"), pk=asset_pk).currency
-            )
+            asset = Asset.objects.only("currency", "type").get(user=attrs.pop("user"), pk=asset_pk)
         except Asset.DoesNotExist as e:
             raise NotFound({"asset": "Not found."}) from e
 
@@ -201,22 +199,27 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {
                         "operation_date": (
-                            "The date can't be in the future if the income was already credited"
+                            "Rendimentos já creditados não podem ser criados no futuro"
                         )
                     }
                 )
-            if currency == choices.Currencies.real:
+            if asset.currency == choices.Currencies.real:
                 attrs["current_currency_conversion_rate"] = 1
             else:
                 if current_currency_conversion_rate in (None, 1):
                     raise serializers.ValidationError(
                         {
                             "current_currency_conversion_rate": (
-                                "This value can't be ommited or set to 1 if the asset's currency "
-                                f"is different than {choices.Currencies.real}"
+                                "Esta propriedade não pode ser omitida ou ter valor igual a 1 se a "
+                                f"moeda do ativo for diferente de {choices.Currencies.real}"
                             )
                         }
                     )
+            choice = choices.AssetTypes.get_choice(asset.type)
+            if not choice.accept_incomes:
+                raise serializers.ValidationError(
+                    {"type": f"Ativos de classe {choice.label} não aceitam rendimentos"}
+                )
         return attrs
 
     def create(self, validated_data: dict) -> PassiveIncome:

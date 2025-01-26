@@ -168,7 +168,8 @@ def test__create__sell__stock_usa__current_currency_conversion_rate(client, data
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {
         "current_currency_conversion_rate": (
-            "This value can't be ommited or set to 1 if the asset's currency is different than BRL"
+            "Esta propriedade não pode ser omitida ou ter valor igual a 1 se a "
+            f"moeda do ativo for diferente de {Currencies.real}"
         )
     }
 
@@ -501,7 +502,8 @@ def test__update__sell__stock_usa__current_currency_conversion_rate(
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {
         "current_currency_conversion_rate": (
-            "This value can't be ommited or set to 1 if the asset's currency is different than BRL"
+            "Esta propriedade não pode ser omitida ou ter valor igual a 1 se a "
+            f"moeda do ativo for diferente de {Currencies.real}"
         )
     }
 

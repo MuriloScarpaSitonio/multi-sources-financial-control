@@ -25,6 +25,7 @@ import {
   AssetCurrencyMap,
   AssetIncomeEventTypes,
   AssetsIncomeTypesMapping,
+  AssetsTypesMapping,
 } from "../../../consts";
 import { createIncome } from "../../../api";
 import { useInvalidateAssetsReportsQueries } from "../../../Reports/hooks";
@@ -176,6 +177,14 @@ const NewIncomeForm = ({
         isFieldInvalid={isFieldInvalid}
         getFieldHasError={getFieldHasError}
         getErrorMessage={getErrorMessage}
+        filters={{
+          type: [
+            AssetsTypesMapping["Ação BR"].value,
+            AssetsTypesMapping["Ação EUA"].value,
+            AssetsTypesMapping.Cripto.value,
+            AssetsTypesMapping.FII.value,
+          ],
+        }}
       />
       <DateInput control={control} />
       <Controller

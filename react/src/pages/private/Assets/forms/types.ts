@@ -10,7 +10,7 @@ export type ReactHookFormsInputCustomProps = {
 };
 
 type AssetsMinimalDataQueryFilters = {
-  filters?: { status?: "OPENED" | "CLOSED" };
+  filters?: { status?: "OPENED" | "CLOSED"; type?: string[] };
 };
 
 export type AssetCodeAutoCompleteProps = ReactHookFormsInputCustomProps &

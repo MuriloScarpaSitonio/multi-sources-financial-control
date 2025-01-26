@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getAssetsMinimalData } from "../api";
 
-type Params = { status?: "OPENED" | "CLOSED" };
+type Params = { status?: "OPENED" | "CLOSED"; type?: string[] };
 
 const QUERY_KEY = "assets-minimal-data";
 

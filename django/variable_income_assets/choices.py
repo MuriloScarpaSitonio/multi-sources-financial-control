@@ -19,30 +19,35 @@ class AssetTypes(DjangoChoices):
         label="Ação BR",
         monthly_sell_threshold=settings.STOCKS_MONTHLY_SELL_EXEMPTION_THRESHOLD,
         valid_currencies=(Currencies.real,),
+        accept_incomes=True,
     )
     stock_usa = ChoiceItem(
         "STOCK_USA",
         label="Ação EUA",
         monthly_sell_threshold=settings.STOCKS_USA_MONTHLY_SELL_EXEMPTION_THRESHOLD,
         valid_currencies=(Currencies.dollar,),
+        accept_incomes=True,
     )
     crypto = ChoiceItem(
         "CRYPTO",
         label="Cripto",
         monthly_sell_threshold=settings.CRYPTOS_MONTHLY_SELL_EXEMPTION_THRESHOLD,
         valid_currencies=(Currencies.real, Currencies.dollar),
+        accept_incomes=True,  # aceita mesmo?!
     )
     fii = ChoiceItem(
         "FII",
         label="FII",
         monthly_sell_threshold=settings.FII_MONTHLY_SELL_EXEMPTION_THRESHOLD,
         valid_currencies=(Currencies.real,),
+        accept_incomes=True,
     )
     fixed_br = ChoiceItem(
         "FIXED_BR",
         label="Renda fixa BR",
         monthly_sell_threshold=0,
         valid_currencies=(Currencies.real,),
+        accept_incomes=False,
     )
 
 

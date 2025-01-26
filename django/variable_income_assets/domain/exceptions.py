@@ -36,8 +36,8 @@ class NegativeQuantityNotAllowedException(ValidationError):
 
 class CurrencyConversionRateNullOrOneForNonBrlAssets(ValidationError):
     default_message = (
-        "This value can't be ommited or set to 1 if the asset's currency is "
-        f"different than {Currencies.real}"
+        "Esta propriedade não pode ser omitida ou ter valor igual a 1 se a "
+        f"moeda do ativo for diferente de {Currencies.real}"
     )
 
     def __init__(self) -> None:
