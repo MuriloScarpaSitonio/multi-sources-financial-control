@@ -63,7 +63,7 @@ const FinancesMenus = () => {
           <ListItemButton
             disableGutters
             sx={{ pl: gap + 1.5 }}
-            href="/revenues"
+            href="/expenses?revenues=true"
           >
             <ListItemIcon sx={{ minWidth: 32 }}>
               <MonetizationOnOutlinedIcon

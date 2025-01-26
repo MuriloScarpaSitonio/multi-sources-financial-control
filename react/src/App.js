@@ -21,7 +21,6 @@ import { Assets, Expenses, Wrapper as WrapperV2 } from "./pages/private";
 import { ResetPassword } from "./pages/ResetPassword";
 import { SubscriptionDone } from "./pages/SubscriptionDone";
 import PassiveIncomes from "./pages/PassiveIncomes";
-import Revenues from "./pages/Revenues";
 import Subscription from "./pages/Subscription";
 import Transactions from "./pages/Transactions";
 import User from "./pages/User";
@@ -173,14 +172,6 @@ export default function App() {
             element={
               <PrivateRoute path="/expenses" v2>
                 <Expenses />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/revenues"
-            element={
-              <PrivateRoute path="/revenues">
-                <Revenues />
               </PrivateRoute>
             }
           />

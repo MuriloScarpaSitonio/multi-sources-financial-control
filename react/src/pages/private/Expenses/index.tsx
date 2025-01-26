@@ -5,6 +5,7 @@ import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 
+import { useSearchParams } from "react-router-dom";
 import { endOfMonth, Month, startOfMonth } from "date-fns";
 
 import { default as RevenueReports } from "../Revenues/Reports";
@@ -51,17 +52,27 @@ const Expenses = () => {
   const [endDate, setEndDate] = useState(customEndOfMonth(now));
   const [month, setMonth] = useState(now.getMonth() as Month | undefined);
   const [year, setYear] = useState(now.getFullYear());
-  const [tabValue, setTabValue] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const displayRevenuesComponents = searchParams.get("revenues") === "true";
 
   const { data: categoriesData, isPending: isLoadingCategories } =
     useGetCategories({ ordering: "name" });
   const { data: sourcesData, isPending: isLoadingSources } = useGetSources({
     ordering: "name",
+    enabled: !displayRevenuesComponents,
   });
   const {
     data: revenuesCategoriesData,
     isLoading: isLoadingRevenuesCategories,
-  } = useRevenuesCategories({ ordering: "name", enabled: tabValue === 1 });
+  } = useRevenuesCategories({
+    ordering: "name",
+    enabled: displayRevenuesComponents,
+  });
+
+  const isRelatedEntitiesLoading = displayRevenuesComponents
+    ? isLoadingRevenuesCategories || isLoadingCategories
+    : isLoadingCategories || isLoadingSources;
 
   const contextValue = useMemo(
     () => ({
@@ -100,8 +111,7 @@ const Expenses = () => {
           ]),
         ),
       },
-      isRelatedEntitiesLoading:
-        isLoadingCategories || isLoadingSources || isLoadingRevenuesCategories,
+      isRelatedEntitiesLoading,
     }),
     [
       startDate,
@@ -126,25 +136,27 @@ const Expenses = () => {
           </Grid>
           <Grid item xs={6}>
             <CustomTabs
-              tabValue={tabValue}
+              tabValue={displayRevenuesComponents ? 1 : 0}
               onTabChange={(_: SyntheticEvent, value: number) =>
-                setTabValue(value)
+                setSearchParams({ revenues: value === 1 ? "true" : "false" })
               }
             />
-            {tabValue === 0 && <ExpenseReports />}
-            {tabValue === 1 && <RevenueReports />}
+            {displayRevenuesComponents ? (
+              <RevenueReports />
+            ) : (
+              <ExpenseReports />
+            )}
           </Grid>
         </Grid>
         <Grid container spacing={4}>
           <Grid item xs={12}>
             <CustomTabs
-              tabValue={tabValue}
+              tabValue={displayRevenuesComponents ? 1 : 0}
               onTabChange={(_: SyntheticEvent, value: number) =>
-                setTabValue(value)
+                setSearchParams({ revenues: value === 1 ? "true" : "false" })
               }
             />
-            {tabValue === 0 && <ExpensesTable />}
-            {tabValue === 1 && <RevenuesTable />}
+            {displayRevenuesComponents ? <RevenuesTable /> : <ExpensesTable />}
           </Grid>
         </Grid>
       </Stack>

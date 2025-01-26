@@ -64,14 +64,17 @@ export const useGetCategories = ({
   ordering = "-created_at",
   page = 1,
   page_size = 100,
+  enabled = true,
 }: {
   ordering?: string;
   page?: number;
   page_size?: number;
+  enabled?: boolean;
 }) =>
   useQuery({
     queryKey: [EXPENSES_CATEGORIES_QUERY_KEY, { ordering, page, page_size }],
     queryFn: () => getCategories({ ordering, page, page_size }),
+    enabled,
   });
 
 export const useInvalidateCategoriesQueries = (client?: QueryClient) => {
@@ -92,14 +95,17 @@ export const useGetSources = ({
   ordering = "-created_at",
   page = 1,
   page_size = 100,
+  enabled = true,
 }: {
   ordering?: string;
   page?: number;
   page_size?: number;
+  enabled?: boolean;
 }) =>
   useQuery({
     queryKey: [EXPENSES_SOURCES_QUERY_KEY, { ordering, page, page_size }],
     queryFn: () => getSources({ ordering, page, page_size }),
+    enabled,
   });
 
 export const useInvalidateSourcesQueries = (client?: QueryClient) => {

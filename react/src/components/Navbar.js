@@ -279,7 +279,7 @@ const FinancesMenu = () => {
               <ListItemText primary="Despesas" />
             </MenuItem>
           </Link>
-          <Link href="/revenues" color="inherit" underline="none">
+          <Link href="/expenses?revenues=true" color="inherit" underline="none">
             <MenuItem>
               <ListItemIcon>
                 <AccountBalanceIcon fontSize="small" />
