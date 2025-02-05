@@ -4,15 +4,14 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import django_filters
-from dateutil.relativedelta import relativedelta
 from rest_framework.filters import OrderingFilter
+
+from shared.filters_utils import MonthFilter
 
 from .choices import ExpenseReportType
 from .models import Expense, Revenue
 
 if TYPE_CHECKING:
-    from datetime import date
-
     from django.db.models import QuerySet
 
     from rest_framework.request import Request
@@ -121,23 +120,6 @@ class ExpenseHistoricFilterSet(django_filters.FilterSet):
 
     def filter_future(self, queryset: ExpenseQueryset, _: str, value: bool):
         return queryset.future() if value else queryset.since_a_year_ago()
-
-
-class MonthFilter(django_filters.DateFilter):
-    def __init__(self, **kwargs):
-        self.end = kwargs.pop("end", False)
-        super().__init__(**kwargs)
-
-    def filter(self, qs: QuerySet, value: date | None) -> QuerySet:
-        if not value:
-            return qs
-        if self.distinct:
-            qs = qs.distinct()
-
-        lookup = f"{self.field_name}__{self.lookup_expr}"
-        return self.get_method(qs)(
-            **{lookup: value + relativedelta(day=31) if self.end else value.replace(day=1)}
-        )
 
 
 class ExpenseHistoricV2FilterSet(django_filters.FilterSet):

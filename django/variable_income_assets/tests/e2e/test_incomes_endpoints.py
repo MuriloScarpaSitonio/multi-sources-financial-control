@@ -438,8 +438,9 @@ def test__list__sanity_check(client, simple_income):
                     "pk": simple_income.asset.pk,
                     "code": simple_income.asset.code,
                     "type": AssetTypes.get_choice(simple_income.asset.type).label,
-                    "currency": Currencies.get_choice(simple_income.asset.currency).label,
+                    "currency": simple_income.asset.currency,
                     "description": simple_income.asset.description,
+                    "is_held_in_self_custody": simple_income.asset.is_held_in_self_custody,
                 },
             }
         ],

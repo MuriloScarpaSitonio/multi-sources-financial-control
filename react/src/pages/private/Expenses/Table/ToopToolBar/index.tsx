@@ -38,20 +38,7 @@ import {
 } from "./ManageRelatedEntitiesMenuItem";
 import { Filters } from "../../types";
 import { Expense } from "../../api/models";
-
-const removeProperties = (
-  obj: Record<string, any> | undefined,
-  keysToRemove: string[],
-): Record<string, any> | undefined => {
-  if (!obj) return;
-  return keysToRemove.reduce(
-    (acc, key) => {
-      const { [key]: removed, ...rest } = acc; // Use destructuring to remove the key
-      return rest;
-    },
-    { ...obj },
-  );
-};
+import { removeProperties } from "../../../../../utils";
 
 const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);

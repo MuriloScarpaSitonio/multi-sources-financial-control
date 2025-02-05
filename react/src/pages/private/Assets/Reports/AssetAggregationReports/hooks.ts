@@ -1,9 +1,10 @@
-import type { UseQueryResult } from "@tanstack/react-query";
+import type { QueryClient, UseQueryResult } from "@tanstack/react-query";
 import type { ReportUnknownAggregationData, GroupBy, Kinds } from "../types";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getReports } from "../../api";
+import { useCallback } from "react";
 
 const QUERY_KEY = "assets-reports";
 
@@ -25,16 +26,17 @@ export const useAssetsReports = (
     queryFn: () => getReports(params),
   });
 
-export const useInvalidateAssetsReportsQueries = () => {
-  const queryClient = useQueryClient();
+export const useInvalidateAssetsReportsQueries = (client?: QueryClient) => {
+  const queryClient = useQueryClient(client);
 
-  const invalidate = async (
-    params?: Params & { group_by?: GroupBy; kind?: Kinds },
-  ) => {
-    await queryClient.invalidateQueries({
-      queryKey: [QUERY_KEY, ...(params ? [params] : [])],
-    });
-  };
+  const invalidate = useCallback(
+    async (params?: Params & { group_by?: GroupBy; kind?: Kinds }) => {
+      await queryClient.invalidateQueries({
+        queryKey: [QUERY_KEY, ...(params ? [params] : [])],
+      });
+    },
+    [queryClient],
+  );
 
   return { invalidate };
 };

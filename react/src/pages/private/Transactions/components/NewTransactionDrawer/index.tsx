@@ -1,12 +1,14 @@
-import { FormDrawer } from "../../../../../../design-system";
+import { FormDrawer } from "../../../../../design-system";
 import NewTransactionForm from "./NewTransactionForm";
 
 const NewTransactionDrawer = ({
   open,
   onClose,
+  variant,
 }: {
   open: boolean;
   onClose: () => void;
+  variant: string;
 }) => (
   <FormDrawer
     title="Adicionar transação"
@@ -14,6 +16,7 @@ const NewTransactionDrawer = ({
     open={open}
     onClose={onClose}
     FormComponent={NewTransactionForm}
+    variant={variant}
   />
 );
 

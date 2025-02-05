@@ -41,8 +41,9 @@ def test__list__sanity_check(client, stock_usa_asset):
                     "pk": stock_usa_asset.pk,
                     "code": stock_usa_asset.code,
                     "type": AssetTypes.get_choice(stock_usa_asset.type).label,
-                    "currency": Currencies.get_choice(stock_usa_asset.currency).label,
+                    "currency": stock_usa_asset.currency,
                     "description": stock_usa_asset.description,
+                    "is_held_in_self_custody": stock_usa_asset.is_held_in_self_custody,
                 },
             }
         ],

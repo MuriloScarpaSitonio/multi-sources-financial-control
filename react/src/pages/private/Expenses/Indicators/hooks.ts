@@ -1,8 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { isFilteringWholeMonth } from "../../../../design-system";
 import { getAvg, getMostExpensive, getSum } from "../api/expenses";
-import { isFilteringWholeMonth } from "../utils";
 
 const SUM_QUERY_KEY = "expenses-sum";
 

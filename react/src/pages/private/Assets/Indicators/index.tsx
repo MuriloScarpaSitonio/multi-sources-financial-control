@@ -10,8 +10,8 @@ import * as enums from "../../../../design-system/enums";
 import { InvestmentUpIcon } from "../../../../design-system/icons";
 import { getColor } from "../../../../design-system/utils";
 import { useAssetsIndicators } from "./hooks";
-import IncomesIndicator from "./IncomesIndicator";
 import PercentageChangeSecondaryIndicator from "./PercentageChangeSecondaryIndicator";
+import { ReactNode } from "react";
 
 const RoiSecondaryIndicator = ({
   value,
@@ -55,7 +55,7 @@ const RoiSecondaryIndicator = ({
     </Stack>
   );
 };
-const Indicators = () => {
+const Indicators = ({ extra }: { extra: ReactNode }) => {
   const { data, isPending, isError } = useAssetsIndicators();
 
   return (
@@ -75,6 +75,7 @@ const Indicators = () => {
                 data && data.total_diff_percentage > 0 ? "success" : "danger"
               }
               isLoading={isPending}
+              text="no último mês"
             />
           }
           Icon={MonetizationOnOutlinedIcon}
@@ -101,7 +102,7 @@ const Indicators = () => {
         />
       </Grid>
       <Grid item xs={4}>
-        <IncomesIndicator />
+        {extra}
       </Grid>
     </Grid>
   );

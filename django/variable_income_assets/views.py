@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from django.db import transaction as djtransaction
-from django.db.models import F, Sum
+from django.db.models import BooleanField, Case, F, Sum, Value, When
 from django.utils import timezone
 
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
@@ -159,8 +159,15 @@ class AssetViewSet(
         # values by doing `/assets?fields=code,currency`
         filterset = filters.AssetReadStatusFilterSet(data=request.GET, queryset=self.get_queryset())
         return Response(
-            data=filterset.qs.annotate(pk=F("write_model_pk"))
-            .values("code", "currency", "pk")
+            data=filterset.qs.annotate(
+                pk=F("write_model_pk"),
+                is_held_in_self_custody=Case(
+                    When(metadata__asset_id__isnull=False, then=Value(True)),
+                    default=Value(False),
+                    output_field=BooleanField(),
+                ),
+            )
+            .values("code", "currency", "pk", "is_held_in_self_custody")
             .order_by("code"),
             status=HTTP_200_OK,
         )
@@ -189,7 +196,7 @@ class TransactionViewSet(ModelViewSet):
             return (
                 qs.select_related("asset")
                 if self.action in ("list", "retrieve", "update", "destroy")
-                else qs.since_a_year_ago()
+                else qs
             )
 
         return Transaction.objects.none()  # pragma: no cover -- drf-spectacular
@@ -198,33 +205,39 @@ class TransactionViewSet(ModelViewSet):
         serializers.TransactionListSerializer(instance=instance).delete()
 
     @action(methods=("GET",), detail=False)
-    def indicators(self, _: Request) -> Response:
-        qs = self.get_queryset().indicators()
-
-        # TODO: do this via SQL
-        percentage_invested = (
-            (((qs["current_bought"] - qs["current_sold"]) / qs["avg"]) - Decimal("1.0"))
-            * Decimal("100.0")
-            if qs["avg"]
-            else Decimal()
-        )
-        serializer = serializers.TransactionsIndicatorsSerializer(
-            {**qs, "diff_percentage": percentage_invested}
-        )
-        return Response(serializer.data, status=HTTP_200_OK)
+    def sum(self, request: Request) -> Response:
+        filterset = filters.DateRangeFilterSet(data=request.GET, queryset=self.get_queryset())
+        return Response(serializers.SumSerializer(filterset.qs.sum()).data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
-    def historic(self, _: Request) -> Response:
-        qs = self.get_queryset()
+    def avg(self, _: Request) -> Response:
+        return Response(
+            serializers.AvgSerializer(self.get_queryset().since_a_year_ago_monthly_avg()).data,
+            status=HTTP_200_OK,
+        )
+
+    @action(methods=("GET",), detail=False)
+    def historic_report(self, request: Request) -> Response:
+        filterset = filters.MonthlyDateRangeFilterSet(
+            data=request.GET, queryset=self.get_queryset()
+        )
+        qs = filterset.qs
         serializer = serializers.TransactionHistoricSerializer(
             {
                 "historic": insert_zeros_if_no_data_in_monthly_historic_data(
                     historic=list(qs.historic()),
                     total_fields=("total_bought", "total_sold", "diff"),
                 ),
-                **qs.monthly_avg(),
+                **qs.since_a_year_ago_monthly_avg(),
             }
         )
+        return Response(serializer.data, status=HTTP_200_OK)
+
+    @action(methods=("GET",), detail=False)
+    def total_bought_per_asset_type_report(self, request: Request) -> Response:
+        filterset = filters.DateRangeFilterSet(data=request.GET, queryset=self.get_queryset())
+        qs = filterset.qs.filter_bought_and_group_by_asset_type()
+        serializer = serializers.TransactionsAssetTypeReportSerializer(qs, many=True)
         return Response(serializer.data, status=HTTP_200_OK)
 
 

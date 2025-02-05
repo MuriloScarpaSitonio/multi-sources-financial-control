@@ -230,7 +230,7 @@ def test__historic_report(client, user):
     qs = Expense.objects.filter(
         user_id=user.id,
         created_at__gte=start_date.replace(day=1),
-        created_at__lte=end_date + relativedelta(day=31),  # last day of month
+        created_at__lte=last_day_of_month,
     )
 
     # WHEN

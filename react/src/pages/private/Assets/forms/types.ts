@@ -18,7 +18,7 @@ export type AssetCodeAutoCompleteProps = ReactHookFormsInputCustomProps &
     creatable: false;
     newCode?: unknown;
     setNewCode?: unknown;
-    isHeldInSelfCustody?: boolean;
+    isNewAssetHeldInSelfCustody?: boolean;
   };
 export type CreatableAssetCodeAutoCompleteProps =
   ReactHookFormsInputCustomProps &
@@ -26,5 +26,5 @@ export type CreatableAssetCodeAutoCompleteProps =
       creatable: true;
       newCode: string | undefined;
       setNewCode: Dispatch<SetStateAction<string | undefined>>;
-      isHeldInSelfCustody?: boolean;
+      isNewAssetHeldInSelfCustody?: boolean;
     };

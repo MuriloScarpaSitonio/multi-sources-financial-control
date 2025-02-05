@@ -32,12 +32,11 @@ from .service_layer.unit_of_work import DjangoUnitOfWork
 
 class MinimalAssetSerializer(serializers.ModelSerializer):
     type = CustomChoiceField(choices=choices.AssetTypes.choices)
-    currency = CustomChoiceField(choices=choices.Currencies.choices)
     code = serializers.CharField(max_length=100, required=False)
 
     class Meta:
         model = Asset
-        fields = ("pk", "code", "type", "currency", "description")
+        fields = ("pk", "code", "type", "currency", "description", "is_held_in_self_custody")
 
 
 class TransactionSimulateSerializer(serializers.Serializer):
@@ -391,29 +390,17 @@ class AssetRoidIndicatorsSerializer(serializers.Serializer):
     )
 
 
-class PassiveIncomesIndicatorsSerializer(serializers.Serializer):
+class AvgSerializer(serializers.Serializer):
     avg = serializers.DecimalField(
         max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
+
+
+class PassiveIncomesIndicatorsSerializer(AvgSerializer):
     current_credited = serializers.DecimalField(
         max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
     provisioned_future = serializers.DecimalField(
-        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
-    )
-    diff_percentage = serializers.DecimalField(
-        max_digits=15, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
-    )
-
-
-class TransactionsIndicatorsSerializer(serializers.Serializer):
-    avg = serializers.DecimalField(
-        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
-    )
-    current_bought = serializers.DecimalField(
-        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
-    )
-    current_sold = serializers.DecimalField(
         max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
     diff_percentage = serializers.DecimalField(
@@ -434,11 +421,8 @@ class _TransactionHistoricSerializer(serializers.Serializer):
     )
 
 
-class TransactionHistoricSerializer(serializers.Serializer):
+class TransactionHistoricSerializer(AvgSerializer):
     historic = _TransactionHistoricSerializer(many=True)
-    avg = serializers.DecimalField(
-        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
-    )
 
 
 class _AssetReportSerializer(serializers.Serializer):
@@ -462,11 +446,8 @@ class _PassiveIncomeHistoricSerializer(serializers.Serializer):
     month = serializers.DateField(format="%d/%m/%Y")
 
 
-class PassiveIncomeHistoricSerializer(serializers.Serializer):
+class PassiveIncomeHistoricSerializer(AvgSerializer):
     historic = _PassiveIncomeHistoricSerializer(many=True)
-    avg = serializers.DecimalField(
-        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
-    )
 
 
 class PassiveIncomeAssetsAggregationSerializer(serializers.Serializer):
@@ -499,3 +480,13 @@ class AssetMetadataWriteSerializer(serializers.Serializer):
                 }
             )
         return super().validate(attrs)
+
+
+class SumSerializer(serializers.Serializer):
+    bought = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
+    sold = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
+
+
+class TransactionsAssetTypeReportSerializer(serializers.Serializer):
+    total_bought = serializers.DecimalField(max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP)
+    asset_type = CustomChoiceField(choices=choices.AssetTypes.choices)

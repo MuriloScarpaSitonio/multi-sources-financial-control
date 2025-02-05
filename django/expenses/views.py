@@ -67,6 +67,7 @@ class _PersonalFinanceViewSet(
 
     @action(methods=("GET",), detail=False)
     def historic(self, request: Request) -> Response:
+        # TODO remove
         filterset = self.historic_filterset_class(data=request.GET, queryset=self.get_queryset())
         serializer = serializers.HistoricResponseSerializer(
             {

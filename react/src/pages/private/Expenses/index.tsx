@@ -1,4 +1,4 @@
-import { useMemo, useState, type SyntheticEvent } from "react";
+import { useMemo, useState, type Context, type SyntheticEvent } from "react";
 
 import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
@@ -8,16 +8,16 @@ import Tabs from "@mui/material/Tabs";
 import { useSearchParams } from "react-router-dom";
 import { endOfMonth, Month, startOfMonth } from "date-fns";
 
+import { Colors, getColor, PeriodsManager } from "../../../design-system";
+import { ContextType as PeriodsManagerContextType } from "../../../design-system/components/PeriodsManager";
 import { default as RevenueReports } from "../Revenues/Reports";
 import { default as RevenuesTable } from "../Revenues/Table";
 import { useGetCategories as useRevenuesCategories } from "../Revenues/hooks/useGetCategories";
 import { ExpensesContext } from "./context";
 import { useGetCategories, useGetSources } from "./hooks";
 import Indicators from "./Indicators";
-import PeriodsManager from "./PeriodsManager";
 import { default as ExpenseReports } from "./Reports";
 import { default as ExpensesTable } from "./Table";
-import { Colors, getColor } from "../../../design-system";
 
 const customEndOfMonth = (date: Date) => {
   const result = endOfMonth(date);
@@ -129,7 +129,11 @@ const Expenses = () => {
   return (
     <ExpensesContext.Provider value={contextValue}>
       <Stack spacing={2}>
-        <PeriodsManager />
+        <PeriodsManager
+          context={
+            ExpensesContext as unknown as Context<PeriodsManagerContextType>
+          }
+        />
         <Grid container spacing={4}>
           <Grid item xs={6}>
             <Indicators />

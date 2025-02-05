@@ -13,9 +13,6 @@ import {
   Bar,
   BarChart as BarReChart,
   Cell,
-  Legend,
-  Pie,
-  PieChart as PieReChart,
   ReferenceLine,
   Tooltip,
   XAxis,
@@ -37,54 +34,6 @@ const getBarSize = ({ numOfBars }: { numOfBars: number }) =>
 const getChartHeigtMultiplier = ({ numOfBars }: { numOfBars: number }) =>
   // for every bar above threshold add .05; fallback to 1 if less than threshold
   1 + Math.max((numOfBars - ADEQUATE_NUMBER_OF_BARS) / 10, 0);
-
-const renderCustomizedLabel = ({
-  cx,
-  cy,
-  midAngle,
-  innerRadius,
-  outerRadius,
-  value,
-  name,
-  fill,
-}: {
-  cx: number;
-  cy: number;
-  midAngle: number;
-  innerRadius: number;
-  outerRadius: number;
-  value: number;
-  name: keyof typeof AssetOptionsProperties;
-  fill: string;
-}) => {
-  const RADIAN = Math.PI / 180;
-  const radius = 25 + innerRadius + (outerRadius - innerRadius);
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
-  return (
-    <>
-      <text
-        x={x}
-        y={y}
-        fill={fill}
-        textAnchor={x > cx ? "start" : "end"}
-        dominantBaseline="central"
-      >
-        {name}
-      </text>
-      <text
-        x={x}
-        y={y + 15}
-        fill={getColor(Colors.neutral200)}
-        textAnchor={x > cx ? "start" : "end"}
-        dominantBaseline="central"
-      >
-        {value.toLocaleString("pt-br", { minimumFractionDigits: 2 })}%
-      </text>
-    </>
-  );
-};
 
 const ReportHorizontalBarChartTooltip = ({
   active,
@@ -248,63 +197,5 @@ export const HorizontalBarChart = ({
         );
       })}
     </BarChart>
-  );
-};
-
-export const PieChart = ({
-  data,
-  groupBy,
-}: {
-  data: ReportUnknownAggregationData;
-  groupBy: GroupBy;
-}) => {
-  const hasFewOptions = groupBy === GroupBy.OBJECTIVE;
-  return (
-    <PieReChart
-      width={CHART_WIDTH}
-      height={CHART_HEIGHT}
-      margin={{ right: 100 }}
-    >
-      {!hasFewOptions && (
-        <Legend
-          payload={data?.map((item) => {
-            const label = item[groupBy] as keyof typeof AssetOptionsProperties;
-            const { color } = AssetOptionsProperties[label];
-            return {
-              value: label,
-              color,
-            };
-          })}
-        />
-      )}
-      <Pie
-        data={data}
-        dataKey="total"
-        nameKey={groupBy}
-        cx="50%"
-        cy="50%"
-        innerRadius={70}
-        outerRadius={100}
-        label={
-          hasFewOptions
-            ? renderCustomizedLabel
-            : (l) => `${l.payload.total.toLocaleString("pt-br")}%`
-        }
-        labelLine={false}
-        stroke="none"
-        paddingAngle={2}
-        minAngle={2}
-      >
-        {data?.map((item) => {
-          const label = item[groupBy] as keyof typeof AssetOptionsProperties;
-          return (
-            <Cell
-              key={`assets-total-invested-report-pie-chart-cell-${label}`}
-              fill={AssetOptionsProperties[label].color}
-            />
-          );
-        })}
-      </Pie>
-    </PieReChart>
   );
 };

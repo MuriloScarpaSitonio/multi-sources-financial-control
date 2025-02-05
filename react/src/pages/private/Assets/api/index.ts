@@ -105,7 +105,14 @@ export const getAssetIncomes = async ({
 export const getAssetsMinimalData = async (params?: {
   status?: "OPENED" | "CLOSED";
   type?: string[];
-}): Promise<{ code: string; currency: AssetCurrencies; pk: number }[]> =>
+}): Promise<
+  {
+    code: string;
+    currency: AssetCurrencies;
+    pk: number;
+    is_held_in_self_custody: boolean;
+  }[]
+> =>
   (
     await apiProvider.get(`${RESOURCE}/minimal_data`, {
       params,
@@ -123,36 +130,6 @@ export const simulateTransaction = async ({
 }): Promise<{ new: SimulatedAsset; old: SimulatedAsset }> =>
   (await apiProvider.post(`${RESOURCE}/${assetId}/transactions/simulate`, data))
     .data;
-
-export const createTransaction = async (data: {
-  asset_pk: number;
-  action: string;
-  price: number;
-  quantity?: number;
-  operation_date: Date;
-  current_currency_conversion_rate?: number;
-}) =>
-  (
-    await apiProvider.post("transactions", {
-      ...data,
-      operation_date: data.operation_date.toLocaleDateString("pt-br"),
-    })
-  ).data;
-
-export const createIncome = async (data: {
-  asset_pk: number;
-  type: string;
-  event_type: string;
-  amount: number;
-  operation_date: Date;
-  current_currency_conversion_rate?: number;
-}) =>
-  (
-    await apiProvider.post("incomes", {
-      ...data,
-      operation_date: data.operation_date.toLocaleDateString("pt-br"),
-    })
-  ).data;
 
 export const deleteAsset = async (id: number) =>
   (await apiProvider.Delete(`${RESOURCE}/${id}`)).data;

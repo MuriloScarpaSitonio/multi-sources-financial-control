@@ -11,16 +11,19 @@ const IncomesIndicator = () => {
   return (
     <Indicator
       title="Rendimentos"
-      tooltipText="Valor de referência: média mensal dos últimos 12 meses"
+      tooltipText="No mês atual"
       value={data?.current_credited}
       secondaryIndicator={
         <PercentageChangeSecondaryIndicator
           value={data?.diff_percentage}
           isLoading={isPending}
           variant={variant}
-          tooltipText={`Média: R$ ${data?.avg.toLocaleString("pt-br", {
-            minimumFractionDigits: 2,
-          })}`}
+          tooltipText={`Média dos últimos 12 meses: R$ ${data?.avg.toLocaleString(
+            "pt-br",
+            {
+              minimumFractionDigits: 2,
+            },
+          )}`}
         />
       }
       Icon={MonetizationOnOutlinedIcon}

@@ -1,17 +1,18 @@
+import type { Context, Dispatch, SetStateAction } from "react";
+
+import { format, Month } from "date-fns";
+import { ptBR } from "date-fns/locale/pt-BR";
+
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 
-import { format, Month } from "date-fns";
-import { ptBR } from "date-fns/locale/pt-BR";
-
 import { useCallback, useContext, useMemo } from "react";
 
-import { ExpensesContext } from "./context";
-import { isFilteringWholeMonth } from "./utils";
-
-import { Text, FontSizes, FontWeights } from "../../../design-system";
+import Text from "./Text";
+import { FontSizes, FontWeights } from "../enums";
+import { isFilteringWholeMonth } from "../utils";
 
 const months = [
   "Janeiro",
@@ -27,11 +28,21 @@ const months = [
   "Novembro",
   "Dezembro",
 ];
+export interface ContextType {
+  startDate: Date;
+  setStartDate: Dispatch<SetStateAction<Date>>;
+  endDate: Date;
+  setEndDate: Dispatch<SetStateAction<Date>>;
+  month: Month | undefined;
+  setMonth: Dispatch<SetStateAction<Month | undefined>>;
+  year: number;
+  setYear: Dispatch<SetStateAction<number>>;
+}
 
-const MonthChips = () => {
+const MonthChips = ({ context }: { context: Context<ContextType> }) => {
   const currentYear = useMemo(() => new Date().getFullYear(), []);
   const { month, setMonth, year, setYear, setStartDate, setEndDate } =
-    useContext(ExpensesContext);
+    useContext(context);
 
   const onMonthClick = useCallback(
     (value: number) => {
@@ -79,8 +90,8 @@ const MonthChips = () => {
   );
 };
 
-const PeriodsManager = () => {
-  const { startDate, endDate } = useContext(ExpensesContext);
+const PeriodsManager = ({ context }: { context: Context<ContextType> }) => {
+  const { startDate, endDate } = useContext(context);
 
   const getPeriod = useCallback(() => {
     if (isFilteringWholeMonth(startDate, endDate))
@@ -97,7 +108,7 @@ const PeriodsManager = () => {
       <Text size={FontSizes.LARGE} weight={FontWeights.BOLD}>
         {getPeriod()}
       </Text>
-      <MonthChips />
+      <MonthChips context={context} />
     </Stack>
   );
 };

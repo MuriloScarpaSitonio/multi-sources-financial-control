@@ -12,11 +12,13 @@ const PercentageChangeSecondaryIndicator = ({
   variant,
   isLoading,
   tooltipText,
+  text = "em relação a média dos últimos 12 meses",
 }: {
   value?: number;
   variant: "success" | "danger";
   isLoading: boolean;
   tooltipText?: string;
+  text?: string;
 }) => {
   const percentageIcon =
     variant === "success" ? (
@@ -62,7 +64,7 @@ const PercentageChangeSecondaryIndicator = ({
                 minimumFractionDigits: 2,
               })}% `}
             </Text>
-            no último mês
+            {text}
           </Text>
           {tooltipText && <InfoIconTooltip text={tooltipText} />}
         </>

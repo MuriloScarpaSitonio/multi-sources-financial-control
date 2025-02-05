@@ -6,7 +6,9 @@ from typing import TYPE_CHECKING
 from django.core.exceptions import ValidationError
 from django.forms import Form
 
-import django_filters as filters
+import django_filters
+
+from shared.filters_utils import MonthFilter
 
 from .choices import (
     AssetObjectives,
@@ -31,22 +33,22 @@ if TYPE_CHECKING:  # pragma: no cover
     from .models.managers import AssetReadModelQuerySet
 
 
-class CQRSDjangoFilterBackend(filters.rest_framework.DjangoFilterBackend):
+class CQRSDjangoFilterBackend(django_filters.rest_framework.DjangoFilterBackend):
     def get_filterset_class(self, view: View, _: QuerySet | None = None):
         return view.get_filterset_class()
 
 
-class AssetFilterSet(filters.FilterSet):
-    code = filters.CharFilter(lookup_expr="icontains")
+class AssetFilterSet(django_filters.FilterSet):
+    code = django_filters.CharFilter(lookup_expr="icontains")
 
     class Meta:
         model = Asset
         exclude = ("user",)
 
 
-class AssetReadStatusFilterSet(filters.FilterSet):
-    status = filters.ChoiceFilter(choices=AssetStatus.choices, method="filter_status")
-    type = filters.MultipleChoiceFilter(choices=AssetTypes.choices)
+class AssetReadStatusFilterSet(django_filters.FilterSet):
+    status = django_filters.ChoiceFilter(choices=AssetStatus.choices, method="filter_status")
+    type = django_filters.MultipleChoiceFilter(choices=AssetTypes.choices)
 
     class Meta:
         model = AssetReadModel
@@ -59,17 +61,17 @@ class AssetReadStatusFilterSet(filters.FilterSet):
 
 
 class AssetReadFilterSet(AssetReadStatusFilterSet):
-    code = filters.CharFilter(lookup_expr="icontains")
-    objective = filters.MultipleChoiceFilter(choices=AssetObjectives.choices)
-    type = filters.MultipleChoiceFilter(choices=AssetTypes.choices)
-    sector = filters.MultipleChoiceFilter(
+    code = django_filters.CharFilter(lookup_expr="icontains")
+    objective = django_filters.MultipleChoiceFilter(choices=AssetObjectives.choices)
+    type = django_filters.MultipleChoiceFilter(choices=AssetTypes.choices)
+    sector = django_filters.MultipleChoiceFilter(
         choices=AssetSectors.choices,
         field_name="metadata__sector",  # TODO: unable to resolve via repository?
     )
 
 
-class AssetFetchCurrentPriceFilterSet(filters.FilterSet):
-    code = filters.MultipleChoiceFilter(choices=[])
+class AssetFetchCurrentPriceFilterSet(django_filters.FilterSet):
+    code = django_filters.MultipleChoiceFilter(choices=[])
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -85,7 +87,7 @@ class AssetFetchCurrentPriceFilterSet(filters.FilterSet):
     def qs(self):
         if self.is_valid():
             return super().qs
-        raise filters.utils.translate_validation(error_dict=self.errors)
+        raise django_filters.utils.translate_validation(error_dict=self.errors)
 
 
 class _AssetReportsForm(Form):
@@ -114,13 +116,13 @@ class _AssetReportsForm(Form):
         return percentage
 
 
-class AssetReportsFilterSet(filters.FilterSet):
-    kind = filters.ChoiceFilter(choices=AssetReportsKinds.choices, required=True)
-    opened = filters.BooleanFilter(required=False)
-    closed = filters.BooleanFilter(required=False)
-    current = filters.BooleanFilter(required=False)
-    percentage = filters.BooleanFilter(required=False)
-    group_by = filters.ChoiceFilter(choices=AssetsReportsAggregations.choices, required=True)
+class AssetReportsFilterSet(django_filters.FilterSet):
+    kind = django_filters.ChoiceFilter(choices=AssetReportsKinds.choices, required=True)
+    opened = django_filters.BooleanFilter(required=False)
+    closed = django_filters.BooleanFilter(required=False)
+    current = django_filters.BooleanFilter(required=False)
+    percentage = django_filters.BooleanFilter(required=False)
+    group_by = django_filters.ChoiceFilter(choices=AssetsReportsAggregations.choices, required=True)
 
     queryset: AssetReadModelQuerySet
 
@@ -162,27 +164,33 @@ class AssetReportsFilterSet(filters.FilterSet):
                     }
                     for result in _qs
                 ]
-        raise filters.utils.translate_validation(error_dict=self.errors)
+        raise django_filters.utils.translate_validation(error_dict=self.errors)
 
 
-class TransactionFilterSet(filters.FilterSet):
-    asset_code = filters.CharFilter(field_name="asset__code", lookup_expr="icontains")
-    asset_type = filters.ChoiceFilter(field_name="asset__type", choices=AssetTypes.choices)
-    start_date = filters.DateFilter(field_name="operation_date", lookup_expr="gte")
-    end_date = filters.DateFilter(field_name="operation_date", lookup_expr="lte")
+class TransactionFilterSet(django_filters.FilterSet):
+    asset_code = django_filters.CharFilter(field_name="asset__code", lookup_expr="icontains")
+    asset_type = django_filters.MultipleChoiceFilter(
+        field_name="asset__type", choices=AssetTypes.choices
+    )
+    start_date = django_filters.DateFilter(
+        field_name="operation_date", lookup_expr="gte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
+    )
+    end_date = django_filters.DateFilter(
+        field_name="operation_date", lookup_expr="lte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
+    )
 
     class Meta:
         model = Transaction
         fields = ("action",)
 
 
-class PassiveIncomeFilterSet(filters.FilterSet):
-    asset_code = filters.CharFilter(field_name="asset__code", lookup_expr="icontains")
-    asset_type = filters.ChoiceFilter(field_name="asset__type", choices=AssetTypes.choices)
-    start_date = filters.DateFilter(
+class PassiveIncomeFilterSet(django_filters.FilterSet):
+    asset_code = django_filters.CharFilter(field_name="asset__code", lookup_expr="icontains")
+    asset_type = django_filters.ChoiceFilter(field_name="asset__type", choices=AssetTypes.choices)
+    start_date = django_filters.DateFilter(
         field_name="operation_date", lookup_expr="gte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
     )
-    end_date = filters.DateFilter(
+    end_date = django_filters.DateFilter(
         field_name="operation_date", lookup_expr="lte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
     )
 
@@ -191,10 +199,10 @@ class PassiveIncomeFilterSet(filters.FilterSet):
         fields = ("type", "event_type")
 
 
-class PassiveIncomeAssetsAgreggationReportFilterSet(filters.FilterSet):
-    all = filters.BooleanFilter()
-    credited = filters.BooleanFilter()
-    provisioned = filters.BooleanFilter()
+class PassiveIncomeAssetsAgreggationReportFilterSet(django_filters.FilterSet):
+    all = django_filters.BooleanFilter()
+    credited = django_filters.BooleanFilter()
+    provisioned = django_filters.BooleanFilter()
 
     @property
     def qs(self):
@@ -213,17 +221,55 @@ class PassiveIncomeAssetsAgreggationReportFilterSet(filters.FilterSet):
                 credited=self.form.cleaned_data["credited"],
                 provisioned=self.form.cleaned_data["provisioned"],
             )
-        raise filters.utils.translate_validation(error_dict=self.errors)
+        raise django_filters.utils.translate_validation(error_dict=self.errors)
 
 
-class AssetsTotalInvestedSnapshotFilterSet(filters.FilterSet):
-    start_date = filters.DateFilter(
+class AssetsTotalInvestedSnapshotFilterSet(django_filters.FilterSet):
+    start_date = django_filters.DateFilter(
         field_name="operation_date", lookup_expr="gte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
     )
-    end_date = filters.DateFilter(
+    end_date = django_filters.DateFilter(
         field_name="operation_date", lookup_expr="lte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
     )
 
     class Meta:
         model = AssetsTotalInvestedSnapshot
         fields = ()
+
+
+class DateRangeFilterSet(django_filters.FilterSet):
+
+    start_date = django_filters.DateFilter(
+        field_name="operation_date",
+        lookup_expr="gte",
+        required=True,
+        input_formats=["%d/%m/%Y", "%Y-%m-%d"],
+    )
+    end_date = django_filters.DateFilter(
+        field_name="operation_date",
+        lookup_expr="lte",
+        required=True,
+        input_formats=["%d/%m/%Y", "%Y-%m-%d"],
+    )
+
+
+class MonthlyDateRangeFilterSet(django_filters.FilterSet):
+    start_date = MonthFilter(
+        field_name="operation_date",
+        lookup_expr="gte",
+        required=True,
+        input_formats=["%d/%m/%Y", "%Y-%m-%d"],
+    )
+    end_date = MonthFilter(
+        field_name="operation_date",
+        lookup_expr="lte",
+        required=True,
+        input_formats=["%d/%m/%Y", "%Y-%m-%d"],
+        end=True,
+    )
+
+    @property
+    def qs(self):
+        if self.is_valid():
+            return super().qs
+        raise django_filters.utils.translate_validation(error_dict=self.errors)

@@ -12,9 +12,8 @@ import { yupResolver } from "@hookform/resolvers/yup";
 
 import * as yup from "yup";
 
-import { Text } from "../../../../../design-system";
+import { isFilteringWholeMonth, Text } from "../../../../../design-system";
 import { ExpensesContext } from "../../../Expenses/context";
-import { isFilteringWholeMonth } from "../../../Expenses/utils";
 
 const schema = yup.object().shape({
   start_date: yup.date(),

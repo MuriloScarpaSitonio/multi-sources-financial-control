@@ -50,7 +50,7 @@ export const AssetCodeAutoComplete = ({
   isFieldInvalid,
   getFieldHasError,
   getErrorMessage,
-  isHeldInSelfCustody = false,
+  isNewAssetHeldInSelfCustody = false,
 }: AssetCodeAutoCompleteProps | CreatableAssetCodeAutoCompleteProps) => {
   const { data: assets, isPending: isFetchingAssets } =
     useAssetsMinimalData(filters);
@@ -61,6 +61,7 @@ export const AssetCodeAutoComplete = ({
         label: asset.code,
         value: asset.pk,
         currency: asset.currency,
+        is_held_in_self_custody: asset.is_held_in_self_custody,
       })) ?? [],
     [assets],
   );
@@ -80,7 +81,7 @@ export const AssetCodeAutoComplete = ({
                 loadingText="Carregando ativos..."
                 loading={isFetchingAssets}
                 options={options}
-                disabled={isHeldInSelfCustody}
+                disabled={isNewAssetHeldInSelfCustody}
                 getOptionLabel={(option) => option.label}
                 onChange={(_, asset, reason) => {
                   if (!creatable) return field.onChange(asset);
@@ -89,12 +90,19 @@ export const AssetCodeAutoComplete = ({
                     setNewCode("");
                     return;
                   }
-                  const { label, value, currency, inputValue } = asset;
+                  const {
+                    label,
+                    value,
+                    currency,
+                    is_held_in_self_custody,
+                    inputValue,
+                  } = asset;
                   setNewCode(inputValue);
                   field.onChange({
                     label: inputValue ?? label,
                     value: inputValue ? 0 : value,
                     currency,
+                    is_held_in_self_custody,
                   });
                 }}
                 filterOptions={
@@ -152,7 +160,7 @@ export const AssetCodeAutoComplete = ({
           </Text>
         </Stack>
       </Stack>
-      {isHeldInSelfCustody && (
+      {isNewAssetHeldInSelfCustody && (
         <FormHelperText>
           Ativos custodiados fora da b3 não apresentam código específico
         </FormHelperText>

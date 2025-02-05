@@ -1,5 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
+from statistics import fmean
 
 from django.utils import timezone
 
@@ -697,97 +698,182 @@ def test__update__sell__asset_held_in_self_custody__closed(
 
 
 @pytest.mark.usefixtures("transactions_indicators_data")
-def test__indicators(client):
+def test__historic_report(client, user, stock_asset):
     # GIVEN
-    base_date = timezone.now().date().replace(day=1)
-    relative_date = base_date - relativedelta(months=13)
-    summ = current_bought = current_sold = 0
-
-    for _ in range(13):
-        relative_date = relative_date + relativedelta(months=1)
-
-        bought = sum(
-            t.price * t.quantity * t.current_currency_conversion_rate
-            for t in Transaction.objects.bought().filter(
-                operation_date__month=relative_date.month,
-                operation_date__year=relative_date.year,
-            )
-        )
-        sold = sum(
-            t.price * t.quantity * t.current_currency_conversion_rate
-            for t in Transaction.objects.sold().filter(
-                operation_date__month=relative_date.month,
-                operation_date__year=relative_date.year,
-            )
-        )
-
-        if relative_date == base_date:
-            current_bought = bought
-            current_sold = sold
-            continue
-
-        summ += bought - sold
+    today = timezone.localdate().replace(day=12)
+    start_date, end_date = today - relativedelta(months=18), today
+    first_day_of_month, last_day_of_month = start_date.replace(day=1), end_date + relativedelta(
+        day=31
+    )
+    Transaction.objects.create(
+        operation_date=last_day_of_month,
+        price=12,
+        quantity=100,
+        action=TransactionActions.buy,
+        asset=stock_asset,
+    )
+    qs = Transaction.objects.filter(
+        asset__user_id=user.id,
+        operation_date__gte=first_day_of_month,
+        operation_date__lte=last_day_of_month,
+    )
 
     # WHEN
-    response = client.get(f"{URL}/indicators")
+    response = client.get(
+        f"{URL}/historic_report?start_date={start_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}"
+    )
+    response_json = response.json()
 
     # THEN
-    avg = summ / 12
+    assert response.status_code == HTTP_200_OK
 
-    assert response.status_code == 200
+    totals = []
+    for result in response_json["historic"]:
+        d = datetime.strptime(result["month"], "%d/%m/%Y").date()
+        total_bought = sum(
+            t.price * t.quantity * t.current_currency_conversion_rate
+            for t in Transaction.objects.bought().filter(
+                operation_date__month=d.month,
+                operation_date__year=d.year,
+            )
+        )
+
+        assert convert_and_quantitize(result["total_bought"]) == convert_and_quantitize(
+            total_bought
+        )
+
+        total_sold = sum(
+            t.price * t.quantity * t.current_currency_conversion_rate
+            for t in Transaction.objects.sold().filter(
+                operation_date__month=d.month,
+                operation_date__year=d.year,
+            )
+        )
+
+        totals.append(total_bought - total_sold)
+        assert convert_and_quantitize(result["total_sold"]) == convert_and_quantitize(
+            total_sold * Decimal("-1")
+        )
+
+        assert convert_and_quantitize(result["diff"]) == convert_and_quantitize(
+            total_bought - total_sold
+        )
+
+    assert convert_and_quantitize(response_json["avg"]) == convert_and_quantitize(
+        qs.since_a_year_ago_monthly_avg()["avg"]
+    )
+
+
+@pytest.mark.usefixtures("transactions_indicators_data")
+def test__sum(client, user):
+    # GIVEN
+    today = timezone.localdate()
+    start_date, end_date = today, today + relativedelta(months=1)
+    qs = Transaction.objects.filter(
+        asset__user_id=user.id, operation_date__range=(start_date, end_date)
+    )
+
+    total_bought = sum(
+        t.price * t.quantity * t.current_currency_conversion_rate for t in qs.bought()
+    )
+    total_sold = sum(t.price * t.quantity * t.current_currency_conversion_rate for t in qs.sold())
+
+    # WHEN
+    response = client.get(
+        f"{URL}/sum?start_date={start_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}"
+    )
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
     assert response.json() == {
-        "avg": convert_and_quantitize(avg),
-        "current_bought": convert_and_quantitize(current_bought),
-        "current_sold": convert_and_quantitize(current_sold),
-        "diff_percentage": convert_and_quantitize(
-            (((current_bought - current_sold) / avg) - Decimal("1.0")) * Decimal("100.0")
-        ),
+        "bought": convert_and_quantitize(total_bought),
+        "sold": convert_and_quantitize(total_sold),
     }
 
 
 @pytest.mark.usefixtures("transactions_indicators_data")
-def test__historic(client):
+def test__avg(client, user):
     # GIVEN
-    base_date = timezone.now().date().replace(day=1)
-    relative_date = base_date - relativedelta(months=13)
-    summ = 0
-    result = {}
-
-    for _ in range(13):
-        relative_date = relative_date + relativedelta(months=1)
-
-        bought = sum(
+    today = timezone.localdate()
+    qs = (
+        Transaction.objects.filter(asset__user_id=user.id)
+        .since_a_year_ago()
+        .exclude(operation_date__month=today.month, operation_date__year=today.year)
+    )
+    totals = []
+    for i in range(1, 13):
+        d = today - relativedelta(months=i)
+        total_bought = sum(
             t.price * t.quantity * t.current_currency_conversion_rate
-            for t in Transaction.objects.bought().filter(
-                operation_date__month=relative_date.month,
-                operation_date__year=relative_date.year,
+            for t in qs.bought().filter(
+                operation_date__month=d.month,
+                operation_date__year=d.year,
             )
         )
-        sold = sum(
+        total_sold = sum(
             t.price * t.quantity * t.current_currency_conversion_rate
-            for t in Transaction.objects.sold().filter(
-                operation_date__month=relative_date.month,
-                operation_date__year=relative_date.year,
+            for t in qs.sold().filter(
+                operation_date__month=d.month,
+                operation_date__year=d.year,
             )
         )
-
-        result[f"{relative_date.day:02}/{relative_date.month:02}/{relative_date.year}"] = {
-            "total_sold": convert_and_quantitize(sold * Decimal("-1")),
-            "total_bought": convert_and_quantitize(bought),
-            "diff": convert_and_quantitize(bought - sold),
-        }
-
-        if relative_date != base_date:
-            summ += bought - sold
+        totals.append(total_bought - total_sold)
 
     # WHEN
-    response = client.get(f"{URL}/historic")
+    response = client.get(f"{URL}/avg")
 
     # THEN
-    for h in response.json()["historic"]:
-        assert result[h.pop("month")] == h
+    assert response.status_code == HTTP_200_OK
 
-    assert response.json()["avg"] == convert_and_quantitize(summ / 12)
+    assert response.json() == {"avg": convert_and_quantitize(fmean(totals))}
+
+
+@pytest.mark.usefixtures("transactions_indicators_data")
+def test__total_bought_per_asset_type_report(client, user, stock_usa_asset):
+    # GIVEN
+    today = timezone.localdate()
+    start_date, end_date = today, today + relativedelta(months=1)
+    last_day_of_month = end_date + relativedelta(day=31)
+    Transaction.objects.create(
+        operation_date=last_day_of_month,
+        price=12,
+        quantity=100,
+        action=TransactionActions.buy,
+        asset=stock_usa_asset,
+        current_currency_conversion_rate=5.8,
+    )
+    qs = Transaction.objects.filter(
+        asset__user_id=user.id,
+        operation_date__gte=start_date,
+        operation_date__lte=end_date,
+    )
+    result = []
+    for asset_type in qs.values_list("asset__type", flat=True).distinct():
+        total_bought = sum(
+            t.price * t.quantity * t.current_currency_conversion_rate
+            for t in qs.bought().filter(asset__type=asset_type)
+        )
+        result.append(
+            {
+                "asset_type": AssetTypes.get_choice(asset_type).label,
+                "total_bought": convert_and_quantitize(total_bought),
+            }
+        )
+
+    # WHEN
+    response = client.get(
+        f"{URL}/total_bought_per_asset_type_report"
+        + f"?start_date={start_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}"
+    )
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    assert response.json() == sorted(result, key=lambda r: r["total_bought"], reverse=True)
 
 
 @pytest.mark.usefixtures("stock_asset")
@@ -943,8 +1029,9 @@ def test__list__sanity_check(client, buy_transaction):
                     "pk": buy_transaction.asset.pk,
                     "code": buy_transaction.asset.code,
                     "type": AssetTypes.get_choice(buy_transaction.asset.type).label,
-                    "currency": Currencies.get_choice(buy_transaction.asset.currency).label,
+                    "currency": buy_transaction.asset.currency,
                     "description": buy_transaction.asset.description,
+                    "is_held_in_self_custody": buy_transaction.asset.is_held_in_self_custody,
                 },
             }
         ],

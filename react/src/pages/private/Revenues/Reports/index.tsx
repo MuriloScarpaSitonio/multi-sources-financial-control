@@ -1,29 +1,20 @@
-import { useContext, useMemo, useState } from "react";
+import { useCallback, useContext, useMemo, useState } from "react";
 
 import { TabPanel } from "@mui/base/TabPanel";
-import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 
 import {
+  BarChartWithReferenceLine,
   DatePickers,
-  FontSizes,
+  PieChart,
   ReportBox,
   ReportTabs,
   StyledTab,
   StyledTabs,
   StyledTabsList,
-  Text,
 } from "../../../../design-system";
-import {
-  GroupBy,
-  HistoricReportResponse,
-  ReportAggregatedByCategoryDataItem,
-} from "../../Expenses/types";
-import {
-  BarChartWithReferenceLine,
-  PieChart,
-} from "../../Expenses/Reports/charts";
+import { GroupBy, HistoricReportResponse } from "../../Expenses/types";
 import {
   useRevenuesHistoricReport,
   useRevenuesPercentagenReport,
@@ -83,6 +74,11 @@ const PercentageContent = () => {
     endDate,
   });
 
+  const colorsPredicate = useCallback(
+    (label: string) => colors.get(label) as string,
+    [colors],
+  );
+
   return (
     <Stack justifyContent="center" sx={{ py: 1, pl: 2.5 }}>
       <DatePickers
@@ -92,23 +88,14 @@ const PercentageContent = () => {
         endDate={endDate}
         setEndDate={setEndDate}
       />
-      {!!data?.length ? (
-        <PieChart
-          data={data as ReportAggregatedByCategoryDataItem[]}
-          groupBy={GroupBy.CATEGORY}
-          colors={colors}
-        />
-      ) : (
-        <Box sx={{ py: 18, pl: 15, mr: 25 }}>
-          {isPending ? (
-            <></>
-          ) : (
-            <Text size={FontSizes.SEMI_REGULAR}>
-              Nenhuma receita encontrada
-            </Text>
-          )}
-        </Box>
-      )}
+      <PieChart
+        data={data ?? []}
+        isLoading={isPending}
+        groupBy={GroupBy.CATEGORY}
+        noDataText="Nenhuma receita encontrada"
+        colorPredicate={colorsPredicate}
+        cellPrefix="revenues-pie-chart-cell"
+      />
     </Stack>
   );
 };

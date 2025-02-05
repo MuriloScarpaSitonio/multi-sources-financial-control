@@ -11,13 +11,6 @@ import { ApiListResponse } from "../../../../../types";
 
 const RESOURCE = "expenses";
 
-export const getIndicators = async (): Promise<{
-  avg: number;
-  diff: number;
-  future: number;
-  total: number;
-}> => (await apiProvider.get(`${RESOURCE}/indicators`)).data;
-
 export const getSum = async (params: {
   startDate: Date;
   endDate: Date;

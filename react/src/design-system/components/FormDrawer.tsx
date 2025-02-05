@@ -22,6 +22,7 @@ const FormDrawer = ({
   formId,
   FormComponent,
   initialData,
+  variant,
 }: {
   title: string | ReactNode;
   open: boolean;
@@ -33,8 +34,10 @@ const FormDrawer = ({
     setIsDisabled?: Dispatch<SetStateAction<boolean>>;
     initialData?: any;
     onEditSuccess?: () => void;
+    variant?: string;
   }>;
   initialData?: any;
+  variant?: string;
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDisabled, setIsDisabled] = useState(false);
@@ -61,6 +64,7 @@ const FormDrawer = ({
           setIsDisabled={setIsDisabled}
           initialData={initialData}
           onEditSuccess={onClose}
+          variant={variant}
         />
         <Stack spacing={2} direction="row" justifyContent="flex-end">
           <Button onClick={onClose} variant="brand-text">

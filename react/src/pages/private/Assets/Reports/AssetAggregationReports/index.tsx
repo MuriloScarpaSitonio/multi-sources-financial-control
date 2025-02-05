@@ -12,21 +12,26 @@ import ReportTabs from "../../../../../design-system/components/ReportTabs";
 import { StyledTab, StyledTabs, StyledTabsList } from "./layout";
 import { GroupBy, Kinds, ReportUnknownAggregationData } from "../types";
 import {
-  PieChart,
   HorizontalBarChart,
   HorizontalPositiveNegativeBarChart,
 } from "./charts";
 import { useAssetsReports } from "./hooks";
+import { PieChart } from "../../../../../design-system";
+import { AssetOptionsProperties } from "../../consts";
+
+const colorPredicate = (label: string) => AssetOptionsProperties[label].color;
 
 const PercentageContent = ({
   groupBy,
   data,
   checked,
+  isLoading,
   onSwitchChange,
 }: {
   groupBy: GroupBy;
   data: ReportUnknownAggregationData;
   checked: boolean;
+  isLoading: boolean;
   onSwitchChange: (
     event: React.ChangeEvent<HTMLInputElement>,
     checked: boolean,
@@ -40,7 +45,14 @@ const PercentageContent = ({
           label="Preços atualizados"
         />
       </Stack>
-      <PieChart data={data} groupBy={groupBy} />
+      <PieChart
+        data={data}
+        groupBy={groupBy}
+        isLoading={isLoading}
+        noDataText="Nenhum ativo encontrado"
+        cellPrefix="assets-total-invested-report-pie-chart-cell"
+        colorPredicate={colorPredicate}
+      />
     </Stack>
   );
 };
@@ -128,10 +140,7 @@ const Content = ({ groupBy, kind }: { groupBy: GroupBy; kind: Kinds }) => {
   const [closed, setClosed] = useState(true);
 
   const percentage = kind === Kinds.TOTAL_INVESTED_PERCENTAGE;
-  const {
-    data,
-    // isPending TODO
-  } = useAssetsReports({
+  const { data, isPending } = useAssetsReports({
     group_by: groupBy,
     kind: percentage ? Kinds.TOTAL_INVESTED : kind,
     percentage,
@@ -143,9 +152,10 @@ const Content = ({ groupBy, kind }: { groupBy: GroupBy; kind: Kinds }) => {
   if (percentage)
     return (
       <PercentageContent
-        data={data as ReportUnknownAggregationData}
+        data={data ?? []}
         groupBy={groupBy}
         checked={current}
+        isLoading={isPending}
         onSwitchChange={(_, checked) => setCurrent(checked)}
       />
     );

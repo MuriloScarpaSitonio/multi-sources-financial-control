@@ -12,10 +12,13 @@ import { yupResolver } from "@hookform/resolvers/yup";
 
 import * as yup from "yup";
 
-import { AutoCompleteMultiInput, Text } from "../../../../../design-system";
+import {
+  AutoCompleteMultiInput,
+  isFilteringWholeMonth,
+  Text,
+} from "../../../../../design-system";
 import { Filters } from "../../types";
 import { ExpensesContext } from "../../context";
-import { isFilteringWholeMonth } from "../../utils";
 import TagsAutoComplete from "../../components/TagsAutoComplete";
 
 type Options = { label: string; value: string }[] | undefined;

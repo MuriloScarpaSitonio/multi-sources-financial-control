@@ -4,8 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { startOfMonth } from "date-fns";
 
+import { isFilteringWholeMonth } from "../../../../design-system";
 import { getAvg, getSum } from "../api";
-import { isFilteringWholeMonth } from "../../Expenses/utils";
 
 const SUM_QUERY_KEY = "revenues-sum";
 

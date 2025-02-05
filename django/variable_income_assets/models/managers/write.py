@@ -15,7 +15,6 @@ from django.db.models import (
     Subquery,
     Sum,
     Value,
-    When,
 )
 from django.db.models.functions import Cast, Coalesce, Concat, TruncMonth
 
@@ -263,35 +262,40 @@ class TransactionQuerySet(QuerySet):
     def since_a_year_ago(self) -> Self:
         return self.filter(self.date_filters.since_a_year_ago)
 
-    def _annotate_totals(self) -> Self:
+    def annotate_totals(self) -> Self:
         return self.annotate(
             total_bought=self.expressions.get_normalized_total_bought(),
             total_sold=self.expressions.get_normalized_total_sold(),
         )
 
-    @property
-    def _monthly_avg_expression(self) -> CombinedExpression:
+    def since_a_year_ago_monthly_avg(self) -> dict[str, Decimal]:
         return (
-            Sum("total_bought", filter=~self.date_filters.current, default=Decimal())
-            - Sum("total_sold", filter=~self.date_filters.current, default=Decimal())
-        ) / (
-            Count(
-                Concat("operation_date__month", "operation_date__year", output_field=CharField()),
-                filter=~self.date_filters.current,
-                distinct=True,
+            self.annotate_totals()
+            .since_a_year_ago()
+            .exclude(self.date_filters.current)
+            .aggregate(
+                avg=Coalesce(
+                    (Sum("total_bought", default=Decimal()) - Sum("total_sold", default=Decimal()))
+                    / (
+                        Count(
+                            Concat(
+                                "operation_date__month",
+                                "operation_date__year",
+                                output_field=CharField(),
+                            ),
+                            distinct=True,
+                        )
+                        * Cast(1.0, DecimalField())
+                    ),
+                    Decimal(),
+                ),
             )
-            * Cast(1.0, DecimalField())
         )
 
-    def indicators(self) -> dict[str, Decimal]:
-        return self._annotate_totals().aggregate(
-            current_bought=Sum("total_bought", filter=self.date_filters.current, default=Decimal()),
-            current_sold=Sum("total_sold", filter=self.date_filters.current, default=Decimal()),
-            avg=Coalesce(self._monthly_avg_expression, Decimal()),
+    def sum(self) -> dict[str, Decimal]:
+        return self.annotate_totals().aggregate(
+            bought=Sum("total_bought", default=Decimal()), sold=Sum("total_sold", default=Decimal())
         )
-
-    def monthly_avg(self) -> dict[str, Decimal]:
-        return self._annotate_totals().aggregate(avg=self._monthly_avg_expression)
 
     def historic(self) -> Self:
         return (
@@ -336,29 +340,20 @@ class TransactionQuerySet(QuerySet):
             quantity_bought=self.expressions.get_quantity_bought(),
         )
 
-    def annotate_normalized_roi(self) -> Self:
-        from ..write import AssetClosedOperation
-
-        subquery = (
-            AssetClosedOperation.objects.filter(asset_id=OuterRef("asset__pk"))
+    def filter_bought_and_group_by_asset_type(self) -> Self:
+        return (
+            self.bought()
+            .values("asset__type")
             .annotate(
-                roi=(
-                    F("normalized_total_sold")
-                    - (F("normalized_total_bought") - F("normalized_credited_incomes"))
-                )
+                total_bought=Sum(
+                    self.expressions.normalized_total_raw_expression,
+                    default=Decimal(),
+                ),
+                asset_type=F("asset__type"),
             )
-            .values("roi")
-        )
-        return self.alias(
-            avg_price=self.expressions.get_current_normalized_avg_price(),
-        ).annotate(
-            closed_roi=Coalesce(Subquery(subquery[:1]), Decimal()),
-            roi=Case(
-                When(avg_price=0, then=F("closed_roi") / F("quantity")),
-                default=(F("price") - F("avg_price"))
-                * F("quantity")
-                * F("current_currency_conversion_rate"),
-            ),
+            .filter(total_bought__gt=0)
+            .values("asset_type", "total_bought")
+            .order_by("-total_bought")
         )
 
 

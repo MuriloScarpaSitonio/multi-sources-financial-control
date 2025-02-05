@@ -1,6 +1,9 @@
+import type { QueryClient } from "@tanstack/react-query";
+
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getIndicators } from "../../api";
+import { useCallback } from "react";
 
 const QUERY_KEY = "assets-indicators";
 
@@ -10,14 +13,14 @@ export const useAssetsIndicators = () =>
     queryFn: getIndicators,
   });
 
-export const useInvalidateAssetsIndicatorsQueries = () => {
-  const queryClient = useQueryClient();
+export const useInvalidateAssetsIndicatorsQueries = (client?: QueryClient) => {
+  const queryClient = useQueryClient(client);
 
-  const invalidate = async () => {
+  const invalidate = useCallback(async () => {
     await queryClient.invalidateQueries({
       queryKey: [QUERY_KEY],
     });
-  };
+  }, [queryClient]);
 
   return { invalidate };
 };

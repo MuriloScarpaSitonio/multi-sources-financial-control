@@ -240,7 +240,10 @@ const Table = () => {
     isLoading: isRelatedEntitiesLoading,
     positionActionsColumn: "last",
     initialState: { grouping: ["type"], expanded: { "type:Outros": true } },
-    localization: { noRecordsToDisplay: "Nenhuma despesa encontrada" },
+    localization: {
+      noRecordsToDisplay: "Nenhuma despesa encontrada",
+      actions: "",
+    },
     displayColumnDefOptions: {
       "mrt-row-expand": {
         muiTableBodyCellProps: () => ({

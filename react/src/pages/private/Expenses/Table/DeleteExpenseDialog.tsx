@@ -38,7 +38,7 @@ const DeleteExpenseDialog = ({
     onSuccess: async () => {
       await onSuccess(expense.id);
       onClose();
-      enqueueSnackbar("Despesa deletado com sucesso", { variant: "success" });
+      enqueueSnackbar("Despesa deletada com sucesso", { variant: "success" });
     },
   });
 

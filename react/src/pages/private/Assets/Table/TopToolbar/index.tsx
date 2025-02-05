@@ -34,7 +34,7 @@ import {
   SimulateTransactionDrawer,
 } from "./SimulateTransactionMenuItem";
 import { Filters } from "../types";
-import NewTransactionDrawer from "./NewTransactionDrawer";
+import NewTransactionDrawer from "../../../Transactions/components/NewTransactionDrawer";
 import NewIncomeDrawer from "./NewIncomeDrawer";
 
 const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
@@ -167,6 +167,7 @@ const TopToolBar = ({
       <NewTransactionDrawer
         open={openTransactionDrawer}
         onClose={() => setOpenTransactionDrawer(false)}
+        variant="asset"
       />
       <NewIncomeDrawer
         open={openIncomeDrawer}

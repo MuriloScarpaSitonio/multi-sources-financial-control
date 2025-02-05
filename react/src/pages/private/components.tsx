@@ -26,6 +26,7 @@ export const Indicator = ({
   tooltipText,
   Icon,
   value,
+  extra,
   secondaryIndicator,
   variant,
   isLoading,
@@ -36,12 +37,29 @@ export const Indicator = ({
   tooltipText?: string;
   Icon: typeof SvgIcon;
   value?: number;
+  extra?: ReactNode;
   secondaryIndicator: ReactNode;
   variant: "success" | "danger";
   isLoading: boolean;
   isError: boolean;
   sx?: SxProps;
 }) => {
+  const valueContent = extra ? (
+    <Stack spacing={0.5}>
+      <Text size={enums.FontSizes.REGULAR}>
+        {`R$ ${value?.toLocaleString("pt-br", {
+          minimumFractionDigits: 2,
+        })}`}
+      </Text>
+      {extra}
+    </Stack>
+  ) : (
+    <Text size={enums.FontSizes.REGULAR}>
+      {`R$ ${value?.toLocaleString("pt-br", {
+        minimumFractionDigits: 2,
+      })}`}
+    </Text>
+  );
   const content = (
     <Stack spacing={1.5}>
       {isLoading ? (
@@ -49,11 +67,7 @@ export const Indicator = ({
           sx={{ bgcolor: getColor(enums.Colors.neutral300), width: "75%" }}
         />
       ) : (
-        <Text size={enums.FontSizes.REGULAR}>
-          {`R$ ${value?.toLocaleString("pt-br", {
-            minimumFractionDigits: 2,
-          })}`}
-        </Text>
+        valueContent
       )}
       {secondaryIndicator}
     </Stack>

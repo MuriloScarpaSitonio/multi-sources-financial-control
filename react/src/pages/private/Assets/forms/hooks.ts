@@ -1,6 +1,7 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getAssetsMinimalData } from "../api";
+import { useCallback } from "react";
 
 type Params = { status?: "OPENED" | "CLOSED"; type?: string[] };
 
@@ -12,14 +13,17 @@ export const useAssetsMinimalData = (params?: Params) =>
     queryFn: () => getAssetsMinimalData(params),
   });
 
-export const useInvalidateAssetsMinimalDataQueries = () => {
-  const queryClient = useQueryClient();
+export const useInvalidateAssetsMinimalDataQueries = (client?: QueryClient) => {
+  const queryClient = useQueryClient(client);
 
-  const invalidate = async (params?: Params) => {
-    await queryClient.invalidateQueries({
-      queryKey: [QUERY_KEY, ...(params ? [params] : [])],
-    });
-  };
+  const invalidate = useCallback(
+    async (params?: Params) => {
+      await queryClient.invalidateQueries({
+        queryKey: [QUERY_KEY, ...(params ? [params] : [])],
+      });
+    },
+    [queryClient],
+  );
 
   return { invalidate };
 };

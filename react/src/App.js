@@ -17,12 +17,16 @@ import { useHideValues } from "./hooks/useHideValues";
 import { ActivateUser } from "./pages/ActivateUser";
 import Home from "./pages/Home";
 import { Login, ForgotPassword, Signup } from "./pages/public";
-import { Assets, Expenses, Wrapper as WrapperV2 } from "./pages/private";
+import {
+  Assets,
+  Expenses,
+  Transactions,
+  Wrapper as WrapperV2,
+} from "./pages/private";
 import { ResetPassword } from "./pages/ResetPassword";
 import { SubscriptionDone } from "./pages/SubscriptionDone";
 import PassiveIncomes from "./pages/PassiveIncomes";
 import Subscription from "./pages/Subscription";
-import Transactions from "./pages/Transactions";
 import User from "./pages/User";
 import { stringToBoolean } from "./helpers.js";
 import { AccessTokenStr } from "./consts";
@@ -186,7 +190,7 @@ export default function App() {
           <Route
             path="/assets/transactions"
             element={
-              <PrivateRoute path="/assets/transactions">
+              <PrivateRoute path="/assets/transactions" v2>
                 <Transactions />
               </PrivateRoute>
             }

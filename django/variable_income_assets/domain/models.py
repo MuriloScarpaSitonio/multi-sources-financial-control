@@ -109,6 +109,9 @@ class Asset:
         if transaction_dto.quantity is None and not self.is_held_in_self_custody:
             raise AssetNotHeldInSelfCustodyWithoutQuantityException
 
+        if transaction_dto.quantity and self.is_held_in_self_custody:
+            raise AssetHeldInSelfCustodyWithQuantityException
+
         if transaction_dto.operation_date > timezone.localdate():
             raise FutureTransactionNotAllowedException
 

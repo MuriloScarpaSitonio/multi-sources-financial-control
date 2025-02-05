@@ -20,7 +20,6 @@ import Typography from "@mui/material/Typography";
 
 import { enqueueSnackbar } from "notistack";
 import { Controller } from "react-hook-form";
-import { useQueryClient } from "@tanstack/react-query";
 import * as yup from "yup";
 
 import {
@@ -28,26 +27,25 @@ import {
   FormFeedbackError,
   NumberFormat,
   PriceWithCurrencyInput,
-} from "../../../../../../design-system";
-import useFormPlus from "../../../../../../hooks/useFormPlus";
+} from "../../../../../design-system";
+import useFormPlus from "../../../../../hooks/useFormPlus";
 import {
   AssetCurrencies,
   AssetCurrencyMap,
   AssetsTypesMapping,
-} from "../../../consts";
-import { createAsset, createTransaction, updateAssetPrice } from "../../../api";
-import { getCurrencyFromType } from "../utils";
-import { useInvalidateAssetsReportsQueries } from "../../../Reports/hooks";
-import { useInvalidateAssetsIndicatorsQueries } from "../../../Indicators/hooks";
-import { useInvalidateAssetsMinimalDataQueries } from "../../../forms/hooks";
+} from "../../../Assets/consts";
+import { createAsset, updateAssetPrice } from "../../../Assets/api";
+import { createTransaction } from "../../api";
+import { getCurrencyFromType } from "../../../Assets/Table/TopToolbar/utils";
+import { useInvalidateAssetsMinimalDataQueries } from "../../../Assets/forms/hooks";
 import {
   AssetCodeAutoComplete,
   AssetCurrenciesInput,
   AssetObjectives,
   AssetTypeAutoComplete,
   TransactionQuantity,
-} from "../../../forms/components";
-import { ASSETS_QUERY_KEY } from "../../consts";
+} from "../../../Assets/forms/components";
+import { useOnFormSuccess } from "./hooks";
 
 const transactionShape = {
   asset: yup
@@ -84,8 +82,11 @@ const transactionShape = {
       "A quantidade é obrigatória",
       // it has to be function definition to use `this`
       function (quantity) {
-        const { is_held_in_self_custody } = this.parent;
-        if (is_held_in_self_custody) {
+        const { is_new_asset_held_in_self_custody, asset } = this.parent;
+        if (
+          is_new_asset_held_in_self_custody ||
+          asset?.is_held_in_self_custody
+        ) {
           return !quantity;
         }
         return !!quantity;
@@ -113,7 +114,7 @@ const transactionShape = {
         return true;
       },
     ),
-  is_held_in_self_custody: yup.boolean().default(false),
+  is_new_asset_held_in_self_custody: yup.boolean().default(false),
   asset_description: yup.string(),
 };
 
@@ -146,7 +147,7 @@ const createTransactionAndAsset = async (
     type,
     asset: code,
     currency,
-    is_held_in_self_custody,
+    is_new_asset_held_in_self_custody: is_held_in_self_custody,
     asset_description: description,
     ...transaction
   } = data;
@@ -191,9 +192,11 @@ const createTransactionMutation = async (
 const NewTransactionForm = ({
   id,
   setIsSubmitting,
+  variant,
 }: {
   id: string;
   setIsSubmitting: Dispatch<SetStateAction<boolean>>;
+  variant?: string;
 }) => {
   const [isCrypto, setIsCrypto] = useState(false);
   const [newCode, setNewCode] = useState<string | undefined>("");
@@ -210,13 +213,10 @@ const NewTransactionForm = ({
     quantity: "",
   };
 
-  const queryClient = useQueryClient();
-  const { invalidate: invalidateAssetsReportsQueries } =
-    useInvalidateAssetsReportsQueries();
-  const { invalidate: invalidateAssetsIndicatorsQueries } =
-    useInvalidateAssetsIndicatorsQueries();
   const { invalidate: invalidateAssetsMinimalDataQueries } =
     useInvalidateAssetsMinimalDataQueries();
+
+  const { onSuccess } = useOnFormSuccess(variant as unknown as string);
 
   const {
     control,
@@ -244,13 +244,9 @@ const NewTransactionForm = ({
       : defaultValues,
     context: { isCrypto },
     onSuccess: async () => {
-      await invalidateAssetsReportsQueries();
-      await invalidateAssetsIndicatorsQueries();
+      onSuccess();
       enqueueSnackbar("Transação criada com sucesso", {
         variant: "success",
-      });
-      await queryClient.invalidateQueries({
-        queryKey: [ASSETS_QUERY_KEY],
       });
       if (newCode) {
         setNewCode("");
@@ -264,7 +260,9 @@ const NewTransactionForm = ({
   const assetObj = watch("asset");
   const assetType = watch("type");
   const assetCurrency = watch("currency");
-  const isHeldInSelfCustody = watch("is_held_in_self_custody");
+  const isNewAssetHeldInSelfCustody = watch(
+    "is_new_asset_held_in_self_custody",
+  );
 
   const getCurrencySymbol = useCallback(() => {
     if (assetObj?.currency)
@@ -301,7 +299,7 @@ const NewTransactionForm = ({
         isFieldInvalid={isFieldInvalid}
         getFieldHasError={getFieldHasError}
         getErrorMessage={getErrorMessage}
-        isHeldInSelfCustody={isHeldInSelfCustody}
+        isNewAssetHeldInSelfCustody={isNewAssetHeldInSelfCustody}
       />
       {newCode && (
         <>
@@ -429,7 +427,9 @@ const NewTransactionForm = ({
           isFieldInvalid={isFieldInvalid}
           getFieldHasError={getFieldHasError}
           getErrorMessage={getErrorMessage}
-          isHeldInSelfCustody={isHeldInSelfCustody}
+          isHeldInSelfCustody={
+            isNewAssetHeldInSelfCustody || !!assetObj?.is_held_in_self_custody
+          }
         />
       </Stack>
       {currencySymbol === AssetCurrencyMap.USD.symbol && (

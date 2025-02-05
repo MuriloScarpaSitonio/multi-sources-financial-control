@@ -90,12 +90,6 @@ export const deleteRevenue = async (
     })
   ).data;
 
-export const getIndicators = async (): Promise<{
-  avg: number;
-  diff: number;
-  total: number;
-}> => (await apiProvider.get(`${RESOURCE}/indicators`)).data;
-
 export const getSum = async (params: {
   startDate: Date;
   endDate: Date;

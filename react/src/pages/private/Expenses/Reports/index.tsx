@@ -1,7 +1,6 @@
-import { useContext, useMemo, useState } from "react";
+import { useCallback, useContext, useMemo, useState } from "react";
 
 import { TabPanel } from "@mui/base/TabPanel";
-import Box from "@mui/material/Box";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import Tab from "@mui/material/Tab";
@@ -15,6 +14,8 @@ import {
   ReportBox,
   Text,
   FontSizes,
+  BarChartWithReferenceLine,
+  PieChart,
 } from "../../../../design-system";
 import {
   GroupBy,
@@ -23,11 +24,7 @@ import {
   ReportUnknownAggregationData,
   HistoricReportResponse,
 } from "../types";
-import {
-  HorizontalStackedBarChart,
-  PieChart,
-  BarChartWithReferenceLine,
-} from "./charts";
+import { HorizontalStackedBarChart } from "./charts";
 import {
   useExpensesAvgComparasionReport,
   useExpensesPercentagenReport,
@@ -47,12 +44,16 @@ const PercentageContent = ({ groupBy }: { groupBy: GroupBy }) => {
     categories: { hexColorMapping: categoriesColorMapping },
   } = useContext(ExpensesContext);
 
-  const colors =
-    groupBy === GroupBy.SOURCE
-      ? sourcesColorMapping
-      : groupBy === GroupBy.CATEGORY
-        ? categoriesColorMapping
-        : ExpensesTypesColorMap;
+  const colors = useMemo(() => {
+    if (groupBy === GroupBy.SOURCE) return sourcesColorMapping;
+    if (groupBy === GroupBy.CATEGORY) return categoriesColorMapping;
+    return ExpensesTypesColorMap;
+  }, [categoriesColorMapping, groupBy, sourcesColorMapping]);
+
+  const colorsPredicate = useCallback(
+    (label: string) => colors.get(label) as string,
+    [colors],
+  );
 
   const { data, isPending } = useExpensesPercentagenReport({
     groupBy,
@@ -69,23 +70,14 @@ const PercentageContent = ({ groupBy }: { groupBy: GroupBy }) => {
         endDate={endDate}
         setEndDate={setEndDate}
       />
-      {!!data?.length ? (
-        <PieChart
-          data={data as ReportUnknownAggregationData}
-          groupBy={groupBy}
-          colors={colors}
-        />
-      ) : (
-        <Box sx={{ py: 18, pl: 15, mr: 25 }}>
-          {isPending ? (
-            <></>
-          ) : (
-            <Text size={FontSizes.SEMI_REGULAR}>
-              Nenhuma despesa encontrada
-            </Text>
-          )}
-        </Box>
-      )}
+      <PieChart
+        data={data ?? []}
+        isLoading={isPending}
+        groupBy={groupBy}
+        noDataText="Nenhuma despesa encontrada"
+        colorPredicate={colorsPredicate}
+        cellPrefix="expenses-pie-chart-cell"
+      />
     </Stack>
   );
 };
