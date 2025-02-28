@@ -221,6 +221,7 @@ const Table = () => {
     getRowId: (row: Revenue) => row.id?.toString(),
     renderTopToolbar: ({ table }) => (
       <TopToolBar
+        search={search}
         table={table}
         setSearch={setSearch}
         setPagination={setPagination}

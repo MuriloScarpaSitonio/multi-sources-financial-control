@@ -1026,7 +1026,7 @@ def test__list__sanity_check(client, buy_transaction):
                     buy_transaction.current_currency_conversion_rate
                 ),
                 "asset": {
-                    "pk": buy_transaction.asset.pk,
+                    "id": buy_transaction.asset.pk,
                     "code": buy_transaction.asset.code,
                     "type": AssetTypes.get_choice(buy_transaction.asset.type).label,
                     "currency": buy_transaction.asset.currency,

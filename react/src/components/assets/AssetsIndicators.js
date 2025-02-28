@@ -17,7 +17,7 @@ import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 
-import { AssetsApi, PassiveIncomesApi } from "../../api";
+import { AssetsApi } from "../../api";
 import { apiProvider } from "../../api/methods";
 
 const SUCCESS = "rgba(0, 201, 20, 0.5)";
@@ -124,12 +124,12 @@ export const AssetsIndicators = ({ condensed = false }) => {
     ROI_opened: 0,
     ROI_closed: 0,
   });
-  const [incomesIndicators, setIncomesIndicators] = useState({
+  const incomesIndicators = {
     avg: 0,
     current_credited: 0,
     provisioned_future: 0,
     diff_percentage: 0,
-  });
+  };
   const [bankAccountAmount, setBankAccountAmount] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -189,19 +189,13 @@ export const AssetsIndicators = ({ condensed = false }) => {
   function fetchData() {
     setIsLoaded(false);
     let assetsApi = new AssetsApi();
-    let passiveIncomesApi = new PassiveIncomesApi();
 
     axios
-      .all([
-        assetsApi.indicators(),
-        passiveIncomesApi.indicators(),
-        apiProvider.get("bank_account"),
-      ])
+      .all([assetsApi.indicators(), apiProvider.get("bank_account")])
       .then(
         axios.spread((...responses) => {
           setAssetsIndicators(responses[0].data);
-          setIncomesIndicators(responses[1].data);
-          setBankAccountAmount(responses[2].data.amount);
+          setBankAccountAmount(responses[1].data.amount);
         }),
       )
       //.catch((err) => setError(err))

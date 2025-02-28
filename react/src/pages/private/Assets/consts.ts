@@ -52,15 +52,3 @@ export const AssetCurrencyMap = {
   [AssetCurrencies.BRL]: { label: "Real", symbol: "R$" },
   [AssetCurrencies.USD]: { label: "Dólar", symbol: "US$" },
 };
-
-export const AssetsIncomeTypesMapping = {
-  Rendimento: { value: "INCOME", color: "#cc6cc8" },
-  Dividendo: { value: "DIVIDEND", color: "#ccc86c" },
-  Reembolso: { value: "REIMBURSEMENT", color: "#7eccb7" },
-  "Juros sobre capital próprios": { value: "JCP", color: "#d9d3c5" },
-};
-
-export enum AssetIncomeEventTypes {
-  CREDITED = "CREDITED",
-  PROVISIONED = "PROVISIONED",
-}

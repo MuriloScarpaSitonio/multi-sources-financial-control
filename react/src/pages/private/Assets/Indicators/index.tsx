@@ -29,28 +29,26 @@ const RoiSecondaryIndicator = ({
           sx={{ bgcolor: getColor(enums.Colors.neutral300), width: "50%" }}
         />
       ) : (
-        <>
+        <Text
+          weight={enums.FontWeights.LIGHT}
+          size={enums.FontSizes.EXTRA_SMALL}
+        >
           <Text
             weight={enums.FontWeights.LIGHT}
             size={enums.FontSizes.EXTRA_SMALL}
+            color={
+              variant === "success"
+                ? enums.Colors.brand
+                : enums.Colors.danger200
+            }
+            display="inline"
           >
-            <Text
-              weight={enums.FontWeights.LIGHT}
-              size={enums.FontSizes.EXTRA_SMALL}
-              color={
-                variant === "success"
-                  ? enums.Colors.brand
-                  : enums.Colors.danger200
-              }
-              display="inline"
-            >
-              {`RS ${value?.toLocaleString("pt-br", {
-                minimumFractionDigits: 2,
-              })} `}
-            </Text>
-            Posições abertas
+            {`RS ${value?.toLocaleString("pt-br", {
+              minimumFractionDigits: 2,
+            })} `}
           </Text>
-        </>
+          Posições abertas
+        </Text>
       )}
     </Stack>
   );

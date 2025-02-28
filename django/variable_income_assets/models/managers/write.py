@@ -386,6 +386,9 @@ class PassiveIncomeQuerySet(QuerySet):
     def since_a_year_ago(self) -> Self:
         return self.filter(self.date_filters.since_a_year_ago)
 
+    def future(self) -> Self:
+        return self.filter(self.date_filters.future)
+
     def indicators(self, fixed_avg_denominator: bool) -> dict[str, Decimal]:
         """
         Args:
@@ -437,40 +440,61 @@ class PassiveIncomeQuerySet(QuerySet):
             ),
         )
 
+    def sum_credited(self) -> dict[str, Decimal]:
+        return self.credited().aggregate(
+            total=self.expressions.sum(self.expressions.normalized_incomes_total)
+        )
+
+    def sum_provisioned_future(self) -> dict[str, Decimal]:
+        return (
+            self.provisioned()
+            .future()
+            .aggregate(total=self.expressions.sum(self.expressions.normalized_incomes_total))
+        )
+
+    def since_a_year_ago_credited_monthly_avg(self) -> dict[str, Decimal]:
+        return (
+            self.credited()
+            .since_a_year_ago()
+            .exclude(self.date_filters.current)
+            .aggregate(
+                avg=self.expressions.sum(self.expressions.normalized_incomes_total)
+                / (
+                    Count(
+                        Concat(
+                            "operation_date__month",
+                            "operation_date__year",
+                            output_field=CharField(),
+                        ),
+                        distinct=True,
+                    )
+                    * Cast(1.0, DecimalField())
+                )
+            )
+        )
+
     def monthly_avg(self) -> dict[str, Decimal]:
         # TODO: dollar tests
         return self.aggregate(avg=self._monthly_avg_expression)
 
-    def trunc_months(self) -> Self:
+    def assets_aggregation(self, top: int = 10) -> Self:
+        """Returns the {top} assets that paid more incomes"""
         return (
-            self.annotate(month=TruncMonth("operation_date"))
-            .values("month")
-            .annotate(
-                # TODO: dollar tests
-                total=self.expressions.sum(self.expressions.normalized_incomes_total)
-            )
-            .order_by("-total")
-        )
-
-    def assets_aggregation(self, credited: bool = True, provisioned: bool = False) -> Self:
-        """Returns the 10 assets that paid more incomes"""
-        if credited and not provisioned:
-            qs = self.credited()
-        if provisioned and not credited:
-            qs = self.provisioned()
-        if provisioned and credited:
-            qs = self.all()
-        if not credited and not provisioned:
-            qs = self.none()
-
-        return (
-            qs.annotate(code=F("asset__code"))
+            self.annotate(code=F("asset__code"))
             .values("code")
             .annotate(
                 # TODO: dollar tests
-                total=self.expressions.sum(self.expressions.normalized_incomes_total)
+                credited=self.expressions.sum(
+                    self.expressions.normalized_incomes_total,
+                    filter=Q(event_type=PassiveIncomeEventTypes.credited),
+                ),
+                provisioned=self.expressions.sum(
+                    self.expressions.normalized_incomes_total,
+                    filter=Q(event_type=PassiveIncomeEventTypes.provisioned),
+                ),
+                total=F("credited") + F("provisioned"),
             )
-            .order_by("-total")[:10]
+            .order_by("-total")[:top]
         )
 
     def aggregate_credited_totals(self) -> dict[str, Decimal]:
@@ -482,6 +506,24 @@ class PassiveIncomeQuerySet(QuerySet):
             credited_incomes=Sum(
                 "amount", filter=Q(event_type=PassiveIncomeEventTypes.credited), default=Decimal()
             ),
+        )
+
+    def historic(self) -> Self:
+        return (
+            self.annotate(month=TruncMonth("operation_date"))
+            .values("month")
+            .annotate(
+                # TODO: dollar tests
+                credited=self.expressions.sum(
+                    self.expressions.normalized_incomes_total,
+                    filter=Q(event_type=PassiveIncomeEventTypes.credited),
+                ),
+                provisioned=self.expressions.sum(
+                    self.expressions.normalized_incomes_total,
+                    filter=Q(event_type=PassiveIncomeEventTypes.provisioned),
+                ),
+            )
+            .order_by("month")
         )
 
 

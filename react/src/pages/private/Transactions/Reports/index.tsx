@@ -2,7 +2,6 @@ import { useContext, useMemo, useState } from "react";
 
 import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
-import Tab from "@mui/material/Tab";
 
 import { endOfMonth } from "date-fns";
 
@@ -10,7 +9,6 @@ import {
   DatePickers,
   PieChart,
   ReportBox,
-  ReportTabs,
   Text,
 } from "../../../../design-system";
 import {
@@ -97,42 +95,26 @@ const TotalBoughtPerAssetTypeContent = () => {
   );
 };
 
-const TransactionsGroupedByAssetTypeChart = () => (
-  <ReportBox>
-    <ReportTabs value={0}>
-      <Tab label="Agrupadas por tipo de ativo" />
-    </ReportTabs>
-    <TotalBoughtPerAssetTypeContent />
-  </ReportBox>
-);
-
-const HistoricChart = () => (
-  <ReportBox>
-    <ReportTabs value={0}>
-      <Tab label="Histórico" />
-    </ReportTabs>
-    <HistoricContent />
-  </ReportBox>
-);
-
 const Reports = () => (
   <Grid container spacing={4}>
     <Grid item xs={7}>
       <Stack spacing={4}>
         {/* no idea why spacing does not work */}
-        <Text extraStyle={{ marginBottom: 2 }}>
-          Histórico de compra e venda
-        </Text>
-        <HistoricChart />
+        <Text extraStyle={{ marginBottom: 2 }}>Histórico</Text>
+        <ReportBox>
+          <HistoricContent />
+        </ReportBox>
       </Stack>
     </Grid>
     <Grid item xs={5}>
       <Stack spacing={4}>
         {/* no idea why spacing does not work */}
         <Text extraStyle={{ marginBottom: 2 }}>
-          Transações agrupadas por tipo de ativo
+          Compras agrupadas por tipo de ativo
         </Text>
-        <TransactionsGroupedByAssetTypeChart />
+        <ReportBox>
+          <TotalBoughtPerAssetTypeContent />
+        </ReportBox>
       </Stack>
     </Grid>
   </Grid>

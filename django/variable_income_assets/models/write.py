@@ -178,7 +178,7 @@ class PassiveIncome(models.Model):
     operation_date = models.DateField()
     # the conversion rate between `asset.currency` and `Currencies.real` at `operation_date`
     current_currency_conversion_rate = models.DecimalField(
-        decimal_places=2, max_digits=8, blank=True, null=True
+        decimal_places=2, max_digits=8, blank=True, default=Decimal("1")
     )
     asset = models.ForeignKey(to=Asset, on_delete=models.CASCADE, related_name="incomes")
 

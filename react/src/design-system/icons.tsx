@@ -158,9 +158,13 @@ export const InvestmentUpIcon = (props: SvgIconProps) => (
 export const StatusDot = ({
   variant,
   color,
+  stroke,
+  strokeDasharray,
 }: {
   variant: "success" | "danger" | "custom";
   color?: string;
+  stroke?: string;
+  strokeDasharray?: string;
 }) => (
   <SvgIcon fontSize="inherit">
     <svg
@@ -181,6 +185,8 @@ export const StatusDot = ({
               ? getColor(Colors.danger200)
               : color
         }
+        stroke={stroke}
+        strokeDasharray={strokeDasharray}
       />
     </svg>
   </SvgIcon>

@@ -1,10 +1,11 @@
 from datetime import datetime
-from decimal import Decimal
+from statistics import fmean
 
-from django.db.models import Avg, Q
+from django.db.models import Q
 from django.utils import timezone
 
 import pytest
+from dateutil.relativedelta import relativedelta
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -435,7 +436,7 @@ def test__list__sanity_check(client, simple_income):
                 "amount": simple_income.amount,
                 "current_currency_conversion_rate": simple_income.current_currency_conversion_rate,
                 "asset": {
-                    "pk": simple_income.asset.pk,
+                    "id": simple_income.asset.pk,
                     "code": simple_income.asset.code,
                     "type": AssetTypes.get_choice(simple_income.asset.type).label,
                     "currency": simple_income.asset.currency,
@@ -490,55 +491,105 @@ def test__delete(client, simple_income, mocker):
 
 
 @pytest.mark.usefixtures("passive_incomes", "stock_usa_asset", "crypto_asset")
-def test__indicators(client):
+def test__avg(client, user):
     # GIVEN
     today = timezone.now().date()
-    current_credited = sum(
-        i.amount
-        for i in PassiveIncome.objects.filter(
-            operation_date__month=today.month, operation_date__year=today.year
-        ).credited()
-    )
-    provisioned_future = sum(
-        i.amount
-        for i in PassiveIncome.objects.filter(
-            Q(operation_date__month__gte=today.month, operation_date__year=today.year)
-            | Q(operation_date__year__gt=today.year)
-        ).provisioned()
-    )
-    avg = (
-        PassiveIncome.objects.filter(
-            Q(operation_date__month__gte=today.month, operation_date__year=today.year - 1)
-            | Q(operation_date__month__lte=today.month, operation_date__year=today.year)
-        )
+    qs = (
+        PassiveIncome.objects.filter(asset__user_id=user.id)
+        .since_a_year_ago()
         .exclude(operation_date__month=today.month, operation_date__year=today.year)
         .credited()
-        .trunc_months()
-        .aggregate(avg=Avg("total"))["avg"]
-    ) or 0
+    )
 
     # WHEN
-    response = client.get(f"{URL}/indicators")
+    response = client.get(f"{URL}/avg")
 
     # THEN
     assert response.status_code == 200
     assert response.json() == {
-        "avg": convert_and_quantitize(avg),
-        "current_credited": convert_and_quantitize(current_credited),
-        "provisioned_future": convert_and_quantitize(provisioned_future),
-        "diff_percentage": convert_and_quantitize(
-            ((current_credited / avg) - Decimal("1.0")) * Decimal("100.0") if avg else 0
-        ),
+        "avg": convert_and_quantitize(
+            fmean([p.amount * p.current_currency_conversion_rate for p in qs])
+        )
     }
 
 
 @pytest.mark.usefixtures("passive_incomes")
-def test__historic(client, stock_asset):
+def test__sum_credited(client, user):
     # GIVEN
-    today = timezone.now().date()
+    today = timezone.localdate()
+    start_date, end_date = today, today + relativedelta(months=1)
+    qs = PassiveIncome.objects.filter(
+        asset__user_id=user.id, operation_date__range=(start_date, end_date)
+    ).credited()
 
     # WHEN
-    response = client.get(f"{URL}/historic")
+    response = client.get(
+        f"{URL}/sum_credited?start_date={start_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}"
+    )
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    assert response.json() == {
+        "total": convert_and_quantitize(
+            sum(p.amount * p.current_currency_conversion_rate for p in qs)
+        )
+    }
+
+
+@pytest.mark.usefixtures("passive_incomes")
+def test__sum_provisioned_future(client, user):
+    # GIVEN
+    qs = PassiveIncome.objects.filter(asset__user_id=user.id).future().provisioned()
+
+    # WHEN
+    response = client.get(f"{URL}/sum_provisioned_future")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    assert response.json() == {
+        "total": convert_and_quantitize(
+            sum(p.amount * p.current_currency_conversion_rate for p in qs)
+        )
+    }
+
+
+@pytest.mark.usefixtures("passive_incomes")
+def test__historic(client, user, stock_asset):
+    # GIVEN
+    today = timezone.localdate().replace(day=12)
+
+    start_date, end_date = today - relativedelta(months=18), today
+    first_day_of_month, last_day_of_month = start_date.replace(day=1), end_date + relativedelta(
+        day=31
+    )
+    PassiveIncome.objects.create(
+        operation_date=last_day_of_month,
+        amount=1200,
+        type=PassiveIncomeTypes.dividend,
+        event_type=PassiveIncomeEventTypes.credited,
+        asset=stock_asset,
+    )
+    PassiveIncome.objects.create(
+        operation_date=last_day_of_month,
+        amount=1200,
+        type=PassiveIncomeTypes.dividend,
+        event_type=PassiveIncomeEventTypes.provisioned,
+        asset=stock_asset,
+    )
+    qs = PassiveIncome.objects.filter(
+        asset__user_id=user.id,
+        operation_date__gte=first_day_of_month,
+        operation_date__lte=last_day_of_month,
+    )
+
+    # WHEN
+    response = client.get(
+        f"{URL}/historic_report?start_date={start_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}"
+    )
     response_json = response.json()
 
     # THEN
@@ -546,45 +597,59 @@ def test__historic(client, stock_asset):
 
     for result in response_json["historic"]:
         d = datetime.strptime(result["month"], "%d/%m/%Y").date()
-        assert result["total"] == convert_and_quantitize(
-            get_total_credited_incomes_brute_force(
-                stock_asset,
-                extra_filters=Q(operation_date__month=d.month, operation_date__year=d.year),
+        total_credited = sum(
+            p.amount * p.current_currency_conversion_rate
+            for p in PassiveIncome.objects.credited().filter(
+                operation_date__month=d.month,
+                operation_date__year=d.year,
             )
         )
-        if d == today.replace(day=1):  # we don't evaluate the current month on the avg calculation
-            continue
+        assert convert_and_quantitize(result["credited"]) == convert_and_quantitize(total_credited)
 
-    # TODO: also assert avg
+        total_provisioned = sum(
+            p.amount * p.current_currency_conversion_rate
+            for p in PassiveIncome.objects.provisioned().filter(
+                operation_date__month=d.month,
+                operation_date__year=d.year,
+            )
+        )
+        assert convert_and_quantitize(result["provisioned"]) == convert_and_quantitize(
+            total_provisioned
+        )
+
+    assert convert_and_quantitize(response_json["avg"]) == convert_and_quantitize(
+        qs.monthly_avg()["avg"]
+    )
 
 
 @pytest.mark.usefixtures(
     "passive_incomes", "another_income", "assets_w_incomes", "stock_asset", "stock_usa_asset"
 )
-@pytest.mark.parametrize("filters", ("credited=True", "credited=True&all=true"))
-def test__assets_aggregation_report(client, filters):
+def test__assets_aggregation_report(client, user):
     # GIVEN
+    today = timezone.localdate()
+    start_date, end_date = today, today + relativedelta(months=1)
+    qs = PassiveIncome.objects.filter(operation_date__range=(start_date, end_date))
 
     # WHEN
-    response = client.get(f"{URL}/assets_aggregation_report?{filters}")
+    response = client.get(
+        f"{URL}/assets_aggregation_report?start_date={start_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}"
+    )
 
     # THEN
-    if "all" in filters:
-        assert len(response.json()) == 10
-    else:
-        assert len(response.json()) == 9
-
     for r in response.json():
-        total = 0
-        asset = Asset.objects.get(code=r["code"])
-        if "all" not in filters:
-            total += get_total_credited_incomes_brute_force(
-                asset, extra_filters=PassiveIncomeQuerySet.date_filters.since_a_year_ago
-            )
-        else:
-            total += get_total_credited_incomes_brute_force(asset)
+        asset = Asset.objects.get(code=r["code"], user_id=user.id)
+        total_credited = sum(
+            p.amount * p.current_currency_conversion_rate for p in qs.credited().filter(asset=asset)
+        )
+        assert convert_and_quantitize(total_credited) == r["credited"]
 
-        assert convert_and_quantitize(total) == r["total"]
+        total_provisioned = sum(
+            p.amount * p.current_currency_conversion_rate
+            for p in qs.provisioned().filter(asset=asset)
+        )
+        assert convert_and_quantitize(total_provisioned) == r["provisioned"]
 
 
 def test__forbidden__module_not_enabled(user, client):

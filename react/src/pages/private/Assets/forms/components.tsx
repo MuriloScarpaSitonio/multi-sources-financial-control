@@ -329,3 +329,24 @@ export const TransactionQuantity = ({
     )}
   />
 );
+
+export const AssetCodeTextField = ({
+  control,
+}: {
+  control: AssetCodeAutoCompleteProps["control"];
+}) => (
+  <Controller
+    name="asset"
+    control={control}
+    disabled
+    render={({ field }) => (
+      <TextField
+        {...field}
+        label="Ativo"
+        variant="standard"
+        disabled
+        value={field.value?.label}
+      />
+    )}
+  />
+);

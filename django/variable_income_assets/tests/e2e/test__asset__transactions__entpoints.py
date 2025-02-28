@@ -168,7 +168,7 @@ def test__list__sanity_check(client, stock_usa_asset):
                 "operation_date": transaction.operation_date.strftime("%Y-%m-%d"),
                 "current_currency_conversion_rate": transaction.current_currency_conversion_rate,
                 "asset": {
-                    "pk": stock_usa_asset.pk,
+                    "id": stock_usa_asset.pk,
                     "code": stock_usa_asset.code,
                     "type": AssetTypes.get_choice(stock_usa_asset.type).label,
                     "currency": stock_usa_asset.currency,

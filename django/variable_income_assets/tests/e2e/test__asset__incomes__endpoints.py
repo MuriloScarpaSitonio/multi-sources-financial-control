@@ -38,7 +38,7 @@ def test__list__sanity_check(client, stock_usa_asset):
                 "amount": float(income.amount),
                 "current_currency_conversion_rate": float(income.current_currency_conversion_rate),
                 "asset": {
-                    "pk": stock_usa_asset.pk,
+                    "id": stock_usa_asset.pk,
                     "code": stock_usa_asset.code,
                     "type": AssetTypes.get_choice(stock_usa_asset.type).label,
                     "currency": stock_usa_asset.currency,

@@ -207,7 +207,9 @@ class TransactionViewSet(ModelViewSet):
     @action(methods=("GET",), detail=False)
     def sum(self, request: Request) -> Response:
         filterset = filters.DateRangeFilterSet(data=request.GET, queryset=self.get_queryset())
-        return Response(serializers.SumSerializer(filterset.qs.sum()).data, status=HTTP_200_OK)
+        return Response(
+            serializers.TransactionsSumSerializer(filterset.qs.sum()).data, status=HTTP_200_OK
+        )
 
     @action(methods=("GET",), detail=False)
     def avg(self, _: Request) -> Response:
@@ -246,7 +248,7 @@ class PassiveIncomeViewSet(ModelViewSet):
     serializer_class = serializers.PassiveIncomeSerializer
     filterset_class = filters.PassiveIncomeFilterSet
     ordering_fields = ("operation_date", "amount", "asset__code")
-    ordering = ("-operation_date",)
+    ordering = ("-operation_date", "id")
 
     def get_queryset(self) -> PassiveIncomeQuerySet[PassiveIncome]:
         return (
@@ -278,50 +280,56 @@ class PassiveIncomeViewSet(ModelViewSet):
                 message=events.PassiveIncomeDeleted(asset_pk=instance.asset_id), uow=uow
             )
 
+    # TODO: consider using same endpoint to return both sums
     @action(methods=("GET",), detail=False)
-    def indicators(self, request: Request) -> Response:
-        first_transaction_date = (
-            Transaction.objects.filter(asset__user=request.user)
-            .order_by("operation_date")
-            .values_list("operation_date", flat=True)
-            .first()
+    def sum_credited(self, request: Request) -> Response:
+        filterset = filters.DateRangeFilterSet(data=request.GET, queryset=self.get_queryset())
+        return Response(
+            serializers.TotalSerializer(filterset.qs.sum_credited()).data,
+            status=HTTP_200_OK,
         )
-        qs = self.get_queryset().indicators(
-            fixed_avg_denominator=(
-                (timezone.localdate() - first_transaction_date).days > 365
-                if first_transaction_date is not None
-                else False
-            )
-        )
-        percentage = (
-            ((qs["current_credited"] / qs["avg"]) - Decimal("1.0")) * Decimal("100.0")
-            if qs["avg"]
-            else Decimal()
-        )
-        serializer = serializers.PassiveIncomesIndicatorsSerializer(
-            {**qs, "diff_percentage": percentage}
-        )
-        return Response(serializer.data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
-    def historic(self, _: Request) -> Response:
-        qs = self.get_queryset().credited().since_a_year_ago()
-        historic = list(qs.trunc_months().order_by("month"))
+    def sum_provisioned_future(self, _: Request) -> Response:
+        return Response(
+            serializers.TotalSerializer(self.get_queryset().sum_provisioned_future()).data,
+            status=HTTP_200_OK,
+        )
+
+    #
+
+    @action(methods=("GET",), detail=False)
+    def avg(self, _: Request) -> Response:
+        return Response(
+            serializers.AvgSerializer(
+                self.get_queryset().since_a_year_ago_credited_monthly_avg()
+            ).data,
+            status=HTTP_200_OK,
+        )
+
+    @action(methods=("GET",), detail=False)
+    def historic_report(self, request: Request) -> Response:
+        filterset = filters.MonthlyDateRangeFilterSet(
+            data=request.GET, queryset=self.get_queryset()
+        )
+        qs: PassiveIncomeQuerySet = filterset.qs
         serializer = serializers.PassiveIncomeHistoricSerializer(
             {
-                "historic": insert_zeros_if_no_data_in_monthly_historic_data(historic=historic),
+                "historic": insert_zeros_if_no_data_in_monthly_historic_data(
+                    historic=list(qs.historic()), total_fields=("credited", "provisioned")
+                ),
                 **qs.monthly_avg(),
             }
         )
-
         return Response(serializer.data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
     def assets_aggregation_report(self, request: Request) -> Response:
-        filterset = filters.PassiveIncomeAssetsAgreggationReportFilterSet(
-            data=request.GET, queryset=self.get_queryset()
+        filterset = filters.DateRangeFilterSet(data=request.GET, queryset=self.get_queryset())
+        qs: PassiveIncomeQuerySet = filterset.qs
+        serializer = serializers.PassiveIncomeAssetsAggregationSerializer(
+            qs.assets_aggregation(), many=True
         )
-        serializer = serializers.PassiveIncomeAssetsAggregationSerializer(filterset.qs, many=True)
         return Response(serializer.data, status=HTTP_200_OK)
 
 

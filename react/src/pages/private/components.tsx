@@ -1,8 +1,21 @@
-import { ReactNode } from "react";
+import {
+  type ReactNode,
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useState,
+} from "react";
+import type { MRT_PaginationState as PaginationState } from "material-react-table";
 
-import ErrorOutlineOutlinedIcon from "@mui/icons-material/ErrorOutlineOutlined";
+import IconButton from "@mui/material/IconButton";
+import OutlinedInput from "@mui/material/OutlinedInput";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
+
+import ErrorOutlineOutlinedIcon from "@mui/icons-material/ErrorOutlineOutlined";
+
+import ClearIcon from "@mui/icons-material/Clear";
+import SearchIcon from "@mui/icons-material/Search";
 import SvgIcon from "@mui/material/SvgIcon";
 
 import { InfoIconTooltip, Text } from "../../design-system/components";
@@ -10,7 +23,7 @@ import * as enums from "../../design-system/enums";
 import { getColor } from "../../design-system/utils";
 import { SxProps } from "@mui/material";
 
-const Error = () => (
+const ErrorFeedback = () => (
   <Stack direction="row" alignItems="center" spacing={1}>
     <ErrorOutlineOutlinedIcon
       sx={{ color: getColor(enums.Colors.danger200) }}
@@ -114,7 +127,76 @@ export const Indicator = ({
           }}
         />
       </Stack>
-      {isError ? <Error /> : content}
+      {isError ? <ErrorFeedback /> : content}
     </Stack>
+  );
+};
+
+export const SearchBar = ({
+  search,
+  setSearch,
+  setPagination,
+  placeholder,
+}: {
+  search: string;
+  setSearch: Dispatch<SetStateAction<string>>;
+  setPagination: Dispatch<SetStateAction<PaginationState>>;
+  placeholder: string;
+}) => {
+  const [innerSearch, setInnerSearch] = useState(search);
+
+  const changeSearch = useCallback(
+    (value: string) => {
+      setSearch(value);
+      setPagination((prevPagination) => ({
+        ...prevPagination,
+        pageIndex: 0,
+      }));
+    },
+    [setPagination, setSearch],
+  );
+
+  return (
+    <OutlinedInput
+      size="small"
+      value={innerSearch}
+      fullWidth
+      placeholder={placeholder}
+      onChange={(e) => {
+        setInnerSearch(e.target.value);
+        setTimeout(() => {
+          changeSearch(e.target.value);
+        }, 600);
+      }}
+      endAdornment={
+        search ? (
+          <IconButton
+            onClick={() => {
+              setInnerSearch("");
+              setTimeout(() => {
+                changeSearch("");
+              }, 600);
+            }}
+          >
+            <ClearIcon sx={{ color: getColor(enums.Colors.neutral200) }} />
+          </IconButton>
+        ) : (
+          <SearchIcon sx={{ color: getColor(enums.Colors.neutral200) }} />
+        )
+      }
+      sx={{
+        "&.MuiOutlinedInput-root": {
+          border: "none",
+          borderRadius: "5px",
+          backgroundColor: getColor(enums.Colors.neutral400),
+        },
+        "&.MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline": {
+          border: "none",
+        },
+        "&.MuiOutlinedInput-root .MuiOutlinedInput-input::placeholder": {
+          color: getColor(enums.Colors.neutral0),
+        },
+      }}
+    />
   );
 };

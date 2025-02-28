@@ -164,7 +164,7 @@ export const FiltersMenu = ({
                 onChange={(_, values: Options) =>
                   handleChange(values, name, onChange)
                 }
-                label="Categoria"
+                label="Categoria do ativo"
                 options={Object.entries(AssetsTypesMapping).map(
                   ([label, { value }]) => ({ label, value }),
                 )}

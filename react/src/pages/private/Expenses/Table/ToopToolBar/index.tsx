@@ -10,12 +10,10 @@ import Button from "@mui/material/Button";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
-import OutlinedInput from "@mui/material/OutlinedInput";
 import Stack from "@mui/material/Stack";
 import AddIcon from "@mui/icons-material/Add";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-import SearchIcon from "@mui/icons-material/Search";
 
 import {
   type MRT_PaginationState as PaginationState,
@@ -39,6 +37,7 @@ import {
 import { Filters } from "../../types";
 import { Expense } from "../../api/models";
 import { removeProperties } from "../../../../../utils";
+import { SearchBar } from "../../../components";
 
 const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -75,11 +74,13 @@ const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
 
 const TopToolBar = ({
   table,
+  search,
   setSearch,
   setPagination,
   setFilters,
 }: {
   table: DataTable<Row>;
+  search: string;
   setSearch: Dispatch<SetStateAction<string>>;
   setPagination: Dispatch<SetStateAction<PaginationState>>;
   setFilters: Dispatch<SetStateAction<Filters>>;
@@ -103,35 +104,11 @@ const TopToolBar = ({
         }}
       >
         <Grid item xs={6}>
-          <OutlinedInput
-            size="small"
-            fullWidth
-            placeholder="Pesquisar"
-            onChange={(e) => {
-              setTimeout(() => {
-                setSearch(e.target.value);
-                setPagination((prevPagination) => ({
-                  ...prevPagination,
-                  pageIndex: 0,
-                }));
-              }, 600);
-            }}
-            endAdornment={
-              <SearchIcon sx={{ color: getColor(Colors.neutral200) }} />
-            }
-            sx={{
-              "&.MuiOutlinedInput-root": {
-                border: "none",
-                borderRadius: "5px",
-                backgroundColor: getColor(Colors.neutral400),
-              },
-              "&.MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline": {
-                border: "none",
-              },
-              "&.MuiOutlinedInput-root .MuiOutlinedInput-input::placeholder": {
-                color: getColor(Colors.neutral0),
-              },
-            }}
+          <SearchBar
+            search={search}
+            placeholder="Pesquisar por descrição"
+            setSearch={setSearch}
+            setPagination={setPagination}
           />
         </Grid>
         <Grid container item xs={6} justifyContent="flex-end">

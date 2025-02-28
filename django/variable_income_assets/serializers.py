@@ -36,7 +36,7 @@ class MinimalAssetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Asset
-        fields = ("pk", "code", "type", "currency", "description", "is_held_in_self_custody")
+        fields = ("id", "code", "type", "currency", "description", "is_held_in_self_custody")
 
 
 class TransactionSimulateSerializer(serializers.Serializer):
@@ -193,6 +193,9 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
         except Asset.DoesNotExist as e:
             raise NotFound({"asset": "Not found."}) from e
 
+        if asset.currency == choices.Currencies.real:
+            attrs["current_currency_conversion_rate"] = 1
+
         if attrs["event_type"] == choices.PassiveIncomeEventTypes.credited:
             if attrs["operation_date"] > timezone.localdate():
                 raise serializers.ValidationError(
@@ -202,23 +205,28 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
                         )
                     }
                 )
-            if asset.currency == choices.Currencies.real:
-                attrs["current_currency_conversion_rate"] = 1
-            else:
-                if current_currency_conversion_rate in (None, 1):
-                    raise serializers.ValidationError(
-                        {
-                            "current_currency_conversion_rate": (
-                                "Esta propriedade não pode ser omitida ou ter valor igual a 1 se a "
-                                f"moeda do ativo for diferente de {choices.Currencies.real}"
-                            )
-                        }
-                    )
+            if asset.currency != choices.Currencies.real and current_currency_conversion_rate in (
+                None,
+                1,
+            ):
+                raise serializers.ValidationError(
+                    {
+                        "current_currency_conversion_rate": (
+                            "Esta propriedade não pode ser omitida ou ter valor igual a 1 se a "
+                            f"moeda do ativo for diferente de {choices.Currencies.real}"
+                        )
+                    }
+                )
+
             choice = choices.AssetTypes.get_choice(asset.type)
             if not choice.accept_incomes:
                 raise serializers.ValidationError(
                     {"type": f"Ativos de classe {choice.label} não aceitam rendimentos"}
                 )
+        else:
+            if asset.currency == choices.Currencies.dollar:
+                attrs["current_currency_conversion_rate"] = get_dollar_conversion_rate()
+
         return attrs
 
     def create(self, validated_data: dict) -> PassiveIncome:
@@ -226,8 +234,6 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
         return super().create(validated_data=validated_data)
 
     def update(self, instance: PassiveIncome, validated_data: dict) -> PassiveIncome:
-        if validated_data["event_type"] == choices.PassiveIncomeEventTypes.provisioned:
-            validated_data["current_currency_conversion_rate"] = None
         return super().update(instance, validated_data)
 
 
@@ -425,24 +431,25 @@ class TransactionHistoricSerializer(AvgSerializer):
     historic = _TransactionHistoricSerializer(many=True)
 
 
-class _AssetReportSerializer(serializers.Serializer):
+class TotalSerializer(serializers.Serializer):
     total = serializers.DecimalField(max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP)
 
 
-class AssetTypeReportSerializer(_AssetReportSerializer):
+class AssetTypeReportSerializer(TotalSerializer):
     type = CustomChoiceField(choices=choices.AssetTypes.choices)
 
 
-class AssetTotalInvestedBySectorReportSerializer(_AssetReportSerializer):
+class AssetTotalInvestedBySectorReportSerializer(TotalSerializer):
     sector = CustomChoiceField(choices=choices.AssetSectors.choices)
 
 
-class AssetTotalInvestedByObjectiveReportSerializer(_AssetReportSerializer):
+class AssetTotalInvestedByObjectiveReportSerializer(TotalSerializer):
     objective = CustomChoiceField(choices=choices.AssetObjectives.choices)
 
 
 class _PassiveIncomeHistoricSerializer(serializers.Serializer):
-    total = serializers.DecimalField(max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP)
+    credited = serializers.DecimalField(max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP)
+    provisioned = serializers.DecimalField(max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP)
     month = serializers.DateField(format="%d/%m/%Y")
 
 
@@ -452,7 +459,8 @@ class PassiveIncomeHistoricSerializer(AvgSerializer):
 
 class PassiveIncomeAssetsAggregationSerializer(serializers.Serializer):
     code = serializers.CharField()
-    total = serializers.DecimalField(max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP)
+    credited = serializers.DecimalField(max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP)
+    provisioned = serializers.DecimalField(max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP)
 
 
 class AssetsTotalInvestedSnapshotSerializer(serializers.ModelSerializer):
@@ -482,7 +490,7 @@ class AssetMetadataWriteSerializer(serializers.Serializer):
         return super().validate(attrs)
 
 
-class SumSerializer(serializers.Serializer):
+class TransactionsSumSerializer(serializers.Serializer):
     bought = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
     sold = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
 

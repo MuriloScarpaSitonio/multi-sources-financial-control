@@ -35,7 +35,8 @@ import {
 } from "./SimulateTransactionMenuItem";
 import { Filters } from "../types";
 import NewTransactionDrawer from "../../../Transactions/components/NewTransactionDrawer";
-import NewIncomeDrawer from "./NewIncomeDrawer";
+import CreateOrEditIncomeDrawer from "../../../Incomes/components/CreateOrEditIncomeDrawer";
+import { SearchBar } from "../../../components";
 
 const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -74,11 +75,13 @@ const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
 
 const TopToolBar = ({
   table,
+  search,
   setSearch,
   setPagination,
   setFilters,
 }: {
   table: DataTable<Row>;
+  search: string;
   setSearch: Dispatch<SetStateAction<string>>;
   setPagination: Dispatch<SetStateAction<PaginationState>>;
   setFilters: Dispatch<SetStateAction<Filters>>;
@@ -98,35 +101,11 @@ const TopToolBar = ({
         }}
       >
         <Grid item xs={6}>
-          <OutlinedInput
-            size="small"
-            fullWidth
-            placeholder="Pesquisar"
-            onChange={(e) => {
-              setTimeout(() => {
-                setSearch(e.target.value);
-                setPagination((prevPagination) => ({
-                  ...prevPagination,
-                  pageIndex: 0,
-                }));
-              }, 600);
-            }}
-            endAdornment={
-              <SearchIcon sx={{ color: getColor(Colors.neutral200) }} />
-            }
-            sx={{
-              "&.MuiOutlinedInput-root": {
-                border: "none",
-                borderRadius: "5px",
-                backgroundColor: getColor(Colors.neutral400),
-              },
-              "&.MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline": {
-                border: "none",
-              },
-              "&.MuiOutlinedInput-root .MuiOutlinedInput-input::placeholder": {
-                color: getColor(Colors.neutral0),
-              },
-            }}
+          <SearchBar
+            search={search}
+            placeholder="Pesquisar por código"
+            setSearch={setSearch}
+            setPagination={setPagination}
           />
         </Grid>
         <Grid container item xs={6} justifyContent="flex-end">
@@ -169,9 +148,10 @@ const TopToolBar = ({
         onClose={() => setOpenTransactionDrawer(false)}
         variant="asset"
       />
-      <NewIncomeDrawer
+      <CreateOrEditIncomeDrawer
         open={openIncomeDrawer}
         onClose={() => setOpenIncomeDrawer(false)}
+        variant="asset"
       />
     </>
   );

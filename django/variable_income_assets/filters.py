@@ -199,31 +199,6 @@ class PassiveIncomeFilterSet(django_filters.FilterSet):
         fields = ("type", "event_type")
 
 
-class PassiveIncomeAssetsAgreggationReportFilterSet(django_filters.FilterSet):
-    all = django_filters.BooleanFilter()
-    credited = django_filters.BooleanFilter()
-    provisioned = django_filters.BooleanFilter()
-
-    @property
-    def qs(self):
-        if self.is_valid():
-            # if self.form.cleaned_data["all"] == {
-            #     "all": False,
-            #     "credited": True,
-            #     "provisioned": True,
-            # }:
-            #    TODO
-            #    special case when only `credited` incomes should be filtered by `since_a_year_ago`
-            _qs = (
-                self.queryset if self.form.cleaned_data["all"] else self.queryset.since_a_year_ago()
-            )
-            return _qs.assets_aggregation(
-                credited=self.form.cleaned_data["credited"],
-                provisioned=self.form.cleaned_data["provisioned"],
-            )
-        raise django_filters.utils.translate_validation(error_dict=self.errors)
-
-
 class AssetsTotalInvestedSnapshotFilterSet(django_filters.FilterSet):
     start_date = django_filters.DateFilter(
         field_name="operation_date", lookup_expr="gte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
@@ -238,7 +213,6 @@ class AssetsTotalInvestedSnapshotFilterSet(django_filters.FilterSet):
 
 
 class DateRangeFilterSet(django_filters.FilterSet):
-
     start_date = django_filters.DateFilter(
         field_name="operation_date",
         lookup_expr="gte",

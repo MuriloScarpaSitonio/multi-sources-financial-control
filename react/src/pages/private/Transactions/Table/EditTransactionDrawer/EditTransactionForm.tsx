@@ -25,13 +25,12 @@ import {
   PriceWithCurrencyInput,
 } from "../../../../../design-system";
 import useFormPlus from "../../../../../hooks/useFormPlus";
-import {
-  AssetCurrencies,
-  AssetCurrencyMap,
-  AssetsTypesMapping,
-} from "../../../Assets/consts";
+import { AssetCurrencies, AssetCurrencyMap } from "../../../Assets/consts";
 import { editTransaction } from "../../api";
-import { TransactionQuantity } from "../../../Assets/forms/components";
+import {
+  AssetCodeTextField,
+  TransactionQuantity,
+} from "../../../Assets/forms/components";
 import { TRANSACTIONS_QUERY_KEY } from "../../consts";
 import { Transaction } from "../../types";
 import { ApiListResponse } from "../../../../../types";
@@ -79,13 +78,8 @@ const schema = yup.object().shape({
       "Obrigatório para ativos em dólar",
       // it has to be function definition to use `this`
       function (rate) {
-        const { asset, currency, type } = this.parent;
-        if (!rate) {
-          if (asset?.currency) return asset.currency !== AssetCurrencies.USD;
-          if (type?.value === AssetsTypesMapping.Cripto.value)
-            return currency !== AssetCurrencies.USD;
-          return type?.value !== AssetsTypesMapping["Ação EUA"].value;
-        }
+        const { asset } = this.parent;
+        if (!rate) return asset.currency !== AssetCurrencies.USD;
         return true;
       },
     ),
@@ -235,21 +229,7 @@ const EditTransactionForm = ({
         mutate({ id: transactionId, data: { ...data, asset } });
       })}
     >
-      <Controller
-        name="asset"
-        control={control}
-        disabled
-        render={({ field }) => (
-          <TextField
-            {...field}
-            label="Ativo"
-            variant="standard"
-            disabled
-            value={asset?.code}
-          />
-        )}
-      />
-
+      <AssetCodeTextField control={control} />
       <DateInput control={control} />
       <FormControl>
         <Controller

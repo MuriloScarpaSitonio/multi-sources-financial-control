@@ -167,6 +167,7 @@ const Table = () => {
     renderTopToolbar: ({ table }) => (
       <TopToolBar
         table={table}
+        search={search}
         setSearch={setSearch}
         setPagination={setPagination}
         setFilters={setFilters}

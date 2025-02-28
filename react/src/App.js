@@ -20,12 +20,12 @@ import { Login, ForgotPassword, Signup } from "./pages/public";
 import {
   Assets,
   Expenses,
+  Incomes,
   Transactions,
   Wrapper as WrapperV2,
 } from "./pages/private";
 import { ResetPassword } from "./pages/ResetPassword";
 import { SubscriptionDone } from "./pages/SubscriptionDone";
-import PassiveIncomes from "./pages/PassiveIncomes";
 import Subscription from "./pages/Subscription";
 import User from "./pages/User";
 import { stringToBoolean } from "./helpers.js";
@@ -198,8 +198,8 @@ export default function App() {
           <Route
             path="/assets/incomes"
             element={
-              <PrivateRoute path="/assets/incomes">
-                <PassiveIncomes />
+              <PrivateRoute path="/assets/incomes" v2>
+                <Incomes />
               </PrivateRoute>
             }
           />
