@@ -1,3 +1,4 @@
+from functools import partial
 from random import choice, randint
 from uuid import uuid4
 
@@ -5,7 +6,7 @@ from django.utils import timezone
 
 import pytest
 from dateutil.relativedelta import relativedelta
-from factory import RelatedFactoryList, post_generation
+from factory import post_generation
 from factory.django import DjangoModelFactory
 
 from authentication.tests.conftest import client, secrets, user
@@ -18,6 +19,7 @@ from expenses.choices import (
 )
 from expenses.models import (
     BankAccount,
+    BankAccountSnapshot,
     Expense,
     ExpenseCategory,
     ExpenseSource,
@@ -68,6 +70,13 @@ class RevenueFactory(DjangoModelFactory):
 class BankAccountFactory(DjangoModelFactory):
     class Meta:
         model = BankAccount
+
+
+class BankAccountSnapshotFactory(DjangoModelFactory):
+    operation_date = timezone.localdate().replace(day=1)
+
+    class Meta:
+        model = BankAccountSnapshot
 
 
 @pytest.fixture(autouse=True)
@@ -492,3 +501,8 @@ def fixed_revenues(revenue) -> list[Revenue]:
             )
         )
     return revenues
+
+
+@pytest.fixture
+def bank_account_snapshot_factory(user):
+    return partial(BankAccountSnapshotFactory, user=user)

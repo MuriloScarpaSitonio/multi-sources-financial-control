@@ -35,6 +35,7 @@ import { useInvalidateExpenseQueries } from "../hooks";
 import DeleteExpenseDialog from "./DeleteExpenseDialog";
 import TopToolBar from "./ToopToolBar";
 import { Chip } from "@mui/material";
+import { useHideValues } from "../../../../hooks/useHideValues";
 
 type GroupedExpense = Expense & { type: string };
 
@@ -119,6 +120,9 @@ const Table = () => {
 
   const { startDate, endDate, categories, sources, isRelatedEntitiesLoading } =
     useContext(ExpensesContext);
+
+  const { hideValues } = useHideValues();
+
   const columns = useMemo<Column<GroupedExpense>[]>(
     () => [
       { header: "", accessorKey: "type", size: 25 },
@@ -140,12 +144,14 @@ const Table = () => {
         },
         aggregationFn: "sum",
         AggregatedCell: ({ cell }) => (
-          <Text weith={FontWeights.SEMI_BOLD} size={FontSizes.SMALL}>{`R$ ${cell
-            .getValue<number>()
-            .toLocaleString("pt-br", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}`}</Text>
+          <Text weith={FontWeights.SEMI_BOLD} size={FontSizes.SMALL}>
+            {hideValues
+              ? ""
+              : `R$ ${cell.getValue<number>().toLocaleString("pt-br", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`}
+          </Text>
         ),
       },
       {
@@ -207,7 +213,7 @@ const Table = () => {
         },
       },
     ],
-    [categories, sources],
+    [categories, sources, hideValues],
   );
 
   const { onDeleteSuccess } = useOnExpenseDeleteSuccess();

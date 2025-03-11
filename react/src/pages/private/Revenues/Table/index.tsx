@@ -33,6 +33,7 @@ import { ExpensesContext } from "../../Expenses/context";
 import { useInvalidateRevenuesQueries } from "../hooks";
 import DeleteRevenueDialog from "./DeleteRevenueDialog";
 import TopToolBar from "./ToopToolBar";
+import { useHideValues } from "../../../../hooks/useHideValues";
 
 type GroupedRevenue = Revenue & { type: string };
 
@@ -104,6 +105,9 @@ const Table = () => {
 
   const { startDate, endDate, isRelatedEntitiesLoading, revenuesCategories } =
     useContext(ExpensesContext);
+
+  const { hideValues } = useHideValues();
+
   const columns = useMemo<Column<GroupedRevenue>[]>(
     () => [
       { header: "", accessorKey: "type", size: 25 },
@@ -125,12 +129,14 @@ const Table = () => {
         },
         aggregationFn: "sum",
         AggregatedCell: ({ cell }) => (
-          <Text weith={FontWeights.SEMI_BOLD} size={FontSizes.SMALL}>{`R$ ${cell
-            .getValue<number>()
-            .toLocaleString("pt-br", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}`}</Text>
+          <Text weith={FontWeights.SEMI_BOLD} size={FontSizes.SMALL}>
+            {hideValues
+              ? ""
+              : `R$ ${cell.getValue<number>().toLocaleString("pt-br", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`}
+          </Text>
         ),
       },
       {
@@ -160,7 +166,7 @@ const Table = () => {
         },
       },
     ],
-    [revenuesCategories],
+    [revenuesCategories, hideValues],
   );
 
   const { onDeleteSuccess } = useOnRevenueDeleteSuccess();

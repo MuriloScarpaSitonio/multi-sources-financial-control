@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from statistics import fmean
 from typing import TYPE_CHECKING
 
 from django.db import transaction as djtransaction
@@ -144,13 +145,22 @@ class AssetViewSet(
 
     @action(methods=("GET",), detail=False)
     def total_invested_history(self, request: Request) -> Response:
-        filterset = filters.AssetsTotalInvestedSnapshotFilterSet(
-            data=request.GET,
-            queryset=AssetsTotalInvestedSnapshot.objects.filter(user_id=request.user.id).order_by(
-                "operation_date"
-            ),
+        qs = (
+            AssetsTotalInvestedSnapshot.objects.filter(user_id=request.user.id)
+            .order_by("operation_date")
+            .values("total", "operation_date")
         )
-        serializer = serializers.AssetsTotalInvestedSnapshotSerializer(filterset.qs, many=True)
+        filterset = filters.MonthlyDateRangeFilterSet(data=request.GET, queryset=qs)
+        serializer = serializers.AssetsTotalInvestedSnapshotSerializer(
+            data=insert_zeros_if_no_data_in_monthly_historic_data(
+                filterset.qs,
+                start_date=filterset.form.cleaned_data["start_date"],
+                end_date=filterset.form.cleaned_data["end_date"],
+                month_field="operation_date",
+            ),
+            many=True,
+        )
+        serializer.is_valid(raise_exception=True)
         return Response(serializer.data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
@@ -223,15 +233,14 @@ class TransactionViewSet(ModelViewSet):
         filterset = filters.MonthlyDateRangeFilterSet(
             data=request.GET, queryset=self.get_queryset()
         )
-        qs = filterset.qs
+        historic = insert_zeros_if_no_data_in_monthly_historic_data(
+            historic=list(filterset.qs.historic()),
+            start_date=filterset.form.cleaned_data["start_date"],
+            end_date=filterset.form.cleaned_data["end_date"],
+            total_fields=("total_bought", "total_sold", "diff"),
+        )
         serializer = serializers.TransactionHistoricSerializer(
-            {
-                "historic": insert_zeros_if_no_data_in_monthly_historic_data(
-                    historic=list(qs.historic()),
-                    total_fields=("total_bought", "total_sold", "diff"),
-                ),
-                **qs.since_a_year_ago_monthly_avg(),
-            }
+            {"historic": historic, "avg": fmean([h["diff"] for h in historic])}
         )
         return Response(serializer.data, status=HTTP_200_OK)
 
@@ -312,14 +321,14 @@ class PassiveIncomeViewSet(ModelViewSet):
         filterset = filters.MonthlyDateRangeFilterSet(
             data=request.GET, queryset=self.get_queryset()
         )
-        qs: PassiveIncomeQuerySet = filterset.qs
+        historic = insert_zeros_if_no_data_in_monthly_historic_data(
+            historic=list(filterset.qs.historic()),
+            start_date=filterset.form.cleaned_data["start_date"],
+            end_date=filterset.form.cleaned_data["end_date"],
+            total_fields=("credited", "provisioned"),
+        )
         serializer = serializers.PassiveIncomeHistoricSerializer(
-            {
-                "historic": insert_zeros_if_no_data_in_monthly_historic_data(
-                    historic=list(qs.historic()), total_fields=("credited", "provisioned")
-                ),
-                **qs.monthly_avg(),
-            }
+            {"historic": historic, "avg": fmean([h["credited"] for h in historic])}
         )
         return Response(serializer.data, status=HTTP_200_OK)
 

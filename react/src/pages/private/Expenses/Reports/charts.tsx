@@ -1,8 +1,18 @@
 import Stack from "@mui/material/Stack";
 
-import { BarChart, Bar, Legend, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  BarChart,
+  Bar,
+  CartesianGrid,
+  Legend,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { getColor, Colors } from "../../../../design-system";
 import { GroupBy, ReportUnknownAggregationData } from "../types";
+import { numberTickFormatter } from "../../utils";
+import { useHideValues } from "../../../../hooks/useHideValues";
 
 const CHART_WIDTH = 600;
 const CHART_HEIGHT = 300;
@@ -58,6 +68,8 @@ export const HorizontalStackedBarChart = ({
   data: ReportUnknownAggregationData;
   groupBy: GroupBy;
 }) => {
+  const { hideValues } = useHideValues();
+
   const numOfBars = data?.length ?? 0;
   return (
     <BarChart
@@ -67,11 +79,13 @@ export const HorizontalStackedBarChart = ({
       layout="vertical"
       margin={{ left: 55 }}
     >
+      <CartesianGrid strokeDasharray="5" horizontal={false} />
       <XAxis
         type="number"
-        tickFormatter={(t) => `R$ ${t.toLocaleString("pt-br")}`}
+        tickFormatter={numberTickFormatter}
         stroke={getColor(Colors.neutral0)}
         tickLine={false}
+        tickCount={hideValues ? 0 : undefined}
       />
       <YAxis
         type="category"
@@ -79,6 +93,7 @@ export const HorizontalStackedBarChart = ({
         yAxisId={0}
         stroke={getColor(Colors.neutral0)}
         tickLine={false}
+        axisLine={false}
       />
       <YAxis type="category" dataKey={groupBy} yAxisId={1} hide />
       <Tooltip

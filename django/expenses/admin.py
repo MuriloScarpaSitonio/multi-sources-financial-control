@@ -2,9 +2,18 @@ from django.contrib import admin
 from django.forms import CharField, ModelForm, Select
 
 from .choices import Colors
-from .models import BankAccount, Expense, ExpenseCategory, ExpenseSource, Revenue, RevenueCategory
+from .models import (
+    BankAccount,
+    BankAccountSnapshot,
+    Expense,
+    ExpenseCategory,
+    ExpenseSource,
+    Revenue,
+    RevenueCategory,
+)
 
 admin.site.register(BankAccount)
+admin.site.register(BankAccountSnapshot)
 
 
 class _ExpenseForm(ModelForm):

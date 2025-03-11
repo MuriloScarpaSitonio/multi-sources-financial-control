@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import { endOfMonth, Month, startOfMonth } from "date-fns";
+import { Month, startOfMonth } from "date-fns";
 
 import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
@@ -11,12 +11,7 @@ import { TransactionsContext } from "./context";
 import Indicators from "./Indicators";
 import Reports from "./Reports";
 import Table from "./Table";
-
-const customEndOfMonth = (date: Date) => {
-  const result = endOfMonth(date);
-  result.setHours(0, 0, 0, 0);
-  return result;
-};
+import { customEndOfMonth } from "../utils";
 
 const Transactions = () => {
   const now = new Date();

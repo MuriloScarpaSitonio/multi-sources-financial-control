@@ -5,7 +5,7 @@ cat <<EOF | python manage.py shell
 import os
 from datetime import date
 
-from expenses.scripts import decrement_credit_card_bill_today, create_all_fixed_entities_from_last_month
+from expenses.tasks import create_bank_account_snapshot_for_all_users, create_fixed_expenses_from_last_month_to_all_users, create_fixed_revenues_from_last_month_to_all_users, decrement_credit_card_bill_today
 from shared.exceptions import NotFirstDayOfMonthException
 from variable_income_assets.adapters.key_value_store import update_dollar_conversion_rate
 from variable_income_assets.scripts import update_assets_metadata_current_price
@@ -16,8 +16,20 @@ decrement_credit_card_bill_today()
 print("Bank accounts (maybe) decremented!")
 
 try:
-    create_all_fixed_entities_from_last_month()
-    print("Fixed expenses and revenues created!")
+    create_bank_account_snapshot_for_all_users()
+    print("Bank account snapshots created!")
+except NotFirstDayOfMonthException:
+    pass
+
+try:
+    create_fixed_expenses_from_last_month_to_all_users()
+    print("Fixed expenses created!")
+except NotFirstDayOfMonthException:
+    pass
+
+try:
+    create_fixed_revenues_from_last_month_to_all_users()
+    print("Fixed revenues created!")
 except NotFirstDayOfMonthException:
     pass
 

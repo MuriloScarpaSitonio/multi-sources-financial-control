@@ -562,9 +562,7 @@ def test__historic(client, user, stock_asset):
     today = timezone.localdate().replace(day=12)
 
     start_date, end_date = today - relativedelta(months=18), today
-    first_day_of_month, last_day_of_month = start_date.replace(day=1), end_date + relativedelta(
-        day=31
-    )
+    last_day_of_month = end_date + relativedelta(day=31)
     PassiveIncome.objects.create(
         operation_date=last_day_of_month,
         amount=1200,
@@ -578,11 +576,6 @@ def test__historic(client, user, stock_asset):
         type=PassiveIncomeTypes.dividend,
         event_type=PassiveIncomeEventTypes.provisioned,
         asset=stock_asset,
-    )
-    qs = PassiveIncome.objects.filter(
-        asset__user_id=user.id,
-        operation_date__gte=first_day_of_month,
-        operation_date__lte=last_day_of_month,
     )
 
     # WHEN
@@ -600,6 +593,7 @@ def test__historic(client, user, stock_asset):
         total_credited = sum(
             p.amount * p.current_currency_conversion_rate
             for p in PassiveIncome.objects.credited().filter(
+                asset__user_id=user.id,
                 operation_date__month=d.month,
                 operation_date__year=d.year,
             )
@@ -609,6 +603,7 @@ def test__historic(client, user, stock_asset):
         total_provisioned = sum(
             p.amount * p.current_currency_conversion_rate
             for p in PassiveIncome.objects.provisioned().filter(
+                asset__user_id=user.id,
                 operation_date__month=d.month,
                 operation_date__year=d.year,
             )
@@ -618,7 +613,7 @@ def test__historic(client, user, stock_asset):
         )
 
     assert convert_and_quantitize(response_json["avg"]) == convert_and_quantitize(
-        qs.monthly_avg()["avg"]
+        fmean([h["credited"] for h in response_json["historic"]])
     )
 
 

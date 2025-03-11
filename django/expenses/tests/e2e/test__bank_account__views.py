@@ -1,6 +1,7 @@
 from django.utils import timezone
 
 import pytest
+from dateutil.relativedelta import relativedelta
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_400_BAD_REQUEST,
@@ -122,3 +123,23 @@ def test__put__not_found(client):
 
     # THEN
     assert response.status_code == HTTP_404_NOT_FOUND
+
+
+def test__history(client, bank_account_snapshot_factory):
+    # GIVEN
+    today = timezone.localdate()
+    start_date, end_date = today - relativedelta(months=18), today
+    bank_account_snapshot_factory(total=5000)
+
+    # WHEN
+    response = client.get(
+        f"{URL}/history"
+        + f"?start_date={start_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}"
+    )
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    assert all(h["total"] == 0 for h in response.json()[:-1])
+    assert response.json()[-1]["total"] == 5000

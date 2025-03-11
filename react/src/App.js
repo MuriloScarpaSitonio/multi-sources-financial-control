@@ -15,11 +15,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Navbar } from "./components/Navbar";
 import { useHideValues } from "./hooks/useHideValues";
 import { ActivateUser } from "./pages/ActivateUser";
-import Home from "./pages/Home";
 import { Login, ForgotPassword, Signup } from "./pages/public";
 import {
   Assets,
   Expenses,
+  Home,
   Incomes,
   Transactions,
   Wrapper as WrapperV2,
@@ -166,7 +166,7 @@ export default function App() {
           <Route
             path="/home"
             element={
-              <PrivateRoute path="/home">
+              <PrivateRoute path="/home" v2>
                 <Home />
               </PrivateRoute>
             }

@@ -3,13 +3,8 @@ import MonetizationOnOutlinedIcon from "@mui/icons-material/MonetizationOnOutlin
 import { Indicator } from "../../components";
 import PercentageChangeSecondaryIndicator from "./PercentageChangeSecondaryIndicator";
 import { useIncomesIndicators } from "../../Incomes/Indicators/hooks";
-import { endOfMonth, startOfMonth } from "date-fns";
-
-const customEndOfMonth = (date: Date) => {
-  const result = endOfMonth(date);
-  result.setHours(0, 0, 0, 0);
-  return result;
-};
+import { startOfMonth } from "date-fns";
+import { customEndOfMonth } from "../../utils";
 
 const IncomesIndicator = () => {
   const now = new Date();

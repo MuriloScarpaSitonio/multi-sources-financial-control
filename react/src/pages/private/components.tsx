@@ -22,6 +22,7 @@ import { InfoIconTooltip, Text } from "../../design-system/components";
 import * as enums from "../../design-system/enums";
 import { getColor } from "../../design-system/utils";
 import { SxProps } from "@mui/material";
+import { useHideValues } from "../../hooks/useHideValues";
 
 const ErrorFeedback = () => (
   <Stack direction="row" alignItems="center" spacing={1}>
@@ -57,6 +58,8 @@ export const Indicator = ({
   isError: boolean;
   sx?: SxProps;
 }) => {
+  const { hideValues } = useHideValues();
+
   const valueContent = extra ? (
     <Stack spacing={0.5}>
       <Text size={enums.FontSizes.REGULAR}>
@@ -73,11 +76,13 @@ export const Indicator = ({
       })}`}
     </Text>
   );
+
   const content = (
     <Stack spacing={1.5}>
-      {isLoading ? (
+      {isLoading || hideValues ? (
         <Skeleton
           sx={{ bgcolor: getColor(enums.Colors.neutral300), width: "75%" }}
+          animation={hideValues ? false : "pulse"}
         />
       ) : (
         valueContent

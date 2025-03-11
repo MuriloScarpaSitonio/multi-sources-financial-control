@@ -6,7 +6,7 @@ import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 
 import { useSearchParams } from "react-router-dom";
-import { endOfMonth, Month, startOfMonth } from "date-fns";
+import { Month, startOfMonth } from "date-fns";
 
 import { Colors, getColor, PeriodsManager } from "../../../design-system";
 import { ContextType as PeriodsManagerContextType } from "../../../design-system/components/PeriodsManager";
@@ -18,12 +18,7 @@ import { useGetCategories, useGetSources } from "./hooks";
 import Indicators from "./Indicators";
 import { default as ExpenseReports } from "./Reports";
 import { default as ExpensesTable } from "./Table";
-
-const customEndOfMonth = (date: Date) => {
-  const result = endOfMonth(date);
-  result.setHours(0, 0, 0, 0);
-  return result;
-};
+import { customEndOfMonth } from "../utils";
 
 const CustomTabs = ({
   tabValue,
@@ -118,12 +113,10 @@ const Expenses = () => {
       endDate,
       month,
       year,
-      categoriesData,
-      sourcesData,
-      isLoadingCategories,
-      isLoadingSources,
-      isLoadingRevenuesCategories,
-      revenuesCategoriesData,
+      categoriesData?.results,
+      sourcesData?.results,
+      revenuesCategoriesData?.results,
+      isRelatedEntitiesLoading,
     ],
   );
   return (

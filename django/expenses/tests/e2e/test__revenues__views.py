@@ -365,42 +365,6 @@ def test__delete(client, revenue, bank_account):
     assert previous_bank_account_amount - revenue.value == bank_account.amount
 
 
-@pytest.mark.usefixtures("revenues_historic_data")
-@pytest.mark.parametrize(
-    ("filters", "db_filters"),
-    (
-        ("is_fixed=false", {"is_fixed": False}),
-        ("is_fixed=true", {"is_fixed": True}),
-        ("", {}),
-    ),
-)
-def test__historic(client, user, filters, db_filters):
-    # GIVEN
-    today = timezone.now().date()
-    qs = Revenue.objects.filter(user_id=user.id, **db_filters)
-
-    # WHEN
-    response = client.get(f"{URL}/historic?{filters}")
-    response_json = response.json()
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-
-    total = 0
-    for result in response_json["historic"]:
-        d = datetime.strptime(result["month"], "%d/%m/%Y").date()
-        assert convert_and_quantitize(result["total"]) == convert_and_quantitize(
-            qs.filter(created_at__month=d.month, created_at__year=d.year).sum()["total"]
-        )
-        if d == today.replace(day=1):  # we don't evaluate the current month on the avg calculation
-            continue
-        total += result["total"]
-
-    assert convert_and_quantitize(response_json["avg"]) == convert_and_quantitize(
-        qs.monthly_avg()["avg"]
-    )
-
-
 @pytest.mark.usefixtures("revenues_report_data")
 def test__reports__percentage(client):
     # GIVEN

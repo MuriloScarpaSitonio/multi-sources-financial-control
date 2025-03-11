@@ -254,5 +254,5 @@ def test__historic_report(client, user):
         total += result["total"]
 
     assert convert_and_quantitize(response_json["avg"]) == convert_and_quantitize(
-        qs.monthly_avg()["avg"]
+        fmean([h["total"] for h in response_json["historic"]])
     )

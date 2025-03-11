@@ -7,8 +7,8 @@ import { getTotalInvestedHistory } from "../../api";
 const QUERY_KEY = "assets-total-ivested-history-report";
 
 type Params = {
-  start_date?: Date;
-  end_date?: Date;
+  startDate?: Date;
+  endDate?: Date;
 };
 
 export const useAssetsTotalInvestedHistory = (

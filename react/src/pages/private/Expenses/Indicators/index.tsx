@@ -5,22 +5,12 @@ import Stack from "@mui/material/Stack";
 import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 import MonetizationOnOutlinedIcon from "@mui/icons-material/MonetizationOnOutlined";
 import CheckCircleOutlinedIcon from "@mui/icons-material/CheckCircleOutlined";
-import { styled } from "@mui/material/styles";
 
 import { Indicator } from "../../components";
 import { useExpensesIndicators, useMostExpensiveExpense } from "./hooks";
 import PercentageChangeSecondaryIndicator from "./PercentageChangeSecondaryIndicator";
-import LinearProgress, {
-  linearProgressClasses,
-} from "@mui/material/LinearProgress";
 
-import {
-  Colors,
-  FontSizes,
-  FontWeights,
-  getColor,
-  Text,
-} from "../../../../design-system";
+import { Colors, FontSizes, getColor, Text } from "../../../../design-system";
 import { ExpensesContext } from "../context";
 import { Expense } from "../api/models";
 import { StatusDot } from "../../../../design-system/icons";
@@ -28,21 +18,8 @@ import { useBankAccount } from "../hooks";
 import { IndicatorBox } from "./components";
 import BankAccountIndicator from "./BankAccountIndicator";
 import { useRevenuesIndicators } from "../../Revenues/hooks/useRevenuesIndicators";
-
-const BorderLinearProgress = styled(LinearProgress)(({ value }) => ({
-  height: 24,
-  borderRadius: 10,
-  [`&.${linearProgressClasses.colorPrimary}`]: {
-    backgroundColor: getColor(Colors.neutral200),
-  },
-  [`& .${linearProgressClasses.bar}`]: {
-    borderRadius: 10,
-    backgroundColor:
-      value && value === 100
-        ? getColor(Colors.danger200)
-        : getColor(Colors.brand),
-  },
-}));
+import ExpenseRevenuesRatioLinearProgress from "./ExpenseRevenuesRatioLinearProgress";
+import { useHideValues } from "../../../../hooks/useHideValues";
 
 const ExpenseAvgDiffIndicator = ({
   value,
@@ -84,26 +61,41 @@ const BalanceIndicator = ({
 }: {
   value: number;
   isLoading: boolean;
-}) =>
-  isLoading ? (
-    <Skeleton
-      width="50%"
-      height={80}
-      sx={{
-        borderRadius: "10px",
-      }}
-    />
-  ) : (
+}) => {
+  const { hideValues } = useHideValues();
+  if (isLoading)
+    return (
+      <Skeleton
+        width="50%"
+        height={80}
+        sx={{
+          borderRadius: "10px",
+        }}
+      />
+    );
+
+  return (
     <IndicatorBox variant={value > 0 ? "success" : "danger"} width="50%">
       <Text size={FontSizes.SMALL}>
-        Diferença: R${" "}
-        {value.toLocaleString("pt-br", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}
+        <Stack direction="row" gap={1}>
+          Diferença:{" "}
+          {hideValues ? (
+            <Skeleton
+              sx={{ bgcolor: getColor(Colors.neutral300), width: "50%" }}
+              animation={false}
+            />
+          ) : (
+            `R$
+          ${value.toLocaleString("pt-br", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`
+          )}
+        </Stack>
       </Text>
     </IndicatorBox>
   );
+};
 
 const MostExpensiveIndicator = ({
   expense,
@@ -113,6 +105,7 @@ const MostExpensiveIndicator = ({
   isLoading: boolean;
 }) => {
   const { categories, isRelatedEntitiesLoading } = useContext(ExpensesContext);
+  const { hideValues } = useHideValues();
 
   if (isLoading || isRelatedEntitiesLoading)
     return (
@@ -143,13 +136,20 @@ const MostExpensiveIndicator = ({
             color={categories.hexColorMapping.get(expense?.category as string)}
           />
         </Stack>
-        <Text size={FontSizes.SMALL}>
-          R${" "}
-          {expense?.value?.toLocaleString("pt-br", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
-        </Text>
+        {hideValues ? (
+          <Skeleton
+            sx={{ bgcolor: getColor(Colors.neutral300), width: "50%" }}
+            animation={false}
+          />
+        ) : (
+          <Text size={FontSizes.SMALL}>
+            R${" "}
+            {expense?.value?.toLocaleString("pt-br", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </Text>
+        )}
       </Stack>
     </IndicatorBox>
   );
@@ -183,11 +183,13 @@ const Indicators = () => {
         ((expensesIndicators?.total ?? 0) / (revenuesIndicators?.total || 1)) *
         100
       );
+    return 0;
   }, [expensesIndicators, revenuesIndicators]);
 
   const balance = useMemo(() => {
     if (expensesIndicators && revenuesIndicators)
       return revenuesIndicators?.total - expensesIndicators?.total;
+    return 0;
   }, [expensesIndicators, revenuesIndicators]);
 
   return (
@@ -239,40 +241,12 @@ const Indicators = () => {
           sx={{ width: "50%" }}
         />
       </Stack>
-      {isLoading ? (
-        <Skeleton
-          height={48}
-          sx={{
-            borderRadius: "10px",
-          }}
-        />
-      ) : (
-        <div style={{ position: "relative" }}>
-          <BorderLinearProgress
-            variant="determinate"
-            value={Math.min(percentage ?? 0, 100)}
-          />
-          <Text
-            extraStyle={{
-              position: "absolute",
-              top: "10%",
-              left: "94%",
-              transform: "translateX(-50%)",
-            }}
-            color={Colors.neutral900}
-            weight={FontWeights.SEMI_BOLD}
-            size={FontSizes.SEMI_SMALL}
-          >
-            {percentage?.toLocaleString("pt-br", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-            %
-          </Text>
-        </div>
-      )}
+      <ExpenseRevenuesRatioLinearProgress
+        percentage={percentage}
+        isLoading={isLoading}
+      />
       <Stack direction="row" gap={4}>
-        <BalanceIndicator value={balance ?? 0} isLoading={isLoading} />
+        <BalanceIndicator value={balance} isLoading={isLoading} />
         {isFilteringEntireMonth && (
           <ExpenseAvgDiffIndicator
             value={expensesIndicators?.diff ?? 0}

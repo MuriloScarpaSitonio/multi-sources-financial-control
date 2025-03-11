@@ -1185,42 +1185,6 @@ def test__delete__installments(client, expenses_w_installments, bank_account):
 
 
 @pytest.mark.usefixtures("expenses_report_data")
-@pytest.mark.parametrize(
-    ("filters", "db_filters"),
-    (
-        ("future=false", {}),
-        ("future=true", {}),
-        ("future=false&category=Casa", {"category": "Casa"}),
-    ),
-)
-def test__historic(client, user, filters, db_filters):
-    # GIVEN
-    today = timezone.localdate()
-    qs = Expense.objects.filter(user_id=user.id, **db_filters)
-
-    # WHEN
-    response = client.get(f"{URL}/historic?{filters}")
-    response_json = response.json()
-
-    # THEN
-    assert response.status_code == HTTP_200_OK
-
-    total = 0
-    for result in response_json["historic"]:
-        d = datetime.strptime(result["month"], "%d/%m/%Y").date()
-        assert convert_and_quantitize(result["total"]) == convert_and_quantitize(
-            qs.filter(created_at__month=d.month, created_at__year=d.year).sum()["total"]
-        )
-        if d == today.replace(day=1):  # we don't evaluate the current month on the avg calculation
-            continue
-        total += result["total"]
-
-    assert convert_and_quantitize(response_json["avg"]) == convert_and_quantitize(
-        qs.monthly_avg()["avg"] if "future=true" not in filters else 0
-    )
-
-
-@pytest.mark.usefixtures("expenses_report_data")
 def test__indicators(client, user):
     # GIVEN
     today = timezone.localdate()

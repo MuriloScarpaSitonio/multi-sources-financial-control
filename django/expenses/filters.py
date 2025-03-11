@@ -144,7 +144,7 @@ class ExpenseHistoricV2FilterSet(django_filters.FilterSet):
         raise django_filters.utils.translate_validation(error_dict=self.errors)
 
 
-class PersonalFinanceIndicatorsV2FilterSet(django_filters.FilterSet):
+class DateRangeFilterSet(django_filters.FilterSet):
     start_date = django_filters.DateFilter(
         field_name="created_at",
         lookup_expr="gte",
@@ -165,7 +165,28 @@ class PersonalFinanceIndicatorsV2FilterSet(django_filters.FilterSet):
         raise django_filters.utils.translate_validation(error_dict=self.errors)
 
 
-class ExpensePercentageReportFilterSet(PersonalFinanceIndicatorsV2FilterSet):
+class OperationDateRangeFilterSet(django_filters.FilterSet):
+    start_date = django_filters.DateFilter(
+        field_name="operation_date",
+        lookup_expr="gte",
+        required=True,
+        input_formats=["%d/%m/%Y", "%Y-%m-%d"],
+    )
+    end_date = django_filters.DateFilter(
+        field_name="operation_date",
+        lookup_expr="lte",
+        required=True,
+        input_formats=["%d/%m/%Y", "%Y-%m-%d"],
+    )
+
+    @property
+    def qs(self):
+        if self.is_valid():
+            return super().qs
+        raise django_filters.utils.translate_validation(error_dict=self.errors)
+
+
+class ExpensePercentageReportFilterSet(DateRangeFilterSet):
     group_by = django_filters.ChoiceFilter(choices=ExpenseReportType.choices, required=True)
 
     queryset: ExpenseQueryset
@@ -200,7 +221,7 @@ class RevenueHistoricFilterSet(django_filters.FilterSet):
         return super().qs.since_a_year_ago()
 
 
-class RevenuesPercentageReportFilterSet(PersonalFinanceIndicatorsV2FilterSet):
+class RevenuesPercentageReportFilterSet(DateRangeFilterSet):
     queryset: RevenueQueryset
 
     @property

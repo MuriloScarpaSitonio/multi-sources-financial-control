@@ -12,13 +12,18 @@ import {
 import { Colors } from "../../enums";
 import { RawDateString } from "../../../types";
 import { getColor } from "../../utils";
+import {
+  monthTickerFormatter,
+  numberTickFormatter,
+} from "../../../pages/private/utils";
+import { useHideValues } from "../../../hooks/useHideValues";
 
 type HistoricReportDataItem = {
   total: number;
   month: RawDateString;
 };
 
-const CHART_WIDTH = 600;
+const CHART_WIDTH = 825;
 const CHART_HEIGHT = 300;
 
 const BarChartWithReferenceLineToolTipContent = ({
@@ -96,18 +101,32 @@ const BarChartWithReferenceLine = ({
   referenceValue: number;
   variant: "danger" | "success";
 }) => {
+  const { hideValues } = useHideValues();
+
   const secondDayOfCurrentMonth = new Date();
   secondDayOfCurrentMonth.setDate(2);
   const isVariantDanger = variant === "danger";
+
   return (
     <BarChart
-      width={CHART_WIDTH * 1.15}
+      width={CHART_WIDTH}
       height={CHART_HEIGHT}
       data={data}
       margin={{ left: 25 }}
     >
-      <XAxis dataKey="month" />
-      <YAxis />
+      <XAxis
+        dataKey="month"
+        stroke={getColor(Colors.neutral0)}
+        tickFormatter={monthTickerFormatter}
+      />
+      <YAxis
+        type="number"
+        stroke={getColor(Colors.neutral0)}
+        tickFormatter={numberTickFormatter}
+        axisLine={false}
+        tickLine={false}
+        tickCount={hideValues ? 0 : undefined}
+      />
       <Tooltip
         cursor={false}
         content={<BarChartWithReferenceLineToolTipContent variant={variant} />}

@@ -1,58 +1,15 @@
+import type { ReactNode } from "react";
+
 import Grid from "@mui/material/Grid";
-import Skeleton from "@mui/material/Skeleton";
-import Stack from "@mui/material/Stack";
 import MonetizationOnOutlinedIcon from "@mui/icons-material/MonetizationOnOutlined";
 import SvgIcon from "@mui/material/SvgIcon";
 
 import { Indicator } from "../../components";
-import { Text } from "../../../../design-system/components";
-import * as enums from "../../../../design-system/enums";
 import { InvestmentUpIcon } from "../../../../design-system/icons";
-import { getColor } from "../../../../design-system/utils";
 import { useAssetsIndicators } from "./hooks";
 import PercentageChangeSecondaryIndicator from "./PercentageChangeSecondaryIndicator";
-import { ReactNode } from "react";
+import RoiSecondaryIndicator from "./RoiSecondaryIndicator";
 
-const RoiSecondaryIndicator = ({
-  value,
-  variant,
-  isLoading,
-}: {
-  value?: number;
-  variant: "success" | "danger";
-  isLoading: boolean;
-}) => {
-  return (
-    <Stack direction="row" alignItems="center" spacing={0.5}>
-      {isLoading ? (
-        <Skeleton
-          sx={{ bgcolor: getColor(enums.Colors.neutral300), width: "50%" }}
-        />
-      ) : (
-        <Text
-          weight={enums.FontWeights.LIGHT}
-          size={enums.FontSizes.EXTRA_SMALL}
-        >
-          <Text
-            weight={enums.FontWeights.LIGHT}
-            size={enums.FontSizes.EXTRA_SMALL}
-            color={
-              variant === "success"
-                ? enums.Colors.brand
-                : enums.Colors.danger200
-            }
-            display="inline"
-          >
-            {`RS ${value?.toLocaleString("pt-br", {
-              minimumFractionDigits: 2,
-            })} `}
-          </Text>
-          Posições abertas
-        </Text>
-      )}
-    </Stack>
-  );
-};
 const Indicators = ({ extra }: { extra: ReactNode }) => {
   const { data, isPending, isError } = useAssetsIndicators();
 

@@ -3,6 +3,7 @@ import Stack from "@mui/material/Stack";
 import {
   Bar,
   BarChart,
+  CartesianGrid,
   Legend,
   ReferenceLine,
   Tooltip,
@@ -18,6 +19,8 @@ import {
   StatusDot,
 } from "../../../../design-system";
 import { HistoricReportResponse, TopAssetsResponse } from "../types";
+import { monthTickerFormatter, numberTickFormatter } from "../../utils";
+import { useHideValues } from "../../../../hooks/useHideValues";
 
 const CHART_WIDTH = 700;
 const CHART_HEIGHT = 300 * 1.25;
@@ -93,62 +96,64 @@ const HorizontalBarChartToolTipContent = ({
         <p style={{ color: getColor(Colors.neutral300) }}>
           {`Ativo: ${data.code}`}
         </p>
-        {data.credited > 0 && (
-          <p style={{ color: getColor(Colors.brand200) }}>
-            {`Total creditado: R$ ${data.credited.toLocaleString("pt-br", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          </p>
-        )}
-        {data.provisioned > 0 && (
-          <p style={{ color: getColor(Colors.brand100) }}>
-            {`Total provisionado: R$ ${data.provisioned.toLocaleString("pt-br", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          </p>
-        )}
+        <p style={{ color: getColor(Colors.brand200) }}>
+          {`Total creditado: R$ ${data.credited.toLocaleString("pt-br", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+        </p>
+        <p style={{ color: getColor(Colors.brand100) }}>
+          {`Total provisionado: R$ ${data.provisioned.toLocaleString("pt-br", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+        </p>
       </Stack>
     );
   }
 };
 
-export const HorizontalBarChart = ({ data }: { data: TopAssetsResponse }) => (
-  <BarChart
-    width={CHART_WIDTH}
-    height={CHART_HEIGHT}
-    data={data}
-    layout="vertical"
-    margin={{ left: 55 }}
-  >
-    <XAxis
-      type="number"
-      tickFormatter={(t) => `R$ ${t.toLocaleString("pt-br")}`}
-      stroke={getColor(Colors.neutral0)}
-      tickLine={false}
-    />
-    <YAxis
-      type="category"
-      dataKey="code"
-      stroke={getColor(Colors.neutral0)}
-      tickLine={false}
-    />
-    <Tooltip cursor={false} content={<HorizontalBarChartToolTipContent />} />
-    <Legend verticalAlign="top" content={<LegendContent />} />
-    <Bar
-      dataKey="credited"
-      stackId="a"
-      radius={[0, 5, 5, 0]}
-      fill={getColor(Colors.brand200)}
-      name="Creditado"
-    />
-    <Bar
-      dataKey="provisioned"
-      stackId="a"
-      radius={[0, 5, 5, 0]}
-      fill={getColor(Colors.neutral900)}
-      stroke={getColor(Colors.brand100)}
-      strokeWidth={1}
-      strokeDasharray="3 3"
-      name="Provisionado"
-    />
-  </BarChart>
-);
+export const HorizontalBarChart = ({ data }: { data: TopAssetsResponse }) => {
+  const { hideValues } = useHideValues();
+  return (
+    <BarChart
+      width={CHART_WIDTH}
+      height={CHART_HEIGHT}
+      data={data}
+      layout="vertical"
+      margin={{ left: 55 }}
+    >
+      <CartesianGrid strokeDasharray="5" horizontal={false} />
+      <XAxis
+        type="number"
+        stroke={getColor(Colors.neutral0)}
+        tickFormatter={numberTickFormatter}
+        tickLine={false}
+        tickCount={hideValues ? 0 : undefined}
+      />
+      <YAxis
+        type="category"
+        dataKey="code"
+        stroke={getColor(Colors.neutral0)}
+        axisLine={false}
+        tickLine={false}
+      />
+      <Tooltip cursor={false} content={<HorizontalBarChartToolTipContent />} />
+      <Legend verticalAlign="top" content={<LegendContent />} />
+      <Bar
+        dataKey="credited"
+        stackId="a"
+        radius={[0, 5, 5, 0]}
+        fill={getColor(Colors.brand200)}
+        name="Creditado"
+      />
+      <Bar
+        dataKey="provisioned"
+        stackId="a"
+        radius={[0, 5, 5, 0]}
+        fill={getColor(Colors.neutral900)}
+        stroke={getColor(Colors.brand100)}
+        strokeWidth={1}
+        strokeDasharray="3 3"
+        name="Provisionado"
+      />
+    </BarChart>
+  );
+};
 
 const BarChartCreditedAndProvisionedWithAvgToolTipContent = ({
   active,
@@ -176,16 +181,12 @@ const BarChartCreditedAndProvisionedWithAvgToolTipContent = ({
         <p style={{ color: getColor(Colors.neutral300) }}>
           {`Mês: ${month}/${year}`}
         </p>
-        {data.credited > 0 && (
-          <p style={{ color: getColor(Colors.brand200) }}>
-            {`Total creditado: R$ ${data.credited.toLocaleString("pt-br", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          </p>
-        )}
-        {data.provisioned > 0 && (
-          <p style={{ color: getColor(Colors.brand100) }}>
-            {`Total provisionado: R$ ${data.provisioned.toLocaleString("pt-br", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          </p>
-        )}
+        <p style={{ color: getColor(Colors.brand200) }}>
+          {`Total creditado: R$ ${data.credited.toLocaleString("pt-br", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+        </p>
+        <p style={{ color: getColor(Colors.brand100) }}>
+          {`Total provisionado: R$ ${data.provisioned.toLocaleString("pt-br", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+        </p>
       </Stack>
     );
   }
@@ -200,6 +201,9 @@ export const BarChartCreditedAndProvisionedWithAvg = ({
 }) => {
   const secondDayOfCurrentMonth = new Date();
   secondDayOfCurrentMonth.setDate(2);
+
+  const { hideValues } = useHideValues();
+
   return (
     <BarChart
       width={CHART_WIDTH * 1.15}
@@ -207,8 +211,19 @@ export const BarChartCreditedAndProvisionedWithAvg = ({
       data={data}
       margin={{ left: 25 }}
     >
-      <XAxis dataKey="month" />
-      <YAxis />
+      <XAxis
+        dataKey="month"
+        stroke={getColor(Colors.neutral0)}
+        tickFormatter={monthTickerFormatter}
+      />
+      <YAxis
+        type="number"
+        stroke={getColor(Colors.neutral0)}
+        tickFormatter={numberTickFormatter}
+        axisLine={false}
+        tickLine={false}
+        tickCount={hideValues ? 0 : undefined}
+      />
       <Tooltip
         cursor={false}
         content={<BarChartCreditedAndProvisionedWithAvgToolTipContent />}

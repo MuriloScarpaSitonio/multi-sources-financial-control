@@ -12,6 +12,7 @@ import { Children } from "react";
 import {
   Bar,
   BarChart as BarReChart,
+  CartesianGrid,
   Cell,
   ReferenceLine,
   Tooltip,
@@ -22,6 +23,8 @@ import {
 import { Colors, getColor } from "../../../../../design-system";
 import { AssetOptionsProperties } from "../../consts";
 import { GroupBy } from "../types";
+import { numberTickFormatter } from "../../../utils";
+import { useHideValues } from "../../../../../hooks/useHideValues";
 
 const CHART_WIDTH = 700;
 const CHART_HEIGHT = 300;
@@ -90,6 +93,8 @@ export const BarChart = ({
   layout?: LayoutType;
   positiveNegativeTooltipColor?: boolean;
 }) => {
+  const { hideValues } = useHideValues();
+
   const cells: ReactElement[] = [];
   const others: ReactElement[] = [];
   Children.forEach(children, (child) => {
@@ -106,17 +111,20 @@ export const BarChart = ({
       layout={layout}
       margin={margin}
     >
+      <CartesianGrid strokeDasharray="5" horizontal={false} />
       <XAxis
         type="number"
-        tickFormatter={(t) => `R$ ${t.toLocaleString("pt-br")}`}
         stroke={getColor(Colors.neutral0)}
+        tickFormatter={numberTickFormatter}
         tickLine={false}
+        tickCount={hideValues ? 0 : undefined}
       />
       <YAxis
         type="category"
         dataKey={dataKey}
-        tickLine={false}
         stroke={getColor(Colors.neutral0)}
+        axisLine={false}
+        tickLine={false}
       />
       <Tooltip
         cursor={false}
@@ -147,6 +155,7 @@ export const HorizontalPositiveNegativeBarChart = ({
   groupBy: GroupBy;
 }) => {
   const numOfBars = data?.length ?? 0;
+  const hasNegative = data?.some((d) => d.total < 0);
   return (
     <BarChart
       width={CHART_WIDTH}
@@ -157,7 +166,9 @@ export const HorizontalPositiveNegativeBarChart = ({
       barSize={getBarSize({ numOfBars })}
       positiveNegativeTooltipColor
     >
-      <ReferenceLine x={0} stroke={getColor(Colors.neutral0)} />
+      {hasNegative && (
+        <ReferenceLine x={0} stroke={getColor(Colors.neutral0)} />
+      )}
       {data?.map((d) => (
         <Cell
           key={`assets-roi-report-bar-chart-cell-${d[groupBy]}`}

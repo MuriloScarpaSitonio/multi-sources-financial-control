@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from statistics import fmean
 from typing import TYPE_CHECKING, ClassVar, Literal
 from uuid import uuid4
 
-from django.db.models import Max
+from django.db.models import F, Max
 from django.db.transaction import atomic
 
 from djchoices.choices import ChoiceItem
@@ -20,7 +21,6 @@ from rest_framework.mixins import (
 from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK
 from rest_framework.utils.serializer_helpers import ReturnList
-from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet
 
 from shared.permissions import SubscriptionEndedPermission
@@ -34,6 +34,7 @@ from .domain.models import Revenue as RevenueDomainModel
 from .managers import ExpenseQueryset, RevenueQueryset
 from .models import (
     BankAccount,
+    BankAccountSnapshot,
     Expense,
     ExpenseCategory,
     ExpenseSource,
@@ -66,32 +67,17 @@ class _PersonalFinanceViewSet(
         return {**super().get_serializer_context(), **filterset.get_cleaned_data()}
 
     @action(methods=("GET",), detail=False)
-    def historic(self, request: Request) -> Response:
-        # TODO remove
-        filterset = self.historic_filterset_class(data=request.GET, queryset=self.get_queryset())
-        serializer = serializers.HistoricResponseSerializer(
-            {
-                "historic": insert_zeros_if_no_data_in_monthly_historic_data(
-                    historic=list(filterset.qs.trunc_months().order_by("month"))
-                ),
-                **filterset.qs.monthly_avg(),
-            }
-        )
-        return Response(serializer.data, status=HTTP_200_OK)
-
-    @action(methods=("GET",), detail=False)
     def historic_report(self, request: Request) -> Response:
         filterset = filters.ExpenseHistoricV2FilterSet(
             data=request.GET, queryset=self.get_queryset()
         )
-        qs = filterset.qs
+        historic = insert_zeros_if_no_data_in_monthly_historic_data(
+            historic=list(filterset.qs.trunc_months().order_by("month")),
+            start_date=filterset.form.cleaned_data["start_date"],
+            end_date=filterset.form.cleaned_data["end_date"],
+        )
         serializer = serializers.HistoricResponseSerializer(
-            {
-                "historic": insert_zeros_if_no_data_in_monthly_historic_data(
-                    historic=list(qs.trunc_months().order_by("month"))
-                ),
-                **qs.monthly_avg(),
-            }
+            {"historic": historic, "avg": fmean([h["total"] for h in historic])}
         )
         return Response(serializer.data, status=HTTP_200_OK)
 
@@ -110,9 +96,7 @@ class _PersonalFinanceViewSet(
 
     @action(methods=("GET",), detail=False)
     def sum(self, request: Request) -> Response:
-        filterset = filters.PersonalFinanceIndicatorsV2FilterSet(
-            data=request.GET, queryset=self.get_queryset()
-        )
+        filterset = filters.DateRangeFilterSet(data=request.GET, queryset=self.get_queryset())
         return Response(serializers.TotalSerializer(filterset.qs.sum()).data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
@@ -124,9 +108,7 @@ class _PersonalFinanceViewSet(
 
     @action(methods=("GET",), detail=False)
     def higher_value(self, request: Request) -> Response:
-        filterset = filters.PersonalFinanceIndicatorsV2FilterSet(
-            data=request.GET, queryset=self.get_queryset()
-        )
+        filterset = filters.DateRangeFilterSet(data=request.GET, queryset=self.get_queryset())
         entity = filterset.qs.annotate(max_value=Max("value")).order_by("-max_value").first()
         return Response(self.serializer_class(entity).data, status=HTTP_200_OK)
 
@@ -327,13 +309,21 @@ class RevenueViewSet(_PersonalFinanceViewSet):
         return Response(serializer.data, status=HTTP_200_OK)
 
 
-class BankAccountView(APIView):
+class BankAccountViewSet(GenericViewSet):
     permission_classes = (SubscriptionEndedPermission, PersonalFinancesModulePermission)
+    serializer_class = serializers.BankAccountSerializer
+
+    def get_queryset(self):
+        return (
+            BankAccount.objects.filter(user_id=self.request.user.id)
+            if self.request.user.is_authenticated
+            else Expense.objects.none()  # pragma: no cover -- drf-spectatular
+        )
 
     def get_object(self) -> BankAccount:
-        return get_object_or_404(BankAccount.objects.all(), user_id=self.request.user.id)
+        return get_object_or_404(self.get_queryset())
 
-    def get(self, _: Request) -> Response:
+    def list(self, _: Request) -> Response:
         return Response(
             data=serializers.BankAccountSerializer(instance=self.get_object()).data,
             status=HTTP_200_OK,
@@ -347,6 +337,25 @@ class BankAccountView(APIView):
         serializer.save()
 
         return Response(data=serializer.data, status=HTTP_200_OK)
+
+    @action(methods=("GET",), detail=False)
+    def history(self, request: Request) -> Response:
+        qs = (
+            BankAccountSnapshot.objects.filter(user_id=request.user.id)
+            .order_by("operation_date")
+            .annotate(month=F("operation_date"))
+            .values("month", "total", "operation_date")
+        )
+        filterset = filters.OperationDateRangeFilterSet(data=request.GET, queryset=qs)
+        serializer = serializers.BankAccountSnapshotSerializer(
+            insert_zeros_if_no_data_in_monthly_historic_data(
+                filterset.qs,
+                start_date=filterset.form.cleaned_data["start_date"],
+                end_date=filterset.form.cleaned_data["end_date"],
+            ),
+            many=True,
+        )
+        return Response(serializer.data, status=HTTP_200_OK)
 
 
 class _ExpenseRelatedEntityViewSet(

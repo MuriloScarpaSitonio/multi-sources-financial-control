@@ -1,8 +1,10 @@
 import Stack from "@mui/material/Stack";
 
-import { BarChart, Bar, Tooltip, XAxis, YAxis } from "recharts";
+import { BarChart, Bar, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { Colors, getColor } from "../../../../design-system";
 import { HistoricReportResponse } from "../types";
+import { monthTickerFormatter, numberTickFormatter } from "../../utils";
+import { useHideValues } from "../../../../hooks/useHideValues";
 
 const CHART_WIDTH = 600;
 const CHART_HEIGHT = 300;
@@ -74,6 +76,8 @@ const PositiveNegativeBarChart = ({
 }: {
   data: HistoricReportResponse["historic"];
 }) => {
+  const { hideValues } = useHideValues();
+
   return (
     <BarChart
       width={CHART_WIDTH * 1.5}
@@ -81,8 +85,20 @@ const PositiveNegativeBarChart = ({
       stackOffset="sign"
       data={data}
     >
-      <XAxis dataKey="month" />
-      <YAxis />
+      <CartesianGrid strokeDasharray="5" vertical={false} />
+      <XAxis
+        dataKey="month"
+        stroke={getColor(Colors.neutral0)}
+        tickFormatter={monthTickerFormatter}
+      />
+      <YAxis
+        type="number"
+        stroke={getColor(Colors.neutral0)}
+        tickFormatter={numberTickFormatter}
+        axisLine={false}
+        tickLine={false}
+        tickCount={hideValues ? 0 : undefined}
+      />
       <Tooltip cursor={false} content={<ToolTipContent />} />
       <Bar
         dataKey="total_bought"

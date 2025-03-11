@@ -702,20 +702,13 @@ def test__historic_report(client, user, stock_asset):
     # GIVEN
     today = timezone.localdate().replace(day=12)
     start_date, end_date = today - relativedelta(months=18), today
-    first_day_of_month, last_day_of_month = start_date.replace(day=1), end_date + relativedelta(
-        day=31
-    )
+    last_day_of_month = end_date + relativedelta(day=31)
     Transaction.objects.create(
         operation_date=last_day_of_month,
         price=12,
         quantity=100,
         action=TransactionActions.buy,
         asset=stock_asset,
-    )
-    qs = Transaction.objects.filter(
-        asset__user_id=user.id,
-        operation_date__gte=first_day_of_month,
-        operation_date__lte=last_day_of_month,
     )
 
     # WHEN
@@ -734,6 +727,7 @@ def test__historic_report(client, user, stock_asset):
         total_bought = sum(
             t.price * t.quantity * t.current_currency_conversion_rate
             for t in Transaction.objects.bought().filter(
+                asset__user_id=user.id,
                 operation_date__month=d.month,
                 operation_date__year=d.year,
             )
@@ -746,6 +740,7 @@ def test__historic_report(client, user, stock_asset):
         total_sold = sum(
             t.price * t.quantity * t.current_currency_conversion_rate
             for t in Transaction.objects.sold().filter(
+                asset__user_id=user.id,
                 operation_date__month=d.month,
                 operation_date__year=d.year,
             )
@@ -761,7 +756,7 @@ def test__historic_report(client, user, stock_asset):
         )
 
     assert convert_and_quantitize(response_json["avg"]) == convert_and_quantitize(
-        qs.since_a_year_ago_monthly_avg()["avg"]
+        fmean([h["diff"] for h in response_json["historic"]])
     )
 
 

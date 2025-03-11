@@ -135,14 +135,14 @@ export const deleteAsset = async (id: number) =>
   (await apiProvider.Delete(`${RESOURCE}/${id}`)).data;
 
 export const getTotalInvestedHistory = async (params?: {
-  start_date?: Date;
-  end_date?: Date;
+  startDate?: Date;
+  endDate?: Date;
 }): Promise<{ total: number; operation_date: RawDateString }[]> =>
   (
     await apiProvider.get(`${RESOURCE}/total_invested_history`, {
       params: {
-        start_date: params?.start_date?.toLocaleDateString("pt-br"),
-        end_date: params?.end_date?.toLocaleDateString("pt-br"),
+        start_date: params?.startDate?.toLocaleDateString("pt-br"),
+        end_date: params?.endDate?.toLocaleDateString("pt-br"),
       },
     })
   ).data;

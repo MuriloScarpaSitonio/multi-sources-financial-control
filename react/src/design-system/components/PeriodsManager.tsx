@@ -8,7 +8,7 @@ import Stack from "@mui/material/Stack";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 
-import { useCallback, useContext, useMemo } from "react";
+import { useCallback, useContext, useEffect, useMemo } from "react";
 
 import Text from "./Text";
 import { FontSizes, FontWeights } from "../enums";
@@ -39,10 +39,30 @@ export interface ContextType {
   setYear: Dispatch<SetStateAction<number>>;
 }
 
-const MonthChips = ({ context }: { context: Context<ContextType> }) => {
+const MonthChips = ({
+  context,
+  isFilteringEntireMonth,
+}: {
+  context: Context<ContextType>;
+  isFilteringEntireMonth: boolean;
+}) => {
+  const {
+    month,
+    setMonth,
+    year,
+    setYear,
+    startDate,
+    setStartDate,
+    setEndDate,
+  } = useContext(context);
+
+  const isFilteringThisYear = useMemo(
+    () => isFilteringEntireMonth && startDate.getFullYear() === year,
+    [isFilteringEntireMonth, startDate, year],
+  );
+
   const currentYear = useMemo(() => new Date().getFullYear(), []);
-  const { month, setMonth, year, setYear, setStartDate, setEndDate } =
-    useContext(context);
+  const yearDiff = currentYear - year - 1;
 
   const onMonthClick = useCallback(
     (value: number) => {
@@ -58,14 +78,21 @@ const MonthChips = ({ context }: { context: Context<ContextType> }) => {
       [...Array(12).keys()].map((value) => (
         <Chip
           label={months[value]}
-          onClick={value === month ? undefined : () => onMonthClick(value)}
-          variant={value === month ? "neutral-selected" : "neutral"}
+          onClick={
+            value === month && isFilteringThisYear
+              ? undefined
+              : () => onMonthClick(value)
+          }
+          variant={
+            value === month && isFilteringThisYear
+              ? "neutral-selected"
+              : "neutral"
+          }
           key={`month-chip-${value}`}
         />
       )),
-    [onMonthClick, month],
+    [onMonthClick, month, isFilteringThisYear],
   );
-  const yearDiff = currentYear - year - 1;
 
   return (
     <Stack direction="row" spacing={2} alignItems="center">
@@ -91,11 +118,21 @@ const MonthChips = ({ context }: { context: Context<ContextType> }) => {
 };
 
 const PeriodsManager = ({ context }: { context: Context<ContextType> }) => {
-  const { startDate, endDate } = useContext(context);
+  const { startDate, endDate, setMonth } = useContext(context);
 
+  const isFilteringEntireMonth = useMemo(
+    () => isFilteringWholeMonth(startDate, endDate),
+    [startDate, endDate],
+  );
+
+  useEffect(() => {
+    if (!isFilteringEntireMonth) {
+      setMonth(undefined);
+    }
+  });
   const getPeriod = useCallback(() => {
     if (isFilteringWholeMonth(startDate, endDate))
-      return months[startDate.getMonth()];
+      return `${months[startDate.getMonth()]}, ${startDate.getFullYear()}`;
     return `${format(startDate, "MMM dd, yyyy", {
       locale: ptBR,
     })} - ${format(endDate, "MMM dd, yyyy", {
@@ -108,7 +145,10 @@ const PeriodsManager = ({ context }: { context: Context<ContextType> }) => {
       <Text size={FontSizes.LARGE} weight={FontWeights.BOLD}>
         {getPeriod()}
       </Text>
-      <MonthChips context={context} />
+      <MonthChips
+        context={context}
+        isFilteringEntireMonth={isFilteringEntireMonth}
+      />
     </Stack>
   );
 };

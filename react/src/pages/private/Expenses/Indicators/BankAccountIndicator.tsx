@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import Button from "@mui/material/Button";
 import OutlinedInput from "@mui/material/OutlinedInput";
+import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 
@@ -21,6 +22,7 @@ import { useMutation } from "@tanstack/react-query";
 import { CircularProgress } from "@mui/material";
 import { update as updateBankAccount } from "../api/bank_account";
 import { enqueueSnackbar } from "notistack";
+import { useHideValues } from "../../../../hooks/useHideValues";
 
 const BankAcountDescriptionInput = ({
   description,
@@ -94,15 +96,23 @@ const BankAccountAmountInput = ({
   />
 );
 
-const BankAccountAmountText = ({ amount }: { amount: number }) => (
-  <Text size={FontSizes.SMALL}>
-    R${" "}
-    {amount.toLocaleString("pt-br", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}
-  </Text>
-);
+const BankAccountAmountText = ({ amount }: { amount: number }) => {
+  const { hideValues } = useHideValues();
+  return hideValues ? (
+    <Skeleton
+      sx={{ bgcolor: getColor(Colors.neutral300), width: "50%" }}
+      animation={false}
+    />
+  ) : (
+    <Text size={FontSizes.SMALL}>
+      R${" "}
+      {amount.toLocaleString("pt-br", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}
+    </Text>
+  );
+};
 
 const BankAccountIndicator = ({
   amount,

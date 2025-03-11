@@ -19,6 +19,7 @@ import ShowChartOutlinedIcon from "@mui/icons-material/ShowChartOutlined";
 import { getColor } from "../../../design-system/utils";
 import { LogoIcon } from "../../../design-system/icons";
 import { Colors } from "../../../design-system/enums";
+import { stringToBoolean } from "../../../helpers";
 
 const drawerWidth = 200;
 
@@ -146,29 +147,39 @@ const InvestmentsMenu = () => {
   );
 };
 
-const SideBar = () => (
-  <Drawer
-    variant="permanent"
-    sx={{
-      [`& .MuiDrawer-paper`]: {
-        width: drawerWidth,
-        boxSizing: "border-box",
-        background: getColor(Colors.neutral900),
-      },
-    }}
-  >
-    <Toolbar>
-      <IconButton href="/home" sx={{ borderRadius: 0 }}>
-        <LogoIcon />
-      </IconButton>
-    </Toolbar>
-    <Box>
-      <List>
-        <FinancesMenus />
-        <InvestmentsMenu />
-      </List>
-    </Box>
-  </Drawer>
-);
+const SideBar = () => {
+  const isPersonalFinancesModuleEnabled = stringToBoolean(
+    localStorage.getItem("user_is_personal_finances_module_enabled"),
+  );
+  const isInvestmentsModuleEnabled = stringToBoolean(
+    localStorage.getItem("user_is_investments_module_enabled"),
+  );
+  const isSubscriptionCancelled =
+    localStorage.getItem("user_subscription_status") === "CANCELED";
+  return (
+    <Drawer
+      variant="permanent"
+      sx={{
+        [`& .MuiDrawer-paper`]: {
+          width: drawerWidth,
+          boxSizing: "border-box",
+          background: getColor(Colors.neutral900),
+        },
+      }}
+    >
+      <Toolbar>
+        <IconButton href="/home" sx={{ borderRadius: 0 }}>
+          <LogoIcon />
+        </IconButton>
+      </Toolbar>
+      <Box>
+        <List>
+          {isPersonalFinancesModuleEnabled && <FinancesMenus />}
+          {isInvestmentsModuleEnabled && <InvestmentsMenu />}
+        </List>
+      </Box>
+    </Drawer>
+  );
+};
 
 export default SideBar;

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from datetime import date
 from enum import Enum
 from typing import TYPE_CHECKING, Required, TypedDict
@@ -19,31 +18,30 @@ class MonthlyHistoricType(TypedDict, total=False):
 
 
 def insert_zeros_if_no_data_in_monthly_historic_data(
-    historic: list[MonthlyHistoricType], total_fields: tuple[str, ...] = ("total",)
+    historic: list[MonthlyHistoricType],
+    start_date: date,
+    end_date: date,
+    month_field: str = "month",
+    total_fields: tuple[str, ...] = ("total",),
 ) -> list[MonthlyHistoricType]:
-    if len(historic) == 13:
-        return historic
+    start_date = start_date.replace(day=1)
+    end_date = end_date + relativedelta(day=31)
+    historic_map = {h[month_field]: h for h in historic}
 
-    return _insert_zeros_in_between(historic=historic, total_fields=total_fields)
+    result: list[MonthlyHistoricType] = []
+    current_date = start_date
 
+    while current_date <= end_date:
+        if current_date in historic_map:
+            result.append(historic_map[current_date])
+        else:
+            # Create a new entry with 0 values for total_fields
+            zero_entry = {month_field: current_date, **{field: 0.0 for field in total_fields}}
+            result.append(zero_entry)
 
-def _insert_zeros_in_between(
-    historic: list[MonthlyHistoricType], total_fields: tuple[str, ...]
-) -> list[MonthlyHistoricType]:
-    _historic, diffs = deepcopy(historic), 0
-    for idx, (current, _next) in enumerate(zip(historic[:], historic[1:])):  # noqa: B905
-        delta = relativedelta(dt1=_next["month"], dt2=current["month"])
-        diff_months = delta.months + (12 * delta.years)
-        for diff in range(1, diff_months):
-            _historic.insert(
-                idx + diff + diffs,
-                {
-                    "month": current["month"] + relativedelta(months=diff),
-                    **{k: 0 for k in total_fields},
-                },
-            )
-        diffs += diff_months - 1
-    return _historic
+        current_date += relativedelta(months=1)
+
+    return result
 
 
 def choices_to_enum(choices_class: type[DjangoChoices]) -> Enum:

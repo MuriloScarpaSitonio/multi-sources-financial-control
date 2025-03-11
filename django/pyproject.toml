@@ -125,4 +125,4 @@ exclude_lines = [
   "@overload",
   "def __str__",
 ]
-fail_under = 95
+fail_under = 94

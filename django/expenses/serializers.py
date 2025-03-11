@@ -14,6 +14,7 @@ from .domain.exceptions import ValidationError as DomainValidationError
 from .domain.models import Expense as ExpenseDomainModel
 from .models import (
     BankAccount,
+    BankAccountSnapshot,
     Expense,
     ExpenseCategory,
     ExpenseSource,
@@ -285,3 +286,9 @@ class ExpenseSourceSerializer(_ExpenseRelatedEntitySerializer):
 class RevenueCategorySerializer(_ExpenseRelatedEntitySerializer):
     class Meta(_ExpenseRelatedEntitySerializer.Meta):
         model = RevenueCategory
+
+
+class BankAccountSnapshotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BankAccountSnapshot
+        fields = ("operation_date", "total")

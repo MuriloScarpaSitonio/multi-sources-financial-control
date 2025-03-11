@@ -18,13 +18,7 @@ from .choices import (
     AssetStatus,
     AssetTypes,
 )
-from .models import (
-    Asset,
-    AssetReadModel,
-    AssetsTotalInvestedSnapshot,
-    PassiveIncome,
-    Transaction,
-)
+from .models import Asset, AssetReadModel, PassiveIncome, Transaction
 
 if TYPE_CHECKING:  # pragma: no cover
     from django.db.models import QuerySet
@@ -199,19 +193,6 @@ class PassiveIncomeFilterSet(django_filters.FilterSet):
         fields = ("type", "event_type")
 
 
-class AssetsTotalInvestedSnapshotFilterSet(django_filters.FilterSet):
-    start_date = django_filters.DateFilter(
-        field_name="operation_date", lookup_expr="gte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
-    )
-    end_date = django_filters.DateFilter(
-        field_name="operation_date", lookup_expr="lte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
-    )
-
-    class Meta:
-        model = AssetsTotalInvestedSnapshot
-        fields = ()
-
-
 class DateRangeFilterSet(django_filters.FilterSet):
     start_date = django_filters.DateFilter(
         field_name="operation_date",
@@ -225,6 +206,12 @@ class DateRangeFilterSet(django_filters.FilterSet):
         required=True,
         input_formats=["%d/%m/%Y", "%Y-%m-%d"],
     )
+
+    @property
+    def qs(self):
+        if self.is_valid():
+            return super().qs
+        raise django_filters.utils.translate_validation(error_dict=self.errors)
 
 
 class MonthlyDateRangeFilterSet(django_filters.FilterSet):

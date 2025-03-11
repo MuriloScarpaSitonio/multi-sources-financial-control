@@ -89,7 +89,7 @@ class PassiveIncomeFactory(DjangoModelFactory):
 
 
 class AssetsTotalInvestedSnapshotFactory(DjangoModelFactory):
-    operation_date = timezone.localdate()
+    operation_date = timezone.localdate().replace(day=1)
 
     class Meta:
         model = AssetsTotalInvestedSnapshot

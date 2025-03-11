@@ -48,7 +48,7 @@ class _PassiveIncomeForm(ModelForm):
 @admin.register(PassiveIncome)
 class PassiveIncomeAdmin(admin.ModelAdmin):
     search_fields = ("asset__code",)
-    list_filter = ("asset__type", "asset__code")
+    list_filter = ("type", "event_type", "asset__type", "asset__code")
     form = _PassiveIncomeForm
 
 
