@@ -29,7 +29,7 @@ import TopToolBar from "./ToopToolBar";
 import { AssetCurrencyMap } from "../../Assets/consts";
 import { TransactionsContext } from "../context";
 
-const useOnTransactionDeleteSuccess = () => {
+export const useOnTransactionDeleteSuccess = () => {
   const queryClient = useQueryClient();
   const { invalidate: invalidateTransactionsQueries } =
     useInvalidateTransactionsQueries(queryClient);
@@ -173,7 +173,7 @@ const Table = () => {
         setFilters={setFilters}
       />
     ),
-    renderRowActions: ({ row, table }) => (
+    renderRowActions: ({ row }) => (
       <Stack direction="row" spacing={0.5}>
         <Tooltip title="Editar">
           <IconButton

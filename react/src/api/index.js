@@ -1,11 +1,4 @@
-export { AssetsApi } from "./core";
-export { AssetIncomessApi } from "./core";
-export { AssetTransactionsApi } from "./core";
 export { AuthenticationApi } from "./core";
-export { ExpensesApi } from "./core";
-export { PassiveIncomesApi } from "./core";
 export { SubscriptionApi } from "./core";
-export { RevenuesApi } from "./core";
 export { TasksApi } from "./core";
-export { TransactionsApi } from "./core";
 export { UserApi } from "./core";

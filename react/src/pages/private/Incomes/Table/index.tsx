@@ -27,7 +27,7 @@ import { IncomesContext } from "../context";
 import { useOnFormSuccess as useInvalidateIncomesQueries } from "../components/CreateOrEditIncomeDrawer/hooks";
 import CreateOrEditIncomeDrawer from "../components/CreateOrEditIncomeDrawer";
 
-const useOnIncomeDeleteSuccess = () => {
+export const useOnIncomeDeleteSuccess = () => {
   const queryClient = useQueryClient();
 
   const { onSuccess: invalidateIncomesQueries } = useInvalidateIncomesQueries({
@@ -182,7 +182,7 @@ const Table = () => {
         setFilters={setFilters}
       />
     ),
-    renderRowActions: ({ row, table }) => (
+    renderRowActions: ({ row }) => (
       <Stack direction="row" spacing={0.5}>
         <Tooltip title="Editar">
           <IconButton

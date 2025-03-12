@@ -242,7 +242,7 @@ const ExpenseForm = ({
       if (expenseId) {
         updateCachedData({ ...data, id: expenseId });
         onEditSuccess?.();
-      } else reset({ ...data, description: "", value: "" });
+      } else reset({ ...data, description: "", value: "", installments: 1 });
     },
   });
 

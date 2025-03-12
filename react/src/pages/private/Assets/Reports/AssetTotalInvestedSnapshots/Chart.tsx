@@ -14,7 +14,7 @@ import { Colors, getColor } from "../../../../../design-system";
 import { roundDown, roundUp, numberTickFormatter } from "../../../utils";
 import { useHideValues } from "../../../../../hooks/useHideValues";
 
-const CHART_WIDTH = 550;
+const CHART_WIDTH = 660;
 const CHART_HEIGHT = 385;
 
 const TooltipContent = ({
