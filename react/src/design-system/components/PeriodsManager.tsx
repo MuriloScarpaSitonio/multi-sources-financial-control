@@ -132,7 +132,7 @@ const PeriodsManager = ({ context }: { context: Context<ContextType> }) => {
   });
   const getPeriod = useCallback(() => {
     if (isFilteringWholeMonth(startDate, endDate))
-      return `${months[startDate.getMonth()]}, ${startDate.getFullYear()}`;
+      return `${months[startDate.getMonth()]} ${startDate.getFullYear()}`;
     return `${format(startDate, "MMM dd, yyyy", {
       locale: ptBR,
     })} - ${format(endDate, "MMM dd, yyyy", {
