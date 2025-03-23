@@ -28,7 +28,7 @@ import {
   ToggleFullScreenMenuItem,
 } from "../../../../Datatable/components";
 
-import RevenueDrawer from "./RevenueDrawer";
+import RevenueDrawer from "../RevenueDrawer";
 import FiltersMenu from "./FiltersMenu";
 import {
   ManageRelatedEntitiesMenuItem,
@@ -85,11 +85,6 @@ const TopToolBar = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openDrawer, setOpenDrawer] = useState(false);
 
-  const { editingRow } = table.getState();
-
-  useEffect(() => {
-    if (editingRow) setOpenDrawer(true);
-  }, [editingRow]);
   return (
     <>
       <Grid
@@ -134,19 +129,7 @@ const TopToolBar = ({
         onClose={() => setAnchorEl(null)}
         anchorEl={anchorEl}
       />
-      <RevenueDrawer
-        open={openDrawer}
-        onClose={() => {
-          setOpenDrawer(false);
-          table.setEditingRow(null);
-        }}
-        revenue={
-          removeProperties(editingRow?.original, [
-            "type",
-            "full_description",
-          ]) as Revenue
-        }
-      />
+      <RevenueDrawer open={openDrawer} onClose={() => setOpenDrawer(false)} />
     </>
   );
 };

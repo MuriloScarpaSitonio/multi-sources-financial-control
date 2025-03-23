@@ -17,24 +17,24 @@ import Typography from "@mui/material/Typography";
 import { formatISO } from "date-fns";
 import { enqueueSnackbar } from "notistack";
 import { Controller } from "react-hook-form";
+import { useQueryClient } from "@tanstack/react-query";
 import * as yup from "yup";
 
-import { EXPENSES_QUERY_KEY } from "../../../consts";
+import { EXPENSES_QUERY_KEY } from "../../consts";
 
 import {
   DateInput,
   PriceWithCurrencyInput,
   FormFeedbackError,
-} from "../../../../../../design-system";
-import useFormPlus from "../../../../../../hooks/useFormPlus";
-import { createExpense, editExpense } from "../../../api/expenses";
-import { useInvalidateExpenseQueries } from "../../../hooks";
-import { Expense } from "../../../api/models";
-import { useQueryClient } from "@tanstack/react-query";
-import { ApiListResponse } from "../../../../../../types";
-import { ExpensesContext } from "../../../context";
-import { AutoCompleteForRelatedEntities } from "../../../components";
-import TagsAutoComplete from "../../../components/TagsAutoComplete";
+} from "../../../../../design-system";
+import useFormPlus from "../../../../../hooks/useFormPlus";
+import { createExpense, editExpense } from "../../api/expenses";
+import { useInvalidateExpenseQueries } from "../../hooks";
+import { Expense } from "../../api/models";
+import { ApiListResponse } from "../../../../../types";
+import { ExpensesContext } from "../../context";
+import { AutoCompleteForRelatedEntities } from "../../components";
+import TagsAutoComplete from "../../components/TagsAutoComplete";
 
 const schema = yup.object().shape({
   description: yup.string().required("A descrição é obrigatória"),

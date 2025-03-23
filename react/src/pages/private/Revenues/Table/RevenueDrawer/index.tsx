@@ -1,5 +1,5 @@
-import { FormDrawer } from "../../../../../../design-system";
-import { Revenue } from "../../../models";
+import { FormDrawer } from "../../../../../design-system";
+import { Revenue } from "../../models";
 import RevenueForm from "./RevenueForm";
 
 const RevenueDrawer = ({

@@ -20,18 +20,18 @@ import { Controller } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import * as yup from "yup";
 
-import { REVENUES_QUERY_KEY } from "../../../consts";
+import { REVENUES_QUERY_KEY } from "../../consts";
 import {
   DateInput,
   PriceWithCurrencyInput,
-} from "../../../../../../design-system";
-import useFormPlus from "../../../../../../hooks/useFormPlus";
-import { createRevenue, editRevenue } from "../../../api";
-import { useInvalidateRevenuesQueries } from "../../../hooks";
-import { Revenue } from "../../../models";
-import { ExpensesContext } from "../../../../Expenses/context";
-import { ApiListResponse } from "../../../../../../types";
-import { AutoCompleteForRelatedEntities } from "../../../../Expenses/components";
+} from "../../../../../design-system";
+import useFormPlus from "../../../../../hooks/useFormPlus";
+import { createRevenue, editRevenue } from "../../api";
+import { useInvalidateRevenuesQueries } from "../../hooks";
+import { Revenue } from "../../models";
+import { ExpensesContext } from "../../../Expenses/context";
+import { ApiListResponse } from "../../../../../types";
+import { AutoCompleteForRelatedEntities } from "../../../Expenses/components";
 
 const schema = yup.object().shape({
   description: yup.string().required("A descrição é obrigatória"),

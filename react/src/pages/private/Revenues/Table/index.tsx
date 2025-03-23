@@ -34,6 +34,8 @@ import { useInvalidateRevenuesQueries } from "../hooks";
 import DeleteRevenueDialog from "./DeleteRevenueDialog";
 import TopToolBar from "./ToopToolBar";
 import { useHideValues } from "../../../../hooks/useHideValues";
+import RevenueDrawer from "./RevenueDrawer";
+import { removeProperties } from "../../../../utils";
 
 type GroupedRevenue = Revenue & { type: string };
 
@@ -102,6 +104,7 @@ const Table = () => {
   const [deleteRevenue, setDeleteRevenue] = useState<
     GroupedRevenue | undefined
   >();
+  const [editRevenue, setEditRevenue] = useState<GroupedRevenue | undefined>();
 
   const { startDate, endDate, isRelatedEntitiesLoading, revenuesCategories } =
     useContext(ExpensesContext);
@@ -238,7 +241,7 @@ const Table = () => {
         <Tooltip title="Editar">
           <IconButton
             sx={{ color: getColor(Colors.neutral300) }}
-            onClick={() => table.setEditingRow(row)}
+            onClick={() => setEditRevenue(row.original)}
           >
             <EditIcon />
           </IconButton>
@@ -263,6 +266,13 @@ const Table = () => {
         open={!!deleteRevenue}
         onClose={() => setDeleteRevenue(undefined)}
         onSuccess={onDeleteSuccess}
+      />
+      <RevenueDrawer
+        open={!!editRevenue}
+        onClose={() => setEditRevenue(undefined)}
+        revenue={
+          removeProperties(editRevenue, ["type", "full_description"]) as Revenue
+        }
       />
     </>
   );

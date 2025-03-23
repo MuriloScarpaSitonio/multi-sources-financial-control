@@ -36,6 +36,8 @@ import DeleteExpenseDialog from "./DeleteExpenseDialog";
 import TopToolBar from "./ToopToolBar";
 import { Chip } from "@mui/material";
 import { useHideValues } from "../../../../hooks/useHideValues";
+import { removeProperties } from "../../../../utils";
+import ExpenseDrawer from "./ExpenseDrawer";
 
 type GroupedExpense = Expense & { type: string };
 
@@ -117,6 +119,7 @@ const Table = () => {
   const [deleteExpense, setDeleteExpense] = useState<
     GroupedExpense | undefined
   >();
+  const [editExpense, setEditExpense] = useState<GroupedExpense | undefined>();
 
   const { startDate, endDate, categories, sources, isRelatedEntitiesLoading } =
     useContext(ExpensesContext);
@@ -206,7 +209,12 @@ const Table = () => {
           return (
             <Stack direction="row" spacing={0.5} alignItems="center">
               {tags.map((tag) => (
-                <Chip id={`tag-chip-${tag}`} label={tag} size="small" />
+                <Chip
+                  id={`tag-chip-${tag}`}
+                  key={`tag-chip-${tag}`}
+                  label={tag}
+                  size="small"
+                />
               ))}
             </Stack>
           );
@@ -287,7 +295,7 @@ const Table = () => {
         <Tooltip title="Editar">
           <IconButton
             sx={{ color: getColor(Colors.neutral300) }}
-            onClick={() => table.setEditingRow(row)}
+            onClick={() => setEditExpense(row.original)}
           >
             <EditIcon />
           </IconButton>
@@ -312,6 +320,13 @@ const Table = () => {
         open={!!deleteExpense}
         onClose={() => setDeleteExpense(undefined)}
         onSuccess={onDeleteSuccess}
+      />
+      <ExpenseDrawer
+        open={!!editExpense}
+        onClose={() => setEditExpense(undefined)}
+        expense={
+          removeProperties(editExpense, ["type", "full_description"]) as Expense
+        }
       />
     </>
   );

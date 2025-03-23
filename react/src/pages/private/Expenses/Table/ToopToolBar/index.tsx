@@ -1,5 +1,4 @@
 import {
-  useEffect,
   useState,
   type Dispatch,
   type MouseEvent,
@@ -28,16 +27,14 @@ import {
   ToggleFullScreenMenuItem,
 } from "../../../../Datatable/components";
 
-import ExpenseDrawer from "./ExpenseDrawer";
 import FiltersMenu from "./FiltersMenu";
 import {
   ManageRelatedEntitiesMenuItem,
   ManageRelatedEntitiesDrawer,
 } from "./ManageRelatedEntitiesMenuItem";
 import { Filters } from "../../types";
-import { Expense } from "../../api/models";
-import { removeProperties } from "../../../../../utils";
 import { SearchBar } from "../../../components";
+import ExpenseDrawer from "../ExpenseDrawer";
 
 const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -88,11 +85,6 @@ const TopToolBar = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openDrawer, setOpenDrawer] = useState(false);
 
-  const { editingRow } = table.getState();
-
-  useEffect(() => {
-    if (editingRow) setOpenDrawer(true);
-  }, [editingRow]);
   return (
     <>
       <Grid
@@ -138,19 +130,7 @@ const TopToolBar = ({
         anchorEl={anchorEl}
         setFilters={setFilters}
       />
-      <ExpenseDrawer
-        open={openDrawer}
-        onClose={() => {
-          setOpenDrawer(false);
-          table.setEditingRow(null);
-        }}
-        expense={
-          removeProperties(editingRow?.original, [
-            "type",
-            "full_description",
-          ]) as Expense
-        }
-      />
+      <ExpenseDrawer open={openDrawer} onClose={() => setOpenDrawer(false)} />
     </>
   );
 };

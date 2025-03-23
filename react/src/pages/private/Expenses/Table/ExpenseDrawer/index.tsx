@@ -1,5 +1,5 @@
-import { FormDrawer } from "../../../../../../design-system";
-import { Expense } from "../../../api/models";
+import { FormDrawer } from "../../../../../design-system";
+import { Expense } from "../../api/models";
 import ExpenseForm from "./ExpenseForm";
 
 const ExpenseDrawer = ({
