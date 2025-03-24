@@ -60,8 +60,8 @@ const transactionShape = {
       "O ativo é obrigatório",
       // it has to be function definition to use `this`
       function (asset) {
-        const { is_held_in_self_custody } = this.parent;
-        if (is_held_in_self_custody) {
+        const { is_new_asset_held_in_self_custody } = this.parent;
+        if (is_new_asset_held_in_self_custody) {
           return !asset.label;
         }
         return !!asset.label;
@@ -145,7 +145,7 @@ const createTransactionAndAsset = async (
   const {
     objective,
     type,
-    asset: code,
+    asset: { label: code },
     currency,
     is_new_asset_held_in_self_custody: is_held_in_self_custody,
     asset_description: description,
@@ -158,7 +158,7 @@ const createTransactionAndAsset = async (
     objective,
     is_held_in_self_custody,
     description,
-    ...(is_held_in_self_custody ? {} : { code: code.label }),
+    ...(is_held_in_self_custody ? {} : { code }),
   });
 
   const { current_currency_conversion_rate, quantity, price, ...rest } =
@@ -252,7 +252,11 @@ const NewTransactionForm = ({
         setNewCode("");
         await invalidateAssetsMinimalDataQueries();
       }
-      reset({ ...getValues(), asset: defaultValues.asset });
+      reset({
+        ...getValues(),
+        asset: defaultValues.asset,
+        is_new_asset_held_in_self_custody: false,
+      });
     },
   });
   useEffect(() => setIsSubmitting(isPending), [isPending, setIsSubmitting]);
@@ -317,7 +321,7 @@ const NewTransactionForm = ({
                 <Grid item>Não</Grid>
                 <Grid item>
                   <Controller
-                    name="is_held_in_self_custody"
+                    name="is_new_asset_held_in_self_custody"
                     control={control}
                     render={({ field: { value, onChange } }) => (
                       <Switch
