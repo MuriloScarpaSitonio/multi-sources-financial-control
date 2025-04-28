@@ -4,6 +4,7 @@ import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
+import Tooltip from "@mui/material/Tooltip";
 import IconButton from "@mui/material/IconButton";
 import EditIcon from "@mui/icons-material/Edit";
 
@@ -125,9 +126,14 @@ const Table = () => {
             minimumFractionDigits: 2,
             maximumFractionDigits: 4,
           });
+          const currentPriceUpdatedAt = new Date(
+            original.current_price_updated_at,
+          ).toLocaleString("pt-br");
           return original.is_held_in_self_custody ? (
             <Stack direction="row" spacing={0.5} alignItems="center">
-              <span>{`${AssetCurrencyMap[original.currency].symbol} ${price}`}</span>
+              <Tooltip title={`Atualizado às ${currentPriceUpdatedAt}`}>
+                <span>{`${AssetCurrencyMap[original.currency].symbol} ${price}`}</span>
+              </Tooltip>
               <IconButton
                 sx={{ color: getColor(Colors.neutral300) }}
                 onClick={() => setAssetToUpdatePrice(original)}
@@ -136,7 +142,9 @@ const Table = () => {
               </IconButton>
             </Stack>
           ) : (
-            `${AssetCurrencyMap[original.currency].symbol} ${price}`
+            <Tooltip title={`Atualizado às ${currentPriceUpdatedAt}`}>
+              <span>{`${AssetCurrencyMap[original.currency].symbol} ${price}`}</span>
+            </Tooltip>
           );
         },
       },
