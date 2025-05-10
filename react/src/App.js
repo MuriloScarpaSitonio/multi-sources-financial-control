@@ -6,7 +6,6 @@ import {
   Routes,
   Route,
   Navigate,
-  useNavigate,
 } from "react-router-dom";
 import Link from "@mui/material/Link";
 import MuiAlert from "@mui/lab/Alert";
@@ -41,15 +40,45 @@ const queryClient = new QueryClient({
   },
 });
 
-const useLocalStorageBooleanValues = () => ({
-  isLoggedIn: Boolean(localStorage.getItem(AccessTokenStr)),
-  isSubscriptionCanceled:
-    localStorage.getItem("user_subscription_status") === "CANCELED",
-});
+const isTokenExpired = (token) => {
+  if (!token) return true;
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map(function (c) {
+          return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+        })
+        .join(""),
+    );
+    const { exp } = JSON.parse(jsonPayload);
+    return exp * 1000 < Date.now();
+  } catch (e) {
+    return true;
+  }
+};
+
+const useLocalStorageBooleanValues = () => {
+  const token = localStorage.getItem(AccessTokenStr);
+  const isTokenValid = token && !isTokenExpired(token);
+
+  if (!isTokenValid && token) {
+    // If token exists but is expired, clear it
+    localStorage.removeItem(AccessTokenStr);
+    localStorage.removeItem("user_subscription_status");
+  }
+
+  return {
+    isLoggedIn: isTokenValid,
+    isSubscriptionCanceled:
+      localStorage.getItem("user_subscription_status") === "CANCELED",
+  };
+};
 
 const PublicRoute = ({ children, path }) => {
   const { isLoggedIn, isSubscriptionCanceled } = useLocalStorageBooleanValues();
-  const navigate = useNavigate();
 
   if (isLoggedIn) {
     if (
@@ -59,7 +88,7 @@ const PublicRoute = ({ children, path }) => {
       return (
         <Navigate to={{ pathname: "/subscription", state: { from: path } }} />
       );
-    } else return navigate(-1);
+    } else return <Navigate to="/home" />;
   } else return children;
 };
 
