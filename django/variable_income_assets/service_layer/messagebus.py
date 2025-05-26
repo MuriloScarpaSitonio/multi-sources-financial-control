@@ -45,6 +45,8 @@ COMMAND_HANDLERS: dict[type[commands.Command], MessageCallable] = {
     commands.DeleteTransaction: handlers.delete_transaction,
     commands.CreateAsset: handlers.create_asset,
     commands.UpdateAsset: handlers.update_asset,
+    commands.GetOrCreateAsset: handlers.aget_or_create_asset,
+    commands.AsyncCreateTransaction: handlers.acreate_transactions,
 }
 
 
@@ -91,6 +93,51 @@ def _handle_message(
 ) -> None:
     if sync:
         handler(message, uow)
+    else:
+        _dispatch_async(handler, message, uow)
+    queue.extend(uow.collect_new_events())
+    # TODO: log error
+
+
+async def ahandle(message: Message, uow: AbstractUnitOfWork) -> None:
+    queue = [message]
+    while queue:
+        message = queue.pop(0)
+        if isinstance(message, events.Event):
+            await ahandle_event(event=message, queue=queue, uow=uow)
+
+        elif isinstance(message, commands.Command):
+            await ahandle_command(command=message, queue=queue, uow=uow)
+
+
+async def ahandle_event(event: events.Event, queue: list[Message], uow: AbstractUnitOfWork) -> None:
+    for handler in EVENT_HANDLERS[event.__class__]:
+        await _ahandle_message(
+            handler=handler, message=event, queue=queue, uow=uow, sync=event.sync
+        )
+
+
+async def ahandle_command(
+    command: commands.Command, queue: list[Message], uow: AbstractUnitOfWork
+) -> None:
+    await _ahandle_message(
+        handler=COMMAND_HANDLERS[command.__class__],
+        message=command,
+        queue=queue,
+        uow=uow,
+        sync=True,
+    )
+
+
+async def _ahandle_message(
+    handler: MessageCallable,
+    message: Message,
+    queue: list[Message],
+    uow: AbstractUnitOfWork,
+    sync: bool,
+) -> None:
+    if sync:
+        await handler(message, uow)
     else:
         _dispatch_async(handler, message, uow)
     queue.extend(uow.collect_new_events())

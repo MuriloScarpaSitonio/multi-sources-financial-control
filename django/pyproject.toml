@@ -23,6 +23,7 @@ python-decouple = "^3.8"
 redis = "^4.6.0"
 requests = "2.26.0"
 stripe = "^6.1.0"
+httpx = "^0.28.1"
 
 [tool.poetry.group.dev.dependencies]
 PyDrive2 = "^1.15.4"

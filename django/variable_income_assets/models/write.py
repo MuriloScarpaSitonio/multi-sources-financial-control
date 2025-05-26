@@ -101,7 +101,7 @@ class Asset(models.Model):
         # a um metadata
         return hasattr(self, "metadata")
 
-    def to_domain(self) -> AssetDomainModel:
+    def to_domain(self, fetch_is_held_in_self_custody: bool = True) -> AssetDomainModel:
         return AssetDomainModel(
             id=self.pk,
             code=self.code,
@@ -109,7 +109,9 @@ class Asset(models.Model):
             objective=self.objective,
             description=self.description,
             currency=self.currency,
-            is_held_in_self_custody=self.is_held_in_self_custody,
+            is_held_in_self_custody=(
+                self.is_held_in_self_custody if fetch_is_held_in_self_custody else False
+            ),
             # values MUST be already annotated!
             quantity_balance=getattr(self, "quantity_balance", None),
             avg_price=getattr(self, "avg_price", None),

@@ -35,3 +35,15 @@ class CreateAsset(Command):
 class UpdateAsset(Command):
     asset: AssetDomainModel
     db_instance: Asset
+
+
+@dataclass
+class GetOrCreateAsset(Command):
+    asset: AssetDomainModel
+    dispatch_event: bool = True
+    fetch_is_held_in_self_custody: bool = True
+
+
+@dataclass
+class AsyncCreateTransaction(Command):
+    asset: AssetDomainModel

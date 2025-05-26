@@ -146,6 +146,7 @@ dmypy.json
 cython_debug/
 
 backup.sqlite3
-client_secrets.json
 .python-version
-revenues.json
+
+/variable_income_assets/integrations/b3/secrets/*
+!/variable_income_assets/integrations/b3/secrets/.keep

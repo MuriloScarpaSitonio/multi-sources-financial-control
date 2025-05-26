@@ -41,6 +41,16 @@ def create_transactions(cmd: commands.CreateTransactions, uow: AbstractUnitOfWor
         uow.commit()
 
 
+async def acreate_transactions(
+    cmd: commands.AsyncCreateTransaction, uow: AbstractUnitOfWork
+) -> None:
+    with uow:
+        for dto in cmd.asset._transactions:
+            await uow.assets.transactions.aadd(dto=dto)
+
+        uow.assets.seen.add(cmd.asset)
+
+
 def update_transaction(cmd: commands.UpdateTransaction, uow: AbstractUnitOfWork) -> Transaction:
     with uow:
         dto = cmd.asset._transactions[0]
@@ -201,3 +211,16 @@ def update_asset(cmd: commands.UpdateAsset, uow: AbstractUnitOfWork) -> None:
         uow.assets.update(cmd.asset, cmd.db_instance)
         cmd.asset.events.append(events.AssetUpdated(asset=next(iter(uow.assets.seen)), sync=True))
         uow.commit()
+
+
+async def aget_or_create_asset(cmd: commands.GetOrCreateAsset, uow: AbstractUnitOfWork) -> None:
+    with uow:
+        cmd.asset.validate()
+        asset, created = await uow.assets.aget_or_create(
+            cmd.asset, cmd.fetch_is_held_in_self_custody
+        )
+        if created and cmd.dispatch_event:
+            cmd.asset.events.append(events.AssetCreated(asset=asset), sync=True)
+
+        for dto in cmd.asset._transactions:
+            await uow.assets.transactions.aadd(dto=dto)

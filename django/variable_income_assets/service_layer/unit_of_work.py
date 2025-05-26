@@ -73,3 +73,21 @@ class DjangoUnitOfWork(AbstractUnitOfWork):
     def rollback(self) -> None:
         if not self._inside_atomic_block:
             djtransaction.rollback()
+
+
+class AsyncDjangoUnitOfWork(AbstractUnitOfWork):
+    def __init__(self, asset_pk: int | None = None, user_id: int | None = None) -> None:
+        super().__init__(asset_pk)
+        self.user_id = user_id
+
+    def __enter__(self) -> Self:
+        self.assets = AssetRepository(
+            transactions_repository=TransactionRepository(asset_pk=self.asset_pk),
+            incomes_repository=PassiveIncomeRepository(asset_pk=self.asset_pk),
+            user_id=self.user_id,
+        )
+        return super().__enter__()
+
+    def commit(self) -> None: ...
+
+    def rollback(self) -> None: ...

@@ -232,13 +232,21 @@ class AssetQuerySet(QuerySet):
         )
 
     def annotate_credited_incomes_at_given_year(
-        self, year: int, incomes_type: PassiveIncomeEventTypes
+        self,
+        year: int,
+        incomes_type: PassiveIncomeEventTypes | None = None,
+        asset_type: AssetTypes | None = None,
     ) -> Self:
+        filters = {}
+        if incomes_type:
+            filters["type"] = incomes_type
+        if asset_type:
+            filters["asset__type"] = asset_type
         return self.annotate(
             normalized_credited_incomes_total=Coalesce(
                 Subquery(
                     self._get_passive_incomes_qs_w_normalized_amount()
-                    .filter(operation_date__year=year, type=incomes_type)
+                    .filter(operation_date__year=year, **filters)
                     .values("_normalized_credited_incomes")
                 ),
                 Decimal(),

@@ -37,38 +37,52 @@ class AbstractEntityRepository(ABC):
 
     @overload
     @abstractmethod
-    def _add(self, dto: TransactionDTO) -> Transaction:
-        ...
+    def _add(self, dto: TransactionDTO) -> Transaction: ...
 
     @overload
     @abstractmethod
-    def _add(self, dto: PassiveIncomeDTO) -> PassiveIncome:
-        ...
+    def _add(self, dto: PassiveIncomeDTO) -> PassiveIncome: ...
 
     @overload
     @abstractmethod
-    def _add(self, dto: AssetDomainModel) -> Asset:
-        ...
+    def _add(self, dto: AssetDomainModel) -> Asset: ...
 
     @abstractmethod
     def _add(self, dto: EntityDTO) -> Entity:
+        raise NotImplementedError
+
+    @overload
+    @abstractmethod
+    async def _aadd(self, dto: TransactionDTO) -> Transaction: ...
+
+    @overload
+    @abstractmethod
+    async def _aadd(self, dto: PassiveIncomeDTO) -> PassiveIncome: ...
+
+    @overload
+    @abstractmethod
+    async def _aadd(self, dto: AssetDomainModel) -> Asset: ...
+
+    @abstractmethod
+    async def _aadd(self, dto: EntityDTO) -> Entity:
         raise NotImplementedError
 
     def add(self, dto: EntityDTO) -> None:
         e = self._add(dto=dto)
         self.seen.add(e)
 
-    @overload
-    def update(self, dto: TransactionDTO, entity: Transaction) -> None:
-        ...
+    async def aadd(self, dto: EntityDTO) -> None:
+        e = await self._aadd(dto=dto)
+        self.seen.add(e)
 
     @overload
-    def update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> None:
-        ...
+    def update(self, dto: TransactionDTO, entity: Transaction) -> None: ...
 
     @overload
-    def update(self, dto: AssetDomainModel, entity: Asset) -> None:
-        ...
+    def update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> None: ...
+
+    @overload
+    def update(self, dto: AssetDomainModel, entity: Asset) -> None: ...
 
     def update(self, dto: EntityDTO, entity: Entity) -> None:
         e = self._update(dto=dto, entity=entity)
@@ -76,13 +90,11 @@ class AbstractEntityRepository(ABC):
 
     @overload
     @abstractmethod
-    def _update(self, dto: TransactionDTO, entity: Transaction) -> Transaction:
-        ...
+    def _update(self, dto: TransactionDTO, entity: Transaction) -> Transaction: ...
 
     @overload
     @abstractmethod
-    def _update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> PassiveIncome:
-        ...
+    def _update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> PassiveIncome: ...
 
     @abstractmethod
     def _update(self, dto: EntityDTO, entity: Entity) -> Entity:
@@ -113,6 +125,11 @@ class TransactionRepository(DjangoEntityRepository):
 
         return Transaction.objects.create(**asdict(dto), asset_id=self.asset_pk)
 
+    async def _aadd(self, dto: TransactionDTO) -> Transaction:
+        from ..models import Transaction
+
+        return await Transaction.objects.acreate(**asdict(dto), asset_id=self.asset_pk)
+
 
 class PassiveIncomeRepository(DjangoEntityRepository):  # pragma: no cover
     seen: set[PassiveIncome]
@@ -121,6 +138,11 @@ class PassiveIncomeRepository(DjangoEntityRepository):  # pragma: no cover
         from ..models import PassiveIncome
 
         return PassiveIncome.objects.create(**asdict(dto), asset_id=self.asset_pk)
+
+    async def _aadd(self, dto: PassiveIncomeDTO) -> PassiveIncome:
+        from ..models import PassiveIncome
+
+        return await PassiveIncome.objects.acreate(**asdict(dto), asset_id=self.asset_pk)
 
 
 class AssetRepository:
@@ -173,6 +195,28 @@ class AssetRepository:
         if pk := dto.id:
             qs = qs.exclude(pk=pk)
         return qs.exists()
+
+    async def aget_or_create(
+        self, dto: AssetDomainModel, fetch_is_held_in_self_custody: bool = True
+    ) -> tuple[AssetDomainModel, bool]:
+        from ..models import Asset
+
+        asset, created = await Asset.objects.annotate_for_domain().aget_or_create(
+            user_id=self.user_id,
+            code=dto.code,
+            type=dto.type,
+            currency=dto.currency,
+            defaults={"objective": dto.objective, "description": dto.description},
+        )
+        asset: Asset
+        if created:
+            # annotations are not applied on new records
+            asset.avg_price = 0
+            asset.quantity_balance = 0
+
+        asset_domain = asset.to_domain(fetch_is_held_in_self_custody=fetch_is_held_in_self_custody)
+        self.seen.add(asset_domain)
+        return asset_domain, created
 
 
 class AbstractAssetMetaDataRepository(ABC):
@@ -280,7 +324,7 @@ class DjangoSQLAssetMetaDataRepository(AbstractAssetMetaDataRepository):
 
     @staticmethod
     def get_current_price_annotation(
-        source: Literal["write", "read", "transactions"]
+        source: Literal["write", "read", "transactions"],
     ) -> F | Coalesce:
         if source == "read":
             return F("metadata__current_price")

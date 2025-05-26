@@ -61,26 +61,51 @@ def _print_assets_portfolio(qs: AssetQuerySet[Asset], year: int) -> None:
         print(*results, sep="\n")
 
 
-def _print_credited_incomes(qs: AssetQuerySet[Asset], year: int) -> None:
-    mapping = {
+def _print_credited_incomes(
+    qs: AssetQuerySet[Asset], year: int, aggregate_by: Literal["asset", "type"] = "asset"
+) -> None:
+    incomes_type_mapping = {
         PassiveIncomeTypes.dividend: (
             "'Rendimentos isentos e não tributáveis', opção '09 - Lucros e dividendos recebidos'"
         ),
-        PassiveIncomeTypes.income: "?",
+        PassiveIncomeTypes.income: ("'Rendimentos isentos e não tributáveis', opção '99 - Outros'"),
+        PassiveIncomeTypes.reimbursement: (
+            "'Rendimentos isentos e não tributáveis', opção '99 - Outros'"
+        ),
     }
-    for value, label in PassiveIncomeTypes:
-        if value == PassiveIncomeTypes.jcp:
+
+    asset_type_mapping = {
+        AssetTypes.stock: (
+            "'Rendimentos isentos e não tributáveis', opção '09 - Lucros e dividendos recebidos'"
+        ),
+        AssetTypes.fii: "'Rendimentos isentos e não tributáveis', opção '99 - Outros'",
+    }
+    for value, label in AssetTypes if aggregate_by == "asset" else PassiveIncomeTypes:
+        if value in (
+            AssetTypes.stock_usa,
+            AssetTypes.fixed_br,
+            AssetTypes.crypto,
+            PassiveIncomeTypes.jcp,
+        ):
             continue
         results = []
         for i, a in enumerate(
-            qs.annotate_credited_incomes_at_given_year(year=year, incomes_type=value)
+            qs.annotate_credited_incomes_at_given_year(
+                year=year,
+                **({"asset_type": value} if aggregate_by == "asset" else {"incomes_type": value}),
+            )
             .filter(normalized_credited_incomes_total__gt=0)
-            .values("code", "normalized_credited_incomes_total"),
+            .values("code", "type", "normalized_credited_incomes_total"),
             start=1,
         ):
             results.append(f"{i}. {a['code']} -> R$ {a['normalized_credited_incomes_total']:n}")
         if results:
-            print(f"\n\n------------ {label.upper()} (seção {mapping[value]}) ------------\n\n")
+            section = (
+                asset_type_mapping[value]
+                if aggregate_by == "asset"
+                else incomes_type_mapping[value]
+            )
+            print(f"\n\n------------ {label.upper()} (seção {section}) ------------\n\n")
             print(*results, sep="\n")
 
 
