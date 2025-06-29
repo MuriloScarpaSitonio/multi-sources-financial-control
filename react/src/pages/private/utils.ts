@@ -32,3 +32,10 @@ export const monthTickerFormatter = (value: string, index: number) => {
   const [, month, year] = value.split("/");
   return `${month}/${year}`;
 };
+
+export const yearTickerFormatter = (value: string, index: number) => {
+  if (!index) return "";
+  if (value === "agora") return value;
+  const [, , year] = value.split("/");
+  return year;
+};

@@ -213,7 +213,7 @@ def test__reports__percentage(client, group_by, field_name):
 
 
 @pytest.mark.usefixtures("expenses_report_data")
-def test__historic_report(client, user):
+def test__historic_report__month(client, user):
     # GIVEN
     today = timezone.localdate().replace(day=12)
     start_date, end_date = today - relativedelta(months=18), today
@@ -236,22 +236,79 @@ def test__historic_report(client, user):
     # WHEN
     response = client.get(
         f"{URL}/historic_report?start_date={start_date.strftime('%d/%m/%Y')}"
-        + f"&end_date={end_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}&aggregate_period=month"
     )
     response_json = response.json()
 
     # THEN
     assert response.status_code == HTTP_200_OK
 
-    total = 0
     for result in response_json["historic"]:
         d = datetime.strptime(result["month"], "%d/%m/%Y").date()
         assert convert_and_quantitize(result["total"]) == convert_and_quantitize(
             qs.filter(created_at__month=d.month, created_at__year=d.year).sum()["total"]
         )
-        if d == today.replace(day=1):  # we don't evaluate the current month on the avg calculation
-            continue
-        total += result["total"]
+
+    assert convert_and_quantitize(response_json["avg"]) == convert_and_quantitize(
+        fmean([h["total"] for h in response_json["historic"]])
+    )
+
+
+@pytest.mark.usefixtures("expenses_report_data")
+def test__historic_report__year(client, user):
+    # GIVEN
+    today = timezone.localdate().replace(day=12)
+    start_date, end_date = today - relativedelta(years=3), today
+    last_day_of_year = end_date.replace(month=12, day=31)
+    Expense.objects.create(
+        created_at=last_day_of_year,
+        value=500,
+        description="last_day_of_year",
+        category="Alimentação",
+        source=CREDIT_CARD_SOURCE,
+        is_fixed=False,
+        user=user,
+    )
+    # Create additional expenses in different years to test properly
+    Expense.objects.create(
+        created_at=start_date.replace(month=6, day=15),
+        value=100,
+        description="mid_year_start",
+        category="Alimentação",
+        source=CREDIT_CARD_SOURCE,
+        is_fixed=False,
+        user=user,
+    )
+    Expense.objects.create(
+        created_at=(today - relativedelta(years=1)).replace(month=3, day=10),
+        value=200,
+        description="last_year",
+        category="Alimentação",
+        source=CREDIT_CARD_SOURCE,
+        is_fixed=False,
+        user=user,
+    )
+    qs = Expense.objects.filter(
+        user_id=user.id,
+        created_at__gte=start_date.replace(month=1, day=1),
+        created_at__lte=last_day_of_year,
+    )
+
+    # WHEN
+    response = client.get(
+        f"{URL}/historic_report?start_date={start_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}&aggregate_period=year"
+    )
+    response_json = response.json()
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    for result in response_json["historic"]:
+        d = datetime.strptime(result["year"], "%d/%m/%Y").date()
+        assert convert_and_quantitize(result["total"]) == convert_and_quantitize(
+            qs.filter(created_at__year=d.year).sum()["total"]
+        )
 
     assert convert_and_quantitize(response_json["avg"]) == convert_and_quantitize(
         fmean([h["total"] for h in response_json["historic"]])

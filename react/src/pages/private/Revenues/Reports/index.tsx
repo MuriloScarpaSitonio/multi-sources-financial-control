@@ -7,12 +7,14 @@ import Tab from "@mui/material/Tab";
 import {
   BarChartWithReferenceLine,
   DatePickers,
+  FontSizes,
   PieChart,
   ReportBox,
   ReportTabs,
   StyledTab,
   StyledTabs,
   StyledTabsList,
+  Text,
 } from "../../../../design-system";
 import { GroupBy, HistoricReportResponse } from "../../Expenses/types";
 import {
@@ -20,6 +22,7 @@ import {
   useRevenuesPercentagenReport,
 } from "./hooks";
 import { ExpensesContext } from "../../Expenses/context";
+import { MenuItem, Select } from "@mui/material";
 
 enum Kinds {
   PERCENTAGE,
@@ -38,24 +41,52 @@ const HistoricContent = () => {
 
   const [startDate, setStartDate] = useState(oneYearAgo);
   const [endDate, setEndDate] = useState(threeMonthsInTheFuture);
+  const [aggregatePeriod, setAggregatePeriod] = useState<"month" | "year">(
+    "month"
+  );
+
   const {
     data,
     // isPending TODO
-  } = useRevenuesHistoricReport({ startDate, endDate });
+  } = useRevenuesHistoricReport({
+    startDate,
+    endDate,
+    aggregatePeriod,
+  });
 
   return (
     <Stack gap={1} justifyContent="center" sx={{ pt: 2, pb: 1, pl: 2.5 }}>
-      <DatePickers
-        views={["month", "year"]}
-        startDate={startDate}
-        setStartDate={setStartDate}
-        endDate={endDate}
-        setEndDate={setEndDate}
-      />
+      <Stack
+        direction="row"
+        gap={1}
+        alignItems="center"
+        justifyContent="space-around"
+      >
+        <Stack direction="row" gap={1} alignItems="center">
+          <Text size={FontSizes.SEMI_REGULAR}>Agregar por</Text>
+          <Select
+            value={aggregatePeriod}
+            onChange={(e) =>
+              setAggregatePeriod(e.target.value as "month" | "year")
+            }
+          >
+            <MenuItem value="month">Mês</MenuItem>
+            <MenuItem value="year">Ano</MenuItem>
+          </Select>
+        </Stack>
+        <DatePickers
+          views={aggregatePeriod === "month" ? ["month", "year"] : ["year"]}
+          startDate={startDate}
+          setStartDate={setStartDate}
+          endDate={endDate}
+          setEndDate={setEndDate}
+        />
+      </Stack>
       <BarChartWithReferenceLine
         data={data?.historic as HistoricReportResponse["historic"]}
         referenceValue={data?.avg as HistoricReportResponse["avg"]}
         variant="success"
+        aggregatePeriod={aggregatePeriod}
       />
     </Stack>
   );
@@ -76,7 +107,7 @@ const PercentageContent = () => {
 
   const colorsPredicate = useCallback(
     (label: string) => colors.get(label) as string,
-    [colors],
+    [colors]
   );
 
   return (

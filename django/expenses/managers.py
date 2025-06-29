@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Literal, Self
 
 from django.db.models import CharField, Count, DecimalField, F, Q, QuerySet, Sum
-from django.db.models.functions import Cast, Coalesce, Concat, TruncMonth
+from django.db.models.functions import Cast, Coalesce, Concat, TruncMonth, TruncYear
 
 from shared.managers_utils import GenericDateFilters
 
@@ -80,6 +80,14 @@ class _PersonalFinancialQuerySet(QuerySet):
         return (
             self.annotate(month=TruncMonth("created_at"))
             .values("month")
+            .annotate(total=Sum("value"))
+            .order_by("-total")
+        )
+
+    def trunc_years(self) -> Self:
+        return (
+            self.annotate(year=TruncYear("created_at"))
+            .values("year")
             .annotate(total=Sum("value"))
             .order_by("-total")
         )

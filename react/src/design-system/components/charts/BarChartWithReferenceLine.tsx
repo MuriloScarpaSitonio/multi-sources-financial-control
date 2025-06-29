@@ -15,12 +15,14 @@ import { getColor } from "../../utils";
 import {
   monthTickerFormatter,
   numberTickFormatter,
+  yearTickerFormatter,
 } from "../../../pages/private/utils";
 import { useHideValues } from "../../../hooks/useHideValues";
 
 type HistoricReportDataItem = {
   total: number;
-  month: RawDateString;
+  month?: RawDateString;
+  year?: RawDateString;
 };
 
 const CHART_WIDTH = 825;
@@ -30,17 +32,19 @@ const BarChartWithReferenceLineToolTipContent = ({
   active,
   payload,
   variant,
+  aggregatePeriod,
 }: {
   active?: boolean;
   payload?: {
     payload: HistoricReportDataItem;
   }[];
   variant: "danger" | "success";
+  aggregatePeriod: "month" | "year";
 }) => {
   if (active && payload?.length) {
     const { payload: data } = payload[0];
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [_, month, year] = data.month.split("/");
+    const [_, month, year] = (data.month ?? data.year).split("/");
     const isVariantDanger = variant === "danger";
     return (
       <Stack
@@ -49,7 +53,7 @@ const BarChartWithReferenceLineToolTipContent = ({
           border: "1px solid",
           p: 1,
           borderColor: getColor(
-            isVariantDanger ? Colors.danger100 : Colors.brand100,
+            isVariantDanger ? Colors.danger100 : Colors.brand100
           ),
           backgroundColor: getColor(Colors.neutral600),
         }}
@@ -57,7 +61,7 @@ const BarChartWithReferenceLineToolTipContent = ({
         <p
           style={{
             color: getColor(
-              isVariantDanger ? Colors.danger200 : Colors.brand200,
+              isVariantDanger ? Colors.danger200 : Colors.brand200
             ),
           }}
         >
@@ -66,11 +70,13 @@ const BarChartWithReferenceLineToolTipContent = ({
         <p
           style={{
             color: getColor(
-              isVariantDanger ? Colors.danger100 : Colors.brand100,
+              isVariantDanger ? Colors.danger100 : Colors.brand100
             ),
           }}
         >
-          {`Mês: ${month}/${year}`}
+          {`${aggregatePeriod === "month" ? "Mês" : "Ano"}: ${
+            aggregatePeriod === "month" ? `${month}/${year}` : year
+          }`}
         </p>
       </Stack>
     );
@@ -96,10 +102,12 @@ const BarChartWithReferenceLine = ({
   data,
   referenceValue,
   variant,
+  aggregatePeriod,
 }: {
   data: HistoricReportDataItem[];
   referenceValue: number;
   variant: "danger" | "success";
+  aggregatePeriod: "month" | "year";
 }) => {
   const { hideValues } = useHideValues();
 
@@ -115,9 +123,13 @@ const BarChartWithReferenceLine = ({
       margin={{ left: 25 }}
     >
       <XAxis
-        dataKey="month"
+        dataKey={aggregatePeriod}
         stroke={getColor(Colors.neutral0)}
-        tickFormatter={monthTickerFormatter}
+        tickFormatter={
+          aggregatePeriod === "month"
+            ? monthTickerFormatter
+            : yearTickerFormatter
+        }
       />
       <YAxis
         type="number"
@@ -129,11 +141,16 @@ const BarChartWithReferenceLine = ({
       />
       <Tooltip
         cursor={false}
-        content={<BarChartWithReferenceLineToolTipContent variant={variant} />}
+        content={
+          <BarChartWithReferenceLineToolTipContent
+            variant={variant}
+            aggregatePeriod={aggregatePeriod}
+          />
+        }
       />
       <Bar dataKey="total" radius={[5, 5, 0, 0]}>
         {data?.map((d) => {
-          const [day, month, year] = d.month.split("/");
+          const [day, month, year] = (d.month ?? d.year).split("/");
           const isFuture =
             new Date(parseInt(year), parseInt(month) - 1, parseInt(day)) >
             secondDayOfCurrentMonth;

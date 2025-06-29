@@ -24,7 +24,10 @@ from rest_framework.utils.serializer_helpers import ReturnList
 from rest_framework.viewsets import GenericViewSet
 
 from shared.permissions import SubscriptionEndedPermission
-from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
+from shared.utils import (
+    insert_zeros_if_no_data_in_monthly_historic_data,
+    insert_zeros_if_no_data_in_yearly_historic_data,
+)
 
 from . import filters, serializers
 from .choices import ExpenseReportType
@@ -71,14 +74,25 @@ class _PersonalFinanceViewSet(
         filterset = filters.ExpenseHistoricV2FilterSet(
             data=request.GET, queryset=self.get_queryset()
         )
-        historic = insert_zeros_if_no_data_in_monthly_historic_data(
-            historic=list(filterset.qs.trunc_months().order_by("month")),
-            start_date=filterset.form.cleaned_data["start_date"],
-            end_date=filterset.form.cleaned_data["end_date"],
-        )
-        serializer = serializers.HistoricResponseSerializer(
-            {"historic": historic, "avg": fmean([h["total"] for h in historic])}
-        )
+        historic = list(filterset.qs)
+        if filterset.form.cleaned_data["aggregate_period"] == "month":
+            historic = insert_zeros_if_no_data_in_monthly_historic_data(
+                historic=historic,
+                start_date=filterset.form.cleaned_data["start_date"],
+                end_date=filterset.form.cleaned_data["end_date"],
+            )
+            serializer = serializers.MonthlyHistoricResponseSerializer(
+                {"historic": historic, "avg": fmean([h["total"] for h in historic])}
+            )
+        else:
+            historic = insert_zeros_if_no_data_in_yearly_historic_data(
+                historic=historic,
+                start_date=filterset.form.cleaned_data["start_date"],
+                end_date=filterset.form.cleaned_data["end_date"],
+            )
+            serializer = serializers.YearlyHistoricResponseSerializer(
+                {"historic": historic, "avg": fmean([h["total"] for h in historic])}
+            )
         return Response(serializer.data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)

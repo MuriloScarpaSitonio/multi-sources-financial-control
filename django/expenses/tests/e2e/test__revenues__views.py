@@ -1,6 +1,7 @@
 import operator
 from datetime import datetime
 from decimal import Decimal
+from statistics import fmean
 
 from django.db.models import Avg
 from django.utils import timezone
@@ -532,3 +533,102 @@ def test__unauthorized__inactive(client, user):
 
     # THEN
     assert response.status_code == HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.usefixtures("revenues_historic_data")
+def test__historic_report__month(client, user):
+    # GIVEN
+    today = timezone.localdate().replace(day=12)
+    start_date, end_date = today - relativedelta(months=18), today
+    last_day_of_month = end_date + relativedelta(day=31)
+    Revenue.objects.create(
+        created_at=last_day_of_month,
+        value=1200,
+        description="last_day_of_month",
+        category="Outros",
+        is_fixed=False,
+        user=user,
+    )
+    qs = Revenue.objects.filter(
+        user_id=user.id,
+        created_at__gte=start_date.replace(day=1),
+        created_at__lte=last_day_of_month,
+    )
+
+    # WHEN
+    response = client.get(
+        f"{URL}/historic_report?start_date={start_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}&aggregate_period=month"
+    )
+    response_json = response.json()
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    for result in response_json["historic"]:
+        d = datetime.strptime(result["month"], "%d/%m/%Y").date()
+        assert convert_and_quantitize(result["total"]) == convert_and_quantitize(
+            qs.filter(created_at__month=d.month, created_at__year=d.year).sum()["total"]
+        )
+
+    assert convert_and_quantitize(response_json["avg"]) == convert_and_quantitize(
+        fmean([h["total"] for h in response_json["historic"]])
+    )
+
+
+@pytest.mark.usefixtures("revenues_historic_data")
+def test__historic_report__year(client, user):
+    # GIVEN
+    today = timezone.localdate().replace(day=12)
+    start_date, end_date = today - relativedelta(years=3), today
+    last_day_of_year = end_date.replace(month=12, day=31)
+    Revenue.objects.create(
+        created_at=last_day_of_year,
+        value=5000,
+        description="last_day_of_year",
+        category="Outros",
+        is_fixed=False,
+        user=user,
+    )
+    # Create additional revenues in different years to test properly
+    Revenue.objects.create(
+        created_at=start_date.replace(month=6, day=15),
+        value=1000,
+        description="mid_year_start",
+        category="Outros",
+        is_fixed=False,
+        user=user,
+    )
+    Revenue.objects.create(
+        created_at=(today - relativedelta(years=1)).replace(month=3, day=10),
+        value=2000,
+        description="last_year",
+        category="Outros",
+        is_fixed=False,
+        user=user,
+    )
+    qs = Revenue.objects.filter(
+        user_id=user.id,
+        created_at__gte=start_date.replace(month=1, day=1),
+        created_at__lte=last_day_of_year,
+    )
+
+    # WHEN
+    response = client.get(
+        f"{URL}/historic_report?start_date={start_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}&aggregate_period=year"
+    )
+    response_json = response.json()
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    for result in response_json["historic"]:
+        d = datetime.strptime(result["year"], "%d/%m/%Y").date()
+        assert convert_and_quantitize(result["total"]) == convert_and_quantitize(
+            qs.filter(created_at__year=d.year).sum()["total"]
+        )
+
+    assert convert_and_quantitize(response_json["avg"]) == convert_and_quantitize(
+        fmean([h["total"] for h in response_json["historic"]])
+    )

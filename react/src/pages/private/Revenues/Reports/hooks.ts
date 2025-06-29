@@ -14,7 +14,7 @@ type Params = {
 };
 
 export const useRevenuesHistoricReport = (
-  params: Params,
+  params: Params & { aggregatePeriod: "month" | "year" }
 ): UseQueryResult<HistoricReportResponse> =>
   useQuery({
     queryKey: [
@@ -22,13 +22,14 @@ export const useRevenuesHistoricReport = (
       {
         start_date: params.startDate.toLocaleDateString("pt-br"),
         end_date: params.endDate.toLocaleDateString("pt-br"),
+        aggregate_period: params.aggregatePeriod,
       },
     ],
     queryFn: () => getHistoricReport(params),
   });
 
 export const useInvalidateRevenuesHistoricReportQueries = (
-  client?: QueryClient,
+  client?: QueryClient
 ) => {
   const queryClient = useQueryClient(client);
 
@@ -44,7 +45,7 @@ export const useInvalidateRevenuesHistoricReportQueries = (
 export const PERCENTAGE_REPORT_QUERY_KEY = "revenues-percentage-report";
 
 export const useRevenuesPercentagenReport = (
-  params: Params,
+  params: Params
 ): UseQueryResult<ReportAggregatedByCategoryDataItem[]> =>
   useQuery({
     queryKey: [PERCENTAGE_REPORT_QUERY_KEY, params],
@@ -52,7 +53,7 @@ export const useRevenuesPercentagenReport = (
   });
 
 export const useInvalidateRevenuesPercentagenReportQueries = (
-  client?: QueryClient,
+  client?: QueryClient
 ) => {
   const queryClient = useQueryClient(client);
 
