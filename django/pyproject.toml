@@ -1,54 +1,56 @@
-[tool.poetry]
-authors = ["Your Name <you@example.com>"]
-description = ""
+[project]
 name = "multi-sources-financial-control"
 version = "0.1.0"
+description = ""
+authors = [{ name = "Your Name", email = "you@example.com" }]
+requires-python = "~=3.13.0"
+dependencies = [
+    "Django>=5.2.3,<6",
+    "aiohttp>=3.9.0,<4",
+    "asgiref>=3.7.2,<4",
+    "cryptography>=42.0.0,<43",
+    "django-anymail[brevo]~=10.1",
+    "django-choices>=1.7.2,<2",
+    "django-cors-headers>=4.3.0,<5",
+    "django-filter~=24.0",
+    "djangorestframework>=3.15.0,<4",
+    "djangorestframework-simplejwt>=5.3.0,<6",
+    "drf-spectacular>=0.27.0,<1",
+    "pydantic>=2.5.0,<3",
+    "python-dateutil>=2.8.2,<3",
+    "python-decouple~=3.8",
+    "redis>=5.0.0,<6",
+    "requests>=2.31.0,<3",
+    "stripe>=7.8.0,<8",
+]
 
-[tool.poetry.dependencies]
-Django = "^4.2.2"
-aiohttp = "^3.8.4"
-asgiref = "^3.7.2"
-cryptography = "^41.0.1"
-django-anymail = {extras = ["brevo"], version = "^10.1"}
-django-choices = "^1.7.2"
-django-cors-headers = "3.8.0"
-django-filter = "^23.2"
-djangorestframework = "^3.14.0"
-djangorestframework-simplejwt = "^5.2.2"
-drf-spectacular = "0.17.3"
-pydantic = "==2.*"
-python = "^3.8"
-python-dateutil = "^2.8.2"
-python-decouple = "^3.8"
-redis = "^4.6.0"
-requests = "2.26.0"
-stripe = "^6.1.0"
-
-[tool.poetry.group.dev.dependencies]
-PyDrive2 = "^1.15.4"
-aioresponses = "^0.7.4"
-bandit = "^1.7.5"
-black = "^23.3.0"
-factory-boy = "^3.2.1"
-freezegun = "^1.2.2"
-locust = "^2.15.1"
-pylint-django = "^2.5.3"
-pylint-runner = "^0.6.0"
-pytest = "7.4.0"
-pytest-cov = "^4.1.0"
-pytest-django = "^4.5.2"
-pytest-env = "^0.8.2"
-pytest-freezegun = "^0.4.2"
-pytest-mock = "^3.10.0"
-pytest-redis = "^3.0.2"
-pytest-sugar = "^0.9.7"
-pytest-xdist = "^3.1.0"
-requests-mock = "^1.10.0"
-ruff = "^0.0.280"
+[dependency-groups]
+dev = [
+    "PyDrive2>=1.17.0,<2",
+    "aioresponses>=0.7.4,<0.8",
+    "bandit>=1.7.5,<2",
+    "black>=24.0.0,<25",
+    "factory-boy>=3.3.0,<4",
+    "freezegun>=1.2.2,<2",
+    "locust>=2.20.0,<3",
+    "pylint-django>=2.5.3,<3",
+    "pylint-runner>=0.6.0,<0.7",
+    "pytest>=8.0.0,<9",
+    "pytest-cov>=4.1.0,<5",
+    "pytest-django>=4.8.0,<5",
+    "pytest-env>=0.8.2,<0.9",
+    "pytest-freezegun>=0.4.2,<0.5",
+    "pytest-mock>=3.12.0,<4",
+    "pytest-redis>=3.0.2,<4",
+    "pytest-sugar>=0.9.7,<0.10",
+    "pytest-xdist>=3.5.0,<4",
+    "requests-mock>=1.11.0,<2",
+    "ruff>=0.2.0,<1",
+]
 
 [build-system]
-build-backend = "poetry.core.masonry.api"
-requires = ["poetry-core>=1.0.0"]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.ruff]
 extend-ignore = ["B032"]
@@ -126,3 +128,25 @@ exclude_lines = [
   "def __str__",
 ]
 fail_under = 94
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "authentication",
+    "config", 
+    "expenses",
+    "shared",
+    "tasks",
+    "variable_income_assets"
+]
+exclude = [
+    "*/migrations/*",
+    "*/tests/*",
+    "*/management/*",
+    "manage.py",
+    "locustfile.py",
+    "entrypoint.sh",
+    "Dockerfile.local",
+    "Makefile",
+    ".gitignore",
+    ".pylintrc"
+]

@@ -1,4 +1,4 @@
-FROM python:3.11-buster
+FROM python:3.13-buster
 
 ENV PYTHONUNBUFFERED=1 \
     # prevents python creating .pyc files
