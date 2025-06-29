@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import django_filters
 from rest_framework.filters import OrderingFilter
 
-from shared.filters_utils import MonthFilter
+from shared.filters_utils import PeriodFilter
 
 from .choices import ExpenseReportType
 from .models import Expense, Revenue
@@ -123,19 +123,33 @@ class ExpenseHistoricFilterSet(django_filters.FilterSet):
 
 
 class ExpenseHistoricV2FilterSet(django_filters.FilterSet):
-    start_date = MonthFilter(
+    start_date = PeriodFilter(
         field_name="created_at",
         lookup_expr="gte",
         required=True,
         input_formats=["%d/%m/%Y", "%Y-%m-%d"],
     )
-    end_date = MonthFilter(
+    end_date = PeriodFilter(
         field_name="created_at",
         lookup_expr="lte",
         required=True,
         input_formats=["%d/%m/%Y", "%Y-%m-%d"],
         end=True,
     )
+    aggregate_period = django_filters.ChoiceFilter(
+        choices=(("month", "month"), ("year", "year")),
+        required=True,
+        method="filter_aggregate_period",
+    )
+
+    def filter_aggregate_period(
+        self, queryset: ExpenseQueryset, _: str, value: str
+    ) -> ExpenseQueryset:
+        return (
+            queryset.trunc_months().order_by("month")
+            if value == "month"
+            else queryset.trunc_years().order_by("year")
+        )
 
     @property
     def qs(self):

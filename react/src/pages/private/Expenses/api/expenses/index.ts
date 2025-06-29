@@ -73,12 +73,14 @@ export const getPercentageReport = async (params: {
 export const getHistoricReport = async (params: {
   startDate: Date;
   endDate: Date;
+  aggregatePeriod: "month" | "year";
 }): Promise<HistoricReportResponse> =>
   (
     await apiProvider.get(`${RESOURCE}/historic_report`, {
       params: {
         start_date: params.startDate.toLocaleDateString("pt-br"),
         end_date: params.endDate.toLocaleDateString("pt-br"),
+        aggregate_period: params.aggregatePeriod,
       },
     })
   ).data;
@@ -97,7 +99,7 @@ type Params = {
   tag?: string[];
 };
 export const getExpenses = async (
-  params: Params = {},
+  params: Params = {}
 ): Promise<ApiListResponse<Expense>> =>
   (
     await apiProvider.get(RESOURCE, {
@@ -131,14 +133,14 @@ export const createExpense = async (data: ExpenseWrite): Promise<Expense> => {
           perform_actions_on_future_fixed_entities:
             performActionsOnFutureFixedEntities,
         },
-      },
+      }
     )
   ).data;
 };
 
 export const deleteExpense = async (
   id: number,
-  performActionsOnFutureFixedEntities?: boolean,
+  performActionsOnFutureFixedEntities?: boolean
 ) =>
   (
     await apiProvider.Delete(`${RESOURCE}/${id}`, {
@@ -169,7 +171,7 @@ export const editExpense = async ({
           perform_actions_on_future_fixed_entities:
             performActionsOnFutureFixedEntities,
         },
-      },
+      }
     )
   ).data;
 };

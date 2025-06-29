@@ -19,12 +19,20 @@ const ExpensesAndRevenuesHistory = () => {
     data: expensesHistory,
     isPending: isExpensesHistoryLoading,
     isError: isExpensesHistoryError,
-  } = useExpensesHistoricReport({ startDate, endDate });
+  } = useExpensesHistoricReport({
+    startDate,
+    endDate,
+    aggregatePeriod: "month",
+  });
   const {
     data: revenuesHistory,
     isPending: isRevenuesHistoryLoading,
     isError: isRevenuesHistoryError,
-  } = useRevenuesHistoricReport({ startDate, endDate });
+  } = useRevenuesHistoricReport({
+    startDate,
+    endDate,
+    aggregatePeriod: "month",
+  });
   const isLoading = isExpensesHistoryLoading || isRevenuesHistoryLoading;
   const isError = isExpensesHistoryError || isRevenuesHistoryError;
 

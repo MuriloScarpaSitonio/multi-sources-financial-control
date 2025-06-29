@@ -52,7 +52,7 @@ const PercentageContent = ({ groupBy }: { groupBy: GroupBy }) => {
 
   const colorsPredicate = useCallback(
     (label: string) => colors.get(label) as string,
-    [colors],
+    [colors]
   );
 
   const { data, isPending } = useExpensesPercentagenReport({
@@ -182,24 +182,51 @@ const HistoricContent = () => {
 
   const [startDate, setStartDate] = useState(oneYearAgo);
   const [endDate, setEndDate] = useState(threeMonthsInTheFuture);
+  const [aggregatePeriod, setAggregatePeriod] = useState<"month" | "year">(
+    "month"
+  );
   const {
     data,
     // isPending TODO
-  } = useExpensesHistoricReport({ startDate, endDate });
+  } = useExpensesHistoricReport({
+    startDate,
+    endDate,
+    aggregatePeriod,
+  });
 
   return (
     <Stack gap={1} justifyContent="center" sx={{ pt: 2, pb: 1, pl: 2.5 }}>
-      <DatePickers
-        views={["month", "year"]}
-        startDate={startDate}
-        setStartDate={setStartDate}
-        endDate={endDate}
-        setEndDate={setEndDate}
-      />
+      <Stack
+        direction="row"
+        gap={1}
+        alignItems="center"
+        justifyContent="space-around"
+      >
+        <Stack direction="row" gap={1} alignItems="center">
+          <Text size={FontSizes.SEMI_REGULAR}>Agregar por</Text>
+          <Select
+            value={aggregatePeriod}
+            onChange={(e) =>
+              setAggregatePeriod(e.target.value as "month" | "year")
+            }
+          >
+            <MenuItem value="month">Mês</MenuItem>
+            <MenuItem value="year">Ano</MenuItem>
+          </Select>
+        </Stack>
+        <DatePickers
+          views={aggregatePeriod === "month" ? ["month", "year"] : ["year"]}
+          startDate={startDate}
+          setStartDate={setStartDate}
+          endDate={endDate}
+          setEndDate={setEndDate}
+        />
+      </Stack>
       <BarChartWithReferenceLine
         data={data?.historic as HistoricReportResponse["historic"]}
         referenceValue={data?.avg as HistoricReportResponse["avg"]}
         variant="danger"
+        aggregatePeriod={aggregatePeriod}
       />
     </Stack>
   );

@@ -23,13 +23,14 @@ type Params = {
 type HistoricParams = {
   startDate: Date;
   endDate: Date;
+  aggregatePeriod: "month" | "year";
 };
 type AvgComparasionParams = Params & {
   period: AvgComparasionPeriods;
 };
 
 export const useExpensesAvgComparasionReport = (
-  params: AvgComparasionParams,
+  params: AvgComparasionParams
 ): UseQueryResult<ReportUnknownAggregationData> =>
   useQuery({
     queryKey: [AVG_COMPASATION_REPORT_QUERY_KEY, params],
@@ -37,7 +38,7 @@ export const useExpensesAvgComparasionReport = (
   });
 
 export const useInvalidateExpensesAvgComparasionReportQueries = (
-  client?: QueryClient,
+  client?: QueryClient
 ) => {
   const queryClient = useQueryClient(client);
 
@@ -52,10 +53,10 @@ export const useInvalidateExpensesAvgComparasionReportQueries = (
 
 export const PERCENTAGE_REPORT_QUERY_KEY = "expense-percentage-report";
 
-type PercentageParams = Params & HistoricParams;
+type PercentageParams = Params & Omit<HistoricParams, "aggregatePeriod">;
 
 export const useExpensesPercentagenReport = (
-  params: PercentageParams,
+  params: PercentageParams
 ): UseQueryResult<ReportUnknownAggregationData> =>
   useQuery({
     queryKey: [PERCENTAGE_REPORT_QUERY_KEY, params],
@@ -63,7 +64,7 @@ export const useExpensesPercentagenReport = (
   });
 
 export const useInvalidateExpensesPercentagenReportQueries = (
-  client?: QueryClient,
+  client?: QueryClient
 ) => {
   const queryClient = useQueryClient(client);
 
@@ -79,7 +80,7 @@ export const useInvalidateExpensesPercentagenReportQueries = (
 const HISTORIC_REPORT_QUERY_KEY = "expense-historic-report";
 
 export const useExpensesHistoricReport = (
-  params: HistoricParams,
+  params: HistoricParams
 ): UseQueryResult<HistoricReportResponse> =>
   useQuery({
     queryKey: [
@@ -87,13 +88,14 @@ export const useExpensesHistoricReport = (
       {
         start_date: params.startDate.toLocaleDateString("pt-br"),
         end_date: params.endDate.toLocaleDateString("pt-br"),
+        aggregate_period: params.aggregatePeriod,
       },
     ],
     queryFn: () => getHistoricReport(params),
   });
 
 export const useInvalidateExpensesHistoricReportQueries = (
-  client?: QueryClient,
+  client?: QueryClient
 ) => {
   const queryClient = useQueryClient(client);
 

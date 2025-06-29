@@ -8,12 +8,16 @@ from .models import (
     Expense,
     ExpenseCategory,
     ExpenseSource,
+    ExpenseTag,
     Revenue,
     RevenueCategory,
+    RevenueTag,
 )
 
 admin.site.register(BankAccount)
 admin.site.register(BankAccountSnapshot)
+admin.site.register(ExpenseTag)
+admin.site.register(RevenueTag)
 
 
 class _ExpenseForm(ModelForm):

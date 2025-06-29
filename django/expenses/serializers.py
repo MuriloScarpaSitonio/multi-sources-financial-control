@@ -183,16 +183,14 @@ class ExpenseReportCategorySerializer(TotalSerializer):
     category = serializers.CharField()
 
 
-class ExpenseReportAvgCategorySerializer(ExpenseReportCategorySerializer, AvgSerializer):
-    ...
+class ExpenseReportAvgCategorySerializer(ExpenseReportCategorySerializer, AvgSerializer): ...
 
 
 class ExpenseReportSourceSerializer(TotalSerializer):
     source = serializers.CharField()
 
 
-class ExpenseReportAvgSourceSerializer(ExpenseReportSourceSerializer, AvgSerializer):
-    ...
+class ExpenseReportAvgSourceSerializer(ExpenseReportSourceSerializer, AvgSerializer): ...
 
 
 class ExpenseReportTypeSerializer(TotalSerializer):
@@ -203,16 +201,23 @@ class ExpenseReportTypeSerializer(TotalSerializer):
         return "Fixo" if data["is_fixed"] is True else "Variável"
 
 
-class ExpenseReportAvgTypeSerializer(ExpenseReportTypeSerializer, AvgSerializer):
-    ...
+class ExpenseReportAvgTypeSerializer(ExpenseReportTypeSerializer, AvgSerializer): ...
 
 
-class ExpenseHistoricSerializer(TotalSerializer):
+class ExpenseMonthlyHistoricSerializer(TotalSerializer):
     month = serializers.DateField(format="%d/%m/%Y")
 
 
-class HistoricResponseSerializer(AvgSerializer, serializers.Serializer):
-    historic = ExpenseHistoricSerializer(many=True)
+class ExpenseYearlyHistoricSerializer(TotalSerializer):
+    year = serializers.DateField(format="%d/%m/%Y")
+
+
+class MonthlyHistoricResponseSerializer(AvgSerializer, serializers.Serializer):
+    historic = ExpenseMonthlyHistoricSerializer(many=True)
+
+
+class YearlyHistoricResponseSerializer(AvgSerializer, serializers.Serializer):
+    historic = ExpenseYearlyHistoricSerializer(many=True)
 
 
 class RevenueIndicatorsSerializer(TotalSerializer, AvgSerializer):
