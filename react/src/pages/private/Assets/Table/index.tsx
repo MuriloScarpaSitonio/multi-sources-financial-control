@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 
+import EditIcon from "@mui/icons-material/Edit";
 import Box from "@mui/material/Box";
+import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import Tooltip from "@mui/material/Tooltip";
-import IconButton from "@mui/material/IconButton";
-import EditIcon from "@mui/icons-material/Edit";
 
 import {
   MaterialReactTable,
@@ -20,12 +20,12 @@ import useTable from "../../../../hooks/useTable";
 import { getAssets } from "../api";
 import { Asset } from "../api/models";
 import { AssetCurrencyMap } from "../consts";
-import { ASSETS_QUERY_KEY } from "./consts";
 import AssetsForm from "./AssetForm";
-import TopToolBar from "./TopToolbar";
-import IncomesTable from "./IncomesTable";
-import TransactionTable from "./TransactionTable";
 import AssetUpdatePriceDrawer from "./AssetUpdatePriceDrawer";
+import { ASSETS_QUERY_KEY } from "./consts";
+import IncomesTable from "./IncomesTable";
+import TopToolBar from "./TopToolbar";
+import TransactionTable from "./TransactionTable";
 
 const DetailPanel = ({
   row,
@@ -243,8 +243,9 @@ const Table = () => {
     columns: columns as Column<any>[],
     queryKey: [ASSETS_QUERY_KEY],
     defaultFilters: { status: "OPENED" },
-    localization: { noRecordsToDisplay: "Nenhum ativo encontrado" },
+    localization: { noRecordsToDisplay: "Nenhum ativo encontrado", rowsPerPage: "Ativos por página" },
     enableExpanding: true,
+    defaultPageSize: 20,
     columnVisibility,
     onColumnVisibilityChange: setColumnVisibility,
     queryFn: () =>

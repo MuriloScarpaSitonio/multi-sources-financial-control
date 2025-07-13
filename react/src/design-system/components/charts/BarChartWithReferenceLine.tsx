@@ -1,23 +1,23 @@
 import Stack from "@mui/material/Stack";
 
 import {
-  BarChart,
   Bar,
+  BarChart,
   Cell,
+  ReferenceLine,
   Tooltip,
   XAxis,
   YAxis,
-  ReferenceLine,
 } from "recharts";
-import { Colors } from "../../enums";
-import { RawDateString } from "../../../types";
-import { getColor } from "../../utils";
+import { useHideValues } from "../../../hooks/useHideValues";
 import {
   monthTickerFormatter,
   numberTickFormatter,
   yearTickerFormatter,
 } from "../../../pages/private/utils";
-import { useHideValues } from "../../../hooks/useHideValues";
+import { RawDateString } from "../../../types";
+import { Colors } from "../../enums";
+import { getColor } from "../../utils";
 
 type HistoricReportDataItem = {
   total: number;
@@ -44,7 +44,9 @@ const BarChartWithReferenceLineToolTipContent = ({
   if (active && payload?.length) {
     const { payload: data } = payload[0];
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [_, month, year] = (data.month ?? data.year).split("/");
+    const [_, month, year] = ((data.month ?? data.year) as RawDateString).split(
+      "/"
+    );
     const isVariantDanger = variant === "danger";
     return (
       <Stack
@@ -74,9 +76,8 @@ const BarChartWithReferenceLineToolTipContent = ({
             ),
           }}
         >
-          {`${aggregatePeriod === "month" ? "Mês" : "Ano"}: ${
-            aggregatePeriod === "month" ? `${month}/${year}` : year
-          }`}
+          {`${aggregatePeriod === "month" ? "Mês" : "Ano"}: ${aggregatePeriod === "month" ? `${month}/${year}` : year
+            }`}
         </p>
       </Stack>
     );
@@ -150,7 +151,9 @@ const BarChartWithReferenceLine = ({
       />
       <Bar dataKey="total" radius={[5, 5, 0, 0]}>
         {data?.map((d) => {
-          const [day, month, year] = (d.month ?? d.year).split("/");
+          const [day, month, year] = ((d.month ?? d.year) as RawDateString).split(
+            "/"
+          );
           const isFuture =
             new Date(parseInt(year), parseInt(month) - 1, parseInt(day)) >
             secondDayOfCurrentMonth;
@@ -160,14 +163,14 @@ const BarChartWithReferenceLine = ({
           });
           const props = isFuture
             ? {
-                fill: getColor(Colors.neutral900),
-                strokeWidth: 1,
-                stroke: getColor(strokeColor),
-                strokeDasharray: "3 3",
-              }
+              fill: getColor(Colors.neutral900),
+              strokeWidth: 1,
+              stroke: getColor(strokeColor),
+              strokeDasharray: "3 3",
+            }
             : {
-                fill: getColor(fillColor),
-              };
+              fill: getColor(fillColor),
+            };
           return <Cell key={d.month} {...props} />;
         })}
       </Bar>

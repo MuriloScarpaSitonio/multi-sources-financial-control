@@ -1,43 +1,43 @@
 import type { ApiListResponse, RawDateString } from "../../../../types";
 import type { Filters } from "../types";
 
-import { useMemo, useContext, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 
-import IconButton from "@mui/material/IconButton";
-import Tooltip from "@mui/material/Tooltip";
-import Stack from "@mui/material/Stack";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import IconButton from "@mui/material/IconButton";
+import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 
+import { useQueryClient } from "@tanstack/react-query";
 import {
   MaterialReactTable,
   type MRT_ColumnDef as Column,
 } from "material-react-table";
-import { useQueryClient } from "@tanstack/react-query";
 
 import {
-  Text,
+  Colors,
   FontSizes,
   FontWeights,
-  getFontWeight,
-  getFontSize,
   getColor,
-  Colors,
+  getFontSize,
+  getFontWeight,
+  Text,
 } from "../../../../design-system";
 import { StatusDot } from "../../../../design-system/icons";
 import useTable from "../../../../hooks/useTable";
 import { getExpenses } from "../api/expenses";
 import { Expense } from "../api/models";
 
+import { Chip } from "@mui/material";
+import { useHideValues } from "../../../../hooks/useHideValues";
+import { removeProperties } from "../../../../utils";
 import { EXPENSES_QUERY_KEY } from "../consts";
 import { ExpensesContext } from "../context";
 import { useInvalidateExpenseQueries } from "../hooks";
 import DeleteExpenseDialog from "./DeleteExpenseDialog";
-import TopToolBar from "./ToopToolBar";
-import { Chip } from "@mui/material";
-import { useHideValues } from "../../../../hooks/useHideValues";
-import { removeProperties } from "../../../../utils";
 import ExpenseDrawer from "./ExpenseDrawer";
+import TopToolBar from "./ToopToolBar";
 
 type GroupedExpense = Expense & { type: string };
 
@@ -151,9 +151,9 @@ const Table = () => {
             {hideValues
               ? ""
               : `R$ ${cell.getValue<number>().toLocaleString("pt-br", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}`}
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`}
           </Text>
         ),
       },
@@ -257,6 +257,7 @@ const Table = () => {
     localization: {
       noRecordsToDisplay: "Nenhuma despesa encontrada",
       actions: "",
+      rowsPerPage: "Despesas por página",
     },
     displayColumnDefOptions: {
       "mrt-row-expand": {

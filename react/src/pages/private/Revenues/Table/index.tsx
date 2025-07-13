@@ -1,41 +1,41 @@
 import type { ApiListResponse, RawDateString } from "../../../../types";
 
-import { useMemo, useContext, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 
-import IconButton from "@mui/material/IconButton";
-import Tooltip from "@mui/material/Tooltip";
-import Stack from "@mui/material/Stack";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import IconButton from "@mui/material/IconButton";
+import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 
+import { useQueryClient } from "@tanstack/react-query";
 import {
   MaterialReactTable,
   type MRT_ColumnDef as Column,
 } from "material-react-table";
-import { useQueryClient } from "@tanstack/react-query";
 
 import {
-  Text,
+  Colors,
   FontSizes,
   FontWeights,
-  getFontWeight,
-  getFontSize,
   getColor,
-  Colors,
+  getFontSize,
+  getFontWeight,
+  Text,
 } from "../../../../design-system";
 import { StatusDot } from "../../../../design-system/icons";
 import useTable from "../../../../hooks/useTable";
 import { getRevenues } from "../api";
 import { Revenue } from "../models";
 
-import { REVENUES_QUERY_KEY } from "../consts";
+import { useHideValues } from "../../../../hooks/useHideValues";
+import { removeProperties } from "../../../../utils";
 import { ExpensesContext } from "../../Expenses/context";
+import { REVENUES_QUERY_KEY } from "../consts";
 import { useInvalidateRevenuesQueries } from "../hooks";
 import DeleteRevenueDialog from "./DeleteRevenueDialog";
-import TopToolBar from "./ToopToolBar";
-import { useHideValues } from "../../../../hooks/useHideValues";
 import RevenueDrawer from "./RevenueDrawer";
-import { removeProperties } from "../../../../utils";
+import TopToolBar from "./ToopToolBar";
 
 type GroupedRevenue = Revenue & { type: string };
 
@@ -136,9 +136,9 @@ const Table = () => {
             {hideValues
               ? ""
               : `R$ ${cell.getValue<number>().toLocaleString("pt-br", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}`}
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`}
           </Text>
         ),
       },
@@ -204,7 +204,7 @@ const Table = () => {
       grouping: ["type"],
       expanded: { "type:Outras": true, "type:Receitas fixas": true },
     },
-    localization: { noRecordsToDisplay: "Nenhuma receita encontrada" },
+    localization: { noRecordsToDisplay: "Nenhuma receita encontrada", rowsPerPage: "Receitas por página" },
     displayColumnDefOptions: {
       "mrt-row-expand": {
         muiTableBodyCellProps: () => ({

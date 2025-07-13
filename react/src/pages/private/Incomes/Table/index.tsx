@@ -3,29 +3,29 @@ import type { Filters } from "../types";
 
 import { useCallback, useContext, useMemo, useState } from "react";
 
-import IconButton from "@mui/material/IconButton";
-import Tooltip from "@mui/material/Tooltip";
-import Stack from "@mui/material/Stack";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import IconButton from "@mui/material/IconButton";
+import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 
+import { useQueryClient } from "@tanstack/react-query";
 import {
   MaterialReactTable,
   type MRT_ColumnDef as Column,
 } from "material-react-table";
-import { useQueryClient } from "@tanstack/react-query";
 
-import { getColor, Colors } from "../../../../design-system";
+import { Colors, getColor } from "../../../../design-system";
 import useTable from "../../../../hooks/useTable";
+import { AssetCurrencyMap } from "../../Assets/consts";
 import { getIncomes } from "../api";
-import { Income } from "../types";
+import CreateOrEditIncomeDrawer from "../components/CreateOrEditIncomeDrawer";
+import { useOnFormSuccess as useInvalidateIncomesQueries } from "../components/CreateOrEditIncomeDrawer/hooks";
 import { INCOMES_QUERY_KEY } from "../consts";
+import { IncomesContext } from "../context";
+import { Income } from "../types";
 import DeleteIncomeDialog from "./DeleteIncomeDialog";
 import TopToolBar from "./ToopToolBar";
-import { AssetCurrencyMap } from "../../Assets/consts";
-import { IncomesContext } from "../context";
-import { useOnFormSuccess as useInvalidateIncomesQueries } from "../components/CreateOrEditIncomeDrawer/hooks";
-import CreateOrEditIncomeDrawer from "../components/CreateOrEditIncomeDrawer";
 
 export const useOnIncomeDeleteSuccess = () => {
   const queryClient = useQueryClient();
@@ -159,6 +159,7 @@ const Table = () => {
     localization: {
       noRecordsToDisplay: "Nenhum rendimento encontrado",
       actions: "",
+      rowsPerPage: "Rendimentos por página",
     },
     queryFn: () =>
       getIncomes({

@@ -3,31 +3,31 @@ import type { Filters } from "../types";
 
 import { useContext, useMemo, useState } from "react";
 
-import IconButton from "@mui/material/IconButton";
-import Tooltip from "@mui/material/Tooltip";
-import Stack from "@mui/material/Stack";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import IconButton from "@mui/material/IconButton";
+import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 
+import { useQueryClient } from "@tanstack/react-query";
 import {
   MaterialReactTable,
   type MRT_ColumnDef as Column,
 } from "material-react-table";
-import { useQueryClient } from "@tanstack/react-query";
 
-import { getColor, Colors } from "../../../../design-system";
+import { Colors, getColor } from "../../../../design-system";
 import useTable from "../../../../hooks/useTable";
 import { getTransactions } from "../api";
 import { Transaction } from "../types";
 
 import { TRANSACTIONS_QUERY_KEY } from "../consts";
-import { useInvalidateTransactionsQueries } from "./hooks";
 import DeleteTransactionDialog from "./DeleteTransactionDialog";
 import EditTransactionDrawer from "./EditTransactionDrawer";
+import { useInvalidateTransactionsQueries } from "./hooks";
 
-import TopToolBar from "./ToopToolBar";
 import { AssetCurrencyMap } from "../../Assets/consts";
 import { TransactionsContext } from "../context";
+import TopToolBar from "./ToopToolBar";
 
 export const useOnTransactionDeleteSuccess = () => {
   const queryClient = useQueryClient();
@@ -150,6 +150,7 @@ const Table = () => {
     localization: {
       noRecordsToDisplay: "Nenhuma transação encontrada",
       actions: "",
+      rowsPerPage: "Transações por página",
     },
     queryFn: () =>
       getTransactions({
