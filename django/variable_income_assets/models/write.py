@@ -1,10 +1,10 @@
 from decimal import Decimal
 
+from shared.models_utils import serializable_today_function
+
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
-
-from shared.models_utils import serializable_today_function
 
 from ..choices import (
     AssetObjectives,
@@ -31,7 +31,7 @@ class AssetMetaData(models.Model):
         max_length=50, validators=[AssetSectors.validator], default=AssetSectors.unknown
     )
     currency = models.CharField(max_length=6, validators=[Currencies.validator])
-    current_price = models.DecimalField(decimal_places=6, max_digits=13)
+    current_price = models.DecimalField(decimal_places=10, max_digits=17)
     current_price_updated_at = models.DateTimeField(blank=True, null=True)
     asset = models.OneToOneField(
         to="Asset", on_delete=models.CASCADE, blank=True, null=True, related_name="metadata"
