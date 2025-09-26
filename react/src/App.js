@@ -1,20 +1,21 @@
 import React from "react";
 
+import MuiAlert from "@mui/lab/Alert";
 import Container from "@mui/material/Container";
+import Link from "@mui/material/Link";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  Navigate,
+  Route,
   BrowserRouter as Router,
   Routes,
-  Route,
-  Navigate,
 } from "react-router-dom";
-import Link from "@mui/material/Link";
-import MuiAlert from "@mui/lab/Alert";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { Navbar } from "./components/Navbar";
+import { AccessTokenStr, RefreshTokenStr } from "./consts";
+import { stringToBoolean } from "./helpers.js";
 import { useHideValues } from "./hooks/useHideValues";
 import { ActivateUser } from "./pages/ActivateUser";
-import { Login, ForgotPassword, Signup } from "./pages/public";
 import {
   Assets,
   Expenses,
@@ -23,12 +24,11 @@ import {
   Transactions,
   Wrapper as WrapperV2,
 } from "./pages/private";
+import { ForgotPassword, Login, Signup } from "./pages/public";
 import { ResetPassword } from "./pages/ResetPassword";
-import { SubscriptionDone } from "./pages/SubscriptionDone";
 import Subscription from "./pages/Subscription";
+import { SubscriptionDone } from "./pages/SubscriptionDone";
 import User from "./pages/User";
-import { stringToBoolean } from "./helpers.js";
-import { AccessTokenStr } from "./consts";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,16 +62,33 @@ const isTokenExpired = (token) => {
 
 const useLocalStorageBooleanValues = () => {
   const token = localStorage.getItem(AccessTokenStr);
-  const isTokenValid = token && !isTokenExpired(token);
+  const refreshToken = localStorage.getItem(RefreshTokenStr);
 
-  if (!isTokenValid && token) {
-    // If token exists but is expired, clear it
-    localStorage.removeItem(AccessTokenStr);
-    localStorage.removeItem("user_subscription_status");
+  // If no tokens exist, user is definitely not logged in
+  if (!token || !refreshToken) {
+    return {
+      isLoggedIn: false,
+      isSubscriptionCanceled: false,
+    };
+  }
+
+  // If access token is expired, check refresh token
+  if (isTokenExpired(token)) {
+    // If refresh token is also expired, clear everything and log out
+    if (isTokenExpired(refreshToken)) {
+      localStorage.removeItem(AccessTokenStr);
+      localStorage.removeItem(RefreshTokenStr);
+      localStorage.removeItem("user_subscription_status");
+      return {
+        isLoggedIn: false,
+        isSubscriptionCanceled: false,
+      };
+    }
+    // If refresh token is still valid, stay logged in and let axios handle refresh
   }
 
   return {
-    isLoggedIn: isTokenValid,
+    isLoggedIn: true,
     isSubscriptionCanceled:
       localStorage.getItem("user_subscription_status") === "CANCELED",
   };

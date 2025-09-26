@@ -23,6 +23,7 @@ let privateAxios = axios.create({
 const logout = () => {
   localStorage.removeItem(AccessTokenStr);
   localStorage.removeItem(RefreshTokenStr);
+  localStorage.removeItem("user_subscription_status");
   privateAxios.defaults.headers = {};
 };
 
@@ -52,4 +53,5 @@ privateAxios.interceptors.response.use(
   }
 );
 
-export { privateAxios, publicAxios, logout };
+export { logout, privateAxios, publicAxios };
+
