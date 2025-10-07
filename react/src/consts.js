@@ -1,5 +1,5 @@
 const BaseApiUrl =
-  process.env.REACT_APP_BaseApiUrl || "http://127.0.0.1:8000/api/v1";
+  process.env.REACT_APP_BASE_API_URL || "http://127.0.0.1:8000/api/v1";
 
 const AssetsObjectivesMapping = [
   { label: "Crescimento", value: "GROWTH" },
@@ -59,15 +59,10 @@ const AccessTokenStr = "accessToken";
 const RefreshTokenStr = "refreshToken";
 
 export {
-  AssetsObjectivesMapping,
+  AccessTokenStr, AssetsObjectivesMapping,
   AssetsSectorsMapping,
   AssetsTypesMapping,
-  BaseApiUrl,
-  AccessTokenStr,
-  RefreshTokenStr,
-  TransactionsActionsMapping,
-  CurrenciesMapping,
-  CurrenciesAssetTypesMapping,
-  PassiveIncomeTypesMapping,
-  PassiveIncomeEventTypesMapping,
+  BaseApiUrl, CurrenciesAssetTypesMapping, CurrenciesMapping, PassiveIncomeEventTypesMapping, PassiveIncomeTypesMapping, RefreshTokenStr,
+  TransactionsActionsMapping
 };
+
