@@ -18,6 +18,27 @@ DATABASES["default"] = {
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = secret("CORS_ALLOWED_ORIGINS", default="", cast=Csv())
 
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
+
 # For sites that should only be accessed over HTTPS, you can instruct modern browsers
 # to refuse to connect to your domain name via an insecure connection (for a given period of time)
 #  by setting the “Strict-Transport-Security” header. This reduces your exposure to some
