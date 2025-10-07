@@ -992,6 +992,7 @@ dependencies = [
     { name = "python-decouple" },
     { name = "redis" },
     { name = "requests" },
+    { name = "setuptools" },
     { name = "stripe" },
 ]
 
@@ -1041,6 +1042,7 @@ requires-dist = [
     { name = "python-decouple", specifier = "~=3.8" },
     { name = "redis", specifier = ">=5.0.0,<6" },
     { name = "requests", specifier = ">=2.31.0,<3" },
+    { name = "setuptools", specifier = ">=70.0.0,<75" },
     { name = "stripe", specifier = ">=7.8.0,<8" },
 ]
 
@@ -1862,11 +1864,11 @@ wheels = [
 
 [[package]]
 name = "setuptools"
-version = "80.9.0"
+version = "74.1.3"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/18/5d/3bf57dcd21979b887f014ea83c24ae194cfcd12b9e0fda66b957c69d1fca/setuptools-80.9.0.tar.gz", hash = "sha256:f36b47402ecde768dbfafc46e8e4207b4360c654f1f3bb84475f0a28628fb19c", size = 1319958, upload-time = "2025-05-27T00:56:51.443Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cd/01/e30d66bbb6403b7d41ac1ac0e3c51727c5e8f3558d8f9a9efe4282e90308/setuptools-74.1.3.tar.gz", hash = "sha256:fbb126f14b0b9ffa54c4574a50ae60673bbe8ae0b1645889d10b3b14f5891d28", size = 1356471, upload-time = "2024-09-15T15:00:26.33Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a3/dc/17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/setuptools-80.9.0-py3-none-any.whl", hash = "sha256:062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922", size = 1201486, upload-time = "2025-05-27T00:56:49.664Z" },
+    { url = "https://files.pythonhosted.org/packages/14/37/166aba5a70924e574eb0aec9f7ec227ac0d7ae72dd2f823675365172120d/setuptools-74.1.3-py3-none-any.whl", hash = "sha256:1cfd66bfcf197bce344da024c8f5b35acc4dcb7ca5202246a75296b4883f6851", size = 1262070, upload-time = "2024-09-15T15:00:24.357Z" },
 ]
 
 [[package]]

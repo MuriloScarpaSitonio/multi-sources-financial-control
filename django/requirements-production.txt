@@ -113,6 +113,8 @@ rpds-py==0.25.1
     # via
     #   jsonschema
     #   referencing
+setuptools==74.1.3
+    # via multi-sources-financial-control
 six==1.17.0
     # via
     #   django-choices
