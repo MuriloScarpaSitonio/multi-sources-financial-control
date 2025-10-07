@@ -8,11 +8,11 @@
     "@emotion/styled": "^11.11.5",
     "@hookform/resolvers": "^3.3.4",
     "@mui/icons-material": "^6.0.0",
-    "@mui/lab": "^6.0.0",
+    "@mui/lab": "^6.0.0-beta.0",
     "@mui/material": "^6.0.0",
     "@mui/styles": "^6.0.0",
     "@mui/x-date-pickers": "^7.7.0",
-    "@tanstack/react-query": "^5.29.2",
+    "@tanstack/react-query": "5.29.2",
     "@testing-library/jest-dom": "^6.4.2",
     "@testing-library/react": "^14.2.2",
     "@testing-library/user-event": "^14.5.2",
@@ -70,5 +70,6 @@
   },
   "resolutions": {
     "react-is": "^18.3.1"
-  }
+  },
+  "packageManager": "yarn@4.10.3+sha512.c38cafb5c7bb273f3926d04e55e1d8c9dfa7d9c3ea1f36a4868fa028b9e5f72298f0b7f401ad5eb921749eb012eb1c3bb74bf7503df3ee43fd600d14a018266f"
 }
