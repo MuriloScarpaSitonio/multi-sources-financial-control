@@ -5,6 +5,19 @@ DEBUG = secret("DJANGO_DEBUG", cast=bool, default=False)
 ENVIRONMENT = ENV_PRODUCTION
 EMAIL_BACKEND = "anymail.backends.sendinblue.EmailBackend"
 
+DATABASES["default"] = {
+    "ENGINE": "django.db.backends.postgresql",
+    "NAME": secret("DB_NAME"),
+    "USER": secret("DB_USER"),
+    "PASSWORD": secret("DB_PASSWORD"),
+    "HOST": secret("DB_HOST"),
+    "PORT": secret("DB_PORT", default=5432, cast=int),
+    "OPTIONS": {"pool": True},
+}
+
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = secret("CORS_ALLOWED_ORIGINS", default="", cast=Csv())
+
 # For sites that should only be accessed over HTTPS, you can instruct modern browsers
 # to refuse to connect to your domain name via an insecure connection (for a given period of time)
 #  by setting the “Strict-Transport-Security” header. This reduces your exposure to some
