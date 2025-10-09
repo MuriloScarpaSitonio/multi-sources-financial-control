@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-import useMediaQuery from "@mui/material/useMediaQuery";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import FormHelperText from "@mui/material/FormHelperText";
@@ -8,13 +7,14 @@ import Link from "@mui/material/Link";
 import OutlinedInput from "@mui/material/OutlinedInput";
 import Stack from "@mui/material/Stack";
 import { ThemeProvider } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import { Controller } from "react-hook-form";
 import * as yup from "yup";
 
 import { forgotPassword } from "../../../api/methods";
-import useFormPlus from "../../../hooks/useFormPlus";
 import { FormFeedbackError, Text } from "../../../design-system/components";
 import * as enums from "../../../design-system/enums";
+import useFormPlus from "../../../hooks/useFormPlus";
 import otherSvg from "../assets/other.svg";
 import { CallToActionSection, ImageAndTexts } from "../components";
 import { theme } from "../styles";
@@ -125,7 +125,7 @@ const ForgotPassword = () => {
 
   return (
     <ThemeProvider theme={theme}>
-      <Stack direction="row">
+      <Stack direction="row" sx={{ height: "100vh" }}>
         <CallToActionSection
           title={!isSuccess ? "Esqueci minha senha" : ""}
           footer={

@@ -1,24 +1,24 @@
 import { useState } from "react";
 
-import useMediaQuery from "@mui/material/useMediaQuery";
+import VisibilityOffOutlinedIcon from "@mui/icons-material/VisibilityOffOutlined";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
-import InputAdornment from "@mui/material/InputAdornment";
 import IconButton from "@mui/material/IconButton";
+import InputAdornment from "@mui/material/InputAdornment";
 import Link from "@mui/material/Link";
 import OutlinedInput from "@mui/material/OutlinedInput";
 import Stack from "@mui/material/Stack";
-import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import VisibilityOffOutlinedIcon from "@mui/icons-material/VisibilityOffOutlined";
 import { ThemeProvider } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import { Controller } from "react-hook-form";
 import * as yup from "yup";
 
 import { signup } from "../../../api/methods";
-import useFormPlus from "../../../hooks/useFormPlus";
 import { FormFeedbackError, Text } from "../../../design-system/components";
 import * as enums from "../../../design-system/enums";
 import { getColor } from "../../../design-system/utils";
+import useFormPlus from "../../../hooks/useFormPlus";
 import otherSvg from "../assets/other.svg";
 import { CallToActionSection, ImageAndTexts } from "../components";
 import { theme } from "../styles";
@@ -236,7 +236,7 @@ export const Signup = () => {
 
   return (
     <ThemeProvider theme={theme}>
-      <Stack direction="row">
+      <Stack direction="row" sx={{ height: "100vh" }}>
         <CallToActionSection
           title={
             !isUserCreated
