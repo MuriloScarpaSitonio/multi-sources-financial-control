@@ -167,7 +167,7 @@ const Wrapper = ({ children, isLoggedIn }) => {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
+      <Router basename="/">
         <Routes>
           <Route
             path="/"
