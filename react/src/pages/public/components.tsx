@@ -6,7 +6,6 @@ import Link from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
 import useMediaQuery from "@mui/material/useMediaQuery";
 
-import { theme } from "./styles";
 import { Text } from "../../design-system/components";
 import * as enums from "../../design-system/enums";
 import {
@@ -14,10 +13,15 @@ import {
   GoogleColoredIcon,
 } from "../../design-system/icons";
 import { getColor } from "../../design-system/utils";
+import { theme } from "./styles";
 
 export const ImageAndTexts = ({ image }: { image: string }) => (
   <Stack sx={{ width: "50%" }}>
-    <Stack sx={{ padding: "12px 96px" }} textAlign="center" alignItems="center">
+    <Stack
+      sx={{ padding: "12px 96px", marginBlock: "auto" }}
+      textAlign="center"
+      alignItems="center"
+    >
       <img src={image} alt="login" width={400} height={400} />
       <Stack spacing={4}>
         <Text
@@ -27,22 +31,30 @@ export const ImageAndTexts = ({ image }: { image: string }) => (
         >
           Realize suas análises de forma fácil e segura.
         </Text>
-        <Text
-          weight={enums.FontWeights.LIGHT}
-          size={enums.FontSizes.SMALL}
-          color={enums.Colors.neutral400}
-        >
-          Mantenha suas informações em segurança e com monitoramento fácil.{" "}
+        <Stack spacing={0.1} alignItems="center">
           <Text
             weight={enums.FontWeights.LIGHT}
             size={enums.FontSizes.SMALL}
-            color={enums.Colors.brand500}
-            display="inline"
+            color={enums.Colors.neutral400}
           >
-            Junte-se a nós hoje mesmo
-          </Text>{" "}
-          e assuma o controle do seu futuro financeiro!
-        </Text>
+            Mantenha suas informações em segurança e com monitoramento fácil.
+          </Text>
+          <Text
+            weight={enums.FontWeights.LIGHT}
+            size={enums.FontSizes.SMALL}
+            color={enums.Colors.neutral400}
+          >
+            <Text
+              weight={enums.FontWeights.LIGHT}
+              size={enums.FontSizes.SMALL}
+              color={enums.Colors.brand500}
+              display="inline"
+            >
+              Junte-se a nós hoje mesmo
+            </Text>
+            {" e assuma o controle do seu futuro financeiro!"}
+          </Text>
+        </Stack>
       </Stack>
     </Stack>
   </Stack>
@@ -106,7 +118,10 @@ export const CallToActionSection = ({
       }}
     >
       <Stack
-        sx={{ padding: !isDownSmallScreen ? "48px 144px" : "24px" }}
+        sx={{
+          padding: !isDownSmallScreen ? "48px 144px" : "24px",
+          marginBlock: "auto",
+        }}
         spacing={4}
       >
         <Text weight={enums.FontWeights.BOLD} align="center">
