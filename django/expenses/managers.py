@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Literal, Self
 
 from shared.managers_utils import GenericDateFilters
 
-from django.db.models import CharField, Count, DecimalField, F, Q, QuerySet, Sum
-from django.db.models.functions import Cast, Coalesce, Concat, TruncMonth, TruncYear
+from django.db.models import CharField, Count, F, Q, QuerySet, Sum, Value
+from django.db.models.functions import Coalesce, Concat, TruncMonth, TruncYear
 
 from .choices import ExpenseReportType
 
@@ -40,7 +40,7 @@ class _PersonalFinancialQuerySet(QuerySet):
                 ),
                 1,
             )
-            * Cast(1.0, DecimalField())
+            * Value(Decimal("1.0"))
         )
 
     def since_a_year_ago(self) -> Self:
@@ -65,7 +65,7 @@ class _PersonalFinancialQuerySet(QuerySet):
                             ),
                             1,
                         )
-                        * Cast(1.0, DecimalField())
+                        * Value(Decimal("1.0"))
                     ),
                     Decimal(),
                 ),
@@ -163,7 +163,7 @@ class ExpenseQueryset(_PersonalFinancialQuerySet):
                             ),
                             1,
                         )
-                        * Cast(1.0, DecimalField())
+                        * Value(Decimal("1.0"))
                     )
                 ),
             )
