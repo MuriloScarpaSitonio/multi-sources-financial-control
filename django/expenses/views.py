@@ -5,13 +5,9 @@ from statistics import fmean
 from typing import TYPE_CHECKING, ClassVar, Literal
 from uuid import uuid4
 
-from django.db.models import F, Max
-from django.db.transaction import atomic
-
 from djchoices.choices import ChoiceItem
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
-from rest_framework.generics import get_object_or_404
 from rest_framework.mixins import (
     CreateModelMixin,
     DestroyModelMixin,
@@ -22,12 +18,15 @@ from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK
 from rest_framework.utils.serializer_helpers import ReturnList
 from rest_framework.viewsets import GenericViewSet
-
 from shared.permissions import SubscriptionEndedPermission
 from shared.utils import (
     insert_zeros_if_no_data_in_monthly_historic_data,
     insert_zeros_if_no_data_in_yearly_historic_data,
 )
+
+from django.db.models import F, Max
+from django.db.transaction import atomic
+from django.utils import timezone
 
 from . import filters, serializers
 from .choices import ExpenseReportType
@@ -331,11 +330,20 @@ class BankAccountViewSet(GenericViewSet):
         return (
             BankAccount.objects.filter(user_id=self.request.user.id)
             if self.request.user.is_authenticated
-            else Expense.objects.none()  # pragma: no cover -- drf-spectatular
+            else BankAccount.objects.none()  # pragma: no cover -- drf-spectatular
         )
 
     def get_object(self) -> BankAccount:
-        return get_object_or_404(self.get_queryset())
+        try:
+            return self.get_queryset().get()
+        except BankAccount.DoesNotExist:
+            # return empty bank account
+            return BankAccount(
+                user=self.request.user,
+                amount=Decimal(),
+                description="",
+                updated_at=timezone.now(),
+            )
 
     def list(self, _: Request) -> Response:
         return Response(

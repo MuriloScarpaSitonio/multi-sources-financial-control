@@ -4,10 +4,10 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Literal, Self
 
+from shared.managers_utils import GenericDateFilters
+
 from django.db.models import CharField, Count, DecimalField, F, Q, QuerySet, Sum
 from django.db.models.functions import Cast, Coalesce, Concat, TruncMonth, TruncYear
-
-from shared.managers_utils import GenericDateFilters
 
 from .choices import ExpenseReportType
 
@@ -32,10 +32,13 @@ class _PersonalFinancialQuerySet(QuerySet):
         return Sum(
             "value", filter=self.filters.since_a_year_ago & ~self.filters.current, default=Decimal()
         ) / (
-            Count(
-                Concat("created_at__month", "created_at__year", output_field=CharField()),
-                filter=self.filters.since_a_year_ago & ~self.filters.current,
-                distinct=True,
+            Coalesce(
+                Count(
+                    Concat("created_at__month", "created_at__year", output_field=CharField()),
+                    filter=self.filters.since_a_year_ago & ~self.filters.current,
+                    distinct=True,
+                ),
+                1,
             )
             * Cast(1.0, DecimalField())
         )
@@ -51,11 +54,16 @@ class _PersonalFinancialQuerySet(QuerySet):
                 avg=Coalesce(
                     Sum("value", default=Decimal())
                     / (
-                        Count(
-                            Concat(
-                                "created_at__month", "created_at__year", output_field=CharField()
+                        Coalesce(
+                            Count(
+                                Concat(
+                                    "created_at__month",
+                                    "created_at__year",
+                                    output_field=CharField(),
+                                ),
+                                distinct=True,
                             ),
-                            distinct=True,
+                            1,
                         )
                         * Cast(1.0, DecimalField())
                     ),
@@ -143,12 +151,17 @@ class ExpenseQueryset(_PersonalFinancialQuerySet):
                         # we are dividing by the amount of months a given aggregation appears.
                         # in order to divide for the whole period we should compute some subquery
                         # like self.values("created_at__month").distinct().order_by().count()
-                        Count(
-                            Concat(
-                                "created_at__month", "created_at__year", output_field=CharField()
+                        Coalesce(
+                            Count(
+                                Concat(
+                                    "created_at__month",
+                                    "created_at__year",
+                                    output_field=CharField(),
+                                ),
+                                filter=~self.filters.current,
+                                distinct=True,
                             ),
-                            filter=~self.filters.current,
-                            distinct=True,
+                            1,
                         )
                         * Cast(1.0, DecimalField())
                     )
