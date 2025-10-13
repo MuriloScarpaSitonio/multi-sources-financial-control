@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Self
 from shared.managers_utils import GenericDateFilters
 
 from django.db.models import Case, CharField, Count, F, OuterRef, Q, QuerySet, Subquery, Sum, Value
-from django.db.models.functions import Coalesce, Concat, TruncMonth
+from django.db.models.functions import Coalesce, Concat, Greatest, TruncMonth
 
 from ...choices import AssetTypes, PassiveIncomeEventTypes
 from .expressions import GenericQuerySetExpressions
@@ -262,7 +262,7 @@ class TransactionQuerySet(QuerySet):
                 avg=Coalesce(
                     (Sum("total_bought", default=Decimal()) - Sum("total_sold", default=Decimal()))
                     / (
-                        Coalesce(
+                        Greatest(
                             Count(
                                 Concat(
                                     "operation_date__month",
@@ -360,17 +360,20 @@ class PassiveIncomeQuerySet(QuerySet):
                 filter=~self.date_filters.current,
                 cast=False,
             )
-            / Coalesce(
-                Count(
-                    Concat(
-                        "operation_date__month",
-                        "operation_date__year",
-                        output_field=CharField(),
+            / (
+                Greatest(
+                    Count(
+                        Concat(
+                            "operation_date__month",
+                            "operation_date__year",
+                            output_field=CharField(),
+                        ),
+                        filter=~self.date_filters.current,
+                        distinct=True,
                     ),
-                    filter=~self.date_filters.current,
-                    distinct=True,
-                ),
-                1,
+                    1,
+                )
+                * Value(Decimal("1.0"))
             ),
             Decimal(),
         )
@@ -397,7 +400,7 @@ class PassiveIncomeQuerySet(QuerySet):
             Value(Decimal("12.0"))
             if fixed_avg_denominator
             else (
-                Coalesce(
+                Greatest(
                     Count(
                         Concat(
                             "operation_date__month",
@@ -463,16 +466,19 @@ class PassiveIncomeQuerySet(QuerySet):
             .aggregate(
                 avg=Coalesce(
                     self.expressions.sum(self.expressions.normalized_incomes_total, cast=False)
-                    / Coalesce(
-                        Count(
-                            Concat(
-                                "operation_date__month",
-                                "operation_date__year",
-                                output_field=CharField(),
+                    / (
+                        Greatest(
+                            Count(
+                                Concat(
+                                    "operation_date__month",
+                                    "operation_date__year",
+                                    output_field=CharField(),
+                                ),
+                                distinct=True,
                             ),
-                            distinct=True,
-                        ),
-                        1,
+                            1,
+                        )
+                        * Value(Decimal("1.0"))
                     ),
                     Decimal(),
                 )
