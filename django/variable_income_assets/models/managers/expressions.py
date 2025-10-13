@@ -3,9 +3,9 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from django.db.models import Case, DecimalField, F, Q, Sum, Value, When
+from django.db.models import Case, F, Q, Sum, Value, When
 from django.db.models.expressions import CombinedExpression
-from django.db.models.functions import Cast, Coalesce
+from django.db.models.functions import Coalesce
 
 from ...adapters.key_value_store import get_dollar_conversion_rate
 from ...choices import TransactionActions
@@ -206,7 +206,7 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
     @staticmethod
     def sum(expression: Expression, cast: bool = True, **extra) -> Sum | CombinedExpression:
         s = Sum(expression, default=Decimal(), **extra)
-        return s * Cast(1.0, DecimalField()) if cast else s
+        return s * Value(Decimal("1.0")) if cast else s
 
     def get_avg_price_held_in_self_custody(self):
         return Case(

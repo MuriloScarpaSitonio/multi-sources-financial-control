@@ -3,22 +3,10 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING, Self
 
-from django.db.models import (
-    Case,
-    CharField,
-    Count,
-    DecimalField,
-    F,
-    OuterRef,
-    Q,
-    QuerySet,
-    Subquery,
-    Sum,
-    Value,
-)
-from django.db.models.functions import Cast, Coalesce, Concat, TruncMonth
-
 from shared.managers_utils import GenericDateFilters
+
+from django.db.models import Case, CharField, Count, F, OuterRef, Q, QuerySet, Subquery, Sum, Value
+from django.db.models.functions import Coalesce, Concat, TruncMonth
 
 from ...choices import AssetTypes, PassiveIncomeEventTypes
 from .expressions import GenericQuerySetExpressions
@@ -95,10 +83,7 @@ class AssetQuerySet(QuerySet):
         return self.annotate(normalized_closed_roi=self.expressions.normalized_closed_roi)
 
     def annotate_current_credited_incomes(self) -> Self:
-        from ..write import (  # avoid circular ImportError
-            AssetClosedOperation,
-            PassiveIncome,
-        )
+        from ..write import AssetClosedOperation, PassiveIncome  # avoid circular ImportError
 
         incomes_qs = (
             PassiveIncome.objects.filter(asset=OuterRef("pk"))
@@ -277,15 +262,18 @@ class TransactionQuerySet(QuerySet):
                 avg=Coalesce(
                     (Sum("total_bought", default=Decimal()) - Sum("total_sold", default=Decimal()))
                     / (
-                        Count(
-                            Concat(
-                                "operation_date__month",
-                                "operation_date__year",
-                                output_field=CharField(),
+                        Coalesce(
+                            Count(
+                                Concat(
+                                    "operation_date__month",
+                                    "operation_date__year",
+                                    output_field=CharField(),
+                                ),
+                                distinct=True,
                             ),
-                            distinct=True,
+                            1,
                         )
-                        * Cast(1.0, DecimalField())
+                        * Value(Decimal("1.0"))
                     ),
                     Decimal(),
                 ),
@@ -314,7 +302,7 @@ class TransactionQuerySet(QuerySet):
                         filter=self.expressions.filters.sold,
                         default=Decimal(),
                     )
-                    * Cast(-1.0, DecimalField())
+                    * Value(Decimal("-1.0"))
                 ),
                 diff=F("total_bought") + F("total_sold"),
             )
@@ -369,12 +357,17 @@ class PassiveIncomeQuerySet(QuerySet):
         return self.expressions.sum(
             self.expressions.normalized_incomes_total, filter=~self.date_filters.current
         ) / (
-            Count(
-                Concat("operation_date__month", "operation_date__year", output_field=CharField()),
-                filter=~self.date_filters.current,
-                distinct=True,
+            Coalesce(
+                Count(
+                    Concat(
+                        "operation_date__month", "operation_date__year", output_field=CharField()
+                    ),
+                    filter=~self.date_filters.current,
+                    distinct=True,
+                ),
+                1,
             )
-            * Cast(1.0, DecimalField())
+            * Value(Decimal("1.0"))
         )
 
     def credited(self) -> Self:
@@ -399,18 +392,23 @@ class PassiveIncomeQuerySet(QuerySet):
             Value(Decimal("12.0"))
             if fixed_avg_denominator
             else (
-                Count(
-                    Concat(
-                        "operation_date__month", "operation_date__year", output_field=CharField()
+                Coalesce(
+                    Count(
+                        Concat(
+                            "operation_date__month",
+                            "operation_date__year",
+                            output_field=CharField(),
+                        ),
+                        filter=(
+                            Q(event_type=PassiveIncomeEventTypes.credited)
+                            & self.date_filters.since_a_year_ago
+                            & ~self.date_filters.current
+                        ),
+                        distinct=True,
                     ),
-                    filter=(
-                        Q(event_type=PassiveIncomeEventTypes.credited)
-                        & self.date_filters.since_a_year_ago
-                        & ~self.date_filters.current
-                    ),
-                    distinct=True,
+                    1,
                 )
-                * Cast(1.0, DecimalField())
+                * Value(Decimal("1.0"))
             )
         )
         return self.aggregate(
@@ -460,15 +458,18 @@ class PassiveIncomeQuerySet(QuerySet):
             .aggregate(
                 avg=self.expressions.sum(self.expressions.normalized_incomes_total)
                 / (
-                    Count(
-                        Concat(
-                            "operation_date__month",
-                            "operation_date__year",
-                            output_field=CharField(),
+                    Coalesce(
+                        Count(
+                            Concat(
+                                "operation_date__month",
+                                "operation_date__year",
+                                output_field=CharField(),
+                            ),
+                            distinct=True,
                         ),
-                        distinct=True,
+                        1,
                     )
-                    * Cast(1.0, DecimalField())
+                    * Value(Decimal("1.0"))
                 )
             )
         )

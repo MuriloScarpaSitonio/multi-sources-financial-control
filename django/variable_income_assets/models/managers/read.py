@@ -124,10 +124,7 @@ class _Expressions:
     def roi_percentage(self) -> models.CombinedExpression:
         return models.functions.Coalesce(
             models.F("normalized_roi")
-            / (
-                models.F("normalized_total_bought")
-                * models.functions.Cast(1.0, models.DecimalField())
-            ),
+            / (models.F("normalized_total_bought") * models.Value(Decimal("1.0"))),
             Decimal(),
         ) * Decimal("100.0")
 
