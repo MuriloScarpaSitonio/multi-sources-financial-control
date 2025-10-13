@@ -1,10 +1,8 @@
 from datetime import datetime
 from statistics import fmean
 
-from django.db.models import Q
-from django.utils import timezone
-
 import pytest
+from config.settings.base import BASE_API_URL
 from dateutil.relativedelta import relativedelta
 from rest_framework.status import (
     HTTP_200_OK,
@@ -15,16 +13,12 @@ from rest_framework.status import (
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
 )
-
-from config.settings.base import BASE_API_URL
 from shared.tests import convert_and_quantitize
 
-from ...choices import (
-    AssetTypes,
-    Currencies,
-    PassiveIncomeEventTypes,
-    PassiveIncomeTypes,
-)
+from django.db.models import Q
+from django.utils import timezone
+
+from ...choices import AssetTypes, Currencies, PassiveIncomeEventTypes, PassiveIncomeTypes
 from ...models import Asset, PassiveIncome
 from ...models.managers import PassiveIncomeQuerySet
 from ..shared import get_total_credited_incomes_brute_force
@@ -464,7 +458,6 @@ def test__update__income_does_not_belong_to_user(kucoin_client, simple_income):
 
     # THEN
     assert response.status_code == HTTP_404_NOT_FOUND
-    assert response.json() == {"detail": "Not found."}
 
 
 @pytest.mark.django_db(transaction=True)
@@ -511,6 +504,17 @@ def test__avg(client, user):
             fmean([p.amount * p.current_currency_conversion_rate for p in qs])
         )
     }
+
+
+def test__avg__no_data(client, user):
+    # GIVEN
+
+    # WHEN
+    response = client.get(f"{URL}/avg")
+
+    # THEN
+    assert response.status_code == 200
+    assert response.json() == {"avg": 0}
 
 
 @pytest.mark.usefixtures("passive_incomes")

@@ -356,22 +356,21 @@ class PassiveIncomeQuerySet(QuerySet):
     def _monthly_avg_expression(self) -> CombinedExpression:
         return Coalesce(
             self.expressions.sum(
-                self.expressions.normalized_incomes_total, filter=~self.date_filters.current
+                self.expressions.normalized_incomes_total,
+                filter=~self.date_filters.current,
+                cast=False,
             )
-            / (
-                Coalesce(
-                    Count(
-                        Concat(
-                            "operation_date__month",
-                            "operation_date__year",
-                            output_field=CharField(),
-                        ),
-                        filter=~self.date_filters.current,
-                        distinct=True,
+            / Coalesce(
+                Count(
+                    Concat(
+                        "operation_date__month",
+                        "operation_date__year",
+                        output_field=CharField(),
                     ),
-                    1,
-                )
-                * Value(Decimal("1.0"))
+                    filter=~self.date_filters.current,
+                    distinct=True,
+                ),
+                1,
             ),
             Decimal(),
         )
@@ -463,20 +462,17 @@ class PassiveIncomeQuerySet(QuerySet):
             .exclude(self.date_filters.current)
             .aggregate(
                 avg=Coalesce(
-                    self.expressions.sum(self.expressions.normalized_incomes_total)
-                    / (
-                        Coalesce(
-                            Count(
-                                Concat(
-                                    "operation_date__month",
-                                    "operation_date__year",
-                                    output_field=CharField(),
-                                ),
-                                distinct=True,
+                    self.expressions.sum(self.expressions.normalized_incomes_total, cast=False)
+                    / Coalesce(
+                        Count(
+                            Concat(
+                                "operation_date__month",
+                                "operation_date__year",
+                                output_field=CharField(),
                             ),
-                            1,
-                        )
-                        * Value(Decimal("1.0"))
+                            distinct=True,
+                        ),
+                        1,
                     ),
                     Decimal(),
                 )
