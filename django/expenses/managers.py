@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Literal, Self
 from shared.managers_utils import GenericDateFilters
 
 from django.db.models import CharField, Count, F, Q, QuerySet, Sum, Value
-from django.db.models.functions import Coalesce, Concat, TruncMonth, TruncYear
+from django.db.models.functions import Coalesce, Concat, Greatest, TruncMonth, TruncYear
 
 from .choices import ExpenseReportType
 
@@ -32,7 +32,7 @@ class _PersonalFinancialQuerySet(QuerySet):
         return Sum(
             "value", filter=self.filters.since_a_year_ago & ~self.filters.current, default=Decimal()
         ) / (
-            Coalesce(
+            Greatest(
                 Count(
                     Concat("created_at__month", "created_at__year", output_field=CharField()),
                     filter=self.filters.since_a_year_ago & ~self.filters.current,
@@ -54,7 +54,7 @@ class _PersonalFinancialQuerySet(QuerySet):
                 avg=Coalesce(
                     Sum("value", default=Decimal())
                     / (
-                        Coalesce(
+                        Greatest(
                             Count(
                                 Concat(
                                     "created_at__month",
@@ -151,7 +151,7 @@ class ExpenseQueryset(_PersonalFinancialQuerySet):
                         # we are dividing by the amount of months a given aggregation appears.
                         # in order to divide for the whole period we should compute some subquery
                         # like self.values("created_at__month").distinct().order_by().count()
-                        Coalesce(
+                        Greatest(
                             Count(
                                 Concat(
                                     "created_at__month",
