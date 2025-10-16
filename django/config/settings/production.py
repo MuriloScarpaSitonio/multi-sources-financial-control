@@ -12,10 +12,8 @@ DATABASES["default"] = {
     "PASSWORD": secret("DB_PASSWORD"),
     "HOST": secret("DB_HOST"),
     "PORT": secret("DB_PORT", default=5432, cast=int),
+    "OPTIONS": {"pool": True},
 }
-
-if secret("DB_POOL", default=False, cast=bool):
-    DATABASES["default"]["OPTIONS"] = {"pool": True}
 
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = secret("CORS_ALLOWED_ORIGINS", default="", cast=Csv())
