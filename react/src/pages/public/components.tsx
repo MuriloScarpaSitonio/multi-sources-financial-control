@@ -66,30 +66,35 @@ const SocialButtons = ({
 }: {
   isUpBigScreen: boolean;
   isDownSmallScreen: boolean;
-}) => (
-  <Stack
-    direction={isDownSmallScreen ? "column" : "row"}
-    justifyContent="space-between"
-    spacing={2}
-  >
-    <Button
-      startIcon={<GoogleColoredIcon />}
-      variant="outlined"
-      color="success"
-      fullWidth={isUpBigScreen}
+}) => {
+  // Show icon-only buttons below xl breakpoint (1536px) to prevent text wrapping
+  const showIconOnly = useMediaQuery(theme.breakpoints.down("xl"));
+
+  return (
+    <Stack
+      direction={isDownSmallScreen ? "column" : "row"}
+      justifyContent={showIconOnly ? "center" : "space-between"}
+      spacing={2}
     >
-      Entre com Google
-    </Button>
-    <Button
-      startIcon={<FacebookColoredIcon />}
-      variant="outlined"
-      color="success"
-      fullWidth={isUpBigScreen}
-    >
-      Entre com Facebook
-    </Button>
-  </Stack>
-);
+      <Button
+        startIcon={showIconOnly ? undefined : <GoogleColoredIcon />}
+        variant="outlined"
+        color="success"
+        fullWidth={showIconOnly ? false : isUpBigScreen}
+      >
+        {showIconOnly ? <GoogleColoredIcon /> : "Entre com Google"}
+      </Button>
+      <Button
+        startIcon={showIconOnly ? undefined : <FacebookColoredIcon />}
+        variant="outlined"
+        color="success"
+        fullWidth={showIconOnly ? false : isUpBigScreen}
+      >
+        {showIconOnly ? <FacebookColoredIcon /> : "Entre com Facebook"}
+      </Button>
+    </Stack>
+  );
+};
 
 export const CallToActionSection = ({
   children,
@@ -115,12 +120,17 @@ export const CallToActionSection = ({
       sx={{
         background: getColor(enums.Colors.neutral900),
         width: isDownMediumScreen ? "100%" : "50%",
+        minHeight: "100vh",
+        justifyContent: "center",
       }}
     >
       <Stack
         sx={{
-          padding: !isDownSmallScreen ? "48px 144px" : "24px",
-          marginBlock: "auto",
+          padding: {
+            xs: "24px",
+            sm: "32px 48px",
+            lg: "48px 144px",
+          },
         }}
         spacing={4}
       >
