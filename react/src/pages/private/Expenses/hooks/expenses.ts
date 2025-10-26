@@ -1,15 +1,15 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { getCategories, getMostCommonCategory, getMostCommonSource, getSources, getTags } from "../api/expenses";
 import { EXPENSES_QUERY_KEY } from "../consts";
 import { useInvalidateExpensesIndicatorsQueries } from "../Indicators/hooks";
 import {
   useInvalidateExpensesAvgComparasionReportQueries,
-  useInvalidateExpensesPercentagenReportQueries,
   useInvalidateExpensesHistoricReportQueries,
+  useInvalidateExpensesPercentagenReportQueries,
 } from "../Reports/hooks";
 import { useInvalidateBankAccountQueries } from "./bank_account";
-import { getCategories, getSources, getTags } from "../api/expenses";
 
 export const useInvalidateExpenseQueries = (client?: QueryClient) => {
   const queryClient = useQueryClient(client);
@@ -136,3 +136,21 @@ export const useInvalidateTagsQueries = (client?: QueryClient) => {
 
   return { invalidate };
 };
+
+const EXPENSES_MOST_COMMON_CATEGORY_QUERY_KEY = "expenses-most-common-category";
+
+export const useGetMostCommonCategory = ({ enabled = true }: { enabled?: boolean }) =>
+  useQuery({
+    queryKey: [EXPENSES_MOST_COMMON_CATEGORY_QUERY_KEY],
+    queryFn: getMostCommonCategory,
+    enabled,
+  });
+
+const EXPENSES_MOST_COMMON_SOURCE_QUERY_KEY = "expenses-most-common-source";
+
+export const useGetMostCommonSource = ({ enabled = true }: { enabled?: boolean }) =>
+  useQuery({
+    queryKey: [EXPENSES_MOST_COMMON_SOURCE_QUERY_KEY],
+    queryFn: getMostCommonSource,
+    enabled,
+  });

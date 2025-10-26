@@ -9,32 +9,32 @@ import {
 
 import FormLabel from "@mui/material/FormLabel";
 import Grid from "@mui/material/Grid";
-import Switch from "@mui/material/Switch";
 import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { formatISO } from "date-fns";
 import { enqueueSnackbar } from "notistack";
 import { Controller } from "react-hook-form";
-import { useQueryClient } from "@tanstack/react-query";
 import * as yup from "yup";
 
 import { EXPENSES_QUERY_KEY } from "../../consts";
 
 import {
   DateInput,
-  PriceWithCurrencyInput,
   FormFeedbackError,
+  PriceWithCurrencyInput,
 } from "../../../../../design-system";
 import useFormPlus from "../../../../../hooks/useFormPlus";
-import { createExpense, editExpense } from "../../api/expenses";
-import { useInvalidateExpenseQueries } from "../../hooks";
-import { Expense } from "../../api/models";
 import { ApiListResponse } from "../../../../../types";
-import { ExpensesContext } from "../../context";
+import { createExpense, editExpense } from "../../api/expenses";
+import { Expense } from "../../api/models";
 import { AutoCompleteForRelatedEntities } from "../../components";
 import TagsAutoComplete from "../../components/TagsAutoComplete";
+import { ExpensesContext } from "../../context";
+import { useInvalidateExpenseQueries } from "../../hooks";
 
 const schema = yup.object().shape({
   description: yup.string().required("A descrição é obrigatória"),
@@ -133,7 +133,8 @@ const ExpenseForm = ({
   onEditSuccess?: () => void;
   initialData?: Expense;
 }) => {
-  const { sources, categories } = useContext(ExpensesContext);
+  const { sources, categories, mostCommonCategory, mostCommonSource } =
+    useContext(ExpensesContext);
 
   const {
     id: expenseId,
@@ -143,8 +144,8 @@ const ExpenseForm = ({
     is_fixed,
     ...rest
   } = initialData ?? {
-    category: "Alimentação", // TODO: change to most common
-    source: "Cartão de crédito", // TODO: change to most common
+    category: mostCommonCategory?.name ?? "Alimentação",
+    source: mostCommonSource?.name ?? "Cartão de crédito",
     is_fixed: false,
   };
   const defaultValues = useMemo(
@@ -166,7 +167,7 @@ const ExpenseForm = ({
       installments: 1,
       ...rest,
     }),
-    [category, created_at, is_fixed, rest, source, categories, sources],
+    [category, created_at, is_fixed, rest, source, categories, sources, mostCommonCategory, mostCommonSource],
   );
 
   const queryClient = useQueryClient();
@@ -186,12 +187,12 @@ const ExpenseForm = ({
         ).results.map((expense) =>
           expense.id === data.id
             ? {
-                ...expense,
-                ...rest,
-                created_at: formatISO(created_at, { representation: "date" }),
-                category: category.label,
-                source: source.label,
-              }
+              ...expense,
+              ...rest,
+              created_at: formatISO(created_at, { representation: "date" }),
+              category: category.label,
+              source: source.label,
+            }
             : expense,
         );
 

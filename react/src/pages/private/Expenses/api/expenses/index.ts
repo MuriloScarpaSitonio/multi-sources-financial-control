@@ -1,13 +1,13 @@
 import qs from "qs";
 
-import { Expense } from "../models";
+import { apiProvider } from "../../../../../api/methods";
+import { ApiListResponse } from "../../../../../types";
 import {
   AvgComparasionPeriods,
   GroupBy,
   HistoricReportResponse,
 } from "../../types";
-import { apiProvider } from "../../../../../api/methods";
-import { ApiListResponse } from "../../../../../types";
+import { Expense } from "../models";
 
 const RESOURCE = "expenses";
 
@@ -248,3 +248,9 @@ export const addSource = async (data: {
 
 export const getTags = async (): Promise<string[]> =>
   (await apiProvider.get(`${RESOURCE}/tags`)).data;
+
+export const getMostCommonCategory = async (): Promise<ExpenseRelatedEntity> =>
+  (await apiProvider.get(`${RESOURCE}/categories/most_common`)).data;
+
+export const getMostCommonSource = async (): Promise<ExpenseRelatedEntity> =>
+  (await apiProvider.get(`${RESOURCE}/sources/most_common`)).data;

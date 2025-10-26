@@ -87,7 +87,7 @@ const RevenueForm = ({
   onEditSuccess?: () => void;
   initialData?: Revenue;
 }) => {
-  const { revenuesCategories } = useContext(ExpensesContext);
+  const { revenuesCategories, mostCommonRevenueCategory } = useContext(ExpensesContext);
   const {
     id: revenueId,
     category,
@@ -97,7 +97,7 @@ const RevenueForm = ({
     ...rest
   } = initialData ?? {
     is_fixed: false,
-    category: "Salário", // TODO: change to most common
+    category: mostCommonRevenueCategory?.name ?? "Salário",
   };
   const defaultValues = useMemo(
     () => ({
@@ -112,7 +112,7 @@ const RevenueForm = ({
       },
       ...rest,
     }),
-    [category, created_at, is_fixed, rest, revenuesCategories],
+    [category, created_at, is_fixed, rest, revenuesCategories, mostCommonRevenueCategory],
   );
 
   const queryClient = useQueryClient();

@@ -5,20 +5,20 @@ import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 
-import { useSearchParams } from "react-router-dom";
 import { Month, startOfMonth } from "date-fns";
+import { useSearchParams } from "react-router-dom";
 
 import { Colors, getColor, PeriodsManager } from "../../../design-system";
 import { ContextType as PeriodsManagerContextType } from "../../../design-system/components/PeriodsManager";
+import { useGetCategories as useRevenuesCategories, useGetMostCommonCategory as useRevenuesMostCommonCategory } from "../Revenues/hooks/useGetCategories";
 import { default as RevenueReports } from "../Revenues/Reports";
 import { default as RevenuesTable } from "../Revenues/Table";
-import { useGetCategories as useRevenuesCategories } from "../Revenues/hooks/useGetCategories";
+import { customEndOfMonth } from "../utils";
 import { ExpensesContext } from "./context";
-import { useGetCategories, useGetSources } from "./hooks";
+import { useGetCategories, useGetMostCommonCategory, useGetMostCommonSource, useGetSources } from "./hooks";
 import Indicators from "./Indicators";
 import { default as ExpenseReports } from "./Reports";
 import { default as ExpensesTable } from "./Table";
-import { customEndOfMonth } from "../utils";
 
 const CustomTabs = ({
   tabValue,
@@ -57,11 +57,16 @@ const Expenses = () => {
     ordering: "name",
     enabled: !displayRevenuesComponents,
   });
+  const { data: mostCommonCategory } = useGetMostCommonCategory({ enabled: !displayRevenuesComponents });
+  const { data: mostCommonSource } = useGetMostCommonSource({ enabled: !displayRevenuesComponents });
   const {
     data: revenuesCategoriesData,
     isLoading: isLoadingRevenuesCategories,
   } = useRevenuesCategories({
     ordering: "name",
+    enabled: displayRevenuesComponents,
+  });
+  const { data: mostCommonRevenueCategory } = useRevenuesMostCommonCategory({
     enabled: displayRevenuesComponents,
   });
 
@@ -107,6 +112,9 @@ const Expenses = () => {
         ),
       },
       isRelatedEntitiesLoading,
+      mostCommonCategory,
+      mostCommonSource,
+      mostCommonRevenueCategory,
     }),
     [
       startDate,
@@ -117,6 +125,9 @@ const Expenses = () => {
       sourcesData?.results,
       revenuesCategoriesData?.results,
       isRelatedEntitiesLoading,
+      mostCommonCategory,
+      mostCommonSource,
+      mostCommonRevenueCategory,
     ],
   );
   return (

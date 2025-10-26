@@ -168,3 +168,6 @@ export const addCategory = async (data: {
   hex_color: string;
 }): Promise<RevenueRelatedEntity> =>
   (await apiProvider.post(`${RESOURCE}/categories`, data)).data;
+
+export const getMostCommonCategory = async (): Promise<RevenueRelatedEntity> =>
+  (await apiProvider.get(`${RESOURCE}/categories/most_common`)).data;

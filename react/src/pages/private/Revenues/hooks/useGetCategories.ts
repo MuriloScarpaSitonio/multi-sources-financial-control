@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getCategories } from "../api";
+import { getCategories, getMostCommonCategory } from "../api";
 
 const REVENUES_CATEGORIES_QUERY_KEY = "revenues-categories";
 
@@ -33,3 +33,16 @@ export const useInvalidateCategoriesQueries = (client?: QueryClient) => {
 
   return { invalidate };
 };
+
+const REVENUES_MOST_COMMON_CATEGORY_QUERY_KEY = "revenues-most-common-category";
+
+export const useGetMostCommonCategory = ({
+  enabled = true,
+}: {
+  enabled?: boolean;
+} = {}) =>
+  useQuery({
+    queryKey: [REVENUES_MOST_COMMON_CATEGORY_QUERY_KEY],
+    queryFn: getMostCommonCategory,
+    enabled,
+  });

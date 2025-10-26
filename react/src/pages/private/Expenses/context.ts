@@ -27,6 +27,9 @@ interface ExpensesContextType {
   sources: RelatedEntityResultsAndHexColorMapping;
   revenuesCategories: RelatedEntityResultsAndHexColorMapping;
   isRelatedEntitiesLoading: boolean;
+  mostCommonCategory: ExpenseRelatedEntity | undefined;
+  mostCommonSource: ExpenseRelatedEntity | undefined;
+  mostCommonRevenueCategory: ExpenseRelatedEntity | undefined;
 }
 
 export const ExpensesContext = createContext<ExpensesContextType>(
