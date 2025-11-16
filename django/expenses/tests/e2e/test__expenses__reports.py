@@ -1,14 +1,14 @@
 from datetime import datetime
+from decimal import Decimal
 from statistics import fmean
 
-from django.utils import timezone
-
 import pytest
+from config.settings.base import BASE_API_URL
 from dateutil.relativedelta import relativedelta
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
-
-from config.settings.base import BASE_API_URL
 from shared.tests import convert_and_quantitize, convert_to_percentage_and_quantitize
+
+from django.utils import timezone
 
 from ...choices import (
     CREDIT_CARD_SOURCE,
@@ -85,16 +85,25 @@ def test__avg_comparasion_report(client, group_by, field_name):
     today = timezone.localdate()
     current_month = {}
     since_a_year_ago = {}
+    since_a_year_ago_months = {}
+
     for e in qs:
         f = getattr(e, field_name) if field_name != "is_fixed" else field_name
         if e.created_at.month == today.month and e.created_at.year == today.year:
             current_month.setdefault(f, []).append(e.value)
         else:
             since_a_year_ago.setdefault(f, []).append(e.value)
+            since_a_year_ago_months.setdefault(f, set()).add(
+                (e.created_at.month, e.created_at.year)
+            )
+
     result_brute_force = [
         {
             "total": sum(current_month.get(k)) if current_month.get(k) is not None else 0,
-            "avg": convert_and_quantitize(fmean(v)),
+            # Replicate database integer division behavior
+            "avg": convert_and_quantitize(
+                Decimal(int(sum(v)) // max(len(since_a_year_ago_months[k]), 1))
+            ),
             field_name: k,
         }
         for k, v in since_a_year_ago.items()

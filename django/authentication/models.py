@@ -19,7 +19,7 @@ class IntegrationSecret(models.Model):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(kucoin_api_key__isnull=True)
                     & models.Q(kucoin_api_secret__isnull=True)
                     & models.Q(kucoin_api_passphrase__isnull=True)
@@ -32,7 +32,7 @@ class IntegrationSecret(models.Model):
                 name="kucoin_secrets_all_null_or_all_filled",
             ),
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(binance_api_key__isnull=True)
                     & models.Q(binance_api_secret__isnull=True)
                 )
@@ -82,12 +82,12 @@ class CustomUser(AbstractUser):
     class Meta:
         constraints = [
             # models.CheckConstraint(
-            #     check=(models.Q(cpf__isnull=True) & models.Q(cei_password__isnull=True))
+            #     condition=(models.Q(cpf__isnull=True) & models.Q(cei_password__isnull=True))
             #     | (models.Q(cpf__isnull=False) & models.Q(cei_password__isnull=False)),
             #     name="cei_secrets_all_null_or_all_filled",
             # ),
             # models.CheckConstraint(
-            #     check=(
+            #     condition=(
             #         models.Q(kucoin_api_key__isnull=True)
             #         & models.Q(kucoin_api_secret__isnull=True)
             #         & models.Q(kucoin_api_passphrase__isnull=True)
@@ -100,7 +100,7 @@ class CustomUser(AbstractUser):
             #     name="kucoin_secrets_all_null_or_all_filled",
             # ),
             # models.CheckConstraint(
-            #     check=(
+            #     condition=(
             #         models.Q(binance_api_key__isnull=True)
             #         & models.Q(binance_api_secret__isnull=True)
             #     )
@@ -111,7 +111,7 @@ class CustomUser(AbstractUser):
             #     name="binance_secrets_all_null_or_all_filled",
             # ),
             models.CheckConstraint(
-                check=~models.Q(
+                condition=~models.Q(
                     is_investments_module_enabled=False,
                     is_investments_integrations_module_enabled=True,
                 ),

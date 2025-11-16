@@ -40,7 +40,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="customuser",
             constraint=models.CheckConstraint(
-                check=models.Q(
+                condition=models.Q(
                     ("is_investments_integrations_module_enabled", True),
                     ("is_investments_module_enabled", False),
                     _negated=True,

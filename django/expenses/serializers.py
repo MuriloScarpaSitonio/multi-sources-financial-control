@@ -4,10 +4,10 @@ from collections.abc import Iterable
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
+from rest_framework import serializers
+
 from django.db.models import Manager
 from django.db.utils import IntegrityError
-
-from rest_framework import serializers
 
 from .domain import commands
 from .domain.exceptions import ValidationError as DomainValidationError
@@ -243,6 +243,9 @@ class _ExpenseRelatedEntitySerializer(serializers.ModelSerializer):
 
         fields = ("id", "user", "name", "hex_color")
         extra_kwargs = {"id": {"read_only": True}}
+
+    def get_unique_together_validators(self):
+        return []  # this is being handled in the save method already
 
     def create(self, validated_data: dict) -> RelatedEntity:
         if entity := self.Meta.model.objects.filter(

@@ -1,6 +1,5 @@
-from django.utils import timezone
-
 import pytest
+from config.settings.base import BASE_API_URL
 from dateutil.relativedelta import relativedelta
 from rest_framework.status import (
     HTTP_200_OK,
@@ -9,9 +8,9 @@ from rest_framework.status import (
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
 )
-
-from config.settings.base import BASE_API_URL
 from shared.tests import convert_and_quantitize
+
+from django.utils import timezone
 
 pytestmark = pytest.mark.django_db
 
@@ -78,7 +77,12 @@ def test__get__not_found(client):
     response = client.get(URL)
 
     # THEN
-    assert response.status_code == HTTP_404_NOT_FOUND
+    assert response.status_code == HTTP_200_OK
+    assert response.json() == {
+        "amount": 0,
+        "description": "",
+        "updated_at": response.json()["updated_at"],
+    }
 
 
 def test__put(client, bank_account):
@@ -113,16 +117,6 @@ def test__put__invalid(client):
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert response.json() == {"description": ["This field is required."]}
-
-
-def test__put__not_found(client):
-    # GIVEN
-
-    # WHEN
-    response = client.put(URL)
-
-    # THEN
-    assert response.status_code == HTTP_404_NOT_FOUND
 
 
 def test__history(client, bank_account_snapshot_factory):

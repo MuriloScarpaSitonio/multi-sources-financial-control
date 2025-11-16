@@ -36,7 +36,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="expense",
             constraint=models.CheckConstraint(
-                check=models.Q(
+                condition=models.Q(
                     models.Q(
                         ("installments_id__isnull", True),
                         ("installment_number__isnull", True),
@@ -55,7 +55,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="expense",
             constraint=models.CheckConstraint(
-                check=models.Q(
+                condition=models.Q(
                     models.Q(("installments_id__isnull", True), ("is_fixed", True)),
                     ("is_fixed", False),
                     _connector="OR",

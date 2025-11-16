@@ -1,10 +1,10 @@
 from decimal import Decimal
 
+from shared.models_utils import serializable_today_function
+
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
-
-from shared.models_utils import serializable_today_function
 
 from ..domain.models import Expense as ExpenseDomainModel
 from ..managers import ExpenseQueryset
@@ -74,7 +74,7 @@ class Expense(models.Model):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(installments_id__isnull=True)
                     & models.Q(installment_number__isnull=True)
                     & models.Q(installments_qty__isnull=True)
@@ -87,13 +87,13 @@ class Expense(models.Model):
                 name="installment_values_all_null_or_all_filled",
             ),
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(is_fixed=True, installments_id__isnull=True) | models.Q(is_fixed=False)
                 ),
                 name="fixed_expense_must_not_have_installments",
             ),
             # models.CheckConstraint(
-            #     check=(
+            #     condition=(
             #         models.Q(is_fixed=True, recurring_id__isnull=False)
             #         | models.Q(is_fixed=False, recurring_id__isnull=True)
             #     ),

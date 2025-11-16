@@ -3,10 +3,8 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
-from django.db.models import Avg, Q, Sum
-from django.utils import timezone
-
 import pytest
+from config.settings.base import BASE_API_URL
 from dateutil.relativedelta import relativedelta
 from rest_framework.status import (
     HTTP_200_OK,
@@ -16,9 +14,10 @@ from rest_framework.status import (
     HTTP_401_UNAUTHORIZED,
     HTTP_403_FORBIDDEN,
 )
+from shared.tests import calculate_since_year_ago_avg, convert_and_quantitize
 
-from config.settings.base import BASE_API_URL
-from shared.tests import convert_and_quantitize
+from django.db.models import Avg, Q, Sum
+from django.utils import timezone
 
 from ...choices import CREDIT_CARD_SOURCE, MONEY_SOURCE, PIX_SOURCE
 from ...models import Expense, ExpenseTag
@@ -1189,12 +1188,7 @@ def test__indicators(client, user):
     # GIVEN
     today = timezone.localdate()
     qs = Expense.objects.filter(user_id=user.id)
-    avg = (
-        qs.since_a_year_ago()
-        .exclude(created_at__month=today.month, created_at__year=today.year)
-        .trunc_months()
-        .aggregate(avg=Avg("total"))["avg"]
-    )
+    avg = calculate_since_year_ago_avg(qs)
     total = Expense.objects.filter(
         created_at__month=today.month, created_at__year=today.year
     ).sum()["total"]
@@ -1243,14 +1237,7 @@ def test__sum(client, user):
 @pytest.mark.usefixtures("expenses_report_data")
 def test__avg(client, user):
     # GIVEN
-    today = timezone.localdate()
-    avg = (
-        Expense.objects.filter(user_id=user.id)
-        .since_a_year_ago()
-        .exclude(created_at__month=today.month, created_at__year=today.year)
-        .trunc_months()
-        .aggregate(avg=Avg("total"))["avg"]
-    )
+    avg = calculate_since_year_ago_avg(Expense.objects.filter(user_id=user.id))
 
     # WHEN
     response = client.get(f"{URL}/avg")

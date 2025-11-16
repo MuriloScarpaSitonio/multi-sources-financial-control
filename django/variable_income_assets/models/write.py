@@ -45,7 +45,7 @@ class AssetMetaData(models.Model):
                 condition=models.Q(asset__isnull=True),
             ),
             models.CheckConstraint(
-                check=models.Q(asset__isnull=True) | models.Q(type=AssetTypes.fixed_br),
+                condition=models.Q(asset__isnull=True) | models.Q(type=AssetTypes.fixed_br),
                 name="only_fixed_assets_can_have_a_direct_metadata",
             ),
         ]
