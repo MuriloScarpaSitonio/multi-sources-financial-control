@@ -1,11 +1,10 @@
 from decimal import ROUND_HALF_UP, Decimal, DecimalException
 
-from django.utils import timezone
-
 from rest_framework import serializers
 from rest_framework.exceptions import NotFound
-
 from shared.serializers_utils import CustomChoiceField
+
+from django.utils import timezone
 
 from . import choices
 from .adapters.key_value_store import get_dollar_conversion_rate
@@ -240,6 +239,7 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
 class AssetSerializer(MinimalAssetSerializer):
     objective = CustomChoiceField(choices=choices.AssetObjectives.choices)
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    code = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
 
     # é um ativo custodiado pelo banco emissor?
     # (ou seja, aplica-se apenas para renda fixa e  nao pode ser sincronizado pela b3)
@@ -266,6 +266,26 @@ class AssetSerializer(MinimalAssetSerializer):
             )
         return value
 
+    def validate(self, attrs: dict) -> dict:
+        is_held_in_self_custody = attrs.get("is_held_in_self_custody", False)
+        code = attrs.get("code")
+
+        if is_held_in_self_custody:
+            if code:
+                raise serializers.ValidationError(
+                    {
+                        "code": "Ativos custodiados fora da B3 não devem ter um código. O código será gerado automaticamente a partir da descrição."
+                    }
+                )
+            attrs.pop("code", None)
+        else:
+            if not code:
+                raise serializers.ValidationError(
+                    {"code": "Este campo é obrigatório para ativos custodiados na B3."}
+                )
+
+        return super().validate(attrs)
+
     def update(self, instance: Asset, validated_data: dict) -> Asset:
         try:
             validated_data.pop("user")
@@ -290,6 +310,9 @@ class AssetSerializer(MinimalAssetSerializer):
             return uow.assets.seen.pop()  # hacky for DRF
         except DomainValidationError as e:
             raise serializers.ValidationError(e.detail) from e
+
+    def get_unique_together_validators(self):
+        return []  # this is being handled in the service layer
 
 
 class AssetSimulateSerializer(serializers.ModelSerializer):
