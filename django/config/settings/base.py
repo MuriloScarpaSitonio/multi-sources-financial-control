@@ -78,17 +78,30 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
+USE_POSTGRES = secret("USE_POSTGRES", cast=bool, default=False)
 
 
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+if USE_POSTGRES:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": secret("POSTGRES_DB", default="test_db"),
+            "USER": secret("POSTGRES_USER", default="postgres"),
+            "PASSWORD": secret("POSTGRES_PASSWORD", default="postgres"),
+            "HOST": secret("POSTGRES_HOST", default="localhost"),
+            "PORT": secret("POSTGRES_PORT", default=5433, cast=int),
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 
 # Password validation

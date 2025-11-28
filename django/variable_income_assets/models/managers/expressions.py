@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from django.db.models import Case, F, Q, Sum, Value, When
 from django.db.models.expressions import CombinedExpression
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, Greatest
 
 from ...adapters.key_value_store import get_dollar_conversion_rate
 from ...choices import TransactionActions
@@ -194,12 +194,13 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
 
     def get_current_avg_price(self, extra_filters: Q | None = None) -> Coalesce:
         extra_filters = extra_filters if extra_filters is not None else Q()
+        denominator = (
+            self.get_quantity_bought(extra_filters=extra_filters)
+            - self.closed_operations_quantity_bought
+        )
         return Coalesce(
             (self.get_total_bought(extra_filters) - self.closed_operations_total_bought)
-            / (
-                self.get_quantity_bought(extra_filters=extra_filters)
-                - self.closed_operations_quantity_bought
-            ),
+            / Greatest(denominator, Value(Decimal("1.0"))),
             Decimal(),
         )
 

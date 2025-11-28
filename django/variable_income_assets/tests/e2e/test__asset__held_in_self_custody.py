@@ -1,9 +1,8 @@
-from django.template.defaultfilters import slugify
-
 import pytest
-from rest_framework.status import HTTP_201_CREATED
-
 from config.settings.base import BASE_API_URL
+from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_204_NO_CONTENT
+
+from django.template.defaultfilters import slugify
 
 from ...choices import AssetObjectives, AssetSectors, AssetTypes, Currencies, TransactionActions
 from ...models import Asset, AssetMetaData, AssetReadModel, Transaction
@@ -29,19 +28,25 @@ def test__create__fixed__held_custody__e2e(client, user):
     }
 
     # WHEN
-    response = client.post(f"/{BASE_API_URL}" + "assets", data=asset_data)
-    asset_pk = response.json()["id"]
+    response_create_asset = client.post(f"/{BASE_API_URL}" + "assets", data=asset_data)
+    asset_pk = response_create_asset.json()["id"]
 
-    client.post(
+    response_transaction = client.post(
         f"/{BASE_API_URL}" + "transactions", data={**transactions_data, "asset_pk": asset_pk}
     )
-    client.patch(
+    response_update_price = client.patch(
         f"/{BASE_API_URL}" + f"assets/{asset_pk}/update_price",
         data={"current_price": transactions_data["price"]},
     )
 
+    response_list = client.get(f"/{BASE_API_URL}" + "assets")
+
     # THEN
-    assert response.status_code == HTTP_201_CREATED
+    assert response_create_asset.status_code == HTTP_201_CREATED
+    assert response_transaction.status_code == HTTP_201_CREATED
+    assert response_update_price.status_code == HTTP_204_NO_CONTENT
+    assert response_list.status_code == HTTP_200_OK
+
     assert Asset.objects.filter(
         code=slugify(asset_data["description"]),
         type=asset_data["type"],

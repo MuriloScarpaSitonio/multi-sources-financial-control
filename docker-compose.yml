@@ -21,6 +21,18 @@ services:
     container_name: redis-multi-sources
     image: redis:7
 
+  postgres:
+    container_name: postgres-multi-sources
+    image: postgres:17
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=test_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
   react:
     container_name: react
     build:
@@ -33,3 +45,6 @@ services:
     depends_on:
       - django
     command: npm start
+
+volumes:
+  postgres_data:
