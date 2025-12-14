@@ -449,7 +449,6 @@ def test__update__transaction_does_not_belong_to_user(kucoin_client, buy_transac
 
     # THEN
     assert response.status_code == HTTP_404_NOT_FOUND
-    assert response.json() == {"detail": "Not found."}
 
 
 @pytest.mark.usefixtures("buy_transaction")

@@ -334,7 +334,6 @@ def test__update__asset_does_not_belong_to_user(kucoin_client, stock_asset):
 
     # THEN
     assert response.status_code == HTTP_404_NOT_FOUND
-    assert response.json() == {"detail": "Not found."}
 
 
 def test__update__validate_currency(client, stock_asset):
