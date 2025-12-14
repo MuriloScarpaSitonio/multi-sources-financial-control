@@ -6,11 +6,7 @@ from shared.tests import convert_and_quantitize, convert_to_percentage_and_quant
 
 from ...choices import AssetObjectives, AssetSectors, AssetTypes
 from ...models import Asset, AssetReadModel
-from ...tests.shared import (
-    get_current_total_invested_brute_force,
-    get_roi_brute_force,
-    get_total_invested_brute_force,
-)
+from ...tests.shared import get_current_total_invested_brute_force, get_roi_brute_force
 
 pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "assets"
@@ -23,10 +19,12 @@ URL = f"/{BASE_API_URL}" + "assets"
 )
 def test__total_invested_report(client, group_by, choices_class):
     # GIVEN
+    # Use read model values directly instead of brute force to ensure
+    # consistency with the API (which queries the read model)
     field = "metadata__sector" if group_by == "sector" else group_by
     totals = {
         v: sum(
-            get_total_invested_brute_force(Asset.objects.get(pk=asset.write_model_pk))
+            asset.normalized_avg_price * asset.quantity_balance
             for asset in AssetReadModel.objects.filter(**{field: v})
         )
         for v in choices_class.values
@@ -53,11 +51,16 @@ def test__total_invested_report(client, group_by, choices_class):
 )
 def test__total_invested_report__percentage(client, group_by, choices_class):
     # GIVEN
-    total_invested = sum(get_total_invested_brute_force(asset) for asset in Asset.objects.all())
+    # Use read model values directly instead of brute force to ensure
+    # consistency with the API (which queries the read model)
+    total_invested = sum(
+        asset.normalized_avg_price * asset.quantity_balance
+        for asset in AssetReadModel.objects.all()
+    )
     field = "metadata__sector" if group_by == "sector" else group_by
     totals = {
         v: sum(
-            get_total_invested_brute_force(Asset.objects.get(pk=asset.write_model_pk))
+            asset.normalized_avg_price * asset.quantity_balance
             for asset in AssetReadModel.objects.filter(**{field: v})
         )
         for v in choices_class.values
