@@ -327,7 +327,9 @@ def test__update__is_fixed__future__value(client, fixed_expenses, bank_account, 
     assert list(
         Expense.objects.filter(
             ~Q(value=data["value"]), recurring_id__isnull=False, recurring_id=expense.recurring_id
-        ).values_list("id", flat=True)
+        )
+        .order_by("id")
+        .values_list("id", flat=True)
     ) == [fixed_expenses[0].id, fixed_expenses[1].id, fixed_expenses[2].id]
     assert Expense.objects.values("created_at__month", "created_at__year").distinct().count() == 12
 
@@ -1015,9 +1017,10 @@ def test__update__is_fixed__current__tags__clear__only_current(
         Expense.objects.filter(
             recurring_id__isnull=False, recurring_id=expense.recurring_id, tags__isnull=False
         )
+        .order_by("id")
         .values_list("id", flat=True)
         .distinct()
-    ) == [e.id for e in fixed_expenses if e != expense]
+    ) == sorted([e.id for e in fixed_expenses if e != expense])
     assert Expense.objects.values("created_at__month", "created_at__year").distinct().count() == 12
     assert list(expense.tags.values_list("name", flat=True).order_by("name")) == []
 
@@ -1290,7 +1293,9 @@ def test__update__is_fixed__future__tags(client, fixed_expenses, bank_account):
     assert list(
         Expense.objects.filter(
             recurring_id__isnull=False, recurring_id=expense.recurring_id, tags__isnull=True
-        ).values_list("id", flat=True)
+        )
+        .order_by("id")
+        .values_list("id", flat=True)
     ) == [fixed_expenses[0].id, fixed_expenses[1].id, fixed_expenses[2].id]
     assert Expense.objects.values("created_at__month", "created_at__year").distinct().count() == 12
     assert (

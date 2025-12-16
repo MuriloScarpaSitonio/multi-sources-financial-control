@@ -1,0 +1,11 @@
+services:
+  db-testing:
+    image: postgres:16
+    environment:
+      - POSTGRES_DB=test_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_HOST=db-testing
+      - POSTGRES_PORT=5432
+    ports:
+      - "5433:5432"

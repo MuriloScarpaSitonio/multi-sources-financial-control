@@ -1,8 +1,11 @@
 from datetime import datetime
 from statistics import fmean
 
+from django.conf import settings
+from django.db.models import Q
+from django.utils import timezone
+
 import pytest
-from config.settings.base import BASE_API_URL
 from dateutil.relativedelta import relativedelta
 from rest_framework.status import (
     HTTP_200_OK,
@@ -13,10 +16,9 @@ from rest_framework.status import (
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
 )
-from shared.tests import convert_and_quantitize
 
-from django.db.models import Q
-from django.utils import timezone
+from config.settings.base import BASE_API_URL
+from shared.tests import convert_and_quantitize, skip_if_sqlite
 
 from ...choices import AssetTypes, Currencies, PassiveIncomeEventTypes, PassiveIncomeTypes
 from ...models import Asset, PassiveIncome
@@ -484,6 +486,7 @@ def test__delete(client, simple_income, mocker):
 
 
 @pytest.mark.usefixtures("passive_incomes", "stock_usa_asset", "crypto_asset")
+@skip_if_sqlite
 def test__avg(client, user):
     # GIVEN
     today = timezone.now().date()

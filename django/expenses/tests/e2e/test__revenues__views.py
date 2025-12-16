@@ -3,8 +3,10 @@ from datetime import datetime
 from decimal import Decimal
 from statistics import fmean
 
+from django.db.models import Avg
+from django.utils import timezone
+
 import pytest
-from config.settings.base import BASE_API_URL
 from dateutil.relativedelta import relativedelta
 from rest_framework.status import (
     HTTP_200_OK,
@@ -14,14 +16,14 @@ from rest_framework.status import (
     HTTP_401_UNAUTHORIZED,
     HTTP_403_FORBIDDEN,
 )
+
+from config.settings.base import BASE_API_URL
 from shared.tests import (
     calculate_since_year_ago_avg,
     convert_and_quantitize,
     convert_to_percentage_and_quantitize,
+    skip_if_sqlite,
 )
-
-from django.db.models import Avg
-from django.utils import timezone
 
 from ...choices import DEFAULT_REVENUE_CATEGORIES_MAP
 from ...models import Revenue
@@ -398,6 +400,7 @@ def test__reports__percentage(client):
 
 
 @pytest.mark.usefixtures("revenues_historic_data")
+@skip_if_sqlite
 def test__indicators(client, user):
     # GIVEN
     today = timezone.localdate()
@@ -444,6 +447,7 @@ def test__sum(client, user):
 
 
 @pytest.mark.usefixtures("revenues_historic_data")
+@skip_if_sqlite
 def test__avg(client, user):
     # GIVEN
     avg = calculate_since_year_ago_avg(Revenue.objects.filter(user_id=user.id))

@@ -4,10 +4,10 @@ from collections.abc import Iterable
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
-from rest_framework import serializers
-
 from django.db.models import Manager
 from django.db.utils import IntegrityError
+
+from rest_framework import serializers
 
 from .domain import commands
 from .domain.exceptions import ValidationError as DomainValidationError
@@ -113,7 +113,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
 
             source = validated_data.pop("source")
             if source != instance.source:
-                extra_data["expanded_category_id"] = (
+                extra_data["expanded_source_id"] = (
                     ExpenseSource.objects.only("id").get(name=source, user=user).id
                 )
 

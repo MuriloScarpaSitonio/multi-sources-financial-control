@@ -18,7 +18,7 @@ from rest_framework.status import (
 )
 
 from config.settings.base import BASE_API_URL
-from shared.tests import convert_and_quantitize
+from shared.tests import convert_and_quantitize, skip_if_sqlite
 
 from ...choices import AssetObjectives, AssetSectors, AssetTypes, Currencies
 from ...models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
@@ -454,6 +454,7 @@ def test__list__filters(client, filter_by, count):
     assert response.json()["count"] == count
 
 
+@skip_if_sqlite
 @pytest.mark.parametrize(
     "fixture, operation",
     (
@@ -500,6 +501,7 @@ def test__list__aggregations(client, stock_asset, fixture, operation, request):
     )
 
 
+@skip_if_sqlite
 @pytest.mark.parametrize(
     "fixture, operation",
     (
@@ -542,6 +544,7 @@ def test__list__aggregations__dollar(client, stock_usa_asset: Asset, fixture, op
 
 
 @pytest.mark.usefixtures("indicators_data", "sync_assets_read_model")
+@skip_if_sqlite
 def test_list_assets_aggregate_data(client):
     # GIVEN
     total_invested_brute_force = sum(

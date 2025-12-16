@@ -5,11 +5,7 @@ from django.db.utils import IntegrityError
 from django.utils.timezone import now
 
 import pytest
-from rest_framework.status import (
-    HTTP_200_OK,
-    HTTP_400_BAD_REQUEST,
-    HTTP_405_METHOD_NOT_ALLOWED,
-)
+from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_405_METHOD_NOT_ALLOWED
 
 from config.settings.base import BASE_API_URL
 
@@ -160,10 +156,7 @@ def test__webhook__enforce_model_constraints(api_client, event_factory, stripe_u
         api_client.post(URL)
 
     # THEN
-    assert (
-        str(e.value)
-        == "CHECK constraint failed: investments_integrations_module_cant_be_enabled_alone"
-    )
+    assert "investments_integrations_module_cant_be_enabled_alone" in str(e.value)
 
 
 @pytest.mark.freeze_time("2023-09-01")

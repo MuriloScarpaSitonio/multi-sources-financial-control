@@ -17,7 +17,7 @@ from rest_framework.status import (
 )
 
 from config.settings.base import BASE_API_URL
-from shared.tests import convert_and_quantitize
+from shared.tests import convert_and_quantitize, skip_if_sqlite
 from tasks.models import TaskHistory
 
 from ...choices import AssetTypes, Currencies, TransactionActions
@@ -789,6 +789,7 @@ def test__sum(client, user):
 
 
 @pytest.mark.usefixtures("transactions_indicators_data")
+@skip_if_sqlite
 def test__avg(client, user):
     # GIVEN
     today = timezone.localdate()

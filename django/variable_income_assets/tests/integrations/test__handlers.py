@@ -58,10 +58,10 @@ def test__update_prices(
         side_effect=[{crypto_asset_metadata.code: 1}, {crypto_asset_brl_metadata.code: 5}],
     )
     crypto_usd_roi_before = AssetReadModel.objects.get(
-        write_model_pk=crypto_asset_metadata.pk
+        write_model_pk=crypto_asset.pk
     ).normalized_roi
     crypto_brl_roi_before = AssetReadModel.objects.get(
-        write_model_pk=crypto_asset_brl_metadata.pk
+        write_model_pk=crypto_asset_brl.pk
     ).normalized_roi
 
     # WHEN
@@ -125,7 +125,7 @@ def test__update_prices(
     )
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.freeze_time
 @pytest.mark.usefixtures("crypto_asset_metadata")
 def test__sync_kucoin_transactions__create_asset_and_transaction(
     user_with_kucoin_integration,

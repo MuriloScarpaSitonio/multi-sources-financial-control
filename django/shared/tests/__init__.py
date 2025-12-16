@@ -2,8 +2,18 @@ from decimal import ROUND_HALF_UP, Decimal
 from functools import singledispatch
 from typing import TYPE_CHECKING
 
+from django.conf import settings
+
+import pytest
+
 if TYPE_CHECKING:
     from django.db.models import QuerySet
+
+
+skip_if_sqlite = pytest.mark.skipif(
+    "sqlite" in settings.DATABASES["default"]["ENGINE"],
+    reason="SQLite uses integer division; test requires PostgreSQL for accurate results",
+)
 
 
 @singledispatch
@@ -33,13 +43,12 @@ def convert_to_percentage_and_quantitize(
 def calculate_since_year_ago_avg(queryset: "QuerySet") -> Decimal:
     """
     Calculate the expected average independently from the API logic.
-    Replicates the since_a_year_ago_avg filter and database division behavior.
 
     Args:
         queryset: A QuerySet of Expense or Revenue objects filtered by user_id
 
     Returns:
-        The average as a Decimal, matching the database integer division behavior
+        The average as a Decimal
     """
     from django.utils import timezone
 
@@ -58,6 +67,5 @@ def calculate_since_year_ago_avg(queryset: "QuerySet") -> Decimal:
             total_sum += item.value
             distinct_months.add((item.created_at.month, item.created_at.year))
 
-    # Replicate the database division behavior which truncates to integer
-    # when dividing sum by count, then casts back to decimal
-    return Decimal(int(total_sum) // max(len(distinct_months), 1))
+    month_count = max(len(distinct_months), 1)
+    return total_sum / Decimal(month_count)

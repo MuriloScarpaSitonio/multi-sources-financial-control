@@ -147,7 +147,9 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
         extra_filters = extra_filters if extra_filters is not None else Q()
         return Coalesce(
             self.get_total_bought(extra_filters=extra_filters)
-            / self.get_quantity_bought(extra_filters=extra_filters),
+            / Greatest(
+                self.get_quantity_bought(extra_filters=extra_filters), Value(Decimal("1.0"))
+            ),
             Decimal(),
         )
 
@@ -167,7 +169,9 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
             else self.get_quantity_bought(_extra_filters)
         )
         return Coalesce(
-            self.get_normalized_current_total_bought(_extra_filters) / quantity,
+            # Pass original extra_filters (not _extra_filters) to preserve None check
+            self.get_normalized_current_total_bought(extra_filters)
+            / Greatest(quantity, Value(Decimal("1.0"))),
             Decimal(),
         )
 

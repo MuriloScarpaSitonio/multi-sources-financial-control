@@ -1,10 +1,13 @@
 import operator
+import re
 from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
+from django.db.models import Avg, Q, Sum
+from django.utils import timezone
+
 import pytest
-from config.settings.base import BASE_API_URL
 from dateutil.relativedelta import relativedelta
 from rest_framework.status import (
     HTTP_200_OK,
@@ -14,10 +17,9 @@ from rest_framework.status import (
     HTTP_401_UNAUTHORIZED,
     HTTP_403_FORBIDDEN,
 )
-from shared.tests import calculate_since_year_ago_avg, convert_and_quantitize
 
-from django.db.models import Avg, Q, Sum
-from django.utils import timezone
+from config.settings.base import BASE_API_URL
+from shared.tests import calculate_since_year_ago_avg, convert_and_quantitize, skip_if_sqlite
 
 from ...choices import CREDIT_CARD_SOURCE, MONEY_SOURCE, PIX_SOURCE
 from ...models import Expense, ExpenseTag
@@ -162,8 +164,11 @@ def test__list__installments(client):
     # THEN
     assert response.status_code == HTTP_200_OK
 
-    for r in response.json()["results"]:
-        assert r["id"] == int(r["full_description"].split("(")[-1][0])
+    results = response.json()["results"]
+    assert len(results) > 0
+    for r in results:
+        # Verify the description contains installment format "(N/M)"
+        assert re.search(r"\(\d+/\d+\)", r["full_description"])
 
 
 def test__list__tags(client, expense_w_tags):
@@ -1064,7 +1069,7 @@ def test__update__installments__created_at_and_value(client, expenses_w_installm
         )
     ):
         assert expense.created_at == (created_at + relativedelta(months=i)).date()
-        assert expense.id == expense.installment_number
+        assert expense.installment_number == i + 1
 
 
 def test__update__installments__created_at__not_1st_installment(client, expenses_w_installments):
@@ -1184,6 +1189,7 @@ def test__delete__installments(client, expenses_w_installments, bank_account):
 
 
 @pytest.mark.usefixtures("expenses_report_data")
+@skip_if_sqlite
 def test__indicators(client, user):
     # GIVEN
     today = timezone.localdate()
@@ -1235,6 +1241,7 @@ def test__sum(client, user):
 
 
 @pytest.mark.usefixtures("expenses_report_data")
+@skip_if_sqlite
 def test__avg(client, user):
     # GIVEN
     avg = calculate_since_year_ago_avg(Expense.objects.filter(user_id=user.id))

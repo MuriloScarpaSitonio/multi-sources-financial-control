@@ -5,7 +5,7 @@ from django.utils import timezone
 
 import pytest
 
-from shared.tests import convert_and_quantitize
+from shared.tests import convert_and_quantitize, skip_if_sqlite
 
 from ..choices import PassiveIncomeTypes, TransactionActions
 from ..models import Asset, Transaction
@@ -19,6 +19,7 @@ pytestmark = pytest.mark.django_db
 
 
 @pytest.mark.usefixtures("irpf_assets_data")
+@skip_if_sqlite
 def test__asset__irp_infos(stock_usa_asset):
     # GIVEN
     year = timezone.now().year - 1

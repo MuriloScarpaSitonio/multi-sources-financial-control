@@ -2,13 +2,18 @@ from datetime import datetime
 from decimal import Decimal
 from statistics import fmean
 
+from django.utils import timezone
+
 import pytest
-from config.settings.base import BASE_API_URL
 from dateutil.relativedelta import relativedelta
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
-from shared.tests import convert_and_quantitize, convert_to_percentage_and_quantitize
 
-from django.utils import timezone
+from config.settings.base import BASE_API_URL
+from shared.tests import (
+    convert_and_quantitize,
+    convert_to_percentage_and_quantitize,
+    skip_if_sqlite,
+)
 
 from ...choices import (
     CREDIT_CARD_SOURCE,
@@ -75,6 +80,7 @@ def test__avg_comparasion_report__invalid_period(client):
 
 
 @pytest.mark.usefixtures("expenses_report_data")
+@skip_if_sqlite
 @pytest.mark.parametrize(
     "group_by, field_name",
     [(value, ExpenseReportType.get_choice(value).field_name) for value in ExpenseReportType.values],
@@ -100,9 +106,8 @@ def test__avg_comparasion_report(client, group_by, field_name):
     result_brute_force = [
         {
             "total": sum(current_month.get(k)) if current_month.get(k) is not None else 0,
-            # Replicate database integer division behavior
             "avg": convert_and_quantitize(
-                Decimal(int(sum(v)) // max(len(since_a_year_ago_months[k]), 1))
+                sum(v) / Decimal(max(len(since_a_year_ago_months[k]), 1))
             ),
             field_name: k,
         }
