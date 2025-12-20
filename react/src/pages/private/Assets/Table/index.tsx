@@ -170,12 +170,11 @@ const Table = () => {
         },
       },
       {
-        header: "ROI",
-        accessorKey: "normalized_roi",
-        size: 150,
-        Cell: ({ cell }) => {
-          const roi = cell.getValue<number>();
-          const price = roi.toLocaleString("pt-br", {
+        header: "Total atual",
+        accessorKey: "total_current",
+        Cell: ({ row: { original } }) => {
+          const roi = original.normalized_roi;
+          const totalCurrent = (original.normalized_total_invested + roi).toLocaleString("pt-br", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           });
@@ -186,30 +185,33 @@ const Table = () => {
                   roi > 0 ? getColor(Colors.brand) : getColor(Colors.danger200),
               }}
             >
-              {`R$ ${price}`}
+              {`R$ ${totalCurrent}`}
             </span>
           );
         },
       },
       {
-        header: "ROI %",
-        accessorKey: "roi_percentage",
-        size: 80,
-        Cell: ({ cell }) => {
-          const percentage = cell.getValue<number>();
-          const roi = percentage.toLocaleString("pt-br", {
+        header: "ROI",
+        accessorKey: "normalized_roi",
+        size: 150,
+        Cell: ({ cell, row: { original } }) => {
+          const roi = cell.getValue<number>();
+          const roiValue = roi.toLocaleString("pt-br", {
             minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          });
+          const roiPercentage = original.roi_percentage.toLocaleString("pt-br", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
           });
           return (
             <span
               style={{
                 color:
-                  percentage > 0
-                    ? getColor(Colors.brand)
-                    : getColor(Colors.danger200),
+                  roi > 0 ? getColor(Colors.brand) : getColor(Colors.danger200),
               }}
             >
-              {`${roi}%`}
+              {`R$ ${roiValue} (${roiPercentage}%)`}
             </span>
           );
         },
@@ -243,7 +245,7 @@ const Table = () => {
     columns: columns as Column<any>[],
     queryKey: [ASSETS_QUERY_KEY],
     defaultFilters: { status: "OPENED" },
-    localization: { noRecordsToDisplay: "Nenhum ativo encontrado", rowsPerPage: "Ativos por página" },
+    localization: { noRecordsToDisplay: "Nenhum ativo encontrado", rowsPerPage: "Ativos por página", expand: "" },
     enableExpanding: true,
     defaultPageSize: 20,
     columnVisibility,
