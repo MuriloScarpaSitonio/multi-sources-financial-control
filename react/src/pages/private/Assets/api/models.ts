@@ -1,9 +1,9 @@
 import { RawDateString } from "../../../../types";
 
 import {
+  AssetCurrencies,
   AssetsObjectivesMapping,
   AssetsTypesMapping,
-  AssetCurrencies,
 } from "../consts";
 
 export type Asset = {
@@ -72,3 +72,9 @@ export type SimulatedAsset = Omit<
   | "current_percentage"
   | "normalized_roi"
 > & { roi: number };
+
+export type OperationPeriod = {
+  started_at: RawDateString;
+  closed_at: RawDateString | null;
+  roi: number | null;
+};

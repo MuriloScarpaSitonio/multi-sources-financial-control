@@ -652,6 +652,111 @@ def stock_asset_closed_operation(stock_asset, buy_transaction, sell_transaction)
 
 
 @pytest.fixture
+def closed_then_reopened_stock_asset(stock_asset):
+    """Asset with one closed operation cycle followed by a new open position."""
+    first_buy_date = timezone.localdate() - timedelta(days=60)
+    first_buy = TransactionFactory(
+        asset=stock_asset,
+        action=TransactionActions.buy,
+        price=10,
+        quantity=50,
+        operation_date=first_buy_date,
+    )
+    first_sell_date = first_buy_date + timedelta(days=10)
+    TransactionFactory(
+        asset=stock_asset,
+        action=TransactionActions.sell,
+        price=20,
+        quantity=50,
+        operation_date=first_sell_date,
+    )
+    first_close_datetime = timezone.make_aware(
+        timezone.datetime.combine(first_sell_date, timezone.datetime.min.time())
+    )
+    closed_op = AssetClosedOperationFactory(
+        asset=stock_asset,
+        normalized_total_bought=10 * 50,
+        total_bought=10 * 50,
+        quantity_bought=50,
+        normalized_total_sold=20 * 50,
+        operation_datetime=first_close_datetime,
+    )
+
+    second_buy_date = first_sell_date + timedelta(days=5)
+    second_buy = TransactionFactory(
+        asset=stock_asset,
+        action=TransactionActions.buy,
+        price=15,
+        quantity=100,
+        operation_date=second_buy_date,
+    )
+
+    return stock_asset, first_buy, closed_op, second_buy
+
+
+@pytest.fixture
+def twice_closed_stock_asset(stock_asset):
+    """Asset with two complete closed operation cycles."""
+    first_buy_date = timezone.localdate() - timedelta(days=90)
+    first_buy = TransactionFactory(
+        asset=stock_asset,
+        action=TransactionActions.buy,
+        price=10,
+        quantity=50,
+        operation_date=first_buy_date,
+    )
+    first_sell_date = first_buy_date + timedelta(days=10)
+    TransactionFactory(
+        asset=stock_asset,
+        action=TransactionActions.sell,
+        price=20,
+        quantity=50,
+        operation_date=first_sell_date,
+    )
+    first_close_datetime = timezone.make_aware(
+        timezone.datetime.combine(first_sell_date, timezone.datetime.min.time())
+    )
+    closed_op1 = AssetClosedOperationFactory(
+        asset=stock_asset,
+        normalized_total_bought=10 * 50,
+        total_bought=10 * 50,
+        quantity_bought=50,
+        normalized_total_sold=20 * 50,
+        operation_datetime=first_close_datetime,
+    )
+
+    second_buy_date = first_sell_date + timedelta(days=5)
+    second_buy = TransactionFactory(
+        asset=stock_asset,
+        action=TransactionActions.buy,
+        price=15,
+        quantity=100,
+        operation_date=second_buy_date,
+    )
+    second_sell_date = second_buy_date + timedelta(days=10)
+    TransactionFactory(
+        asset=stock_asset,
+        action=TransactionActions.sell,
+        price=20,
+        quantity=100,
+        operation_date=second_sell_date,
+    )
+    second_close_datetime = timezone.make_aware(
+        timezone.datetime.combine(second_sell_date, timezone.datetime.min.time())
+    )
+    closed_op2 = AssetClosedOperationFactory(
+        asset=stock_asset,
+        normalized_total_bought=15 * 100,
+        total_bought=15 * 100,
+        quantity_bought=100,
+        normalized_total_sold=20 * 100,
+        operation_datetime=second_close_datetime,
+    )
+
+    return stock_asset, first_buy, closed_op1, second_buy, closed_op2
+
+
+@pytest.fixture
 def stock_usa_transaction(stock_usa_asset):
     return TransactionFactory(
         action=TransactionActions.buy,
@@ -846,14 +951,12 @@ def loss_asset_previously_closed_w_incomes_and_profit_loss(
 
 # 24 ativo fechado, lucro
 @pytest.fixture
-def profit_asset_closed(stock_asset_closed_operation, stock_asset_metadata):
-    ...
+def profit_asset_closed(stock_asset_closed_operation, stock_asset_metadata): ...
 
 
 # 6.dollar - ativo aberto, apenas transações de compra, lucro
 @pytest.fixture
-def profit_asset_usa_bought_transactions(stock_usa_asset_metadata, stock_usa_transaction):
-    ...
+def profit_asset_usa_bought_transactions(stock_usa_asset_metadata, stock_usa_transaction): ...
 
 
 # 7.dollar - ativo aberto, apenas transações de compra, prejuízo
@@ -867,8 +970,7 @@ def loss_asset_usa_bought_transactions(stock_usa_asset_metadata, stock_usa_trans
 @pytest.fixture
 def loss_asset_usa_bought_transactions_incomes_profit(
     loss_asset_usa_bought_transactions, another_income
-):
-    ...
+): ...
 
 
 # 10.dollar - ativo aberto, apenas transações de compra, prejuízo + incomes = prejuízo
@@ -908,8 +1010,7 @@ def loss_asset_usa_both_transactions(stock_usa_asset, loss_asset_usa_bought_tran
 @pytest.fixture
 def loss_asset_usa_both_transactions_incomes_profit(
     loss_asset_usa_both_transactions, another_income
-):
-    ...
+): ...
 
 
 # 15.dollar - ativo aberto, transações de compra e venda, prejuízo + incomes = prejuízo

@@ -1,10 +1,11 @@
 from decimal import ROUND_HALF_UP, Decimal, DecimalException
 
+from django.utils import timezone
+
 from rest_framework import serializers
 from rest_framework.exceptions import NotFound
-from shared.serializers_utils import CustomChoiceField
 
-from django.utils import timezone
+from shared.serializers_utils import CustomChoiceField
 
 from . import choices
 from .adapters.key_value_store import get_dollar_conversion_rate
@@ -521,3 +522,9 @@ class TransactionsSumSerializer(serializers.Serializer):
 class TransactionsAssetTypeReportSerializer(serializers.Serializer):
     total_bought = serializers.DecimalField(max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP)
     asset_type = CustomChoiceField(choices=choices.AssetTypes.choices)
+
+
+class AssetOperationPeriodSerializer(serializers.Serializer):
+    started_at = serializers.DateField()
+    closed_at = serializers.DateField(allow_null=True)
+    roi = serializers.DecimalField(max_digits=20, decimal_places=4, allow_null=True)

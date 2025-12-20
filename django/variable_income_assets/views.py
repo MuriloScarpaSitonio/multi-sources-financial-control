@@ -24,12 +24,14 @@ from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from shared.permissions import SubscriptionEndedPermission
 from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
+from variable_income_assets.models.managers.write import AssetClosedOperationQuerySet
 
 from . import choices, filters, serializers
 from .adapters.key_value_store import get_dollar_conversion_rate
 from .domain import events
 from .models import (
     Asset,
+    AssetClosedOperation,
     AssetMetaData,
     AssetReadModel,
     AssetsTotalInvestedSnapshot,
@@ -47,6 +49,8 @@ from .service_layer import messagebus
 from .service_layer.unit_of_work import DjangoUnitOfWork
 
 if TYPE_CHECKING:  # pragma: no cover
+    from datetime import date
+
     from django_filters import FilterSet
     from djchoices import ChoiceItem
     from rest_framework.request import Request
@@ -399,3 +403,66 @@ class AssetIncomesViewSet(GenericViewSet, ListModelMixin):
         return PassiveIncome.objects.filter(
             asset__user_id=self.request.user.pk, asset_id=self.kwargs["pk"]
         )
+
+
+class AssetOperationPeriodsViewSet(GenericViewSet, ListModelMixin):
+    permission_classes = (SubscriptionEndedPermission, InvestmentsModulePermission)
+    serializer_class = serializers.AssetOperationPeriodSerializer
+
+    def get_queryset(self) -> AssetClosedOperationQuerySet[AssetClosedOperation]:
+        return AssetClosedOperation.objects.filter(
+            asset__user_id=self.request.user.pk, asset_id=self.kwargs["pk"]
+        )
+
+    def _get_first_transaction_date(
+        self, asset_id: int, after_date: date | None = None
+    ) -> date | None:
+        filters: dict[str, int | date] = {"asset_id": asset_id}
+        if after_date:
+            filters["operation_date__gt"] = after_date
+
+        return (
+            Transaction.objects.filter(**filters)
+            .order_by("operation_date")
+            .values_list("operation_date", flat=True)
+            .first()
+        )
+
+    def list(self, request: Request, pk: int) -> Response:
+        periods = []
+        previous_close_date = None
+
+        for close_datetime, roi in (
+            self.get_queryset()
+            .annotate_roi()
+            .order_by("operation_datetime")
+            .values_list("operation_datetime", "roi")
+        ):
+            if first_transaction_date := self._get_first_transaction_date(pk, previous_close_date):
+                periods.append(
+                    {
+                        "started_at": first_transaction_date,
+                        "closed_at": close_datetime.date(),
+                        "roi": roi,
+                    }
+                )
+
+            previous_close_date = close_datetime.date()
+
+        # Check if there's a current open operation
+        current_quantity = (
+            Asset.objects.filter(user_id=self.request.user.pk, pk=pk)
+            .annotate_quantity_balance()
+            .values_list("quantity_balance", flat=True)
+            .first()
+        )
+
+        if current_quantity and current_quantity > 0:
+            first_transaction_date = self._get_first_transaction_date(pk, previous_close_date)
+            if first_transaction_date:
+                periods.append(
+                    {"started_at": first_transaction_date, "closed_at": None, "roi": None}
+                )
+
+        serializer = self.get_serializer(periods, many=True)
+        return Response(serializer.data, status=HTTP_200_OK)

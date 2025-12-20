@@ -24,6 +24,7 @@ import AssetsForm from "./AssetForm";
 import AssetUpdatePriceDrawer from "./AssetUpdatePriceDrawer";
 import { ASSETS_QUERY_KEY } from "./consts";
 import IncomesTable from "./IncomesTable";
+import OperationPeriodsTable from "./OperationPeriodsTable";
 import TopToolBar from "./TopToolbar";
 import TransactionTable from "./TransactionTable";
 
@@ -49,6 +50,7 @@ const DetailPanel = ({
       >
         <Tab label="Transações" />
         <Tab label="Rendimentos" />
+        <Tab label="Períodos" />
         <Tab label="Configurações" />
       </Tabs>
       {tabValue === 0 && (
@@ -67,7 +69,15 @@ const DetailPanel = ({
           />
         </Box>
       )}
-      {tabValue === 2 && <AssetsForm asset={row.original} />}
+      {tabValue === 2 && (
+        <Box sx={{ p: 2 }}>
+          <OperationPeriodsTable
+            assetId={row.original.write_model_pk}
+            currentRoi={row.original.normalized_roi}
+          />
+        </Box>
+      )}
+      {tabValue === 3 && <AssetsForm asset={row.original} />}
     </>
   );
 };

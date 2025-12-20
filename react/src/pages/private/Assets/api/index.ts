@@ -1,16 +1,17 @@
 import qs from "qs";
 
 import { apiProvider } from "../../../../api/methods";
+import { ApiListResponse, RawDateString } from "../../../../types";
+import { AssetCurrencies } from "../consts";
+import { GroupBy, Kinds } from "../Reports/types";
 import {
   Asset,
   AssetWrite,
   Income,
+  OperationPeriod,
   SimulatedAsset,
   Transaction,
 } from "./models";
-import { AssetCurrencies } from "../consts";
-import { GroupBy, Kinds } from "../Reports/types";
-import { ApiListResponse, RawDateString } from "../../../../types";
 
 const RESOURCE = "assets";
 
@@ -155,3 +156,8 @@ export const updateAssetPrice = async ({
   data: { current_price: number };
 }): Promise<AssetWrite> =>
   (await apiProvider.patch(`${RESOURCE}/${id}/update_price`, data)).data;
+
+export const getAssetOperationPeriods = async (
+  assetId: number,
+): Promise<OperationPeriod[]> =>
+  (await apiProvider.get(`${RESOURCE}/${assetId}/operation_periods`)).data;
