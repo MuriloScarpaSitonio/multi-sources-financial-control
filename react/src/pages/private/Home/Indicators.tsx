@@ -30,6 +30,80 @@ import { IndicatorBox } from "../Expenses/Indicators/components";
 import { useIncomesSumCredited } from "../Incomes/Indicators/hooks";
 import { useHideValues } from "../../../hooks/useHideValues";
 
+const PatrimonyCompositionIndicator = ({
+  investmentsTotal,
+  bankAmount,
+  isLoading,
+}: {
+  investmentsTotal: number;
+  bankAmount: number;
+  isLoading: boolean;
+}) => {
+  const { hideValues } = useHideValues();
+  const total = investmentsTotal + bankAmount;
+  const investmentsPercentage = total > 0 ? (investmentsTotal / total) * 100 : 0;
+  const bankPercentage = total > 0 ? (bankAmount / total) * 100 : 0;
+
+  if (isLoading) {
+    return (
+      <Stack sx={{ mt: 2 }}>
+        <Skeleton width="100%" height={80} sx={{ borderRadius: "10px" }} />
+      </Stack>
+    );
+  }
+
+  return (
+    <Stack sx={{ mt: 2 }}>
+      <IndicatorBox variant="success" width="100%">
+        <Text size={FontSizes.SMALL} color={Colors.neutral300}>
+          {hideValues ? (
+            <Skeleton
+              component="span"
+              sx={{
+                bgcolor: getColor(Colors.neutral300),
+                width: "40px",
+                display: "inline-block",
+              }}
+              animation={false}
+            />
+          ) : (
+            <Text
+              component="span"
+              size={FontSizes.SMALL}
+              weight={FontWeights.BOLD}
+              color={Colors.neutral0}
+            >
+              {investmentsPercentage.toFixed(0)}%
+            </Text>
+          )}{" "}
+          em investimentos,{" "}
+          {hideValues ? (
+            <Skeleton
+              component="span"
+              sx={{
+                bgcolor: getColor(Colors.neutral300),
+                width: "40px",
+                display: "inline-block",
+              }}
+              animation={false}
+            />
+          ) : (
+            <Text
+              component="span"
+              size={FontSizes.SMALL}
+              weight={FontWeights.BOLD}
+              color={Colors.neutral0}
+            >
+              {bankPercentage.toFixed(0)}%
+            </Text>
+          )}{" "}
+          em conta corrente
+        </Text>
+      </IndicatorBox>
+    </Stack>
+  );
+};
+
 const CreditedPassiveIncomesLast90DaysIndicator = () => {
   const { startDate, endDate } = useMemo(() => {
     const now = new Date();
@@ -159,6 +233,11 @@ const Indicators = () => {
           variant="success"
           isLoading={isLoading}
           isError={isError}
+        />
+        <PatrimonyCompositionIndicator
+          investmentsTotal={assetsIndicators?.total ?? 0}
+          bankAmount={bankAmount}
+          isLoading={isLoading}
         />
       </Grid>
       <Grid item xs={3}>

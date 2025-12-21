@@ -392,22 +392,27 @@ class AssetTransactionViewSet(GenericViewSet, ListModelMixin):
         serializer.is_valid(raise_exception=True)
         data = serializer.data
 
+        current_currency_conversion_rate = (
+            1 if asset.currency == choices.Currencies.real else get_dollar_conversion_rate()
+        )
         kwargs = {
             "price": data["price"],
-            "current_currency_conversion_rate": (
-                1 if asset.currency == choices.Currencies.real else get_dollar_conversion_rate()
-            ),
+            "current_currency_conversion_rate": current_currency_conversion_rate,
         }
         if data.get("quantity") is not None:
             kwargs["quantity"] = data["quantity"]
         else:
             kwargs["quantity"] = data["total"] / data["price"]
 
-        old = serializers.AssetSimulateSerializer(instance=asset).data
+        old = serializers.AssetSimulateSerializer(
+            instance=asset,
+            context={"current_currency_conversion_rate": current_currency_conversion_rate},
+        ).data
         with djtransaction.atomic():
             Transaction.objects.create(asset=asset, action=choices.TransactionActions.buy, **kwargs)
             new = serializers.AssetSimulateSerializer(
-                instance=request.user.assets.annotate_for_simulation().get(pk=pk)
+                instance=request.user.assets.annotate_for_simulation().get(pk=pk),
+                context={"current_currency_conversion_rate": current_currency_conversion_rate},
             ).data
             djtransaction.set_rollback(True)
         return Response({"old": old, "new": new}, status=HTTP_200_OK)

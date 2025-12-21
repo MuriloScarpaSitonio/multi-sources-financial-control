@@ -336,7 +336,7 @@ class AssetSimulateSerializer(serializers.ModelSerializer):
         current_price = (
             obj.current_price_metadata
             if obj.currency == choices.Currencies.real
-            else obj.current_price_metadata * get_dollar_conversion_rate()
+            else obj.current_price_metadata * self.context["current_currency_conversion_rate"]
         )
         return (current_price * obj.quantity_balance) - (
             (obj.normalized_avg_price * obj.quantity_balance)
