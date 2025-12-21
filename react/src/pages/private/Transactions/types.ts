@@ -14,7 +14,8 @@ export type Transaction = {
 export type HistoricReportResponse = {
   avg: number;
   historic: {
-    month: RawDateString;
+    month?: RawDateString;
+    year?: RawDateString;
     total_bought: number;
     total_sold: number;
     diff: number;

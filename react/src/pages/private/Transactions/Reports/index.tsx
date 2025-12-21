@@ -1,12 +1,15 @@
 import { useContext, useMemo, useState } from "react";
 
 import Grid from "@mui/material/Grid";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 
 import { endOfMonth } from "date-fns";
 
 import {
   DatePickers,
+  FontSizes,
   PieChart,
   ReportBox,
   Text,
@@ -32,23 +35,46 @@ const HistoricContent = () => {
 
   const [startDate, setStartDate] = useState(oneYearAgo);
   const [endDate, setEndDate] = useState(endOfThisMonth);
+  const [aggregatePeriod, setAggregatePeriod] = useState<"month" | "year">(
+    "month",
+  );
   const {
     data,
     // isPending TODO
-  } = useTransactionsHistoric({ startDate, endDate });
+  } = useTransactionsHistoric({ startDate, endDate, aggregatePeriod });
 
   return (
     <Stack gap={1} justifyContent="center" sx={{ pt: 2, pb: 1, pl: 2.5 }}>
-      <Stack direction="row" justifyContent="flex-end">
+      <Stack
+        direction="row"
+        gap={1}
+        alignItems="center"
+        justifyContent="space-around"
+      >
+        <Stack direction="row" gap={1} alignItems="center">
+          <Text size={FontSizes.SEMI_REGULAR}>Agregar por</Text>
+          <Select
+            value={aggregatePeriod}
+            onChange={(e) =>
+              setAggregatePeriod(e.target.value as "month" | "year")
+            }
+          >
+            <MenuItem value="month">Mês</MenuItem>
+            <MenuItem value="year">Ano</MenuItem>
+          </Select>
+        </Stack>
         <DatePickers
-          views={["month", "year"]}
+          views={aggregatePeriod === "month" ? ["month", "year"] : ["year"]}
           startDate={startDate}
           setStartDate={setStartDate}
           endDate={endDate}
           setEndDate={setEndDate}
         />
       </Stack>
-      <PositiveNegativeBarChart data={data?.historic ?? []} />
+      <PositiveNegativeBarChart
+        data={data?.historic ?? []}
+        aggregatePeriod={aggregatePeriod}
+      />
     </Stack>
   );
 };

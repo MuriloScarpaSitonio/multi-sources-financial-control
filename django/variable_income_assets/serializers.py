@@ -455,6 +455,23 @@ class TransactionHistoricSerializer(AvgSerializer):
     historic = _TransactionHistoricSerializer(many=True)
 
 
+class _TransactionYearlyHistoricSerializer(serializers.Serializer):
+    year = serializers.DateField(format="%d/%m/%Y")
+    total_bought = serializers.DecimalField(
+        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+    )
+    total_sold = serializers.DecimalField(
+        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+    )
+    diff = serializers.DecimalField(
+        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+    )
+
+
+class TransactionYearlyHistoricSerializer(AvgSerializer):
+    historic = _TransactionYearlyHistoricSerializer(many=True)
+
+
 class TotalSerializer(serializers.Serializer):
     total = serializers.DecimalField(max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP)
 
@@ -479,6 +496,16 @@ class _PassiveIncomeHistoricSerializer(serializers.Serializer):
 
 class PassiveIncomeHistoricSerializer(AvgSerializer):
     historic = _PassiveIncomeHistoricSerializer(many=True)
+
+
+class _PassiveIncomeYearlyHistoricSerializer(serializers.Serializer):
+    credited = serializers.DecimalField(max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP)
+    provisioned = serializers.DecimalField(max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP)
+    year = serializers.DateField(format="%d/%m/%Y")
+
+
+class PassiveIncomeYearlyHistoricSerializer(AvgSerializer):
+    historic = _PassiveIncomeYearlyHistoricSerializer(many=True)
 
 
 class PassiveIncomeAssetsAggregationSerializer(serializers.Serializer):

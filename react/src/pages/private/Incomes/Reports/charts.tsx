@@ -19,7 +19,11 @@ import {
   StatusDot,
 } from "../../../../design-system";
 import { HistoricReportResponse, TopAssetsResponse } from "../types";
-import { monthTickerFormatter, numberTickFormatter } from "../../utils";
+import {
+  monthTickerFormatter,
+  numberTickFormatter,
+  yearTickerFormatter,
+} from "../../utils";
 import { useHideValues } from "../../../../hooks/useHideValues";
 
 const CHART_WIDTH = 700;
@@ -158,16 +162,20 @@ export const HorizontalBarChart = ({ data }: { data: TopAssetsResponse }) => {
 const BarChartCreditedAndProvisionedWithAvgToolTipContent = ({
   active,
   payload,
+  aggregatePeriod,
 }: {
   active?: boolean;
   payload?: {
     payload: HistoricReportResponse["historic"][number];
   }[];
+  aggregatePeriod: "month" | "year";
 }) => {
   if (active && payload?.length) {
     const { payload: data } = payload[0];
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [_, month, year] = data.month.split("/");
+    const dateValue = aggregatePeriod === "month" ? data.month : data.year;
+    const [, month, year] = dateValue?.split("/") ?? [];
+    const periodLabel =
+      aggregatePeriod === "month" ? `Mês: ${month}/${year}` : `Ano: ${year}`;
     return (
       <Stack
         spacing={0.1}
@@ -178,9 +186,7 @@ const BarChartCreditedAndProvisionedWithAvgToolTipContent = ({
           backgroundColor: getColor(Colors.neutral600),
         }}
       >
-        <p style={{ color: getColor(Colors.neutral300) }}>
-          {`Mês: ${month}/${year}`}
-        </p>
+        <p style={{ color: getColor(Colors.neutral300) }}>{periodLabel}</p>
         <p style={{ color: getColor(Colors.brand200) }}>
           {`Total creditado: R$ ${data.credited.toLocaleString("pt-br", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
         </p>
@@ -195,14 +201,19 @@ const BarChartCreditedAndProvisionedWithAvgToolTipContent = ({
 export const BarChartCreditedAndProvisionedWithAvg = ({
   data,
   avg,
+  aggregatePeriod,
 }: {
   data: HistoricReportResponse["historic"];
   avg: number;
+  aggregatePeriod: "month" | "year";
 }) => {
   const secondDayOfCurrentMonth = new Date();
   secondDayOfCurrentMonth.setDate(2);
 
   const { hideValues } = useHideValues();
+  const dataKey = aggregatePeriod === "month" ? "month" : "year";
+  const tickFormatter =
+    aggregatePeriod === "month" ? monthTickerFormatter : yearTickerFormatter;
 
   return (
     <BarChart
@@ -212,9 +223,9 @@ export const BarChartCreditedAndProvisionedWithAvg = ({
       margin={{ left: 25 }}
     >
       <XAxis
-        dataKey="month"
+        dataKey={dataKey}
         stroke={getColor(Colors.neutral0)}
-        tickFormatter={monthTickerFormatter}
+        tickFormatter={tickFormatter}
       />
       <YAxis
         type="number"
@@ -226,7 +237,11 @@ export const BarChartCreditedAndProvisionedWithAvg = ({
       />
       <Tooltip
         cursor={false}
-        content={<BarChartCreditedAndProvisionedWithAvgToolTipContent />}
+        content={
+          <BarChartCreditedAndProvisionedWithAvgToolTipContent
+            aggregatePeriod={aggregatePeriod}
+          />
+        }
       />
       <Legend verticalAlign="top" content={<LegendContent />} />
       <Bar

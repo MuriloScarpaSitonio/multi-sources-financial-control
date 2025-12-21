@@ -8,7 +8,7 @@ from django.forms import Form
 
 import django_filters
 
-from shared.filters_utils import MonthFilter
+from shared.filters_utils import PeriodFilter
 
 from .choices import (
     AssetObjectives,
@@ -215,19 +215,30 @@ class DateRangeFilterSet(django_filters.FilterSet):
 
 
 class MonthlyDateRangeFilterSet(django_filters.FilterSet):
-    start_date = MonthFilter(
+    start_date = PeriodFilter(
         field_name="operation_date",
         lookup_expr="gte",
         required=True,
         input_formats=["%d/%m/%Y", "%Y-%m-%d"],
     )
-    end_date = MonthFilter(
+    end_date = PeriodFilter(
         field_name="operation_date",
         lookup_expr="lte",
         required=True,
         input_formats=["%d/%m/%Y", "%Y-%m-%d"],
         end=True,
     )
+    aggregate_period = django_filters.ChoiceFilter(
+        choices=(("month", "month"), ("year", "year")),
+        required=False,
+        method="filter_aggregate_period",
+    )
+
+    def filter_aggregate_period(self, queryset: QuerySet, _: str, __: str) -> QuerySet:
+        # The actual aggregation is done in the view based on this filter's value
+        # This method just returns the queryset unchanged since date filtering
+        # is handled by PeriodFilter based on the aggregate_period value
+        return queryset
 
     @property
     def qs(self):

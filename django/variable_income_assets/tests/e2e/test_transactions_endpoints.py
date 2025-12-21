@@ -22,6 +22,7 @@ from tasks.models import TaskHistory
 
 from ...choices import AssetTypes, Currencies, TransactionActions
 from ...models import AssetClosedOperation, AssetReadModel, Transaction
+from ..conftest import TransactionFactory
 
 pytestmark = pytest.mark.django_db
 URL = f"/{BASE_API_URL}" + "transactions"
@@ -697,12 +698,13 @@ def test__update__sell__asset_held_in_self_custody__closed(
 
 
 @pytest.mark.usefixtures("transactions_indicators_data")
-def test__historic_report(client, user, stock_asset):
+@pytest.mark.parametrize("aggregate_period", ("month", None))
+def test__historic_report__monthly(client, user, stock_asset, aggregate_period):
     # GIVEN
     today = timezone.localdate().replace(day=12)
     start_date, end_date = today - relativedelta(months=18), today
     last_day_of_month = end_date + relativedelta(day=31)
-    Transaction.objects.create(
+    TransactionFactory(
         operation_date=last_day_of_month,
         price=12,
         quantity=100,
@@ -711,10 +713,13 @@ def test__historic_report(client, user, stock_asset):
     )
 
     # WHEN
-    response = client.get(
+    url = (
         f"{URL}/historic_report?start_date={start_date.strftime('%d/%m/%Y')}"
         + f"&end_date={end_date.strftime('%d/%m/%Y')}"
     )
+    if aggregate_period:
+        url += f"&aggregate_period={aggregate_period}"
+    response = client.get(url)
     response_json = response.json()
 
     # THEN
@@ -746,6 +751,66 @@ def test__historic_report(client, user, stock_asset):
         )
 
         totals.append(total_bought - total_sold)
+        assert convert_and_quantitize(result["total_sold"]) == convert_and_quantitize(
+            total_sold * Decimal("-1")
+        )
+
+        assert convert_and_quantitize(result["diff"]) == convert_and_quantitize(
+            total_bought - total_sold
+        )
+
+    assert convert_and_quantitize(response_json["avg"]) == convert_and_quantitize(
+        fmean([h["diff"] for h in response_json["historic"]])
+    )
+
+
+@pytest.mark.usefixtures("transactions_indicators_data")
+def test__historic_report__yearly(client, user, stock_asset):
+    # GIVEN
+    today = timezone.localdate().replace(day=12)
+    start_date, end_date = today - relativedelta(years=3), today
+    last_day_of_month = end_date + relativedelta(day=31)
+    TransactionFactory(
+        operation_date=last_day_of_month,
+        price=12,
+        quantity=100,
+        action=TransactionActions.buy,
+        asset=stock_asset,
+    )
+
+    # WHEN
+    response = client.get(
+        f"{URL}/historic_report?start_date={start_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}"
+        + "&aggregate_period=year"
+    )
+    response_json = response.json()
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    for result in response_json["historic"]:
+        d = datetime.strptime(result["year"], "%d/%m/%Y").date()
+        total_bought = sum(
+            t.price * t.quantity * t.current_currency_conversion_rate
+            for t in Transaction.objects.bought().filter(
+                asset__user_id=user.id,
+                operation_date__year=d.year,
+            )
+        )
+
+        assert convert_and_quantitize(result["total_bought"]) == convert_and_quantitize(
+            total_bought
+        )
+
+        total_sold = sum(
+            t.price * t.quantity * t.current_currency_conversion_rate
+            for t in Transaction.objects.sold().filter(
+                asset__user_id=user.id,
+                operation_date__year=d.year,
+            )
+        )
+
         assert convert_and_quantitize(result["total_sold"]) == convert_and_quantitize(
             total_sold * Decimal("-1")
         )

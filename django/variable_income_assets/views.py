@@ -23,7 +23,10 @@ from rest_framework.status import HTTP_200_OK, HTTP_204_NO_CONTENT
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from shared.permissions import SubscriptionEndedPermission
-from shared.utils import insert_zeros_if_no_data_in_monthly_historic_data
+from shared.utils import (
+    insert_zeros_if_no_data_in_monthly_historic_data,
+    insert_zeros_if_no_data_in_yearly_historic_data,
+)
 from variable_income_assets.models.managers.write import AssetClosedOperationQuerySet
 
 from . import choices, filters, serializers
@@ -237,15 +240,24 @@ class TransactionViewSet(ModelViewSet):
         filterset = filters.MonthlyDateRangeFilterSet(
             data=request.GET, queryset=self.get_queryset()
         )
-        historic = insert_zeros_if_no_data_in_monthly_historic_data(
-            historic=list(filterset.qs.historic()),
-            start_date=filterset.form.cleaned_data["start_date"],
-            end_date=filterset.form.cleaned_data["end_date"],
-            total_fields=("total_bought", "total_sold", "diff"),
-        )
-        serializer = serializers.TransactionHistoricSerializer(
-            {"historic": historic, "avg": fmean([h["diff"] for h in historic])}
-        )
+        qs = filterset.qs  # triggers validation
+        aggregate_period = filterset.form.cleaned_data.get("aggregate_period") or "month"
+        kwargs = {
+            "historic": list(qs.historic(aggregate_period)),
+            "start_date": filterset.form.cleaned_data["start_date"],
+            "end_date": filterset.form.cleaned_data["end_date"],
+            "total_fields": ("total_bought", "total_sold", "diff"),
+        }
+        if aggregate_period == "month":
+            historic = insert_zeros_if_no_data_in_monthly_historic_data(**kwargs)
+            serializer = serializers.TransactionHistoricSerializer(
+                {"historic": historic, "avg": fmean([h["diff"] for h in historic])}
+            )
+        else:
+            historic = insert_zeros_if_no_data_in_yearly_historic_data(**kwargs)
+            serializer = serializers.TransactionYearlyHistoricSerializer(
+                {"historic": historic, "avg": fmean([h["diff"] for h in historic])}
+            )
         return Response(serializer.data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
@@ -325,15 +337,24 @@ class PassiveIncomeViewSet(ModelViewSet):
         filterset = filters.MonthlyDateRangeFilterSet(
             data=request.GET, queryset=self.get_queryset()
         )
-        historic = insert_zeros_if_no_data_in_monthly_historic_data(
-            historic=list(filterset.qs.historic()),
-            start_date=filterset.form.cleaned_data["start_date"],
-            end_date=filterset.form.cleaned_data["end_date"],
-            total_fields=("credited", "provisioned"),
-        )
-        serializer = serializers.PassiveIncomeHistoricSerializer(
-            {"historic": historic, "avg": fmean([h["credited"] for h in historic])}
-        )
+        qs = filterset.qs  # triggers validation
+        aggregate_period = filterset.form.cleaned_data.get("aggregate_period") or "month"
+        kwargs = {
+            "historic": list(qs.historic(aggregate_period)),
+            "start_date": filterset.form.cleaned_data["start_date"],
+            "end_date": filterset.form.cleaned_data["end_date"],
+            "total_fields": ("credited", "provisioned"),
+        }
+        if aggregate_period == "month":
+            historic = insert_zeros_if_no_data_in_monthly_historic_data(**kwargs)
+            serializer = serializers.PassiveIncomeHistoricSerializer(
+                {"historic": historic, "avg": fmean([h["credited"] for h in historic])}
+            )
+        else:
+            historic = insert_zeros_if_no_data_in_yearly_historic_data(**kwargs)
+            serializer = serializers.PassiveIncomeYearlyHistoricSerializer(
+                {"historic": historic, "avg": fmean([h["credited"] for h in historic])}
+            )
         return Response(serializer.data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)

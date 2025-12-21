@@ -23,6 +23,7 @@ from shared.tests import convert_and_quantitize, skip_if_sqlite
 from ...choices import AssetTypes, Currencies, PassiveIncomeEventTypes, PassiveIncomeTypes
 from ...models import Asset, PassiveIncome
 from ...models.managers import PassiveIncomeQuerySet
+from ..conftest import PassiveIncomeFactory
 from ..shared import get_total_credited_incomes_brute_force
 
 pytestmark = pytest.mark.django_db
@@ -564,20 +565,21 @@ def test__sum_provisioned_future(client, user):
 
 
 @pytest.mark.usefixtures("passive_incomes")
-def test__historic(client, user, stock_asset):
+@pytest.mark.parametrize("aggregate_period", ("month", None))
+def test__historic__monthly(client, user, stock_asset, aggregate_period):
     # GIVEN
     today = timezone.localdate().replace(day=12)
 
     start_date, end_date = today - relativedelta(months=18), today
     last_day_of_month = end_date + relativedelta(day=31)
-    PassiveIncome.objects.create(
+    PassiveIncomeFactory(
         operation_date=last_day_of_month,
         amount=1200,
         type=PassiveIncomeTypes.dividend,
         event_type=PassiveIncomeEventTypes.credited,
         asset=stock_asset,
     )
-    PassiveIncome.objects.create(
+    PassiveIncomeFactory(
         operation_date=last_day_of_month,
         amount=1200,
         type=PassiveIncomeTypes.dividend,
@@ -586,10 +588,13 @@ def test__historic(client, user, stock_asset):
     )
 
     # WHEN
-    response = client.get(
+    url = (
         f"{URL}/historic_report?start_date={start_date.strftime('%d/%m/%Y')}"
         + f"&end_date={end_date.strftime('%d/%m/%Y')}"
     )
+    if aggregate_period:
+        url += f"&aggregate_period={aggregate_period}"
+    response = client.get(url)
     response_json = response.json()
 
     # THEN
@@ -612,6 +617,65 @@ def test__historic(client, user, stock_asset):
             for p in PassiveIncome.objects.provisioned().filter(
                 asset__user_id=user.id,
                 operation_date__month=d.month,
+                operation_date__year=d.year,
+            )
+        )
+        assert convert_and_quantitize(result["provisioned"]) == convert_and_quantitize(
+            total_provisioned
+        )
+
+    assert convert_and_quantitize(response_json["avg"]) == convert_and_quantitize(
+        fmean([h["credited"] for h in response_json["historic"]])
+    )
+
+
+@pytest.mark.usefixtures("passive_incomes")
+def test__historic__yearly(client, user, stock_asset):
+    # GIVEN
+    today = timezone.localdate().replace(day=12)
+    start_date, end_date = today - relativedelta(years=3), today
+    last_day_of_month = end_date + relativedelta(day=31)
+    PassiveIncomeFactory(
+        operation_date=last_day_of_month,
+        amount=1200,
+        type=PassiveIncomeTypes.dividend,
+        event_type=PassiveIncomeEventTypes.credited,
+        asset=stock_asset,
+    )
+    PassiveIncomeFactory(
+        operation_date=last_day_of_month,
+        amount=1200,
+        type=PassiveIncomeTypes.dividend,
+        event_type=PassiveIncomeEventTypes.provisioned,
+        asset=stock_asset,
+    )
+
+    # WHEN
+    response = client.get(
+        f"{URL}/historic_report?start_date={start_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}"
+        + "&aggregate_period=year"
+    )
+    response_json = response.json()
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    for result in response_json["historic"]:
+        d = datetime.strptime(result["year"], "%d/%m/%Y").date()
+        total_credited = sum(
+            p.amount * p.current_currency_conversion_rate
+            for p in PassiveIncome.objects.credited().filter(
+                asset__user_id=user.id,
+                operation_date__year=d.year,
+            )
+        )
+        assert convert_and_quantitize(result["credited"]) == convert_and_quantitize(total_credited)
+
+        total_provisioned = sum(
+            p.amount * p.current_currency_conversion_rate
+            for p in PassiveIncome.objects.provisioned().filter(
+                asset__user_id=user.id,
                 operation_date__year=d.year,
             )
         )

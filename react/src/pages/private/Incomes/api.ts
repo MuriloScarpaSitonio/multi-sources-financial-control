@@ -31,12 +31,14 @@ export const getAvg = async (): Promise<{
 export const getHistoric = async (params: {
   startDate: Date;
   endDate: Date;
+  aggregatePeriod: "month" | "year";
 }): Promise<HistoricReportResponse> =>
   (
     await apiProvider.get(`${RESOURCE}/historic_report`, {
       params: {
         start_date: params.startDate.toLocaleDateString("pt-br"),
         end_date: params.endDate.toLocaleDateString("pt-br"),
+        aggregate_period: params.aggregatePeriod,
       },
     })
   ).data;

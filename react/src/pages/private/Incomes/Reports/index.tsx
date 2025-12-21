@@ -3,11 +3,18 @@ import type { Dispatch, SetStateAction } from "react";
 import { useMemo, useState } from "react";
 
 import Grid from "@mui/material/Grid";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 
 import { endOfMonth, addMonths } from "date-fns";
 
-import { DatePickers, ReportBox, Text } from "../../../../design-system";
+import {
+  DatePickers,
+  FontSizes,
+  ReportBox,
+  Text,
+} from "../../../../design-system";
 import { useIncomesHistoric, useIncomesTopAssetsReport } from "./hooks";
 import { HistoricReportResponse } from "../types";
 import {
@@ -22,22 +29,46 @@ type DatesState = {
   setEndDate: Dispatch<SetStateAction<Date>>;
 };
 
+type HistoricContentProps = DatesState & {
+  aggregatePeriod: "month" | "year";
+  setAggregatePeriod: Dispatch<SetStateAction<"month" | "year">>;
+};
+
 const HistoricContent = ({
   startDate,
   setStartDate,
   endDate,
   setEndDate,
-}: DatesState) => {
+  aggregatePeriod,
+  setAggregatePeriod,
+}: HistoricContentProps) => {
   const {
     data,
     // isPending TODO
-  } = useIncomesHistoric({ startDate, endDate });
+  } = useIncomesHistoric({ startDate, endDate, aggregatePeriod });
 
   return (
     <Stack gap={1} justifyContent="center" sx={{ pt: 2, pb: 1, pl: 2.5 }}>
-      <Stack direction="row" justifyContent="flex-end">
+      <Stack
+        direction="row"
+        gap={1}
+        alignItems="center"
+        justifyContent="space-around"
+      >
+        <Stack direction="row" gap={1} alignItems="center">
+          <Text size={FontSizes.SEMI_REGULAR}>Agregar por</Text>
+          <Select
+            value={aggregatePeriod}
+            onChange={(e) =>
+              setAggregatePeriod(e.target.value as "month" | "year")
+            }
+          >
+            <MenuItem value="month">Mês</MenuItem>
+            <MenuItem value="year">Ano</MenuItem>
+          </Select>
+        </Stack>
         <DatePickers
-          views={["month", "year"]}
+          views={aggregatePeriod === "month" ? ["month", "year"] : ["year"]}
           startDate={startDate}
           setStartDate={setStartDate}
           endDate={endDate}
@@ -47,6 +78,7 @@ const HistoricContent = ({
       <BarChartCreditedAndProvisionedWithAvg
         data={data?.historic as HistoricReportResponse["historic"]}
         avg={data?.avg as HistoricReportResponse["avg"]}
+        aggregatePeriod={aggregatePeriod}
       />
     </Stack>
   );
@@ -103,13 +135,17 @@ const HistoricChart = ({
   setStartDate,
   endDate,
   setEndDate,
-}: DatesState) => (
+  aggregatePeriod,
+  setAggregatePeriod,
+}: HistoricContentProps) => (
   <ReportBox>
     <HistoricContent
       startDate={startDate}
       setStartDate={setStartDate}
       endDate={endDate}
       setEndDate={setEndDate}
+      aggregatePeriod={aggregatePeriod}
+      setAggregatePeriod={setAggregatePeriod}
     />
   </ReportBox>
 );
@@ -124,6 +160,9 @@ const Reports = () => {
 
   const [startDate, setStartDate] = useState(oneYearAgo);
   const [endDate, setEndDate] = useState(endOfThisMonthPlus3Months);
+  const [aggregatePeriod, setAggregatePeriod] = useState<"month" | "year">(
+    "month",
+  );
   return (
     <Grid container spacing={4}>
       <Grid item xs={6}>
@@ -135,6 +174,8 @@ const Reports = () => {
             setStartDate={setStartDate}
             endDate={endDate}
             setEndDate={setEndDate}
+            aggregatePeriod={aggregatePeriod}
+            setAggregatePeriod={setAggregatePeriod}
           />
         </Stack>
       </Grid>

@@ -3,7 +3,11 @@ import Stack from "@mui/material/Stack";
 import { BarChart, Bar, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { Colors, getColor } from "../../../../design-system";
 import { HistoricReportResponse } from "../types";
-import { monthTickerFormatter, numberTickFormatter } from "../../utils";
+import {
+  monthTickerFormatter,
+  numberTickFormatter,
+  yearTickerFormatter,
+} from "../../utils";
 import { useHideValues } from "../../../../hooks/useHideValues";
 
 const CHART_WIDTH = 600;
@@ -12,16 +16,20 @@ const CHART_HEIGHT = 300;
 const ToolTipContent = ({
   active,
   payload,
+  aggregatePeriod,
 }: {
   active?: boolean;
   payload?: {
     payload: HistoricReportResponse["historic"][number];
   }[];
+  aggregatePeriod: "month" | "year";
 }) => {
   if (active && payload?.length) {
     const { payload: data } = payload[0];
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [_, month, year] = data.month.split("/");
+    const dateValue = aggregatePeriod === "month" ? data.month : data.year;
+    const [, month, year] = dateValue?.split("/") ?? [];
+    const periodLabel =
+      aggregatePeriod === "month" ? `Mês: ${month}/${year}` : `Ano: ${year}`;
     return (
       <Stack
         spacing={0.1}
@@ -64,7 +72,7 @@ const ToolTipContent = ({
             color: getColor(Colors.neutral300),
           }}
         >
-          {`Mês: ${month}/${year}`}
+          {periodLabel}
         </p>
       </Stack>
     );
@@ -73,10 +81,15 @@ const ToolTipContent = ({
 
 const PositiveNegativeBarChart = ({
   data,
+  aggregatePeriod,
 }: {
   data: HistoricReportResponse["historic"];
+  aggregatePeriod: "month" | "year";
 }) => {
   const { hideValues } = useHideValues();
+  const dataKey = aggregatePeriod === "month" ? "month" : "year";
+  const tickFormatter =
+    aggregatePeriod === "month" ? monthTickerFormatter : yearTickerFormatter;
 
   return (
     <BarChart
@@ -87,9 +100,9 @@ const PositiveNegativeBarChart = ({
     >
       <CartesianGrid strokeDasharray="5" vertical={false} />
       <XAxis
-        dataKey="month"
+        dataKey={dataKey}
         stroke={getColor(Colors.neutral0)}
-        tickFormatter={monthTickerFormatter}
+        tickFormatter={tickFormatter}
       />
       <YAxis
         type="number"
@@ -99,7 +112,10 @@ const PositiveNegativeBarChart = ({
         tickLine={false}
         tickCount={hideValues ? 0 : undefined}
       />
-      <Tooltip cursor={false} content={<ToolTipContent />} />
+      <Tooltip
+        cursor={false}
+        content={<ToolTipContent aggregatePeriod={aggregatePeriod} />}
+      />
       <Bar
         dataKey="total_bought"
         stackId="a"

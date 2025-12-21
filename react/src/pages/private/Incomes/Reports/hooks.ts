@@ -10,6 +10,7 @@ const HISTORIC_QUERY_KEY = "incomes-historic";
 export const useIncomesHistoric = (params: {
   startDate: Date;
   endDate: Date;
+  aggregatePeriod: "month" | "year";
 }) =>
   useQuery({
     queryKey: [HISTORIC_QUERY_KEY, { params }],

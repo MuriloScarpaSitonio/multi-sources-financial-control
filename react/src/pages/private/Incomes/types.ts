@@ -5,7 +5,8 @@ import { EventTypesMapping, TypesMapping } from "./consts";
 export type HistoricReportResponse = {
   avg: number;
   historic: {
-    month: RawDateString;
+    month?: RawDateString;
+    year?: RawDateString;
     credited: number;
     provisioned: number;
   }[];

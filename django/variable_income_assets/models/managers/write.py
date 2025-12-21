@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Literal, Self
 
 from shared.managers_utils import GenericDateFilters
 
 from django.db.models import Case, CharField, Count, F, OuterRef, Q, QuerySet, Subquery, Sum, Value
-from django.db.models.functions import Coalesce, Concat, Greatest, TruncMonth
+from django.db.models.functions import Coalesce, Concat, Greatest, TruncMonth, TruncYear
 
 from ...choices import AssetTypes, PassiveIncomeEventTypes
 from .expressions import GenericQuerySetExpressions
@@ -15,6 +15,9 @@ if TYPE_CHECKING:  # pragma: no cover
     from datetime import date
 
     from django.db.models.expressions import CombinedExpression
+
+
+AggregatePeriod = Literal["month", "year"]
 
 
 class AssetQuerySet(QuerySet):
@@ -285,13 +288,14 @@ class TransactionQuerySet(QuerySet):
             bought=Sum("total_bought", default=Decimal()), sold=Sum("total_sold", default=Decimal())
         )
 
-    def historic(self) -> Self:
+    def historic(self, aggregate_period: AggregatePeriod = "month") -> Self:
+        if aggregate_period == "month":
+            kwargs = {aggregate_period: TruncMonth("operation_date")}
+        else:
+            kwargs = {aggregate_period: TruncYear("operation_date")}
         return (
-            self.annotate(
-                total=self.expressions.normalized_total_raw_expression,
-                month=TruncMonth("operation_date"),
-            )
-            .values("month")
+            self.annotate(total=self.expressions.normalized_total_raw_expression, **kwargs)
+            .values(aggregate_period)
             .annotate(
                 total_bought=Sum(
                     "total", filter=self.expressions.filters.bought, default=Decimal()
@@ -306,8 +310,8 @@ class TransactionQuerySet(QuerySet):
                 ),
                 diff=F("total_bought") + F("total_sold"),
             )
-            .values("month", "total_bought", "total_sold", "diff")
-            .order_by("month")
+            .values(aggregate_period, "total_bought", "total_sold", "diff")
+            .order_by(aggregate_period)
         )
 
     def aggregate_total_sold_per_type(self, only: set[str] | None = None) -> dict[str, Decimal]:
@@ -520,10 +524,14 @@ class PassiveIncomeQuerySet(QuerySet):
             ),
         )
 
-    def historic(self) -> Self:
+    def historic(self, aggregate_period: AggregatePeriod = "month") -> Self:
+        if aggregate_period == "month":
+            kwargs = {aggregate_period: TruncMonth("operation_date")}
+        else:
+            kwargs = {aggregate_period: TruncYear("operation_date")}
         return (
-            self.annotate(month=TruncMonth("operation_date"))
-            .values("month")
+            self.annotate(**kwargs)
+            .values(aggregate_period)
             .annotate(
                 # TODO: dollar tests
                 credited=self.expressions.sum(
@@ -535,7 +543,7 @@ class PassiveIncomeQuerySet(QuerySet):
                     filter=Q(event_type=PassiveIncomeEventTypes.provisioned),
                 ),
             )
-            .order_by("month")
+            .order_by(aggregate_period)
         )
 
 
