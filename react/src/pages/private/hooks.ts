@@ -31,7 +31,11 @@ export const useHistoricDateState = ({
 
   const handleAggregatePeriodChange = (newPeriod: AggregatePeriod) => {
     if (newPeriod === "year" && !hasUserChangedDates.current) {
-      setStartDate(new Date(2018, 0, 1));
+      const sixYearsBeforeInitial = new Date(initialStartDate);
+      sixYearsBeforeInitial.setFullYear(
+        sixYearsBeforeInitial.getFullYear() - 6
+      );
+      setStartDate(sixYearsBeforeInitial);
       hasUserChangedDates.current = true;
     }
     setAggregatePeriod(newPeriod);

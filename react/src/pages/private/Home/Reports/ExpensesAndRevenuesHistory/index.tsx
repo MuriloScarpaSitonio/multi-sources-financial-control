@@ -1,12 +1,22 @@
 import { useMemo } from "react";
 
-import { ReportBox } from "../../../../../design-system";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
+import Stack from "@mui/material/Stack";
+
+import {
+  DatePickers,
+  FontSizes,
+  ReportBox,
+  Text,
+} from "../../../../../design-system";
 import { useExpensesHistoricReport } from "../../../Expenses/Reports/hooks";
 import { useRevenuesHistoricReport } from "../../../Revenues/Reports/hooks";
+import { useHistoricDateState } from "../../../hooks";
 import Chart from "./Chart";
 
 const ExpensesAndRevenuesHistory = () => {
-  const [startDate, endDate] = useMemo(() => {
+  const [oneYearAgo, threeMonthsInTheFuture] = useMemo(() => {
     const _oneYearAgo = new Date();
     _oneYearAgo.setFullYear(_oneYearAgo.getFullYear() - 1);
 
@@ -16,13 +26,25 @@ const ExpensesAndRevenuesHistory = () => {
   }, []);
 
   const {
+    startDate,
+    endDate,
+    aggregatePeriod,
+    handleAggregatePeriodChange,
+    handleStartDateChange,
+    handleEndDateChange,
+  } = useHistoricDateState({
+    initialStartDate: oneYearAgo,
+    initialEndDate: threeMonthsInTheFuture,
+  });
+
+  const {
     data: expensesHistory,
     isPending: isExpensesHistoryLoading,
     isError: isExpensesHistoryError,
   } = useExpensesHistoricReport({
     startDate,
     endDate,
-    aggregatePeriod: "month",
+    aggregatePeriod,
   });
   const {
     data: revenuesHistory,
@@ -31,7 +53,7 @@ const ExpensesAndRevenuesHistory = () => {
   } = useRevenuesHistoricReport({
     startDate,
     endDate,
-    aggregatePeriod: "month",
+    aggregatePeriod,
   });
   const isLoading = isExpensesHistoryLoading || isRevenuesHistoryLoading;
   const isError = isExpensesHistoryError || isRevenuesHistoryError;
@@ -44,6 +66,7 @@ const ExpensesAndRevenuesHistory = () => {
         const revenues = revenuesHistory.historic[index]?.total ?? 0;
         return {
           month: e.month,
+          year: e.year,
           expenses: e.total * -1,
           revenues,
           diff: revenues - e.total,
@@ -58,7 +81,39 @@ const ExpensesAndRevenuesHistory = () => {
 
   return (
     <ReportBox sx={{ p: 2 }}>
-      <Chart data={chartData} isLoading={isLoading} />
+      <Stack
+        direction="row"
+        gap={1}
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ mb: 1 }}
+      >
+        <Stack direction="row" gap={1} alignItems="center">
+          <Text size={FontSizes.SEMI_REGULAR}>Agregar por</Text>
+          <Select
+            value={aggregatePeriod}
+            onChange={(e) =>
+              handleAggregatePeriodChange(e.target.value as "month" | "year")
+            }
+            size="small"
+          >
+            <MenuItem value="month">Mês</MenuItem>
+            <MenuItem value="year">Ano</MenuItem>
+          </Select>
+        </Stack>
+        <DatePickers
+          views={aggregatePeriod === "month" ? ["month", "year"] : ["year"]}
+          startDate={startDate}
+          setStartDate={handleStartDateChange}
+          endDate={endDate}
+          setEndDate={handleEndDateChange}
+        />
+      </Stack>
+      <Chart
+        data={chartData}
+        isLoading={isLoading}
+        aggregatePeriod={aggregatePeriod}
+      />
     </ReportBox>
   );
 };

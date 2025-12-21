@@ -16,6 +16,7 @@ import { CHART_HEIGHT, CHART_WIDTH } from "../consts";
 import {
   numberTickFormatter,
   monthTickerFormatter,
+  yearTickerFormatter,
   roundDown,
   roundUp,
 } from "../../../utils";
@@ -25,7 +26,8 @@ type DataItem = {
   expenses: number;
   revenues: number;
   diff: number;
-  month: RawDateString;
+  month?: RawDateString;
+  year?: RawDateString;
 };
 
 type Data = {
@@ -36,19 +38,25 @@ type Data = {
   };
 };
 
+type AggregatePeriod = "month" | "year";
+
 const ToolTipContent = ({
   active,
   payload,
+  aggregatePeriod,
 }: {
   active?: boolean;
   payload?: {
     payload: DataItem;
   }[];
+  aggregatePeriod: AggregatePeriod;
 }) => {
   if (active && payload?.length) {
     const { payload: data } = payload[0];
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [_, month, year] = data.month.split("/");
+    const dateLabel =
+      aggregatePeriod === "month"
+        ? `Mês: ${data.month?.split("/")[1]}/${data.month?.split("/")[2]}`
+        : `Ano: ${data.year?.split("/")[2]}`;
     return (
       <Stack
         spacing={0.1}
@@ -91,18 +99,38 @@ const ToolTipContent = ({
             color: getColor(Colors.neutral300),
           }}
         >
-          {`Mês: ${month}/${year}`}
+          {dateLabel}
         </p>
       </Stack>
     );
   }
 };
 
-const Chart = ({ data, isLoading }: { data: Data; isLoading: boolean }) => {
+const Chart = ({
+  data,
+  isLoading,
+  aggregatePeriod,
+}: {
+  data: Data;
+  isLoading: boolean;
+  aggregatePeriod: AggregatePeriod;
+}) => {
   const { hideValues } = useHideValues();
 
   const secondDayOfCurrentMonth = new Date();
   secondDayOfCurrentMonth.setDate(2);
+
+  const dataKey = aggregatePeriod === "month" ? "month" : "year";
+  const tickFormatter =
+    aggregatePeriod === "month" ? monthTickerFormatter : yearTickerFormatter;
+
+  const isFutureDate = (dateStr: string) => {
+    const [day, month, year] = dateStr.split("/");
+    return (
+      new Date(parseInt(year), parseInt(month) - 1, parseInt(day)) >
+      secondDayOfCurrentMonth
+    );
+  };
 
   if (isLoading)
     return (
@@ -117,9 +145,9 @@ const Chart = ({ data, isLoading }: { data: Data; isLoading: boolean }) => {
       margin={{ top: 20, right: 5, left: 5 }}
     >
       <XAxis
-        dataKey="month"
+        dataKey={dataKey}
         stroke={getColor(Colors.neutral0)}
-        tickFormatter={monthTickerFormatter}
+        tickFormatter={tickFormatter}
       />
       <YAxis
         stroke={getColor(Colors.neutral0)}
@@ -130,13 +158,14 @@ const Chart = ({ data, isLoading }: { data: Data; isLoading: boolean }) => {
         tickLine={false}
         tickCount={hideValues ? 0 : undefined}
       />
-      <Tooltip cursor={false} content={<ToolTipContent />} />
+      <Tooltip
+        cursor={false}
+        content={<ToolTipContent aggregatePeriod={aggregatePeriod} />}
+      />
       <Bar dataKey="revenues" stackId="a" radius={[5, 5, 0, 0]}>
         {data.historic.map((d) => {
-          const [day, month, year] = d.month.split("/");
-          const isFuture =
-            new Date(parseInt(year), parseInt(month) - 1, parseInt(day)) >
-            secondDayOfCurrentMonth;
+          const dateStr = d.month ?? d.year ?? "";
+          const isFuture = isFutureDate(dateStr);
 
           const props = isFuture
             ? {
@@ -148,15 +177,13 @@ const Chart = ({ data, isLoading }: { data: Data; isLoading: boolean }) => {
             : {
                 fill: getColor(Colors.brand200),
               };
-          return <Cell key={d.month} {...props} />;
+          return <Cell key={dateStr} {...props} />;
         })}
       </Bar>
       <Bar dataKey="expenses" stackId="a" radius={[5, 5, 0, 0]}>
         {data.historic.map((d) => {
-          const [day, month, year] = d.month.split("/");
-          const isFuture =
-            new Date(parseInt(year), parseInt(month) - 1, parseInt(day)) >
-            secondDayOfCurrentMonth;
+          const dateStr = d.month ?? d.year ?? "";
+          const isFuture = isFutureDate(dateStr);
 
           const props = isFuture
             ? {
@@ -168,7 +195,7 @@ const Chart = ({ data, isLoading }: { data: Data; isLoading: boolean }) => {
             : {
                 fill: getColor(Colors.danger200),
               };
-          return <Cell key={d.month} {...props} />;
+          return <Cell key={dateStr} {...props} />;
         })}
       </Bar>
       <ReferenceLine

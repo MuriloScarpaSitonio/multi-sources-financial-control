@@ -40,7 +40,8 @@ export type ReportUnknownAggregationData =
 
 export type HistoricReportDataItem = {
   total: number;
-  month: RawDateString;
+  month?: RawDateString;
+  year?: RawDateString;
 };
 
 export type HistoricReportResponse = {
