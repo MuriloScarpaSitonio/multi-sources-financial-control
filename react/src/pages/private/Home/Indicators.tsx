@@ -1,12 +1,22 @@
+import { useMemo } from "react";
+
 import Grid from "@mui/material/Grid";
+import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import MonetizationOnOutlinedIcon from "@mui/icons-material/MonetizationOnOutlined";
 import SvgIcon from "@mui/material/SvgIcon";
 
-import { startOfMonth } from "date-fns";
+import { startOfMonth, subDays } from "date-fns";
 
 import { Indicator } from "../components";
-import { InvestmentUpIcon } from "../../../design-system";
+import {
+  Colors,
+  FontSizes,
+  FontWeights,
+  getColor,
+  InvestmentUpIcon,
+  Text,
+} from "../../../design-system";
 import { useBankAccount } from "../Expenses/hooks";
 import { useAssetsIndicators } from "../Assets/Indicators/hooks";
 import AssetPercentageChangeSecondaryIndicator from "../Assets/Indicators/PercentageChangeSecondaryIndicator";
@@ -15,13 +25,77 @@ import { useExpensesIndicators } from "../Expenses/Indicators/hooks";
 import { customEndOfMonth } from "../utils";
 import ExpensePercentageChangeSecondaryIndicator from "../Expenses/Indicators/PercentageChangeSecondaryIndicator";
 import { useRevenuesIndicators } from "../Revenues/hooks/useRevenuesIndicators";
-import { useMemo } from "react";
 import ExpenseRevenuesRatioLinearProgress from "../Expenses/Indicators/ExpenseRevenuesRatioLinearProgress";
+import { IndicatorBox } from "../Expenses/Indicators/components";
+import { useIncomesSumCredited } from "../Incomes/Indicators/hooks";
+import { useHideValues } from "../../../hooks/useHideValues";
+
+const CreditedPassiveIncomesLast90DaysIndicator = () => {
+  const { startDate, endDate } = useMemo(() => {
+    const now = new Date();
+    return {
+      startDate: subDays(now, 90),
+      endDate: now,
+    };
+  }, []);
+
+  const { data: { total: incomesSumCredited } = { total: 0 }, isPending: isLoading } =
+    useIncomesSumCredited({ startDate, endDate });
+
+  const { hideValues } = useHideValues();
+
+  if (isLoading) {
+    return (
+      <Stack sx={{ mt: 2 }}>
+        <Skeleton width="100%" height={80} sx={{ borderRadius: "10px" }} />
+      </Stack>
+    );
+  }
+
+  return (
+    <Stack sx={{ mt: 2 }}>
+      <IndicatorBox variant={incomesSumCredited > 0 ? "success" : "danger"} width="100%">
+        <Text size={FontSizes.SMALL} color={Colors.neutral300}>
+          Você recebeu{" "}
+          {hideValues ? (
+            <Skeleton
+              component="span"
+              sx={{
+                bgcolor: getColor(Colors.neutral300),
+                width: "60px",
+                display: "inline-block",
+              }}
+              animation={false}
+            />
+          ) : (
+            <Text
+              component="span"
+              size={FontSizes.SMALL}
+              weight={FontWeights.BOLD}
+              color={Colors.neutral0}
+            >
+              R${" "}
+              {incomesSumCredited.toLocaleString("pt-br", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </Text>
+          )}{" "}
+          em proventos nos últimos 90 dias
+        </Text>
+      </IndicatorBox>
+    </Stack>
+  );
+};
 
 const Indicators = () => {
-  const now = new Date();
-  const startDate = startOfMonth(now);
-  const endDate = customEndOfMonth(now);
+  const { startDate, endDate } = useMemo(() => {
+    const now = new Date();
+    return {
+      startDate: startOfMonth(now),
+      endDate: customEndOfMonth(now),
+    };
+  }, []);
 
   const {
     data: assetsIndicators,
@@ -112,6 +186,7 @@ const Indicators = () => {
           isLoading={isAssetsIndicatorsLoading}
           isError={isAssetsIndicatorsError}
         />
+        <CreditedPassiveIncomesLast90DaysIndicator />
       </Grid>
       <Grid item xs={6}>
         <Stack gap={1}>
