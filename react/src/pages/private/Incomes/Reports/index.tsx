@@ -1,6 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
-
-import { useMemo, useState } from "react";
+import { Dispatch, SetStateAction, useMemo } from "react";
 
 import Grid from "@mui/material/Grid";
 import MenuItem from "@mui/material/MenuItem";
@@ -21,6 +19,7 @@ import {
   BarChartCreditedAndProvisionedWithAvg,
   HorizontalBarChart,
 } from "./charts";
+import { useHistoricDateState } from "../../hooks";
 
 type DatesState = {
   startDate: Date;
@@ -29,18 +28,22 @@ type DatesState = {
   setEndDate: Dispatch<SetStateAction<Date>>;
 };
 
-type HistoricContentProps = DatesState & {
+type HistoricContentProps = {
+  startDate: Date;
+  endDate: Date;
   aggregatePeriod: "month" | "year";
-  setAggregatePeriod: Dispatch<SetStateAction<"month" | "year">>;
+  handleAggregatePeriodChange: (newPeriod: "month" | "year") => void;
+  handleStartDateChange: Dispatch<SetStateAction<Date>>;
+  handleEndDateChange: Dispatch<SetStateAction<Date>>;
 };
 
 const HistoricContent = ({
   startDate,
-  setStartDate,
   endDate,
-  setEndDate,
   aggregatePeriod,
-  setAggregatePeriod,
+  handleAggregatePeriodChange,
+  handleStartDateChange,
+  handleEndDateChange,
 }: HistoricContentProps) => {
   const {
     data,
@@ -60,7 +63,7 @@ const HistoricContent = ({
           <Select
             value={aggregatePeriod}
             onChange={(e) =>
-              setAggregatePeriod(e.target.value as "month" | "year")
+              handleAggregatePeriodChange(e.target.value as "month" | "year")
             }
           >
             <MenuItem value="month">Mês</MenuItem>
@@ -70,9 +73,9 @@ const HistoricContent = ({
         <DatePickers
           views={aggregatePeriod === "month" ? ["month", "year"] : ["year"]}
           startDate={startDate}
-          setStartDate={setStartDate}
+          setStartDate={handleStartDateChange}
           endDate={endDate}
-          setEndDate={setEndDate}
+          setEndDate={handleEndDateChange}
         />
       </Stack>
       <BarChartCreditedAndProvisionedWithAvg
@@ -114,42 +117,6 @@ const TotalBoughtPerAssetTypeContent = ({
   );
 };
 
-const Top10AssetsChart = ({
-  startDate,
-  setStartDate,
-  endDate,
-  setEndDate,
-}: DatesState) => (
-  <ReportBox>
-    <TotalBoughtPerAssetTypeContent
-      startDate={startDate}
-      setStartDate={setStartDate}
-      endDate={endDate}
-      setEndDate={setEndDate}
-    />
-  </ReportBox>
-);
-
-const HistoricChart = ({
-  startDate,
-  setStartDate,
-  endDate,
-  setEndDate,
-  aggregatePeriod,
-  setAggregatePeriod,
-}: HistoricContentProps) => (
-  <ReportBox>
-    <HistoricContent
-      startDate={startDate}
-      setStartDate={setStartDate}
-      endDate={endDate}
-      setEndDate={setEndDate}
-      aggregatePeriod={aggregatePeriod}
-      setAggregatePeriod={setAggregatePeriod}
-    />
-  </ReportBox>
-);
-
 const Reports = () => {
   const [oneYearAgo, endOfThisMonthPlus3Months] = useMemo(() => {
     const _oneYearAgo = new Date();
@@ -158,37 +125,50 @@ const Reports = () => {
     return [_oneYearAgo, endOfMonth(addMonths(new Date(), 3))];
   }, []);
 
-  const [startDate, setStartDate] = useState(oneYearAgo);
-  const [endDate, setEndDate] = useState(endOfThisMonthPlus3Months);
-  const [aggregatePeriod, setAggregatePeriod] = useState<"month" | "year">(
-    "month",
-  );
+  const {
+    startDate,
+    endDate,
+    aggregatePeriod,
+    handleAggregatePeriodChange,
+    handleStartDateChange,
+    handleEndDateChange,
+    setStartDate,
+    setEndDate,
+  } = useHistoricDateState({
+    initialStartDate: oneYearAgo,
+    initialEndDate: endOfThisMonthPlus3Months,
+  });
+
   return (
     <Grid container spacing={4}>
       <Grid item xs={6}>
         <Stack spacing={4}>
           {/* no idea why spacing does not work */}
           <Text extraStyle={{ marginBottom: 2 }}>Histórico</Text>
-          <HistoricChart
-            startDate={startDate}
-            setStartDate={setStartDate}
-            endDate={endDate}
-            setEndDate={setEndDate}
-            aggregatePeriod={aggregatePeriod}
-            setAggregatePeriod={setAggregatePeriod}
-          />
+          <ReportBox>
+            <HistoricContent
+              startDate={startDate}
+              endDate={endDate}
+              aggregatePeriod={aggregatePeriod}
+              handleAggregatePeriodChange={handleAggregatePeriodChange}
+              handleStartDateChange={handleStartDateChange}
+              handleEndDateChange={handleEndDateChange}
+            />
+          </ReportBox>
         </Stack>
       </Grid>
       <Grid item xs={6}>
         <Stack spacing={4}>
           {/* no idea why spacing does not work */}
           <Text extraStyle={{ marginBottom: 2 }}>Top 10 ativos</Text>
-          <Top10AssetsChart
-            startDate={startDate}
-            setStartDate={setStartDate}
-            endDate={endDate}
-            setEndDate={setEndDate}
-          />
+          <ReportBox>
+            <TotalBoughtPerAssetTypeContent
+              startDate={startDate}
+              setStartDate={setStartDate}
+              endDate={endDate}
+              setEndDate={setEndDate}
+            />
+          </ReportBox>
         </Stack>
       </Grid>
     </Grid>

@@ -1,4 +1,4 @@
-import { useContext, useMemo, useState } from "react";
+import { useContext, useMemo } from "react";
 
 import Grid from "@mui/material/Grid";
 import MenuItem from "@mui/material/MenuItem";
@@ -22,6 +22,7 @@ import PositiveNegativeBarChart from "./PositiveNegativeBarChart";
 import { TransactionsContext } from "../context";
 import { GroupBy } from "../../Assets/Reports/types";
 import { AssetsTypesMapping } from "../../Assets/consts";
+import { useHistoricDateState } from "../../hooks";
 
 const colorPredicate = (label: string) => AssetsTypesMapping[label].color;
 
@@ -33,11 +34,18 @@ const HistoricContent = () => {
     return [_oneYearAgo, endOfMonth(new Date())];
   }, []);
 
-  const [startDate, setStartDate] = useState(oneYearAgo);
-  const [endDate, setEndDate] = useState(endOfThisMonth);
-  const [aggregatePeriod, setAggregatePeriod] = useState<"month" | "year">(
-    "month",
-  );
+  const {
+    startDate,
+    endDate,
+    aggregatePeriod,
+    handleAggregatePeriodChange,
+    handleStartDateChange,
+    handleEndDateChange,
+  } = useHistoricDateState({
+    initialStartDate: oneYearAgo,
+    initialEndDate: endOfThisMonth,
+  });
+
   const {
     data,
     // isPending TODO
@@ -56,7 +64,7 @@ const HistoricContent = () => {
           <Select
             value={aggregatePeriod}
             onChange={(e) =>
-              setAggregatePeriod(e.target.value as "month" | "year")
+              handleAggregatePeriodChange(e.target.value as "month" | "year")
             }
           >
             <MenuItem value="month">Mês</MenuItem>
@@ -66,9 +74,9 @@ const HistoricContent = () => {
         <DatePickers
           views={aggregatePeriod === "month" ? ["month", "year"] : ["year"]}
           startDate={startDate}
-          setStartDate={setStartDate}
+          setStartDate={handleStartDateChange}
           endDate={endDate}
-          setEndDate={setEndDate}
+          setEndDate={handleEndDateChange}
         />
       </Stack>
       <PositiveNegativeBarChart

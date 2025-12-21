@@ -33,6 +33,7 @@ import {
 import ReportTabs from "../../../../design-system/components/ReportTabs";
 import { ExpensesContext } from "../context";
 import { ExpensesTypesColorMap } from "../consts";
+import { useHistoricDateState } from "../../hooks";
 
 const PercentageContent = ({ groupBy }: { groupBy: GroupBy }) => {
   const {
@@ -180,11 +181,18 @@ const HistoricContent = () => {
     return [_oneYearAgo, _threeMonthsInTheFuture];
   }, []);
 
-  const [startDate, setStartDate] = useState(oneYearAgo);
-  const [endDate, setEndDate] = useState(threeMonthsInTheFuture);
-  const [aggregatePeriod, setAggregatePeriod] = useState<"month" | "year">(
-    "month"
-  );
+  const {
+    startDate,
+    endDate,
+    aggregatePeriod,
+    handleAggregatePeriodChange,
+    handleStartDateChange,
+    handleEndDateChange,
+  } = useHistoricDateState({
+    initialStartDate: oneYearAgo,
+    initialEndDate: threeMonthsInTheFuture,
+  });
+
   const {
     data,
     // isPending TODO
@@ -207,7 +215,7 @@ const HistoricContent = () => {
           <Select
             value={aggregatePeriod}
             onChange={(e) =>
-              setAggregatePeriod(e.target.value as "month" | "year")
+              handleAggregatePeriodChange(e.target.value as "month" | "year")
             }
           >
             <MenuItem value="month">Mês</MenuItem>
@@ -217,9 +225,9 @@ const HistoricContent = () => {
         <DatePickers
           views={aggregatePeriod === "month" ? ["month", "year"] : ["year"]}
           startDate={startDate}
-          setStartDate={setStartDate}
+          setStartDate={handleStartDateChange}
           endDate={endDate}
-          setEndDate={setEndDate}
+          setEndDate={handleEndDateChange}
         />
       </Stack>
       <BarChartWithReferenceLine

@@ -23,6 +23,7 @@ import {
 } from "./hooks";
 import { ExpensesContext } from "../../Expenses/context";
 import { MenuItem, Select } from "@mui/material";
+import { useHistoricDateState } from "../../hooks";
 
 enum Kinds {
   PERCENTAGE,
@@ -39,11 +40,17 @@ const HistoricContent = () => {
     return [_oneYearAgo, _threeMonthsInTheFuture];
   }, []);
 
-  const [startDate, setStartDate] = useState(oneYearAgo);
-  const [endDate, setEndDate] = useState(threeMonthsInTheFuture);
-  const [aggregatePeriod, setAggregatePeriod] = useState<"month" | "year">(
-    "month"
-  );
+  const {
+    startDate,
+    endDate,
+    aggregatePeriod,
+    handleAggregatePeriodChange,
+    handleStartDateChange,
+    handleEndDateChange,
+  } = useHistoricDateState({
+    initialStartDate: oneYearAgo,
+    initialEndDate: threeMonthsInTheFuture,
+  });
 
   const {
     data,
@@ -67,7 +74,7 @@ const HistoricContent = () => {
           <Select
             value={aggregatePeriod}
             onChange={(e) =>
-              setAggregatePeriod(e.target.value as "month" | "year")
+              handleAggregatePeriodChange(e.target.value as "month" | "year")
             }
           >
             <MenuItem value="month">Mês</MenuItem>
@@ -77,9 +84,9 @@ const HistoricContent = () => {
         <DatePickers
           views={aggregatePeriod === "month" ? ["month", "year"] : ["year"]}
           startDate={startDate}
-          setStartDate={setStartDate}
+          setStartDate={handleStartDateChange}
           endDate={endDate}
-          setEndDate={setEndDate}
+          setEndDate={handleEndDateChange}
         />
       </Stack>
       <BarChartWithReferenceLine
