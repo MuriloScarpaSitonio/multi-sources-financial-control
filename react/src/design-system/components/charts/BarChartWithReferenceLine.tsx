@@ -3,6 +3,8 @@ import Stack from "@mui/material/Stack";
 import {
   Bar,
   BarChart,
+  LineChart,
+  Line,
   Cell,
   ReferenceLine,
   Tooltip,
@@ -18,6 +20,7 @@ import {
 import { RawDateString } from "../../../types";
 import { Colors } from "../../enums";
 import { getColor } from "../../utils";
+import { ChartType } from "../ChartTypeToggle";
 
 type HistoricReportDataItem = {
   total: number;
@@ -104,11 +107,13 @@ const BarChartWithReferenceLine = ({
   referenceValue,
   variant,
   aggregatePeriod,
+  chartType = "bar",
 }: {
   data: HistoricReportDataItem[];
   referenceValue: number;
   variant: "danger" | "success";
   aggregatePeriod: "month" | "year";
+  chartType?: ChartType;
 }) => {
   const { hideValues } = useHideValues();
 
@@ -116,30 +121,66 @@ const BarChartWithReferenceLine = ({
   secondDayOfCurrentMonth.setDate(2);
   const isVariantDanger = variant === "danger";
 
+  const commonProps = {
+    width: CHART_WIDTH,
+    height: CHART_HEIGHT,
+    data,
+    margin: { left: 25 },
+  };
+
+  const xAxisProps = {
+    dataKey: aggregatePeriod,
+    stroke: getColor(Colors.neutral0),
+    tickFormatter:
+      aggregatePeriod === "month" ? monthTickerFormatter : yearTickerFormatter,
+  };
+
+  const yAxisProps = {
+    type: "number" as const,
+    stroke: getColor(Colors.neutral0),
+    tickFormatter: numberTickFormatter,
+    axisLine: false,
+    tickLine: false,
+    tickCount: hideValues ? 0 : undefined,
+  };
+
+  if (chartType === "line") {
+    const strokeColor = isVariantDanger ? Colors.danger200 : Colors.brand200;
+    return (
+      <LineChart {...commonProps}>
+        <XAxis {...xAxisProps} />
+        <YAxis {...yAxisProps} />
+        <Tooltip
+          cursor={false}
+          content={
+            <BarChartWithReferenceLineToolTipContent
+              variant={variant}
+              aggregatePeriod={aggregatePeriod}
+            />
+          }
+        />
+        <Line
+          type="monotone"
+          dataKey="total"
+          stroke={getColor(strokeColor)}
+          strokeWidth={2}
+          dot={false}
+        />
+        <ReferenceLine
+          y={referenceValue}
+          label="Média"
+          stroke={getColor(strokeColor)}
+          strokeWidth={1}
+          strokeDasharray="3 3"
+        />
+      </LineChart>
+    );
+  }
+
   return (
-    <BarChart
-      width={CHART_WIDTH}
-      height={CHART_HEIGHT}
-      data={data}
-      margin={{ left: 25 }}
-    >
-      <XAxis
-        dataKey={aggregatePeriod}
-        stroke={getColor(Colors.neutral0)}
-        tickFormatter={
-          aggregatePeriod === "month"
-            ? monthTickerFormatter
-            : yearTickerFormatter
-        }
-      />
-      <YAxis
-        type="number"
-        stroke={getColor(Colors.neutral0)}
-        tickFormatter={numberTickFormatter}
-        axisLine={false}
-        tickLine={false}
-        tickCount={hideValues ? 0 : undefined}
-      />
+    <BarChart {...commonProps}>
+      <XAxis {...xAxisProps} />
+      <YAxis {...yAxisProps} />
       <Tooltip
         cursor={false}
         content={

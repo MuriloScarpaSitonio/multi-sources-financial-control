@@ -1,10 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 
 import {
+  ChartType,
+  ChartTypeToggle,
   DatePickers,
   FontSizes,
   ReportBox,
@@ -16,6 +18,7 @@ import { useHistoricDateState } from "../../../hooks";
 import Chart from "./Chart";
 
 const ExpensesAndRevenuesHistory = () => {
+  const [chartType, setChartType] = useState<ChartType>("bar");
   const [oneYearAgo, threeMonthsInTheFuture] = useMemo(() => {
     const _oneYearAgo = new Date();
     _oneYearAgo.setFullYear(_oneYearAgo.getFullYear() - 1);
@@ -88,18 +91,21 @@ const ExpensesAndRevenuesHistory = () => {
         justifyContent="space-between"
         sx={{ mb: 1 }}
       >
-        <Stack direction="row" gap={1} alignItems="center">
-          <Text size={FontSizes.SEMI_REGULAR}>Agregar por</Text>
-          <Select
-            value={aggregatePeriod}
-            onChange={(e) =>
-              handleAggregatePeriodChange(e.target.value as "month" | "year")
-            }
-            size="small"
-          >
-            <MenuItem value="month">Mês</MenuItem>
-            <MenuItem value="year">Ano</MenuItem>
-          </Select>
+        <Stack direction="row" gap={2} alignItems="center">
+          <ChartTypeToggle value={chartType} onChange={setChartType} />
+          <Stack direction="row" gap={1} alignItems="center">
+            <Text size={FontSizes.SEMI_REGULAR}>Agregar por</Text>
+            <Select
+              value={aggregatePeriod}
+              onChange={(e) =>
+                handleAggregatePeriodChange(e.target.value as "month" | "year")
+              }
+              size="small"
+            >
+              <MenuItem value="month">Mês</MenuItem>
+              <MenuItem value="year">Ano</MenuItem>
+            </Select>
+          </Stack>
         </Stack>
         <DatePickers
           views={aggregatePeriod === "month" ? ["month", "year"] : ["year"]}
@@ -113,6 +119,7 @@ const ExpensesAndRevenuesHistory = () => {
         data={chartData}
         isLoading={isLoading}
         aggregatePeriod={aggregatePeriod}
+        chartType={chartType}
       />
     </ReportBox>
   );

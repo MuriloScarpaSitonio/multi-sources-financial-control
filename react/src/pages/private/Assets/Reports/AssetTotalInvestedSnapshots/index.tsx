@@ -1,13 +1,19 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
+import Stack from "@mui/material/Stack";
 import { startOfMonth, subYears } from "date-fns";
 
 import { useAssetsTotalInvestedHistory } from "./hooks";
-import ReportBox from "../../../../../design-system/components/ReportBox";
+import {
+  ChartType,
+  ChartTypeToggle,
+  ReportBox,
+} from "../../../../../design-system";
 import { useAssetsIndicators } from "../../Indicators/hooks";
 import Chart from "./Chart";
 
 const AssetTotalInvestedSnapshots = () => {
+  const [chartType, setChartType] = useState<ChartType>("line");
   const [startDate, endDate, nowString] = useMemo(() => {
     const now = new Date();
     const firstDayOfMonth = startOfMonth(now);
@@ -37,9 +43,13 @@ const AssetTotalInvestedSnapshots = () => {
 
   return (
     <ReportBox sx={{ p: 2 }}>
+      <Stack direction="row" justifyContent="flex-start" sx={{ mb: 1 }}>
+        <ChartTypeToggle value={chartType} onChange={setChartType} />
+      </Stack>
       <Chart
         data={chartData}
         isLoading={isAssetsIndicatorsLoading || isPatrimonyHistoryLoading}
+        chartType={chartType}
       />
     </ReportBox>
   );

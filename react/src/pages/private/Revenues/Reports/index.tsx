@@ -6,6 +6,8 @@ import Tab from "@mui/material/Tab";
 
 import {
   BarChartWithReferenceLine,
+  ChartType,
+  ChartTypeToggle,
   DatePickers,
   FontSizes,
   PieChart,
@@ -31,6 +33,7 @@ enum Kinds {
 }
 
 const HistoricContent = () => {
+  const [chartType, setChartType] = useState<ChartType>("bar");
   const [oneYearAgo, threeMonthsInTheFuture] = useMemo(() => {
     const _oneYearAgo = new Date();
     _oneYearAgo.setFullYear(_oneYearAgo.getFullYear() - 1);
@@ -69,17 +72,20 @@ const HistoricContent = () => {
         alignItems="center"
         justifyContent="space-around"
       >
-        <Stack direction="row" gap={1} alignItems="center">
-          <Text size={FontSizes.SEMI_REGULAR}>Agregar por</Text>
-          <Select
-            value={aggregatePeriod}
-            onChange={(e) =>
-              handleAggregatePeriodChange(e.target.value as "month" | "year")
-            }
-          >
-            <MenuItem value="month">Mês</MenuItem>
-            <MenuItem value="year">Ano</MenuItem>
-          </Select>
+        <Stack direction="row" gap={2} alignItems="center">
+          <ChartTypeToggle value={chartType} onChange={setChartType} />
+          <Stack direction="row" gap={1} alignItems="center">
+            <Text size={FontSizes.SEMI_REGULAR}>Agregar por</Text>
+            <Select
+              value={aggregatePeriod}
+              onChange={(e) =>
+                handleAggregatePeriodChange(e.target.value as "month" | "year")
+              }
+            >
+              <MenuItem value="month">Mês</MenuItem>
+              <MenuItem value="year">Ano</MenuItem>
+            </Select>
+          </Stack>
         </Stack>
         <DatePickers
           views={aggregatePeriod === "month" ? ["month", "year"] : ["year"]}
@@ -94,6 +100,7 @@ const HistoricContent = () => {
         referenceValue={data?.avg as HistoricReportResponse["avg"]}
         variant="success"
         aggregatePeriod={aggregatePeriod}
+        chartType={chartType}
       />
     </Stack>
   );

@@ -3,14 +3,16 @@ import Skeleton from "@mui/material/Skeleton";
 
 import {
   BarChart,
+  LineChart,
   Bar,
+  Line,
   Cell,
   ReferenceLine,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { Colors, getColor } from "../../../../../design-system";
+import { ChartType, Colors, getColor } from "../../../../../design-system";
 import { RawDateString } from "../../../../../types";
 import { CHART_HEIGHT, CHART_WIDTH } from "../consts";
 import {
@@ -110,10 +112,12 @@ const Chart = ({
   data,
   isLoading,
   aggregatePeriod,
+  chartType,
 }: {
   data: Data;
   isLoading: boolean;
   aggregatePeriod: AggregatePeriod;
+  chartType: ChartType;
 }) => {
   const { hideValues } = useHideValues();
 
@@ -136,28 +140,78 @@ const Chart = ({
     return (
       <Skeleton variant="rounded" width={CHART_WIDTH} height={CHART_HEIGHT} />
     );
+
+  const commonProps = {
+    width: CHART_WIDTH,
+    height: CHART_HEIGHT,
+    data: data.historic,
+    margin: { top: 20, right: 5, left: 5 },
+  };
+
+  const xAxisProps = {
+    dataKey,
+    stroke: getColor(Colors.neutral0),
+    tickFormatter,
+  };
+
+  const yAxisProps = {
+    stroke: getColor(Colors.neutral0),
+    tickFormatter: numberTickFormatter,
+    type: "number" as const,
+    domain: ([dataMin, dataMax]: [number, number]): [number, number] => [
+      roundDown(dataMin),
+      roundUp(dataMax),
+    ],
+    axisLine: false,
+    tickLine: false,
+    tickCount: hideValues ? 0 : undefined,
+  };
+
+  if (chartType === "line") {
+    return (
+      <LineChart {...commonProps}>
+        <XAxis {...xAxisProps} />
+        <YAxis {...yAxisProps} />
+        <Tooltip
+          cursor={false}
+          content={<ToolTipContent aggregatePeriod={aggregatePeriod} />}
+        />
+        <Line
+          type="monotone"
+          dataKey="revenues"
+          stroke={getColor(Colors.brand200)}
+          strokeWidth={2}
+          dot={false}
+        />
+        <Line
+          type="monotone"
+          dataKey="expenses"
+          stroke={getColor(Colors.danger200)}
+          strokeWidth={2}
+          dot={false}
+        />
+        <ReferenceLine
+          y={data.avg.expenses}
+          label="Média despesas"
+          stroke={getColor(Colors.danger200)}
+          strokeWidth={1}
+          strokeDasharray="3 3"
+        />
+        <ReferenceLine
+          y={data.avg.revenues}
+          label="Média receitas"
+          stroke={getColor(Colors.brand200)}
+          strokeWidth={1}
+          strokeDasharray="3 3"
+        />
+      </LineChart>
+    );
+  }
+
   return (
-    <BarChart
-      width={CHART_WIDTH}
-      height={CHART_HEIGHT}
-      stackOffset="sign"
-      data={data.historic}
-      margin={{ top: 20, right: 5, left: 5 }}
-    >
-      <XAxis
-        dataKey={dataKey}
-        stroke={getColor(Colors.neutral0)}
-        tickFormatter={tickFormatter}
-      />
-      <YAxis
-        stroke={getColor(Colors.neutral0)}
-        tickFormatter={numberTickFormatter}
-        type="number"
-        domain={([dataMin, dataMax]) => [roundDown(dataMin), roundUp(dataMax)]}
-        axisLine={false}
-        tickLine={false}
-        tickCount={hideValues ? 0 : undefined}
-      />
+    <BarChart {...commonProps} stackOffset="sign">
+      <XAxis {...xAxisProps} />
+      <YAxis {...yAxisProps} />
       <Tooltip
         cursor={false}
         content={<ToolTipContent aggregatePeriod={aggregatePeriod} />}

@@ -3,6 +3,8 @@ import Stack from "@mui/material/Stack";
 import {
   Bar,
   BarChart,
+  LineChart,
+  Line,
   CartesianGrid,
   Legend,
   ReferenceLine,
@@ -12,6 +14,7 @@ import {
 } from "recharts";
 
 import {
+  ChartType,
   Colors,
   FontSizes,
   getColor,
@@ -202,10 +205,12 @@ export const BarChartCreditedAndProvisionedWithAvg = ({
   data,
   avg,
   aggregatePeriod,
+  chartType,
 }: {
   data: HistoricReportResponse["historic"];
   avg: number;
   aggregatePeriod: "month" | "year";
+  chartType: ChartType;
 }) => {
   const secondDayOfCurrentMonth = new Date();
   secondDayOfCurrentMonth.setDate(2);
@@ -215,26 +220,74 @@ export const BarChartCreditedAndProvisionedWithAvg = ({
   const tickFormatter =
     aggregatePeriod === "month" ? monthTickerFormatter : yearTickerFormatter;
 
+  const commonProps = {
+    width: CHART_WIDTH * 1.15,
+    height: CHART_HEIGHT,
+    data,
+    margin: { left: 25 },
+  };
+
+  const xAxisProps = {
+    dataKey,
+    stroke: getColor(Colors.neutral0),
+    tickFormatter,
+  };
+
+  const yAxisProps = {
+    type: "number" as const,
+    stroke: getColor(Colors.neutral0),
+    tickFormatter: numberTickFormatter,
+    axisLine: false,
+    tickLine: false,
+    tickCount: hideValues ? 0 : undefined,
+  };
+
+  if (chartType === "line") {
+    return (
+      <LineChart {...commonProps}>
+        <XAxis {...xAxisProps} />
+        <YAxis {...yAxisProps} />
+        <Tooltip
+          cursor={false}
+          content={
+            <BarChartCreditedAndProvisionedWithAvgToolTipContent
+              aggregatePeriod={aggregatePeriod}
+            />
+          }
+        />
+        <Legend verticalAlign="top" content={<LegendContent />} />
+        <Line
+          type="monotone"
+          dataKey="credited"
+          stroke={getColor(Colors.brand200)}
+          strokeWidth={2}
+          dot={false}
+          name="Creditado"
+        />
+        <Line
+          type="monotone"
+          dataKey="provisioned"
+          stroke={getColor(Colors.brand100)}
+          strokeWidth={2}
+          strokeDasharray="5 5"
+          dot={false}
+          name="Provisionado"
+        />
+        <ReferenceLine
+          y={avg}
+          label="Média"
+          stroke={getColor(Colors.brand200)}
+          strokeWidth={1}
+          strokeDasharray="3 3"
+        />
+      </LineChart>
+    );
+  }
+
   return (
-    <BarChart
-      width={CHART_WIDTH * 1.15}
-      height={CHART_HEIGHT}
-      data={data}
-      margin={{ left: 25 }}
-    >
-      <XAxis
-        dataKey={dataKey}
-        stroke={getColor(Colors.neutral0)}
-        tickFormatter={tickFormatter}
-      />
-      <YAxis
-        type="number"
-        stroke={getColor(Colors.neutral0)}
-        tickFormatter={numberTickFormatter}
-        axisLine={false}
-        tickLine={false}
-        tickCount={hideValues ? 0 : undefined}
-      />
+    <BarChart {...commonProps}>
+      <XAxis {...xAxisProps} />
+      <YAxis {...yAxisProps} />
       <Tooltip
         cursor={false}
         content={

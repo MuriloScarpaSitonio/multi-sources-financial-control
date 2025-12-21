@@ -3,14 +3,16 @@ import Stack from "@mui/material/Stack";
 
 import {
   LineChart,
+  BarChart,
   Line,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
 } from "recharts";
 
-import { Colors, getColor } from "../../../../../design-system";
+import { ChartType, Colors, getColor } from "../../../../../design-system";
 import { roundDown, roundUp, numberTickFormatter } from "../../../utils";
 import { useHideValues } from "../../../../../hooks/useHideValues";
 
@@ -64,60 +66,90 @@ type DataItem =
       operation_date: string;
     };
 
+const xAxisTickFormatter = (value: string, index: number) => {
+  if (!index) return "";
+  if (value === "agora") return value;
+  const [year, month] = value.split("-");
+  return `${month}/${year}`;
+};
+
 const Chart = ({
   data,
   isLoading,
   dataKey = "total",
   width = CHART_WIDTH,
   height = CHART_HEIGHT,
+  chartType = "line",
 }: {
   data: DataItem[] | undefined;
   isLoading: boolean;
   dataKey?: string;
   width?: number;
   height?: number;
+  chartType?: ChartType;
 }) => {
   const { hideValues } = useHideValues();
 
   if (isLoading)
     return <Skeleton variant="rounded" width={width} height={height} />;
 
+  const commonProps = {
+    width,
+    height,
+    data,
+    margin: { top: 20, right: 5, left: 5 },
+  };
+
+  const xAxisProps = {
+    dataKey: "operation_date",
+    stroke: getColor(Colors.neutral0),
+    tickLine: false,
+    tickFormatter: xAxisTickFormatter,
+  };
+
+  const yAxisProps = {
+    tickLine: false,
+    stroke: getColor(Colors.neutral0),
+    tickFormatter: numberTickFormatter,
+    type: "number" as const,
+    domain: ([dataMin, dataMax]: [number, number]): [number, number] => [
+      roundDown(dataMin),
+      roundUp(dataMax),
+    ],
+    axisLine: false,
+    tickCount: hideValues ? 0 : undefined,
+  };
+
+  if (chartType === "line") {
+    return (
+      <LineChart {...commonProps}>
+        <CartesianGrid strokeDasharray="5" vertical={false} />
+        <XAxis {...xAxisProps} />
+        <YAxis {...yAxisProps} />
+        <Tooltip cursor={false} content={<TooltipContent />} />
+        <Line
+          type="bump"
+          dataKey={dataKey}
+          stroke={getColor(Colors.brand300)}
+          strokeWidth={3.5}
+          dot={false}
+        />
+      </LineChart>
+    );
+  }
+
   return (
-    <LineChart
-      width={width}
-      height={height}
-      data={data}
-      margin={{ top: 20, right: 5, left: 5 }}
-    >
+    <BarChart {...commonProps}>
       <CartesianGrid strokeDasharray="5" vertical={false} />
-      <XAxis
-        dataKey="operation_date"
-        stroke={getColor(Colors.neutral0)}
-        tickLine={false}
-        tickFormatter={(value, index) => {
-          if (!index) return "";
-          if (value === "agora") return value;
-          const [year, month] = value.split("-");
-          return `${month}/${year}`;
-        }}
-      />
-      <YAxis
-        tickLine={false}
-        stroke={getColor(Colors.neutral0)}
-        tickFormatter={numberTickFormatter}
-        type="number"
-        domain={([dataMin, dataMax]) => [roundDown(dataMin), roundUp(dataMax)]}
-        axisLine={false}
-        tickCount={hideValues ? 0 : undefined}
-      />
+      <XAxis {...xAxisProps} />
+      <YAxis {...yAxisProps} />
       <Tooltip cursor={false} content={<TooltipContent />} />
-      <Line
-        type="bump"
+      <Bar
         dataKey={dataKey}
-        stroke={getColor(Colors.brand300)}
-        strokeWidth={3.5}
+        fill={getColor(Colors.brand300)}
+        radius={[5, 5, 0, 0]}
       />
-    </LineChart>
+    </BarChart>
   );
 };
 

@@ -1,4 +1,6 @@
 export { default as AutoCompleteMultiInput } from "./AutoCompleteMultiInput";
+export { default as ChartTypeToggle } from "./ChartTypeToggle";
+export type { ChartType } from "./ChartTypeToggle";
 export { default as DatePickers } from "./DatePickers";
 export { default as FormDrawer } from "./FormDrawer";
 export { default as FormFeedbackError } from "./FormFeedbackError";

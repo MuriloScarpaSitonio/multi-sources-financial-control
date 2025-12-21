@@ -1,4 +1,4 @@
-import { useContext, useMemo } from "react";
+import { useContext, useMemo, useState } from "react";
 
 import Grid from "@mui/material/Grid";
 import MenuItem from "@mui/material/MenuItem";
@@ -8,6 +8,8 @@ import Stack from "@mui/material/Stack";
 import { endOfMonth } from "date-fns";
 
 import {
+  ChartType,
+  ChartTypeToggle,
   DatePickers,
   FontSizes,
   PieChart,
@@ -27,6 +29,7 @@ import { useHistoricDateState } from "../../hooks";
 const colorPredicate = (label: string) => AssetsTypesMapping[label].color;
 
 const HistoricContent = () => {
+  const [chartType, setChartType] = useState<ChartType>("bar");
   const [oneYearAgo, endOfThisMonth] = useMemo(() => {
     const _oneYearAgo = new Date();
     _oneYearAgo.setFullYear(_oneYearAgo.getFullYear() - 1);
@@ -59,17 +62,20 @@ const HistoricContent = () => {
         alignItems="center"
         justifyContent="space-around"
       >
-        <Stack direction="row" gap={1} alignItems="center">
-          <Text size={FontSizes.SEMI_REGULAR}>Agregar por</Text>
-          <Select
-            value={aggregatePeriod}
-            onChange={(e) =>
-              handleAggregatePeriodChange(e.target.value as "month" | "year")
-            }
-          >
-            <MenuItem value="month">Mês</MenuItem>
-            <MenuItem value="year">Ano</MenuItem>
-          </Select>
+        <Stack direction="row" gap={2} alignItems="center">
+          <ChartTypeToggle value={chartType} onChange={setChartType} />
+          <Stack direction="row" gap={1} alignItems="center">
+            <Text size={FontSizes.SEMI_REGULAR}>Agregar por</Text>
+            <Select
+              value={aggregatePeriod}
+              onChange={(e) =>
+                handleAggregatePeriodChange(e.target.value as "month" | "year")
+              }
+            >
+              <MenuItem value="month">Mês</MenuItem>
+              <MenuItem value="year">Ano</MenuItem>
+            </Select>
+          </Stack>
         </Stack>
         <DatePickers
           views={aggregatePeriod === "month" ? ["month", "year"] : ["year"]}
@@ -82,6 +88,7 @@ const HistoricContent = () => {
       <PositiveNegativeBarChart
         data={data?.historic ?? []}
         aggregatePeriod={aggregatePeriod}
+        chartType={chartType}
       />
     </Stack>
   );

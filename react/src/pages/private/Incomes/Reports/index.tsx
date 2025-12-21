@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useMemo } from "react";
+import { Dispatch, SetStateAction, useMemo, useState } from "react";
 
 import Grid from "@mui/material/Grid";
 import MenuItem from "@mui/material/MenuItem";
@@ -8,6 +8,8 @@ import Stack from "@mui/material/Stack";
 import { endOfMonth, addMonths } from "date-fns";
 
 import {
+  ChartType,
+  ChartTypeToggle,
   DatePickers,
   FontSizes,
   ReportBox,
@@ -35,6 +37,8 @@ type HistoricContentProps = {
   handleAggregatePeriodChange: (newPeriod: "month" | "year") => void;
   handleStartDateChange: Dispatch<SetStateAction<Date>>;
   handleEndDateChange: Dispatch<SetStateAction<Date>>;
+  chartType: ChartType;
+  setChartType: (chartType: ChartType) => void;
 };
 
 const HistoricContent = ({
@@ -44,6 +48,8 @@ const HistoricContent = ({
   handleAggregatePeriodChange,
   handleStartDateChange,
   handleEndDateChange,
+  chartType,
+  setChartType,
 }: HistoricContentProps) => {
   const {
     data,
@@ -58,17 +64,20 @@ const HistoricContent = ({
         alignItems="center"
         justifyContent="space-around"
       >
-        <Stack direction="row" gap={1} alignItems="center">
-          <Text size={FontSizes.SEMI_REGULAR}>Agregar por</Text>
-          <Select
-            value={aggregatePeriod}
-            onChange={(e) =>
-              handleAggregatePeriodChange(e.target.value as "month" | "year")
-            }
-          >
-            <MenuItem value="month">Mês</MenuItem>
-            <MenuItem value="year">Ano</MenuItem>
-          </Select>
+        <Stack direction="row" gap={2} alignItems="center">
+          <ChartTypeToggle value={chartType} onChange={setChartType} />
+          <Stack direction="row" gap={1} alignItems="center">
+            <Text size={FontSizes.SEMI_REGULAR}>Agregar por</Text>
+            <Select
+              value={aggregatePeriod}
+              onChange={(e) =>
+                handleAggregatePeriodChange(e.target.value as "month" | "year")
+              }
+            >
+              <MenuItem value="month">Mês</MenuItem>
+              <MenuItem value="year">Ano</MenuItem>
+            </Select>
+          </Stack>
         </Stack>
         <DatePickers
           views={aggregatePeriod === "month" ? ["month", "year"] : ["year"]}
@@ -82,6 +91,7 @@ const HistoricContent = ({
         data={data?.historic as HistoricReportResponse["historic"]}
         avg={data?.avg as HistoricReportResponse["avg"]}
         aggregatePeriod={aggregatePeriod}
+        chartType={chartType}
       />
     </Stack>
   );
@@ -118,6 +128,7 @@ const TotalBoughtPerAssetTypeContent = ({
 };
 
 const Reports = () => {
+  const [chartType, setChartType] = useState<ChartType>("bar");
   const [oneYearAgo, endOfThisMonthPlus3Months] = useMemo(() => {
     const _oneYearAgo = new Date();
     _oneYearAgo.setFullYear(_oneYearAgo.getFullYear() - 1);
@@ -153,6 +164,8 @@ const Reports = () => {
               handleAggregatePeriodChange={handleAggregatePeriodChange}
               handleStartDateChange={handleStartDateChange}
               handleEndDateChange={handleEndDateChange}
+              chartType={chartType}
+              setChartType={setChartType}
             />
           </ReportBox>
         </Stack>

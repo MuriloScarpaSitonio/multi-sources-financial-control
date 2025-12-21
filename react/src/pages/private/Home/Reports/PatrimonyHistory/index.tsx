@@ -5,7 +5,11 @@ import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import { startOfMonth, subYears } from "date-fns";
 
-import { ReportBox } from "../../../../../design-system";
+import {
+  ChartTypeToggle,
+  ChartType,
+  ReportBox,
+} from "../../../../../design-system";
 import { useAssetsTotalInvestedHistory } from "../../../Assets/Reports/hooks";
 import { useAssetsIndicators } from "../../../Assets/Indicators/hooks";
 import { useBankAccount, useBankAccountHistory } from "../../../Expenses/hooks";
@@ -13,6 +17,7 @@ import Chart, { PatrimonyDataItem } from "./Chart";
 
 const PatrimonyHistory = () => {
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [chartType, setChartType] = useState<ChartType>("line");
   const [startDate, endDate, nowString] = useMemo(() => {
     const now = new Date();
     const firstDayOfMonth = startOfMonth(now);
@@ -96,7 +101,13 @@ const PatrimonyHistory = () => {
 
   return (
     <ReportBox sx={{ p: 2 }}>
-      <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1 }}>
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        sx={{ mb: 1 }}
+      >
+        <ChartTypeToggle value={chartType} onChange={setChartType} />
         <FormControlLabel
           control={
             <Switch
@@ -109,7 +120,12 @@ const PatrimonyHistory = () => {
           labelPlacement="start"
         />
       </Stack>
-      <Chart data={chartData} isLoading={isLoading} showBreakdown={showBreakdown} />
+      <Chart
+        data={chartData}
+        isLoading={isLoading}
+        showBreakdown={showBreakdown}
+        chartType={chartType}
+      />
     </ReportBox>
   );
 };

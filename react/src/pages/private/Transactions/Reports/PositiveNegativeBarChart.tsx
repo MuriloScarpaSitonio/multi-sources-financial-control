@@ -1,7 +1,16 @@
 import Stack from "@mui/material/Stack";
 
-import { BarChart, Bar, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
-import { Colors, getColor } from "../../../../design-system";
+import {
+  BarChart,
+  LineChart,
+  Bar,
+  Line,
+  CartesianGrid,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { ChartType, Colors, getColor } from "../../../../design-system";
 import { HistoricReportResponse } from "../types";
 import {
   monthTickerFormatter,
@@ -82,36 +91,71 @@ const ToolTipContent = ({
 const PositiveNegativeBarChart = ({
   data,
   aggregatePeriod,
+  chartType,
 }: {
   data: HistoricReportResponse["historic"];
   aggregatePeriod: "month" | "year";
+  chartType: ChartType;
 }) => {
   const { hideValues } = useHideValues();
   const dataKey = aggregatePeriod === "month" ? "month" : "year";
   const tickFormatter =
     aggregatePeriod === "month" ? monthTickerFormatter : yearTickerFormatter;
 
+  const commonProps = {
+    width: CHART_WIDTH * 1.5,
+    height: CHART_HEIGHT,
+    data,
+  };
+
+  const xAxisProps = {
+    dataKey,
+    stroke: getColor(Colors.neutral0),
+    tickFormatter,
+  };
+
+  const yAxisProps = {
+    type: "number" as const,
+    stroke: getColor(Colors.neutral0),
+    tickFormatter: numberTickFormatter,
+    axisLine: false,
+    tickLine: false,
+    tickCount: hideValues ? 0 : undefined,
+  };
+
+  if (chartType === "line") {
+    return (
+      <LineChart {...commonProps}>
+        <CartesianGrid strokeDasharray="5" vertical={false} />
+        <XAxis {...xAxisProps} />
+        <YAxis {...yAxisProps} />
+        <Tooltip
+          cursor={false}
+          content={<ToolTipContent aggregatePeriod={aggregatePeriod} />}
+        />
+        <Line
+          type="monotone"
+          dataKey="total_bought"
+          stroke={getColor(Colors.brand200)}
+          strokeWidth={2}
+          dot={false}
+        />
+        <Line
+          type="monotone"
+          dataKey="total_sold"
+          stroke={getColor(Colors.danger200)}
+          strokeWidth={2}
+          dot={false}
+        />
+      </LineChart>
+    );
+  }
+
   return (
-    <BarChart
-      width={CHART_WIDTH * 1.5}
-      height={CHART_HEIGHT}
-      stackOffset="sign"
-      data={data}
-    >
+    <BarChart {...commonProps} stackOffset="sign">
       <CartesianGrid strokeDasharray="5" vertical={false} />
-      <XAxis
-        dataKey={dataKey}
-        stroke={getColor(Colors.neutral0)}
-        tickFormatter={tickFormatter}
-      />
-      <YAxis
-        type="number"
-        stroke={getColor(Colors.neutral0)}
-        tickFormatter={numberTickFormatter}
-        axisLine={false}
-        tickLine={false}
-        tickCount={hideValues ? 0 : undefined}
-      />
+      <XAxis {...xAxisProps} />
+      <YAxis {...yAxisProps} />
       <Tooltip
         cursor={false}
         content={<ToolTipContent aggregatePeriod={aggregatePeriod} />}

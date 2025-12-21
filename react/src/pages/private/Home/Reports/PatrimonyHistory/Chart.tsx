@@ -3,7 +3,9 @@ import Stack from "@mui/material/Stack";
 
 import {
   LineChart,
+  BarChart,
   Line,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -11,7 +13,7 @@ import {
   Legend,
 } from "recharts";
 
-import { Colors, getColor } from "../../../../../design-system";
+import { ChartType, Colors, getColor } from "../../../../../design-system";
 import { roundDown, roundUp, numberTickFormatter } from "../../../utils";
 import { useHideValues } from "../../../../../hooks/useHideValues";
 import { CHART_HEIGHT, CHART_WIDTH } from "../consts";
@@ -71,15 +73,30 @@ const TooltipContent = ({
   }
 };
 
-const Chart = ({
-  data,
-  isLoading,
-  showBreakdown,
-}: {
+const xAxisTickFormatter = (value: string, index: number) => {
+  if (!index) return "";
+  if (value === "agora") return value;
+  const [year, month] = value.split("-");
+  return `${month}/${year}`;
+};
+
+const legendFormatter = (value: string) => {
+  const labels: Record<string, string> = {
+    total: "Total",
+    assets: "Investimentos",
+    bankAccount: "Conta bancária",
+  };
+  return labels[value] ?? value;
+};
+
+type ChartProps = {
   data: PatrimonyDataItem[];
   isLoading: boolean;
   showBreakdown: boolean;
-}) => {
+  chartType: ChartType;
+};
+
+const Chart = ({ data, isLoading, showBreakdown, chartType }: ChartProps) => {
   const { hideValues } = useHideValues();
 
   if (isLoading)
@@ -87,34 +104,85 @@ const Chart = ({
       <Skeleton variant="rounded" width={CHART_WIDTH} height={CHART_HEIGHT} />
     );
 
+  const commonProps = {
+    width: CHART_WIDTH,
+    height: CHART_HEIGHT,
+    data,
+    margin: { top: 20, right: 5, left: 5 },
+  };
+
+  const xAxisProps = {
+    dataKey: "operation_date",
+    stroke: getColor(Colors.neutral0),
+    tickLine: false,
+    tickFormatter: xAxisTickFormatter,
+  };
+
+  const yAxisProps = {
+    tickLine: false,
+    stroke: getColor(Colors.neutral0),
+    tickFormatter: numberTickFormatter,
+    type: "number" as const,
+    domain: ([dataMin, dataMax]: [number, number]): [number, number] => [
+      roundDown(dataMin),
+      roundUp(dataMax),
+    ],
+    axisLine: false,
+    tickCount: hideValues ? 0 : undefined,
+  };
+
+  if (chartType === "line") {
+    return (
+      <LineChart {...commonProps}>
+        <CartesianGrid strokeDasharray="5" vertical={false} />
+        <XAxis {...xAxisProps} />
+        <YAxis {...yAxisProps} />
+        <Tooltip
+          cursor={false}
+          content={<TooltipContent showBreakdown={showBreakdown} />}
+        />
+        {showBreakdown && (
+          <Legend
+            wrapperStyle={{ color: getColor(Colors.neutral0) }}
+            formatter={legendFormatter}
+          />
+        )}
+        <Line
+          type="bump"
+          dataKey="total"
+          stroke={getColor(Colors.brand400)}
+          strokeWidth={3}
+          dot={false}
+        />
+        {showBreakdown && (
+          <>
+            <Line
+              type="bump"
+              dataKey="assets"
+              stroke={getColor(Colors.brand200)}
+              strokeWidth={2}
+              strokeDasharray="5 5"
+              dot={false}
+            />
+            <Line
+              type="bump"
+              dataKey="bankAccount"
+              stroke={getColor(Colors.brand100)}
+              strokeWidth={2}
+              strokeDasharray="5 5"
+              dot={false}
+            />
+          </>
+        )}
+      </LineChart>
+    );
+  }
+
   return (
-    <LineChart
-      width={CHART_WIDTH}
-      height={CHART_HEIGHT}
-      data={data}
-      margin={{ top: 20, right: 5, left: 5 }}
-    >
+    <BarChart {...commonProps}>
       <CartesianGrid strokeDasharray="5" vertical={false} />
-      <XAxis
-        dataKey="operation_date"
-        stroke={getColor(Colors.neutral0)}
-        tickLine={false}
-        tickFormatter={(value, index) => {
-          if (!index) return "";
-          if (value === "agora") return value;
-          const [year, month] = value.split("-");
-          return `${month}/${year}`;
-        }}
-      />
-      <YAxis
-        tickLine={false}
-        stroke={getColor(Colors.neutral0)}
-        tickFormatter={numberTickFormatter}
-        type="number"
-        domain={([dataMin, dataMax]) => [roundDown(dataMin), roundUp(dataMax)]}
-        axisLine={false}
-        tickCount={hideValues ? 0 : undefined}
-      />
+      <XAxis {...xAxisProps} />
+      <YAxis {...yAxisProps} />
       <Tooltip
         cursor={false}
         content={<TooltipContent showBreakdown={showBreakdown} />}
@@ -122,46 +190,33 @@ const Chart = ({
       {showBreakdown && (
         <Legend
           wrapperStyle={{ color: getColor(Colors.neutral0) }}
-          formatter={(value) => {
-            const labels: Record<string, string> = {
-              total: "Total",
-              assets: "Investimentos",
-              bankAccount: "Conta bancária",
-            };
-            return labels[value] ?? value;
-          }}
+          formatter={legendFormatter}
         />
       )}
-      <Line
-        type="bump"
-        dataKey="total"
-        stroke={getColor(Colors.brand400)}
-        strokeWidth={3}
-        dot={false}
-      />
-      {showBreakdown && (
+      {showBreakdown ? (
         <>
-          <Line
-            type="bump"
+          <Bar
             dataKey="assets"
-            stroke={getColor(Colors.brand200)}
-            strokeWidth={2}
-            strokeDasharray="5 5"
-            dot={false}
+            stackId="a"
+            fill={getColor(Colors.brand200)}
+            radius={[0, 0, 0, 0]}
           />
-          <Line
-            type="bump"
+          <Bar
             dataKey="bankAccount"
-            stroke={getColor(Colors.brand100)}
-            strokeWidth={2}
-            strokeDasharray="5 5"
-            dot={false}
+            stackId="a"
+            fill={getColor(Colors.brand100)}
+            radius={[5, 5, 0, 0]}
           />
         </>
+      ) : (
+        <Bar
+          dataKey="total"
+          fill={getColor(Colors.brand400)}
+          radius={[5, 5, 0, 0]}
+        />
       )}
-    </LineChart>
+    </BarChart>
   );
 };
 
 export default Chart;
-
