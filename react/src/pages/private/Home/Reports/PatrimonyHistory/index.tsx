@@ -1,15 +1,18 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
 import { startOfMonth, subYears } from "date-fns";
 
-import { ReportBox } from "../../../../design-system";
-import { useAssetsTotalInvestedHistory } from "../../Assets/Reports/hooks";
-import { useAssetsIndicators } from "../../Assets/Indicators/hooks";
-import { useBankAccount, useBankAccountHistory } from "../../Expenses/hooks";
-import { default as PatrimonyHistoryChart } from "../../Assets/Reports/AssetTotalInvestedSnapshots/Chart";
-import { CHART_HEIGHT, CHART_WIDTH } from "./consts";
+import { ReportBox } from "../../../../../design-system";
+import { useAssetsTotalInvestedHistory } from "../../../Assets/Reports/hooks";
+import { useAssetsIndicators } from "../../../Assets/Indicators/hooks";
+import { useBankAccount, useBankAccountHistory } from "../../../Expenses/hooks";
+import Chart, { PatrimonyDataItem } from "./Chart";
 
 const PatrimonyHistory = () => {
+  const [showBreakdown, setShowBreakdown] = useState(false);
   const [startDate, endDate, nowString] = useMemo(() => {
     const now = new Date();
     const firstDayOfMonth = startOfMonth(now);
@@ -26,9 +29,9 @@ const PatrimonyHistory = () => {
   } = useAssetsTotalInvestedHistory({ startDate, endDate });
 
   const {
-    data: bankAcountHistory,
-    isPending: isBankAccountHisotryLoading,
-    isError: isBankAccountHisotryError,
+    data: bankAccountHistory,
+    isPending: isBankAccountHistoryLoading,
+    isError: isBankAccountHistoryError,
   } = useBankAccountHistory({ startDate, endDate });
 
   // this may trigger a race condition as we are querying this endpoint
@@ -55,44 +58,61 @@ const PatrimonyHistory = () => {
     isAssetsIndicatorsLoading ||
     isBankAccountLoading ||
     isAssetsTotalInvestedHistoryLoading ||
-    isBankAccountHisotryLoading;
+    isBankAccountHistoryLoading;
   const isError =
     isAssetsIndicatorsError ||
     isBankAccountError ||
     isAssetsTotalInvestedHistoryError ||
-    isBankAccountHisotryError;
+    isBankAccountHistoryError;
 
-  const chartData = useMemo(() => {
+  const chartData: PatrimonyDataItem[] = useMemo(() => {
     if (isLoading || isError) return [];
     return [
-      ...assetsTotalInvestedHistory.map((d, index) => ({
-        ...d,
-        total: d.total + (bankAcountHistory[index]?.total ?? 0),
-      })),
+      ...assetsTotalInvestedHistory.map((d, index) => {
+        const bankAccount = bankAccountHistory[index]?.total ?? 0;
+        return {
+          assets: d.total,
+          bankAccount,
+          total: d.total + bankAccount,
+          operation_date: d.operation_date,
+        };
+      }),
       {
+        assets: investedTotal,
+        bankAccount: bankAmount,
         total: investedTotal + bankAmount,
         operation_date: nowString,
       },
     ];
   }, [
     assetsTotalInvestedHistory,
-    bankAcountHistory,
+    bankAccountHistory,
     investedTotal,
     nowString,
     bankAmount,
     isLoading,
     isError,
   ]);
+
   return (
     <ReportBox sx={{ p: 2 }}>
-      <PatrimonyHistoryChart
-        data={chartData}
-        isLoading={isLoading}
-        height={CHART_HEIGHT}
-        width={CHART_WIDTH}
-      />
+      <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1 }}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={showBreakdown}
+              onChange={(e) => setShowBreakdown(e.target.checked)}
+              size="small"
+            />
+          }
+          label="Detalhar"
+          labelPlacement="start"
+        />
+      </Stack>
+      <Chart data={chartData} isLoading={isLoading} showBreakdown={showBreakdown} />
     </ReportBox>
   );
 };
 
 export default PatrimonyHistory;
+
