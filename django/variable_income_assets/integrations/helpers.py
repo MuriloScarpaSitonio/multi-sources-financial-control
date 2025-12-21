@@ -23,7 +23,7 @@ from ..models import Asset
 from ..service_layer.tasks import maybe_create_asset_metadata
 from ..service_layer.unit_of_work import DjangoUnitOfWork
 from .binance.client import BinanceClient
-from .clients import BrApiClient, CoinMarketCapClient, TwelveDataClient
+from .clients import AwesomeApiClient, BrApiClient, CoinMarketCapClient, TwelveDataClient
 from .kucoin.client import KuCoinClient
 
 if TYPE_CHECKING:
@@ -119,7 +119,7 @@ def fetch_currency_conversion_rate(operation_date: date, currency: Currencies) -
 
 def fetch_dollar_to_real_conversion_value() -> Decimal:
     async def _fetch_dollar_to_real_conversion_value() -> str:
-        async with BrApiClient() as client:
+        async with AwesomeApiClient() as client:
             return await client.convert_currencies(from_=Currencies.dollar, to=Currencies.real)
 
     return Decimal(async_to_sync(_fetch_dollar_to_real_conversion_value)())

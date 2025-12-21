@@ -57,21 +57,6 @@ class TestGetDollarConversionRate:
         assert result == db_value
         assert mock_backend.get(settings.DOLLAR_CONVERSION_RATE_KEY) == db_value
 
-    def test__returns_default_when_no_db_row_and_cache_miss(self, settings):
-        # GIVEN
-        mock_backend = MemoryBackend()
-
-        with patch(
-            "variable_income_assets.adapters.key_value_store.key_value_backend", mock_backend
-        ):
-            # WHEN
-            result = get_dollar_conversion_rate()
-
-        # THEN
-        assert result == settings.DEFAULT_DOLLAR_CONVERSION_RATE
-        assert mock_backend.get(settings.DOLLAR_CONVERSION_RATE_KEY) is None
-
-
 class TestUpdateDollarConversionRate:
     def test__creates_db_row_and_updates_cache_with_provided_value(self, settings):
         # GIVEN
@@ -92,7 +77,7 @@ class TestUpdateDollarConversionRate:
         assert rate.value == new_value
         assert mock_backend.get(settings.DOLLAR_CONVERSION_RATE_KEY) == new_value
 
-    def test__updates_existing_db_row(self, settings):
+    def test__updates_existing_db_row(self):
         # GIVEN
         old_value = Decimal("5.00")
         new_value = Decimal("6.50")
@@ -117,7 +102,7 @@ class TestUpdateDollarConversionRate:
         )
         assert rate.value == new_value
 
-    def test__fetches_from_api_when_value_not_provided(self, settings):
+    def test__fetches_from_api_when_value_not_provided(self):
         # GIVEN
         api_value = Decimal("5.89")
         mock_backend = MemoryBackend()
@@ -141,26 +126,3 @@ class TestUpdateDollarConversionRate:
         )
         assert rate.value == api_value
 
-    def test__uses_default_when_api_fails(self, settings):
-        # GIVEN
-        mock_backend = MemoryBackend()
-
-        with (
-            patch(
-                "variable_income_assets.adapters.key_value_store.key_value_backend", mock_backend
-            ),
-            patch(
-                "variable_income_assets.integrations.helpers.fetch_dollar_to_real_conversion_value",
-                side_effect=Exception("API error"),
-            ),
-        ):
-            # WHEN
-            result = update_dollar_conversion_rate()
-
-        # THEN
-        # Compare rounded values due to float->Decimal precision issues in settings
-        assert round(result, 2) == round(settings.DEFAULT_DOLLAR_CONVERSION_RATE, 2)
-        rate = ConversionRate.objects.get(
-            from_currency=Currencies.dollar, to_currency=Currencies.real
-        )
-        assert round(rate.value, 2) == round(settings.DEFAULT_DOLLAR_CONVERSION_RATE, 2)

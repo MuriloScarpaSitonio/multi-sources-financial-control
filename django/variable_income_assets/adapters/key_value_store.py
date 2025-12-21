@@ -16,18 +16,11 @@ def get_dollar_conversion_rate() -> Decimal:
     # Cache miss - query DB
     from ..models.write import ConversionRate
 
-    try:
-        rate = ConversionRate.objects.get(
-            from_currency=Currencies.dollar, to_currency=Currencies.real
-        )
-        value = rate.value
-        key_value_backend.set(key=settings.DOLLAR_CONVERSION_RATE_KEY, value=value)
-        return value
-    except ConversionRate.DoesNotExist:
-        return settings.DEFAULT_DOLLAR_CONVERSION_RATE
-    except (OperationalError, ProgrammingError):
-        # Table doesn't exist yet (e.g., during migrations)
-        return settings.DEFAULT_DOLLAR_CONVERSION_RATE
+    value = ConversionRate.objects.values_list("value", flat=True).get(
+        from_currency=Currencies.dollar, to_currency=Currencies.real
+    )
+    key_value_backend.set(key=settings.DOLLAR_CONVERSION_RATE_KEY, value=value)
+    return value
 
 
 def update_dollar_conversion_rate(value: Decimal | None = None) -> Decimal:
@@ -35,11 +28,7 @@ def update_dollar_conversion_rate(value: Decimal | None = None) -> Decimal:
     from ..models.write import ConversionRate
 
     if value is None:
-        try:
-            value = fetch_dollar_to_real_conversion_value()
-        except Exception:
-            # TODO: log error
-            value = settings.DEFAULT_DOLLAR_CONVERSION_RATE
+        value = fetch_dollar_to_real_conversion_value()
 
     ConversionRate.objects.update_or_create(
         from_currency=Currencies.dollar,
