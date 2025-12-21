@@ -23,9 +23,6 @@ export type PatrimonyDataItem = {
   operation_date: string;
 };
 
-// Cyan/blue color for bank account line - distinct from brand green
-const BANK_ACCOUNT_COLOR = "#5fbdff";
-
 const formatCurrency = (value: number) =>
   `R$ ${value.toLocaleString("pt-br", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 

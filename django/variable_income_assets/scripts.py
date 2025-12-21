@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import locale
 from decimal import Decimal
 from operator import mul, truediv
@@ -20,7 +21,6 @@ if TYPE_CHECKING:
 
     from .models.managers import AssetQuerySet
 
-locale.setlocale(locale.LC_ALL, "pt_br")
 UserModel = get_user_model()
 
 
@@ -473,6 +473,9 @@ def print_irpf_infos(
     normalize: bool = True,
     debug: int = 1,
 ):  # pragma: no cover
+    with contextlib.suppress(locale.Error):
+        locale.setlocale(locale.LC_ALL, "pt_br")
+
     dollar_conversion_rate = (
         dollar_conversion_rate
         if dollar_conversion_rate is not None

@@ -182,6 +182,7 @@ const Table = () => {
       {
         header: "Total atual",
         accessorKey: "total_current",
+        enableSorting: false,
         Cell: ({ row: { original } }) => {
           const roi = original.normalized_roi;
           const totalCurrent = (original.normalized_total_invested + roi).toLocaleString("pt-br", {
