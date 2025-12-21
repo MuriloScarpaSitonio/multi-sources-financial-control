@@ -84,10 +84,12 @@ class MemoryBackend:
 
 if settings.ENVIRONMENT == "pytest":
     key_value_backend = MemoryBackend()
-else:  # pragma: no cover
+elif settings.USE_REDIS:  # pragma: no cover
     try:
         key_value_backend = RedisBackendWInMemoryCache()
         key_value_backend.ping()
     except Exception as e:
         print(e)
         key_value_backend = MemoryBackend()
+else:  # pragma: no cover
+    key_value_backend = MemoryBackend()

@@ -79,6 +79,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 USE_POSTGRES = secret("USE_POSTGRES", cast=bool, default=False)
+USE_REDIS = secret("USE_REDIS", cast=bool, default=False)
 
 
 # Database

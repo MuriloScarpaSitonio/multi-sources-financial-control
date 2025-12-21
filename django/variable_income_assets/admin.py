@@ -16,6 +16,7 @@ from .models import (
     AssetMetaData,
     AssetReadModel,
     AssetsTotalInvestedSnapshot,
+    ConversionRate,
     PassiveIncome,
     Transaction,
 )
@@ -103,3 +104,9 @@ class AssetClosedOperationAdmin(admin.ModelAdmin):
 @admin.register(AssetsTotalInvestedSnapshot)
 class AssetsTotalInvestedSnapshotAdmin(admin.ModelAdmin):
     list_filter = ("operation_date",)
+
+
+@admin.register(ConversionRate)
+class ConversionRateAdmin(admin.ModelAdmin):
+    list_filter = ("from_currency", "to_currency")
+    search_fields = ("from_currency", "to_currency")

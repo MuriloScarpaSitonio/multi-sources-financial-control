@@ -96,7 +96,7 @@ class AssetsTotalInvestedSnapshotFactory(DjangoModelFactory):
 
 
 @pytest.fixture(autouse=True)
-def _update_dollar_conversion_rate():
+def _update_dollar_conversion_rate(db):
     update_dollar_conversion_rate(Decimal("5.0"))
 
 

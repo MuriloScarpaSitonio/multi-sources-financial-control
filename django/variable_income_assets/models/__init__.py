@@ -3,6 +3,7 @@ from .write import (
     Asset,
     AssetClosedOperation,
     AssetMetaData,
+    ConversionRate,
     PassiveIncome,
     Transaction,
 )

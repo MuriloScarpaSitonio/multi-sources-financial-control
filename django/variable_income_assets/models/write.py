@@ -1,10 +1,10 @@
 from decimal import Decimal
 
-from shared.models_utils import serializable_today_function
-
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
+
+from shared.models_utils import serializable_today_function
 
 from ..choices import (
     AssetObjectives,
@@ -22,6 +22,26 @@ from .managers import (
     PassiveIncomeQuerySet,
     TransactionQuerySet,
 )
+
+
+class ConversionRate(models.Model):
+    from_currency = models.CharField(max_length=6, validators=[Currencies.validator])
+    to_currency = models.CharField(max_length=6, validators=[Currencies.validator])
+    value = models.DecimalField(decimal_places=4, max_digits=10)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("from_currency", "to_currency"),
+                name="from_currency__to_currency__unique_together",
+            ),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"<ConversionRate ({self.from_currency} -> {self.to_currency}: {self.value})>"
+
+    __repr__ = __str__
 
 
 class AssetMetaData(models.Model):
