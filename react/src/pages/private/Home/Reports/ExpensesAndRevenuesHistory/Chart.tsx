@@ -169,91 +169,27 @@ const Chart = ({
   if (chartType === "line") {
     return (
       <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-        <LineChart {...commonProps}>
-          <XAxis {...xAxisProps} />
-          <YAxis {...yAxisProps} />
-          <Tooltip
-            cursor={false}
-            content={<ToolTipContent aggregatePeriod={aggregatePeriod} />}
-          />
-          <Line
-            type="monotone"
-            dataKey="revenues"
-            stroke={getColor(Colors.brand200)}
-            strokeWidth={2}
-            dot={false}
-          />
-          <Line
-            type="monotone"
-            dataKey="expenses"
-            stroke={getColor(Colors.danger200)}
-            strokeWidth={2}
-            dot={false}
-          />
-          <ReferenceLine
-            y={data.avg.expenses}
-            label="Média despesas"
-            stroke={getColor(Colors.danger200)}
-            strokeWidth={1}
-            strokeDasharray="3 3"
-          />
-          <ReferenceLine
-            y={data.avg.revenues}
-            label="Média receitas"
-            stroke={getColor(Colors.brand200)}
-            strokeWidth={1}
-            strokeDasharray="3 3"
-          />
-        </LineChart>
-      </ResponsiveContainer>
-    );
-  }
-
-  return (
-    <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-      <BarChart {...commonProps} stackOffset="sign">
+      <LineChart {...commonProps}>
         <XAxis {...xAxisProps} />
         <YAxis {...yAxisProps} />
         <Tooltip
           cursor={false}
           content={<ToolTipContent aggregatePeriod={aggregatePeriod} />}
         />
-        <Bar dataKey="revenues" stackId="a" radius={[5, 5, 0, 0]}>
-          {data.historic.map((d) => {
-            const dateStr = d.month ?? d.year ?? "";
-            const isFuture = isFutureDate(dateStr);
-
-            const props = isFuture
-              ? {
-                  fill: getColor(Colors.neutral900),
-                  strokeWidth: 1,
-                  stroke: getColor(Colors.brand100),
-                  strokeDasharray: "3 3",
-                }
-              : {
-                  fill: getColor(Colors.brand200),
-                };
-            return <Cell key={dateStr} {...props} />;
-          })}
-        </Bar>
-        <Bar dataKey="expenses" stackId="a" radius={[5, 5, 0, 0]}>
-          {data.historic.map((d) => {
-            const dateStr = d.month ?? d.year ?? "";
-            const isFuture = isFutureDate(dateStr);
-
-            const props = isFuture
-              ? {
-                  fill: getColor(Colors.neutral900),
-                  strokeWidth: 1,
-                  stroke: getColor(Colors.danger100),
-                  strokeDasharray: "3 3",
-                }
-              : {
-                  fill: getColor(Colors.danger200),
-                };
-            return <Cell key={dateStr} {...props} />;
-          })}
-        </Bar>
+        <Line
+          type="monotone"
+          dataKey="revenues"
+          stroke={getColor(Colors.brand200)}
+          strokeWidth={2}
+          dot={false}
+        />
+        <Line
+          type="monotone"
+          dataKey="expenses"
+          stroke={getColor(Colors.danger200)}
+          strokeWidth={2}
+          dot={false}
+        />
         <ReferenceLine
           y={data.avg.expenses}
           label="Média despesas"
@@ -268,7 +204,71 @@ const Chart = ({
           strokeWidth={1}
           strokeDasharray="3 3"
         />
-      </BarChart>
+      </LineChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
+    <BarChart {...commonProps} stackOffset="sign">
+      <XAxis {...xAxisProps} />
+      <YAxis {...yAxisProps} />
+      <Tooltip
+        cursor={false}
+        content={<ToolTipContent aggregatePeriod={aggregatePeriod} />}
+      />
+      <Bar dataKey="revenues" stackId="a" radius={[5, 5, 0, 0]}>
+        {data.historic.map((d) => {
+          const dateStr = d.month ?? d.year ?? "";
+          const isFuture = isFutureDate(dateStr);
+
+          const props = isFuture
+            ? {
+                fill: getColor(Colors.neutral900),
+                strokeWidth: 1,
+                stroke: getColor(Colors.brand100),
+                strokeDasharray: "3 3",
+              }
+            : {
+                fill: getColor(Colors.brand200),
+              };
+          return <Cell key={dateStr} {...props} />;
+        })}
+      </Bar>
+      <Bar dataKey="expenses" stackId="a" radius={[5, 5, 0, 0]}>
+        {data.historic.map((d) => {
+          const dateStr = d.month ?? d.year ?? "";
+          const isFuture = isFutureDate(dateStr);
+
+          const props = isFuture
+            ? {
+                fill: getColor(Colors.neutral900),
+                strokeWidth: 1,
+                stroke: getColor(Colors.danger100),
+                strokeDasharray: "3 3",
+              }
+            : {
+                fill: getColor(Colors.danger200),
+              };
+          return <Cell key={dateStr} {...props} />;
+        })}
+      </Bar>
+      <ReferenceLine
+        y={data.avg.expenses}
+        label="Média despesas"
+        stroke={getColor(Colors.danger200)}
+        strokeWidth={1}
+        strokeDasharray="3 3"
+      />
+      <ReferenceLine
+        y={data.avg.revenues}
+        label="Média receitas"
+        stroke={getColor(Colors.brand200)}
+        strokeWidth={1}
+        strokeDasharray="3 3"
+      />
+    </BarChart>
     </ResponsiveContainer>
   );
 };

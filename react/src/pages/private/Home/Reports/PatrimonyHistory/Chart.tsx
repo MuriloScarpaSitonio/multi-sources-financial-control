@@ -133,55 +133,7 @@ const Chart = ({ data, isLoading, showBreakdown, chartType }: ChartProps) => {
   if (chartType === "line") {
     return (
       <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-        <LineChart {...commonProps}>
-          <CartesianGrid strokeDasharray="5" vertical={false} />
-          <XAxis {...xAxisProps} />
-          <YAxis {...yAxisProps} />
-          <Tooltip
-            cursor={false}
-            content={<TooltipContent showBreakdown={showBreakdown} />}
-          />
-          {showBreakdown && (
-            <Legend
-              wrapperStyle={{ color: getColor(Colors.neutral0) }}
-              formatter={legendFormatter}
-            />
-          )}
-          <Line
-            type="bump"
-            dataKey="total"
-            stroke={getColor(Colors.brand400)}
-            strokeWidth={3}
-            dot={false}
-          />
-          {showBreakdown && (
-            <>
-              <Line
-                type="bump"
-                dataKey="assets"
-                stroke={getColor(Colors.brand200)}
-                strokeWidth={2}
-                strokeDasharray="5 5"
-                dot={false}
-              />
-              <Line
-                type="bump"
-                dataKey="bankAccount"
-                stroke={getColor(Colors.brand100)}
-                strokeWidth={2}
-                strokeDasharray="5 5"
-                dot={false}
-              />
-            </>
-          )}
-        </LineChart>
-      </ResponsiveContainer>
-    );
-  }
-
-  return (
-    <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-      <BarChart {...commonProps}>
+      <LineChart {...commonProps}>
         <CartesianGrid strokeDasharray="5" vertical={false} />
         <XAxis {...xAxisProps} />
         <YAxis {...yAxisProps} />
@@ -195,29 +147,77 @@ const Chart = ({ data, isLoading, showBreakdown, chartType }: ChartProps) => {
             formatter={legendFormatter}
           />
         )}
-        {showBreakdown ? (
+        <Line
+          type="bump"
+          dataKey="total"
+          stroke={getColor(Colors.brand400)}
+          strokeWidth={3}
+          dot={false}
+        />
+        {showBreakdown && (
           <>
-            <Bar
+            <Line
+              type="bump"
               dataKey="assets"
-              stackId="a"
-              fill={getColor(Colors.brand200)}
-              radius={[0, 0, 0, 0]}
+              stroke={getColor(Colors.brand200)}
+              strokeWidth={2}
+              strokeDasharray="5 5"
+              dot={false}
             />
-            <Bar
+            <Line
+              type="bump"
               dataKey="bankAccount"
-              stackId="a"
-              fill={getColor(Colors.brand100)}
-              radius={[5, 5, 0, 0]}
+              stroke={getColor(Colors.brand100)}
+              strokeWidth={2}
+              strokeDasharray="5 5"
+              dot={false}
             />
           </>
-        ) : (
+        )}
+      </LineChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
+    <BarChart {...commonProps}>
+      <CartesianGrid strokeDasharray="5" vertical={false} />
+      <XAxis {...xAxisProps} />
+      <YAxis {...yAxisProps} />
+      <Tooltip
+        cursor={false}
+        content={<TooltipContent showBreakdown={showBreakdown} />}
+      />
+      {showBreakdown && (
+        <Legend
+          wrapperStyle={{ color: getColor(Colors.neutral0) }}
+          formatter={legendFormatter}
+        />
+      )}
+      {showBreakdown ? (
+        <>
           <Bar
-            dataKey="total"
-            fill={getColor(Colors.brand400)}
+            dataKey="assets"
+            stackId="a"
+            fill={getColor(Colors.brand200)}
+            radius={[0, 0, 0, 0]}
+          />
+          <Bar
+            dataKey="bankAccount"
+            stackId="a"
+            fill={getColor(Colors.brand100)}
             radius={[5, 5, 0, 0]}
           />
-        )}
-      </BarChart>
+        </>
+      ) : (
+        <Bar
+          dataKey="total"
+          fill={getColor(Colors.brand400)}
+          radius={[5, 5, 0, 0]}
+        />
+      )}
+    </BarChart>
     </ResponsiveContainer>
   );
 };
