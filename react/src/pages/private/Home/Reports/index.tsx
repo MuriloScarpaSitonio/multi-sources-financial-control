@@ -1,5 +1,5 @@
 import Grid from "@mui/material/Grid";
-import Stack from "@mui/material/Grid";
+import Stack from "@mui/material/Stack";
 
 import { Text } from "../../../../design-system";
 import PatrimonyHistory from "./PatrimonyHistory";

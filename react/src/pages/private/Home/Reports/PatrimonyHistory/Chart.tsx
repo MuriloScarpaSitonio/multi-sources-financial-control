@@ -11,12 +11,13 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  ResponsiveContainer,
 } from "recharts";
 
 import { ChartType, Colors, getColor } from "../../../../../design-system";
 import { roundDown, roundUp, numberTickFormatter } from "../../../utils";
 import { useHideValues } from "../../../../../hooks/useHideValues";
-import { CHART_HEIGHT, CHART_WIDTH } from "../consts";
+import { CHART_HEIGHT } from "../consts";
 
 export type PatrimonyDataItem = {
   total: number;
@@ -101,12 +102,10 @@ const Chart = ({ data, isLoading, showBreakdown, chartType }: ChartProps) => {
 
   if (isLoading)
     return (
-      <Skeleton variant="rounded" width={CHART_WIDTH} height={CHART_HEIGHT} />
+      <Skeleton variant="rounded" width="100%" height={CHART_HEIGHT} />
     );
 
   const commonProps = {
-    width: CHART_WIDTH,
-    height: CHART_HEIGHT,
     data,
     margin: { top: 20, right: 5, left: 5 },
   };
@@ -133,7 +132,56 @@ const Chart = ({ data, isLoading, showBreakdown, chartType }: ChartProps) => {
 
   if (chartType === "line") {
     return (
-      <LineChart {...commonProps}>
+      <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
+        <LineChart {...commonProps}>
+          <CartesianGrid strokeDasharray="5" vertical={false} />
+          <XAxis {...xAxisProps} />
+          <YAxis {...yAxisProps} />
+          <Tooltip
+            cursor={false}
+            content={<TooltipContent showBreakdown={showBreakdown} />}
+          />
+          {showBreakdown && (
+            <Legend
+              wrapperStyle={{ color: getColor(Colors.neutral0) }}
+              formatter={legendFormatter}
+            />
+          )}
+          <Line
+            type="bump"
+            dataKey="total"
+            stroke={getColor(Colors.brand400)}
+            strokeWidth={3}
+            dot={false}
+          />
+          {showBreakdown && (
+            <>
+              <Line
+                type="bump"
+                dataKey="assets"
+                stroke={getColor(Colors.brand200)}
+                strokeWidth={2}
+                strokeDasharray="5 5"
+                dot={false}
+              />
+              <Line
+                type="bump"
+                dataKey="bankAccount"
+                stroke={getColor(Colors.brand100)}
+                strokeWidth={2}
+                strokeDasharray="5 5"
+                dot={false}
+              />
+            </>
+          )}
+        </LineChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
+      <BarChart {...commonProps}>
         <CartesianGrid strokeDasharray="5" vertical={false} />
         <XAxis {...xAxisProps} />
         <YAxis {...yAxisProps} />
@@ -147,75 +195,30 @@ const Chart = ({ data, isLoading, showBreakdown, chartType }: ChartProps) => {
             formatter={legendFormatter}
           />
         )}
-        <Line
-          type="bump"
-          dataKey="total"
-          stroke={getColor(Colors.brand400)}
-          strokeWidth={3}
-          dot={false}
-        />
-        {showBreakdown && (
+        {showBreakdown ? (
           <>
-            <Line
-              type="bump"
+            <Bar
               dataKey="assets"
-              stroke={getColor(Colors.brand200)}
-              strokeWidth={2}
-              strokeDasharray="5 5"
-              dot={false}
+              stackId="a"
+              fill={getColor(Colors.brand200)}
+              radius={[0, 0, 0, 0]}
             />
-            <Line
-              type="bump"
+            <Bar
               dataKey="bankAccount"
-              stroke={getColor(Colors.brand100)}
-              strokeWidth={2}
-              strokeDasharray="5 5"
-              dot={false}
+              stackId="a"
+              fill={getColor(Colors.brand100)}
+              radius={[5, 5, 0, 0]}
             />
           </>
-        )}
-      </LineChart>
-    );
-  }
-
-  return (
-    <BarChart {...commonProps}>
-      <CartesianGrid strokeDasharray="5" vertical={false} />
-      <XAxis {...xAxisProps} />
-      <YAxis {...yAxisProps} />
-      <Tooltip
-        cursor={false}
-        content={<TooltipContent showBreakdown={showBreakdown} />}
-      />
-      {showBreakdown && (
-        <Legend
-          wrapperStyle={{ color: getColor(Colors.neutral0) }}
-          formatter={legendFormatter}
-        />
-      )}
-      {showBreakdown ? (
-        <>
+        ) : (
           <Bar
-            dataKey="assets"
-            stackId="a"
-            fill={getColor(Colors.brand200)}
-            radius={[0, 0, 0, 0]}
-          />
-          <Bar
-            dataKey="bankAccount"
-            stackId="a"
-            fill={getColor(Colors.brand100)}
+            dataKey="total"
+            fill={getColor(Colors.brand400)}
             radius={[5, 5, 0, 0]}
           />
-        </>
-      ) : (
-        <Bar
-          dataKey="total"
-          fill={getColor(Colors.brand400)}
-          radius={[5, 5, 0, 0]}
-        />
-      )}
-    </BarChart>
+        )}
+      </BarChart>
+    </ResponsiveContainer>
   );
 };
 

@@ -22,6 +22,8 @@ export const IndicatorBox = ({
       border: `2px solid ${variant === "success" ? getColor(Colors.brand) : getColor(Colors.danger200)}`,
       width,
       height,
+      display: "flex",
+      alignItems: "center",
     }}
   >
     {children}

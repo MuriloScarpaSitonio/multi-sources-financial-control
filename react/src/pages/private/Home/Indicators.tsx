@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import Grid from "@mui/material/Grid";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import MonetizationOnOutlinedIcon from "@mui/icons-material/MonetizationOnOutlined";
 import SvgIcon from "@mui/material/SvgIcon";
 
@@ -54,53 +55,231 @@ const PatrimonyCompositionIndicator = ({
 
   return (
     <Stack sx={{ mt: 2 }}>
-      <IndicatorBox variant="success" width="100%">
-        <Text size={FontSizes.SMALL} color={Colors.neutral300}>
-          {hideValues ? (
-            <Skeleton
-              component="span"
-              sx={{
-                bgcolor: getColor(Colors.neutral300),
-                width: "40px",
-                display: "inline-block",
-              }}
-              animation={false}
-            />
-          ) : (
-            <Text
-              component="span"
-              size={FontSizes.SMALL}
-              weight={FontWeights.BOLD}
-              color={Colors.neutral0}
-            >
-              {investmentsPercentage.toFixed(0)}%
+      <Tooltip
+        title="Composição do patrimônio total: investimentos (ativos de renda variável) + saldo em conta corrente"
+        arrow
+        placement="top"
+      >
+        <div>
+          <IndicatorBox variant="success" width="100%" height="72px">
+            <Text size={FontSizes.SMALL} color={Colors.neutral300}>
+              {hideValues ? (
+                <Skeleton
+                  component="span"
+                  sx={{
+                    bgcolor: getColor(Colors.neutral300),
+                    width: "40px",
+                    display: "inline-block",
+                  }}
+                  animation={false}
+                />
+              ) : (
+                <Text
+                  component="span"
+                  size={FontSizes.SMALL}
+                  weight={FontWeights.BOLD}
+                  color={Colors.neutral0}
+                >
+                  {investmentsPercentage.toFixed(0)}%
+                </Text>
+              )}{" "}
+              em investimentos,{" "}
+              {hideValues ? (
+                <Skeleton
+                  component="span"
+                  sx={{
+                    bgcolor: getColor(Colors.neutral300),
+                    width: "40px",
+                    display: "inline-block",
+                  }}
+                  animation={false}
+                />
+              ) : (
+                <Text
+                  component="span"
+                  size={FontSizes.SMALL}
+                  weight={FontWeights.BOLD}
+                  color={Colors.neutral0}
+                >
+                  {bankPercentage.toFixed(0)}%
+                </Text>
+              )}{" "}
+              em conta corrente
             </Text>
-          )}{" "}
-          em investimentos,{" "}
-          {hideValues ? (
-            <Skeleton
-              component="span"
-              sx={{
-                bgcolor: getColor(Colors.neutral300),
-                width: "40px",
-                display: "inline-block",
-              }}
-              animation={false}
-            />
-          ) : (
-            <Text
-              component="span"
-              size={FontSizes.SMALL}
-              weight={FontWeights.BOLD}
-              color={Colors.neutral0}
-            >
-              {bankPercentage.toFixed(0)}%
-            </Text>
-          )}{" "}
-          em conta corrente
-        </Text>
-      </IndicatorBox>
+          </IndicatorBox>
+        </div>
+      </Tooltip>
     </Stack>
+  );
+};
+
+const MonthlyBalanceIndicator = ({
+  revenues,
+  expenses,
+  isLoading,
+}: {
+  revenues: number;
+  expenses: number;
+  isLoading: boolean;
+}) => {
+  const { hideValues } = useHideValues();
+  const balance = revenues - expenses;
+  const isPositive = balance >= 0;
+
+  if (isLoading) {
+    return <Skeleton width="100%" height={50} sx={{ borderRadius: "10px" }} />;
+  }
+
+  return (
+    <Tooltip
+      title="Receitas menos despesas do mês atual"
+      arrow
+      placement="top"
+    >
+      <div>
+        <IndicatorBox variant={isPositive ? "success" : "danger"} width="100%">
+          <Text size={FontSizes.SMALL} color={Colors.neutral300}>
+            {isPositive ? "Você está economizando " : "Você está gastando "}
+            {hideValues ? (
+              <Skeleton
+                component="span"
+                sx={{
+                  bgcolor: getColor(Colors.neutral300),
+                  width: "70px",
+                  display: "inline-block",
+                }}
+                animation={false}
+              />
+            ) : (
+              <Text
+                component="span"
+                size={FontSizes.SMALL}
+                weight={FontWeights.BOLD}
+                color={Colors.neutral0}
+              >
+                R${" "}
+                {Math.abs(balance).toLocaleString("pt-br", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </Text>
+            )}
+            {isPositive ? " neste mês" : " a mais que sua receita"}
+          </Text>
+        </IndicatorBox>
+      </div>
+    </Tooltip>
+  );
+};
+
+const SavingsRateIndicator = ({
+  revenues,
+  expenses,
+  isLoading,
+}: {
+  revenues: number;
+  expenses: number;
+  isLoading: boolean;
+}) => {
+  const { hideValues } = useHideValues();
+  const savingsRate = revenues > 0 ? ((revenues - expenses) / revenues) * 100 : 0;
+  const isPositive = savingsRate >= 0;
+
+  if (isLoading) {
+    return <Skeleton width="100%" height={50} sx={{ borderRadius: "10px" }} />;
+  }
+
+  return (
+    <Tooltip
+      title="Percentual da receita do mês atual que está sendo poupado (receitas - despesas) / receitas"
+      arrow
+      placement="top"
+    >
+      <div>
+        <IndicatorBox variant={isPositive ? "success" : "danger"} width="100%">
+          <Text size={FontSizes.SMALL} color={Colors.neutral300}>
+            {hideValues ? (
+              <Skeleton
+                component="span"
+                sx={{
+                  bgcolor: getColor(Colors.neutral300),
+                  width: "40px",
+                  display: "inline-block",
+                }}
+                animation={false}
+              />
+            ) : (
+              <Text
+                component="span"
+                size={FontSizes.SMALL}
+                weight={FontWeights.BOLD}
+                color={Colors.neutral0}
+              >
+                {Math.abs(savingsRate).toFixed(0)}%
+              </Text>
+            )}{" "}
+            {isPositive
+              ? "da sua receita está sendo poupada neste mês"
+              : "acima da sua receita em gastos"}
+          </Text>
+        </IndicatorBox>
+      </div>
+    </Tooltip>
+  );
+};
+
+const EmergencyFundIndicator = ({
+  bankAmount,
+  avgExpenses,
+  isLoading,
+}: {
+  bankAmount: number;
+  avgExpenses: number;
+  isLoading: boolean;
+}) => {
+  const { hideValues } = useHideValues();
+  const monthsCovered = avgExpenses > 0 ? bankAmount / avgExpenses : 0;
+  const isHealthy = monthsCovered >= 3;
+
+  if (isLoading) {
+    return <Skeleton width="100%" height={50} sx={{ borderRadius: "10px" }} />;
+  }
+
+  return (
+    <Tooltip
+      title="Saldo em conta corrente dividido pela média mensal de despesas dos últimos 12 meses. Indicação de successo (reserva de emergência saudável) se >= 3 meses"
+      arrow
+      placement="top"
+    >
+      <div>
+        <IndicatorBox variant={isHealthy ? "success" : "danger"} width="100%">
+          <Text size={FontSizes.SMALL} color={Colors.neutral300}>
+            Seu saldo cobre{" "}
+            {hideValues ? (
+              <Skeleton
+                component="span"
+                sx={{
+                  bgcolor: getColor(Colors.neutral300),
+                  width: "30px",
+                  display: "inline-block",
+                }}
+                animation={false}
+              />
+            ) : (
+              <Text
+                component="span"
+                size={FontSizes.SMALL}
+                weight={FontWeights.BOLD}
+                color={Colors.neutral0}
+              >
+                {monthsCovered.toFixed(1)}
+              </Text>
+            )}{" "}
+            {monthsCovered === 1 ? "mês" : "meses"} de despesas
+          </Text>
+        </IndicatorBox>
+      </div>
+    </Tooltip>
   );
 };
 
@@ -128,36 +307,48 @@ const CreditedPassiveIncomesLast90DaysIndicator = () => {
 
   return (
     <Stack sx={{ mt: 2 }}>
-      <IndicatorBox variant={incomesSumCredited > 0 ? "success" : "danger"} width="100%">
-        <Text size={FontSizes.SMALL} color={Colors.neutral300}>
-          Você recebeu{" "}
-          {hideValues ? (
-            <Skeleton
-              component="span"
-              sx={{
-                bgcolor: getColor(Colors.neutral300),
-                width: "60px",
-                display: "inline-block",
-              }}
-              animation={false}
-            />
-          ) : (
-            <Text
-              component="span"
-              size={FontSizes.SMALL}
-              weight={FontWeights.BOLD}
-              color={Colors.neutral0}
-            >
-              R${" "}
-              {incomesSumCredited.toLocaleString("pt-br", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+      <Tooltip
+        title="Soma de proventos de renda variável creditados nos últimos 90 dias"
+        arrow
+        placement="top"
+      >
+        <div>
+          <IndicatorBox
+            variant={incomesSumCredited > 0 ? "success" : "danger"}
+            width="100%"
+            height="72px"
+          >
+            <Text size={FontSizes.SMALL} color={Colors.neutral300}>
+              Você recebeu{" "}
+              {hideValues ? (
+                <Skeleton
+                  component="span"
+                  sx={{
+                    bgcolor: getColor(Colors.neutral300),
+                    width: "60px",
+                    display: "inline-block",
+                  }}
+                  animation={false}
+                />
+              ) : (
+                <Text
+                  component="span"
+                  size={FontSizes.SMALL}
+                  weight={FontWeights.BOLD}
+                  color={Colors.neutral0}
+                >
+                  R${" "}
+                  {incomesSumCredited.toLocaleString("pt-br", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </Text>
+              )}{" "}
+              em proventos nos últimos 90 dias
             </Text>
-          )}{" "}
-          em proventos nos últimos 90 dias
-        </Text>
-      </IndicatorBox>
+          </IndicatorBox>
+        </div>
+      </Tooltip>
     </Stack>
   );
 };
@@ -211,7 +402,7 @@ const Indicators = () => {
       <Grid item xs={3}>
         <Indicator
           title="Patrimônio total"
-          tooltipText="Inclui investimentos + conta bancária"
+          tooltipText="Soma do valor atual dos investimentos em renda variável + saldo em conta corrente. Variação comparada ao mês anterior"
           value={(assetsIndicators?.total ?? 0) + bankAmount}
           secondaryIndicator={
             <AssetPercentageChangeSecondaryIndicator
@@ -243,6 +434,7 @@ const Indicators = () => {
       <Grid item xs={3}>
         <Indicator
           title="ROI (Lucro/Prejuízo)"
+          tooltipText="Retorno sobre investimento: soma do lucro/prejuízo de posições abertas e fechadas em renda variável"
           value={
             (assetsIndicators?.ROI_opened ?? 0) +
             (assetsIndicators?.ROI_closed ?? 0)
@@ -272,7 +464,7 @@ const Indicators = () => {
           <Stack direction="row" gap={4}>
             <Indicator
               title="Despesas"
-              tooltipText="No mês atual"
+              tooltipText="Total de despesas no mês atual. Variação comparada à média mensal dos últimos 12 meses"
               value={expensesIndicators?.total}
               secondaryIndicator={
                 <ExpensePercentageChangeSecondaryIndicator
@@ -294,7 +486,7 @@ const Indicators = () => {
             />
             <Indicator
               title="Receitas"
-              tooltipText="No mês atual"
+              tooltipText="Total de receitas no mês atual. Variação comparada à média mensal dos últimos 12 meses"
               value={revenuesIndicators?.total}
               secondaryIndicator={
                 <ExpensePercentageChangeSecondaryIndicator
@@ -320,6 +512,23 @@ const Indicators = () => {
               isExpensesIndicatorsLoading || isRevenuesIndicatorsLoading
             }
           />
+          <Stack direction="row" gap={2} sx={{ mt: 2 }}>
+            <MonthlyBalanceIndicator
+              revenues={revenuesIndicators?.total ?? 0}
+              expenses={expensesIndicators?.total ?? 0}
+              isLoading={isExpensesIndicatorsLoading || isRevenuesIndicatorsLoading}
+            />
+            <SavingsRateIndicator
+              revenues={revenuesIndicators?.total ?? 0}
+              expenses={expensesIndicators?.total ?? 0}
+              isLoading={isExpensesIndicatorsLoading || isRevenuesIndicatorsLoading}
+            />
+            <EmergencyFundIndicator
+              bankAmount={bankAmount}
+              avgExpenses={expensesIndicators?.avg ?? 0}
+              isLoading={isExpensesIndicatorsLoading || isBankAccountLoading}
+            />
+          </Stack>
         </Stack>
       </Grid>
     </Grid>
