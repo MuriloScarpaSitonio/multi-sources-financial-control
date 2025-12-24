@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Self
 
 from django.db import models
+from django.db.models.functions import Coalesce, NullIf
 
 from ...adapters import DjangoSQLAssetMetaDataRepository
 from ...adapters.key_value_store import get_dollar_conversion_rate
@@ -185,24 +186,33 @@ class AssetReadModelQuerySet(models.QuerySet):
             total=models.Sum("normalized_current_total", default=Decimal())
         )
 
-    def indicators(self) -> dict[str, Decimal]:
-        return (
-            self.annotate_normalized_current_total()
-            .annotate_normalized_roi()
-            .aggregate(
-                ROI_opened=models.Sum(
-                    "normalized_roi",
-                    filter=models.Q(self.expressions.filters.opened),
-                    default=Decimal(),
-                ),
-                ROI_closed=models.Sum(
-                    "normalized_roi",
-                    filter=models.Q(quantity_balance__lte=0),
-                    default=Decimal(),
-                ),
-                total=models.Sum("normalized_current_total", default=Decimal()),
+    def indicators(self, *, include_yield: bool | None = False) -> dict[str, Decimal]:
+        qs = self.annotate_normalized_current_total().annotate_normalized_roi()
+
+        aggregations: dict[str, models.Expression] = {
+            "ROI_opened": models.Sum(
+                "normalized_roi",
+                filter=models.Q(self.expressions.filters.opened),
+                default=Decimal(),
+            ),
+            "ROI_closed": models.Sum(
+                "normalized_roi",
+                filter=models.Q(quantity_balance__lte=0),
+                default=Decimal(),
+            ),
+            "total": models.Sum("normalized_current_total", default=Decimal()),
+        }
+        if include_yield:
+            aggregations["yield_on_cost"] = Coalesce(
+                models.Sum("normalized_credited_incomes")
+                / NullIf(
+                    models.Sum(self.expressions.normalized_total_invested), Decimal()
+                )
+                * Decimal("100.0"),
+                Decimal(),
             )
-        )
+
+        return qs.aggregate(**aggregations)
 
     def total_invested_report(self, group_by: AssetsReportsAggregations, current: bool) -> Self:
         if current:

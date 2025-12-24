@@ -15,13 +15,23 @@ import {
 
 const RESOURCE = "assets";
 
-export const getIndicators = async (): Promise<{
+type AssetsIndicatorsResponse = {
   ROI: number;
   ROI_closed: number;
   ROI_opened: number;
   total: number;
   total_diff_percentage: number;
-}> => (await apiProvider.get(`${RESOURCE}/indicators`)).data;
+  yield_on_cost?: number;
+};
+
+export const getIndicators = async (params?: {
+  includeYield?: boolean;
+}): Promise<AssetsIndicatorsResponse> =>
+  (
+    await apiProvider.get(`${RESOURCE}/indicators`, {
+      params: { include_yield: params?.includeYield },
+    })
+  ).data;
 
 export const getReports = async (params: {
   opened?: boolean;

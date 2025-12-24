@@ -145,7 +145,7 @@ const Indicators = () => {
     data: assetsIndicators,
     isPending: isAssetsIndicatorsLoading,
     isError: isAssetsIndicatorsError,
-  } = useAssetsIndicators();
+  } = useAssetsIndicators({ includeYield: true });
   const {
     data: { amount: bankAmount } = { amount: 0 },
     isPending: isBankAccountLoading,

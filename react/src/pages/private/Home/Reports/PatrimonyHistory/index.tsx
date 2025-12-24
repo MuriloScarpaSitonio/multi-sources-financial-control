@@ -47,7 +47,7 @@ const PatrimonyHistory = () => {
     data: { total: investedTotal } = { total: 0 },
     isPending: isAssetsIndicatorsLoading,
     isError: isAssetsIndicatorsError,
-  } = useAssetsIndicators();
+  } = useAssetsIndicators({ includeYield: true });
 
   // this may trigger a race condition as we are querying this endpoint
   // in another component

@@ -418,6 +418,13 @@ class AssetRoidIndicatorsSerializer(serializers.Serializer):
     ROI_closed = serializers.DecimalField(
         max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
     )
+    yield_on_cost = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        read_only=True,
+        rounding=ROUND_HALF_UP,
+        required=False,
+    )
 
 
 class AvgSerializer(serializers.Serializer):

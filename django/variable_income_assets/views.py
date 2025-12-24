@@ -116,8 +116,12 @@ class AssetViewSet(
         super().perform_destroy(instance)
 
     @action(methods=("GET",), detail=False)
-    def indicators(self, _: Request) -> Response:
-        qs = self.get_queryset().indicators()
+    def indicators(self, request: Request) -> Response:
+        filterset = filters.AssetIndicatorsFilterSet(data=request.query_params)
+        filterset.is_valid()
+        qs = self.get_queryset().indicators(
+            include_yield=filterset.form.cleaned_data.get("include_yield", False)
+        )
         last_snapshot = dict(
             AssetsTotalInvestedSnapshot.objects.filter(user_id=self.request.user.id)
             .order_by("-operation_date")
@@ -128,6 +132,7 @@ class AssetViewSet(
         total_diff_percentage = (
             ((qs["total"]) / last_snapshot.get("total", 1)) - Decimal("1.0")
         ) * Decimal("100.0")
+
         serializer = serializers.AssetRoidIndicatorsSerializer(
             {**qs, "total_diff_percentage": total_diff_percentage}
         )

@@ -64,6 +64,14 @@ class AssetReadFilterSet(AssetReadStatusFilterSet):
     )
 
 
+class AssetIndicatorsFilterSet(django_filters.FilterSet):
+    include_yield = django_filters.BooleanFilter(required=False)
+
+    class Meta:
+        model = AssetReadModel
+        fields = []
+
+
 class AssetFetchCurrentPriceFilterSet(django_filters.FilterSet):
     code = django_filters.MultipleChoiceFilter(choices=[])
 

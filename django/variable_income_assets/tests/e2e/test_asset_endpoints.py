@@ -2,7 +2,7 @@ import operator
 from decimal import ROUND_HALF_UP, Decimal
 from random import randrange
 
-from django.db.models import F
+from django.db.models import F, Sum
 from django.template.defaultfilters import slugify
 from django.utils import timezone
 
@@ -618,10 +618,13 @@ def test__indicators__wo_snapshot(client):
 
     # THEN
     assert response.status_code == HTTP_200_OK
+    assert response.json() == {
+        "total_diff_percentage": response.json()["total_diff_percentage"],
+        "total": convert_and_quantitize(current_total),
+        "ROI_opened": convert_and_quantitize(roi_opened),
+        "ROI_closed": convert_and_quantitize(roi_closed),
+    }
     assert response.json()["total_diff_percentage"] > 0
-    assert response.json()["total"] == convert_and_quantitize(current_total)
-    assert response.json()["ROI_opened"] == convert_and_quantitize(roi_opened)
-    assert response.json()["ROI_closed"] == convert_and_quantitize(roi_closed)
 
 
 @pytest.mark.usefixtures("indicators_data", "sync_assets_read_model")
@@ -639,10 +642,48 @@ def test__indicators__w_snapshot(client, assets_total_invested_snapshot_factory)
 
     # THEN
     assert response.status_code == HTTP_200_OK
+    assert response.json() == {
+        "total_diff_percentage": response.json()["total_diff_percentage"],
+        "total": convert_and_quantitize(current_total),
+        "ROI_opened": convert_and_quantitize(roi_opened),
+        "ROI_closed": convert_and_quantitize(roi_closed),
+    }
     assert response.json()["total_diff_percentage"] < 0
-    assert response.json()["total"] == convert_and_quantitize(current_total)
-    assert response.json()["ROI_opened"] == convert_and_quantitize(roi_opened)
-    assert response.json()["ROI_closed"] == convert_and_quantitize(roi_closed)
+
+
+@pytest.mark.usefixtures("indicators_data", "sync_assets_read_model")
+def test__indicators__include_yield(client):
+    # GIVEN
+    current_total = sum(
+        get_current_total_invested_brute_force(asset) for asset in Asset.objects.opened()
+    )
+    roi_opened = sum(get_current_roi_brute_force(asset=asset) for asset in Asset.objects.opened())
+    roi_closed = sum(get_roi_brute_force(asset=asset) for asset in Asset.objects.closed())
+    total_credited_incomes = AssetReadModel.objects.aggregate(
+        total=Sum("normalized_credited_incomes", default=Decimal())
+    )["total"]
+    total_invested = AssetReadModel.objects.aggregate(
+        total=Sum(F("normalized_avg_price") * F("quantity_balance"), default=Decimal())
+    )["total"]
+    expected_yield = (
+        (total_credited_incomes / total_invested) * Decimal("100.0")
+        if total_invested
+        else Decimal()
+    )
+
+    # WHEN
+    response = client.get(f"{URL}/indicators?include_yield=true")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert response.json() == {
+        "total_diff_percentage": response.json()["total_diff_percentage"],
+        "total": convert_and_quantitize(current_total),
+        "ROI_opened": convert_and_quantitize(roi_opened),
+        "ROI_closed": convert_and_quantitize(roi_closed),
+        "yield_on_cost": convert_and_quantitize(expected_yield),
+    }
+    assert response.json()["total_diff_percentage"] > 0
 
 
 @pytest.mark.parametrize("filters", ("", "status=OPENED", "status=CLOSED"))

@@ -7,10 +7,10 @@ import { useCallback } from "react";
 
 const QUERY_KEY = "assets-indicators";
 
-export const useAssetsIndicators = () =>
+export const useAssetsIndicators = (params?: { includeYield?: boolean }) =>
   useQuery({
-    queryKey: [QUERY_KEY],
-    queryFn: getIndicators,
+    queryKey: [QUERY_KEY, params?.includeYield],
+    queryFn: () => getIndicators(params),
   });
 
 export const useInvalidateAssetsIndicatorsQueries = (client?: QueryClient) => {
