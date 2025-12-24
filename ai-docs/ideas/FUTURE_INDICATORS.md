@@ -48,18 +48,11 @@ This document contains ideas for additional indicators to be implemented on the 
 - **Message**: "Você investiu X% do que gastou neste mês"
 - **Why**: Shows priority given to investing vs consuming
 
-### 7. Future Fixed Expenses Projection 📅
-- **What**: Total of fixed expenses already committed for the next 3-6 months
-- **Calculation**: Already available via `expensesIndicators.future`
-- **Message**: "Você tem R$ X.XXX em despesas fixas para os próximos meses"
-- **Why**: Helps with cash flow planning
-
 ---
 
 ## Implementation Priority Suggestion
 
-1. **Future Fixed Expenses** - Data already exists (`expensesIndicators.future`)
-2. **Passive Income Coverage** - Requires backend work but high value for investors
+1. **Passive Income Coverage** - Requires backend work but high value for investors
 
 ---
 

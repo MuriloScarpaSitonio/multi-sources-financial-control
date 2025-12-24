@@ -191,6 +191,7 @@ class RevenueQueryset(_PersonalFinancialQuerySet):
     def indicators(self) -> dict[str, Decimal]:
         return self.aggregate(
             total=Sum("value", filter=self.filters.current, default=Decimal()),
+            future=Sum("value", filter=self.filters.future, default=Decimal()),
             avg=Coalesce(self._monthly_avg_expression, Decimal()),
         )
 

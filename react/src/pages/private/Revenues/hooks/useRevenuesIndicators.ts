@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { startOfMonth } from "date-fns";
 
 import { isFilteringWholeMonth } from "../../../../design-system";
-import { getAvg, getSum } from "../api";
+import { getAvg, getRevenuesIndicators, getSum } from "../api";
 
 const SUM_QUERY_KEY = "revenues-sum";
 
@@ -59,6 +59,14 @@ export const useRevenuesIndicators = (params: {
   };
 };
 
+const INDICATORS_QUERY_KEY = "revenues-indicators";
+
+export const useHomeRevenuesIndicators = () =>
+  useQuery({
+    queryKey: [INDICATORS_QUERY_KEY],
+    queryFn: getRevenuesIndicators,
+  });
+
 export const useInvalidateRevenuesIndicatorsQueries = (
   client?: QueryClient,
 ) => {
@@ -70,6 +78,9 @@ export const useInvalidateRevenuesIndicatorsQueries = (
     });
     await queryClient.invalidateQueries({
       queryKey: [AVG_QUERY_KEY],
+    });
+    await queryClient.invalidateQueries({
+      queryKey: [INDICATORS_QUERY_KEY],
     });
   };
 

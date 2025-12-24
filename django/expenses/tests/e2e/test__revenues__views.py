@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 from statistics import fmean
 
-from django.db.models import Avg
+from django.db.models import Q
 from django.utils import timezone
 
 import pytest
@@ -409,6 +409,10 @@ def test__indicators(client, user):
     total = Revenue.objects.filter(
         created_at__month=today.month, created_at__year=today.year
     ).sum()["total"]
+    future = qs.filter(
+        Q(created_at__month__gt=today.month, created_at__year=today.year)
+        | Q(created_at__year__gt=today.year)
+    ).sum()["total"]
 
     # WHEN
     response = client.get(f"{URL}/indicators")
@@ -421,6 +425,7 @@ def test__indicators(client, user):
         "total": convert_and_quantitize(total),
         "avg": convert_and_quantitize(avg),
         "diff": convert_and_quantitize(((total / avg) - Decimal("1.0")) * Decimal("100.0")),
+        "future": convert_and_quantitize(future),
     }
 
 
@@ -489,7 +494,7 @@ def test__indicators__wo_data(client):
 
     # THEN
     assert response.status_code == HTTP_200_OK
-    assert response.json() == {"total": 0.0, "avg": 0.0, "diff": 0.0}
+    assert response.json() == {"total": 0.0, "avg": 0.0, "diff": 0.0, "future": 0.0}
 
 
 def test__forbidden__module_not_enabled(user, client):

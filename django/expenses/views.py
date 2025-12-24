@@ -58,9 +58,9 @@ class _PersonalFinanceViewSet(
     CreateModelMixin, UpdateModelMixin, DestroyModelMixin, ListModelMixin, GenericViewSet
 ):
     historic_filterset_class: ClassVar[FilterSet]
-    indicators_serializer_class: ClassVar[Serializer]
     permission_classes = (SubscriptionEndedPermission, PersonalFinancesModulePermission)
     ordering_fields = ("created_at", "value")
+    indicators_serializer_class = serializers.PersonalFinancesIndicatorsSerializer
 
     def get_serializer_context(self):
         filterset = filters.PersonalFinanceContextFilterSet(
@@ -130,7 +130,6 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
     filterset_class = filters.ExpenseFilterSet
     historic_filterset_class = filters.ExpenseHistoricFilterSet
     serializer_class = serializers.ExpenseSerializer
-    indicators_serializer_class = serializers.ExpenseIndicatorsSerializer
 
     def get_queryset(self) -> ExpenseQueryset[Expense]:
         return (
@@ -192,7 +191,6 @@ class RevenueViewSet(_PersonalFinanceViewSet):
     filterset_class = filters.RevenueFilterSet
     historic_filterset_class = filters.RevenueHistoricFilterSet
     serializer_class = serializers.RevenueSerializer
-    indicators_serializer_class = serializers.RevenueIndicatorsSerializer
 
     def get_queryset(self) -> RevenueQueryset[Revenue]:
         return (

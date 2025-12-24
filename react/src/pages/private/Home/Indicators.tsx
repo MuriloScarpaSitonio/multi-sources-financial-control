@@ -24,7 +24,7 @@ import { useBankAccount } from "../Expenses/hooks";
 import { useAssetsIndicators } from "../Assets/Indicators/hooks";
 import AssetPercentageChangeSecondaryIndicator from "../Assets/Indicators/PercentageChangeSecondaryIndicator";
 import RoiSecondaryIndicator from "../Assets/Indicators/RoiSecondaryIndicator";
-import { useExpensesIndicators } from "../Expenses/Indicators/hooks";
+import { useHomeExpensesIndicators } from "../Expenses/Indicators/hooks";
 import { customEndOfMonth } from "../utils";
 import ExpensePercentageChangeSecondaryIndicator from "../Expenses/Indicators/PercentageChangeSecondaryIndicator";
 import { useRevenuesIndicators } from "../Revenues/hooks/useRevenuesIndicators";
@@ -156,7 +156,7 @@ const Indicators = () => {
     data: expensesIndicators,
     isPending: isExpensesIndicatorsLoading,
     isError: isExpensesIndicatorsError,
-  } = useExpensesIndicators({ startDate, endDate });
+  } = useHomeExpensesIndicators();
 
   const {
     data: revenuesIndicators,

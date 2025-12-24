@@ -2,7 +2,12 @@ import type { QueryClient } from "@tanstack/react-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { isFilteringWholeMonth } from "../../../../design-system";
-import { getAvg, getMostExpensive, getSum } from "../api/expenses";
+import {
+  getAvg,
+  getExpensesIndicators,
+  getMostExpensive,
+  getSum,
+} from "../api/expenses";
 
 const SUM_QUERY_KEY = "expenses-sum";
 
@@ -70,6 +75,14 @@ export const useMostExpensiveExpense = (params: {
     queryFn: () => getMostExpensive(params),
   });
 
+const INDICATORS_QUERY_KEY = "expenses-indicators";
+
+export const useHomeExpensesIndicators = () =>
+  useQuery({
+    queryKey: [INDICATORS_QUERY_KEY],
+    queryFn: getExpensesIndicators,
+  });
+
 export const useInvalidateExpensesIndicatorsQueries = (
   client?: QueryClient,
 ) => {
@@ -84,6 +97,9 @@ export const useInvalidateExpensesIndicatorsQueries = (
     });
     await queryClient.invalidateQueries({
       queryKey: [MOST_EXPENSIVE_QUERY_KEY],
+    });
+    await queryClient.invalidateQueries({
+      queryKey: [INDICATORS_QUERY_KEY],
     });
   };
 

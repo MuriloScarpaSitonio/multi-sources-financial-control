@@ -109,6 +109,17 @@ export const getAvg = async (): Promise<{
   avg: number;
 }> => (await apiProvider.get(`${RESOURCE}/avg`)).data;
 
+export type RevenuesIndicatorsResponse = {
+  total: number;
+  avg: number;
+  diff: number;
+  future: number;
+};
+
+export const getRevenuesIndicators =
+  async (): Promise<RevenuesIndicatorsResponse> =>
+    (await apiProvider.get(`${RESOURCE}/indicators`)).data;
+
 export const getHistoricReport = async (params: {
   startDate: Date;
   endDate: Date;

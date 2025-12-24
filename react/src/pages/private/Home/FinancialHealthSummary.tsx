@@ -18,10 +18,10 @@ import {
 } from "../../../design-system";
 import { useBankAccount } from "../Expenses/hooks";
 import { useAssetsIndicators } from "../Assets/Indicators/hooks";
-import { useExpensesIndicators } from "../Expenses/Indicators/hooks";
+import { useHomeExpensesIndicators } from "../Expenses/Indicators/hooks";
 import { customEndOfMonth } from "../utils";
-import { useRevenuesIndicators } from "../Revenues/hooks/useRevenuesIndicators";
-import { useIncomesSumCredited } from "../Incomes/Indicators/hooks";
+import { useHomeRevenuesIndicators } from "../Revenues/hooks/useRevenuesIndicators";
+import { useIncomesSumCredited, useIncomesIndicators } from "../Incomes/Indicators/hooks";
 import { IndicatorBox } from "../Expenses/Indicators/components";
 import { useHideValues } from "../../../hooks/useHideValues";
 
@@ -29,11 +29,16 @@ type FinancialHealthIndicatorsProps = {
   revenues: number;
   expenses: number;
   avgExpenses: number;
+  avgPassiveIncome: number;
   bankAmount: number;
   investmentsTotal: number;
   patrimonyTotal: number;
   passiveIncomes90Days: number;
+  futureExpenses: number;
+  futureRevenues: number;
   isLoading: boolean;
+  isFutureExpensesLoading: boolean;
+  isPassiveIncomeLoading: boolean;
 };
 
 const formatCurrency = (value: number) =>
@@ -270,15 +275,188 @@ const EmergencyFundIndicator = ({
   );
 };
 
+const FutureExpensesIndicator = ({
+  value,
+  bankAmount,
+  futureRevenues,
+  isLoading,
+}: {
+  value: number;
+  bankAmount: number;
+  futureRevenues: number;
+  isLoading: boolean;
+}) => {
+  const { hideValues } = useHideValues();
+  const availableFunds = bankAmount + futureRevenues;
+  const canCoverFutureExpenses = availableFunds >= value;
+
+  if (isLoading) {
+    return (
+      <Skeleton width="100%" height={56} sx={{ borderRadius: "10px" }} />
+    );
+  }
+
+  const bankAmountFormatted = hideValues ? "***" : formatCurrency(bankAmount);
+  const futureRevenuesFormatted = hideValues ? "***" : formatCurrency(futureRevenues);
+  const availableFundsFormatted = hideValues ? "***" : formatCurrency(availableFunds);
+  const tooltipTitle = canCoverFutureExpenses
+    ? `Suas despesas futuras estão cobertas. Saldo em conta (${bankAmountFormatted}) + receitas futuras (${futureRevenuesFormatted}) = ${availableFundsFormatted}`
+    : `Suas despesas futuras excedem seus recursos disponíveis. Saldo em conta (${bankAmountFormatted}) + receitas futuras (${futureRevenuesFormatted}) = ${availableFundsFormatted}`;
+
+  return (
+    <Tooltip
+      title={tooltipTitle}
+      arrow
+      placement="top"
+    >
+      <div>
+        <IndicatorBox variant={canCoverFutureExpenses ? "success" : "danger"} width="100%">
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            sx={{ width: "100%" }}
+          >
+            <Text size={FontSizes.SMALL} color={Colors.neutral300}>
+              Despesas futuras
+            </Text>
+            <Stack direction="row" alignItems="baseline" gap={0.5}>
+              {hideValues ? (
+                <Skeleton
+                  sx={{
+                    bgcolor: getColor(Colors.neutral300),
+                    width: "80px",
+                    display: "inline-block",
+                  }}
+                  animation={false}
+                />
+              ) : (
+                <Text
+                  size={FontSizes.SMALL}
+                  weight={FontWeights.BOLD}
+                  color={Colors.neutral0}
+                >
+                  {formatCurrency(value)}
+                </Text>
+              )}
+            </Stack>
+          </Stack>
+        </IndicatorBox>
+      </div>
+    </Tooltip>
+  );
+};
+
+const PassiveIncomeCoverageLinearProgress = styled(LinearProgress)<{ percentage: number }>(
+  ({ percentage }) => ({
+    height: 6,
+    borderRadius: 3,
+    [`&.${linearProgressClasses.colorPrimary}`]: {
+      backgroundColor: getColor(Colors.neutral600),
+    },
+    [`& .${linearProgressClasses.bar}`]: {
+      borderRadius: 3,
+      backgroundColor: percentage >= 100
+        ? getColor(Colors.brand)
+        : getColor(Colors.danger200),
+    },
+  }),
+);
+
+const PassiveIncomeCoverageIndicator = ({
+  avgPassiveIncome,
+  avgExpenses,
+  isLoading,
+}: {
+  avgPassiveIncome: number;
+  avgExpenses: number;
+  isLoading: boolean;
+}) => {
+  const { hideValues } = useHideValues();
+  const coveragePercentage = avgExpenses > 0 ? (avgPassiveIncome / avgExpenses) * 100 : 0;
+  const isFullyCovered = coveragePercentage >= 100;
+
+  if (isLoading) {
+    return (
+      <Skeleton width="100%" height={56} sx={{ borderRadius: "10px" }} />
+    );
+  }
+
+  const avgPassiveIncomeFormatted = hideValues ? "***" : formatCurrency(avgPassiveIncome);
+  const avgExpensesFormatted = hideValues ? "***" : formatCurrency(avgExpenses);
+  const tooltipTitle = `Média mensal de proventos (${avgPassiveIncomeFormatted}) / média mensal de despesas (${avgExpensesFormatted}) dos últimos 12 meses. Meta: 100% para independência financeira.`;
+
+  return (
+    <Tooltip
+      title={tooltipTitle}
+      arrow
+      placement="top"
+    >
+      <div>
+        <IndicatorBox
+          variant={isFullyCovered ? "success" : "danger"}
+          width="100%"
+        >
+          <Stack gap={0.5} sx={{ width: "100%" }}>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+              sx={{ width: "100%" }}
+            >
+              <Text size={FontSizes.SMALL} color={Colors.neutral300}>
+                Cobertura de proventos
+              </Text>
+              <Stack direction="row" alignItems="baseline" gap={0.5}>
+                {hideValues ? (
+                  <Skeleton
+                    sx={{
+                      bgcolor: getColor(Colors.neutral300),
+                      width: "60px",
+                      display: "inline-block",
+                    }}
+                    animation={false}
+                  />
+                ) : (
+                  <Text
+                    size={FontSizes.SMALL}
+                    weight={FontWeights.BOLD}
+                    color={Colors.neutral0}
+                  >
+                    {coveragePercentage.toFixed(1)}%
+                  </Text>
+                )}
+                <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+                  das despesas
+                </Text>
+              </Stack>
+            </Stack>
+            <PassiveIncomeCoverageLinearProgress
+              variant="determinate"
+              value={Math.min(coveragePercentage, 100)}
+              percentage={coveragePercentage}
+            />
+          </Stack>
+        </IndicatorBox>
+      </div>
+    </Tooltip>
+  );
+};
+
 const FinancialHealthIndicators = ({
   revenues,
   expenses,
   avgExpenses,
+  avgPassiveIncome,
   bankAmount,
   investmentsTotal,
   patrimonyTotal,
   passiveIncomes90Days,
+  futureExpenses,
+  futureRevenues,
   isLoading,
+  isFutureExpensesLoading,
+  isPassiveIncomeLoading,
 }: FinancialHealthIndicatorsProps) => {
   const { hideValues } = useHideValues();
 
@@ -381,6 +559,17 @@ const FinancialHealthIndicators = ({
         avgExpenses={avgExpenses}
         isLoading={isLoading}
       />
+      <PassiveIncomeCoverageIndicator
+        avgPassiveIncome={avgPassiveIncome}
+        avgExpenses={avgExpenses}
+        isLoading={isPassiveIncomeLoading}
+      />
+      <FutureExpensesIndicator
+        value={futureExpenses}
+        bankAmount={bankAmount}
+        futureRevenues={futureRevenues}
+        isLoading={isFutureExpensesLoading}
+      />
     </Stack>
   );
 };
@@ -415,15 +604,20 @@ export const FinancialHealthSummary = () => {
   const {
     data: expensesIndicators,
     isPending: isExpensesIndicatorsLoading,
-  } = useExpensesIndicators({ startDate, endDate });
+  } = useHomeExpensesIndicators();
 
   const {
     data: revenuesIndicators,
     isPending: isRevenuesIndicatorsLoading,
-  } = useRevenuesIndicators({ startDate, endDate });
+  } = useHomeRevenuesIndicators();
 
   const { data: { total: passiveIncomes90Days } = { total: 0 }, isPending: isIncomesLoading } =
     useIncomesSumCredited({ startDate: incomes90DaysStart, endDate: incomes90DaysEnd });
+
+  const {
+    data: incomesIndicators,
+    isPending: isIncomesIndicatorsLoading,
+  } = useIncomesIndicators({ startDate, endDate });
 
   const isLoading =
     isAssetsIndicatorsLoading ||
@@ -437,11 +631,16 @@ export const FinancialHealthSummary = () => {
       revenues={revenuesIndicators?.total ?? 0}
       expenses={expensesIndicators?.total ?? 0}
       avgExpenses={expensesIndicators?.avg ?? 0}
+      avgPassiveIncome={incomesIndicators?.avg ?? 0}
       bankAmount={bankAmount}
       investmentsTotal={assetsIndicators?.total ?? 0}
       patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
       passiveIncomes90Days={passiveIncomes90Days}
+      futureExpenses={expensesIndicators?.future ?? 0}
+      futureRevenues={revenuesIndicators?.future ?? 0}
       isLoading={isLoading}
+      isFutureExpensesLoading={isExpensesIndicatorsLoading || isRevenuesIndicatorsLoading}
+      isPassiveIncomeLoading={isIncomesIndicatorsLoading}
     />
   );
 };

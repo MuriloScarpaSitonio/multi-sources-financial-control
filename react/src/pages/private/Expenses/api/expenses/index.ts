@@ -254,3 +254,14 @@ export const getMostCommonCategory = async (): Promise<ExpenseRelatedEntity> =>
 
 export const getMostCommonSource = async (): Promise<ExpenseRelatedEntity> =>
   (await apiProvider.get(`${RESOURCE}/sources/most_common`)).data;
+
+export type ExpensesIndicatorsResponse = {
+  total: number;
+  avg: number;
+  diff: number;
+  future: number;
+};
+
+export const getExpensesIndicators =
+  async (): Promise<ExpensesIndicatorsResponse> =>
+    (await apiProvider.get(`${RESOURCE}/indicators`)).data;

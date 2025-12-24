@@ -220,12 +220,10 @@ class YearlyHistoricResponseSerializer(AvgSerializer, serializers.Serializer):
     historic = ExpenseYearlyHistoricSerializer(many=True)
 
 
-class RevenueIndicatorsSerializer(TotalSerializer, AvgSerializer):
+class PersonalFinancesIndicatorsSerializer(TotalSerializer, AvgSerializer):
     diff = serializers.DecimalField(max_digits=8, decimal_places=2, rounding=ROUND_HALF_UP)
-
-
-class ExpenseIndicatorsSerializer(RevenueIndicatorsSerializer):
     future = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
+
 
 
 class BankAccountSerializer(serializers.ModelSerializer):
