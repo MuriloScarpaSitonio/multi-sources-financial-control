@@ -1,5 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
@@ -16,7 +18,7 @@ import {
   getColor,
   Text,
 } from "../../../design-system";
-import { useBankAccount } from "../Expenses/hooks";
+import { useBankAccount, usePatrimonyGrowth } from "../Expenses/hooks";
 import { useAssetsIndicators } from "../Assets/Indicators/hooks";
 import { useHomeExpensesIndicators } from "../Expenses/Indicators/hooks";
 import { customEndOfMonth } from "../utils";
@@ -415,6 +417,127 @@ const DividendYieldIndicator = ({
   );
 };
 
+const GrowthSelect = styled(Select)({
+  "& .MuiSelect-select": {
+    padding: "2px 8px",
+    fontSize: "12px",
+    color: getColor(Colors.neutral0),
+    backgroundColor: getColor(Colors.neutral700),
+    borderRadius: "4px",
+  },
+  "& .MuiOutlinedInput-notchedOutline": {
+    border: "none",
+  },
+  "& .MuiSvgIcon-root": {
+    color: getColor(Colors.neutral300),
+    fontSize: "16px",
+  },
+});
+
+const NetWorthGrowthIndicator = () => {
+  const { hideValues } = useHideValues();
+  const [months, setMonths] = useState<number>(0);
+  const [years, setYears] = useState<number>(1);
+
+  const { data: growthData, isPending: isLoading } = usePatrimonyGrowth({
+    months: months || undefined,
+    years: years || undefined,
+  });
+
+  const formatGrowth = (value: number | null) => {
+    if (value === null) return "—";
+    const sign = value >= 0 ? "+" : "";
+    return `${sign}${value.toFixed(2)}%`;
+  };
+
+  const growthPercentage = growthData?.growth_percentage ?? null;
+  const isPositive = (growthPercentage ?? 0) >= 0;
+
+  const historicalTotalFormatted = hideValues ? "***" : formatCurrency(growthData?.historical_total ?? 0);
+  const currentTotalFormatted = hideValues ? "***" : formatCurrency(growthData?.current_total ?? 0);
+  const tooltipTitle = growthData?.historical_date
+    ? `Crescimento patrimonial desde ${new Date(growthData.historical_date).toLocaleDateString("pt-BR")}. Na época você tinha ${historicalTotalFormatted}, hoje tem ${currentTotalFormatted}`
+    : "Sem dados históricos para o período selecionado";
+
+  if (isLoading) {
+    return (
+      <Skeleton width="100%" height={56} sx={{ borderRadius: "10px" }} />
+    );
+  }
+
+  return (
+    <Tooltip title={tooltipTitle} arrow placement="top">
+      <div>
+        <IndicatorBox
+          variant={isPositive ? "success" : "danger"}
+          width="100%"
+        >
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            sx={{ width: "100%" }}
+          >
+            <Stack direction="row" alignItems="center" gap={0.5}>
+              <Text size={FontSizes.SMALL} color={Colors.neutral300}>
+                Variação patrimonial
+              </Text>
+              <GrowthSelect
+                value={years}
+                onChange={(e) => setYears(Number(e.target.value))}
+                size="small"
+                MenuProps={{
+                  PaperProps: {
+                    sx: { bgcolor: getColor(Colors.neutral800) },
+                  },
+                }}
+              >
+                <MenuItem value={0}>-</MenuItem>
+                <MenuItem value={1}>1a</MenuItem>
+                <MenuItem value={2}>2a</MenuItem>
+                <MenuItem value={3}>3a</MenuItem>
+                <MenuItem value={5}>5a</MenuItem>
+              </GrowthSelect>
+              <GrowthSelect
+                value={months}
+                onChange={(e) => setMonths(Number(e.target.value))}
+                size="small"
+                MenuProps={{
+                  PaperProps: {
+                    sx: { bgcolor: getColor(Colors.neutral800) },
+                  },
+                }}
+              >
+                <MenuItem value={0}>-</MenuItem>
+                <MenuItem value={3}>3m</MenuItem>
+                <MenuItem value={6}>6m</MenuItem>
+                <MenuItem value={9}>9m</MenuItem>
+              </GrowthSelect>
+            </Stack>
+            {hideValues ? (
+              <Skeleton
+                sx={{
+                  bgcolor: getColor(Colors.neutral300),
+                  width: "60px",
+                  display: "inline-block",
+                }}
+                animation={false}
+              />
+            ) : (
+              <Text
+                size={FontSizes.SMALL}
+                weight={FontWeights.BOLD}
+              >
+                {formatGrowth(growthPercentage)}
+              </Text>
+            )}
+          </Stack>
+        </IndicatorBox>
+      </div>
+    </Tooltip>
+  );
+};
+
 const PassiveIncomeCoverageLinearProgress = styled(LinearProgress)<{ percentage: number }>(
   ({ percentage }) => ({
     height: 6,
@@ -609,6 +732,7 @@ const FinancialHealthIndicators = ({
         isLoading={isFutureExpensesLoading}
       />
       <DividendYieldIndicator yieldOnCost={yieldOnCost} isLoading={isLoading} />
+      <NetWorthGrowthIndicator />
     </Stack>
   );
 };

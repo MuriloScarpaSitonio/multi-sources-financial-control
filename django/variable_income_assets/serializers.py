@@ -427,6 +427,27 @@ class AssetRoidIndicatorsSerializer(serializers.Serializer):
     )
 
 
+class AssetGrowthSerializer(serializers.Serializer):
+    current_total = serializers.DecimalField(
+        max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP
+    )
+    historical_total = serializers.DecimalField(
+        max_digits=20,
+        decimal_places=2,
+        read_only=True,
+        rounding=ROUND_HALF_UP,
+        allow_null=True,
+    )
+    historical_date = serializers.DateField(read_only=True, allow_null=True)
+    growth_percentage = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        read_only=True,
+        rounding=ROUND_HALF_UP,
+        allow_null=True,
+    )
+
+
 class AvgSerializer(serializers.Serializer):
     avg = serializers.DecimalField(
         max_digits=20, decimal_places=2, read_only=True, rounding=ROUND_HALF_UP

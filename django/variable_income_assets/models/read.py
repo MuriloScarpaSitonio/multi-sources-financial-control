@@ -10,7 +10,7 @@ from shared.models_utils import serializable_today_function
 
 from ..adapters.key_value_store import get_dollar_conversion_rate
 from ..choices import AssetObjectives, AssetTypes, Currencies
-from .managers import AssetReadModelQuerySet
+from .managers import AssetReadModelQuerySet, AssetsTotalInvestedSnapshotQuerySet
 from .write import AssetMetaData
 
 
@@ -95,6 +95,8 @@ class AssetsTotalInvestedSnapshot(models.Model):
     )
     operation_date = models.DateField(default=serializable_today_function)
     total = models.DecimalField(decimal_places=4, max_digits=20)
+
+    objects = AssetsTotalInvestedSnapshotQuerySet.as_manager()
 
     def __str__(self) -> str:  # pragma: no cover
         return (

@@ -15,4 +15,5 @@ urlpatterns = [
     path(BASE_API_URL, include("expenses.urls")),
     path(BASE_API_URL, include("variable_income_assets.urls")),
     path(BASE_API_URL, include("tasks.urls")),
+    path(BASE_API_URL, include("shared.urls")),
 ]

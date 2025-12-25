@@ -6,11 +6,15 @@ from typing import TYPE_CHECKING, Self
 from django.db import models
 from django.db.models.functions import Coalesce, NullIf
 
+from shared.managers_utils import LatestBeforeQuerySet
+
 from ...adapters import DjangoSQLAssetMetaDataRepository
 from ...adapters.key_value_store import get_dollar_conversion_rate
 from ...choices import AssetsReportsAggregations, AssetTypes, Currencies
 
 if TYPE_CHECKING:
+    from datetime import date
+
     from ...adapters.sql import AbstractAssetMetaDataRepository
 
 
@@ -205,9 +209,7 @@ class AssetReadModelQuerySet(models.QuerySet):
         if include_yield:
             aggregations["yield_on_cost"] = Coalesce(
                 models.Sum("normalized_credited_incomes")
-                / NullIf(
-                    models.Sum(self.expressions.normalized_total_invested), Decimal()
-                )
+                / NullIf(models.Sum(self.expressions.normalized_total_invested), Decimal())
                 * Decimal("100.0"),
                 Decimal(),
             )
@@ -265,4 +267,14 @@ class AssetReadModelQuerySet(models.QuerySet):
             qs
             if f == group_by
             else qs.annotate(**{group_by: models.F(f)}).values(group_by, "total")
+        )
+
+
+class AssetsTotalInvestedSnapshotQuerySet(LatestBeforeQuerySet):
+    def last_total_for_user(self, user_id: int) -> Decimal | None:
+        return (
+            self.filter(user_id=user_id)
+            .order_by("-operation_date")
+            .values_list("total", flat=True)
+            .first()
         )

@@ -7,6 +7,7 @@ from django.template.defaultfilters import slugify
 from django.utils import timezone
 
 import pytest
+from dateutil.relativedelta import relativedelta
 from rest_framework.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -684,6 +685,94 @@ def test__indicators__include_yield(client):
         "yield_on_cost": convert_and_quantitize(expected_yield),
     }
     assert response.json()["total_diff_percentage"] > 0
+
+
+@pytest.mark.usefixtures("indicators_data", "sync_assets_read_model")
+def test__growth__with_months(client, assets_total_invested_snapshot_factory):
+    # GIVEN
+    today = timezone.localdate()
+    current_total = sum(
+        get_current_total_invested_brute_force(asset) for asset in Asset.objects.opened()
+    )
+
+    snapshot = assets_total_invested_snapshot_factory(
+        total=Decimal("40000"), operation_date=today - relativedelta(months=6)
+    )
+
+    expected_growth = ((current_total / snapshot.total) - Decimal("1.0")) * Decimal("100.0")
+
+    # WHEN
+    response = client.get(f"{URL}/growth?months=6")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert response.json() == {
+        "current_total": convert_and_quantitize(current_total),
+        "historical_total": convert_and_quantitize(snapshot.total),
+        "historical_date": snapshot.operation_date.isoformat(),
+        "growth_percentage": convert_and_quantitize(expected_growth),
+    }
+
+
+@pytest.mark.usefixtures("indicators_data", "sync_assets_read_model")
+def test__growth__with_years(client, assets_total_invested_snapshot_factory):
+    # GIVEN
+    today = timezone.localdate()
+    current_total = sum(
+        get_current_total_invested_brute_force(asset) for asset in Asset.objects.opened()
+    )
+
+    snapshot = assets_total_invested_snapshot_factory(
+        total=Decimal("30000"), operation_date=today - relativedelta(years=1)
+    )
+
+    expected_growth = ((current_total / snapshot.total) - Decimal("1.0")) * Decimal("100.0")
+
+    # WHEN
+    response = client.get(f"{URL}/growth?years=1")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert response.json() == {
+        "current_total": convert_and_quantitize(current_total),
+        "historical_total": convert_and_quantitize(snapshot.total),
+        "historical_date": snapshot.operation_date.isoformat(),
+        "growth_percentage": convert_and_quantitize(expected_growth),
+    }
+
+
+@pytest.mark.usefixtures("indicators_data", "sync_assets_read_model")
+def test__growth__no_snapshots(client):
+    # GIVEN - no snapshots exist
+    current_total = sum(
+        get_current_total_invested_brute_force(asset) for asset in Asset.objects.opened()
+    )
+
+    # WHEN
+    response = client.get(f"{URL}/growth?months=6")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert response.json() == {
+        "current_total": convert_and_quantitize(current_total),
+        "historical_total": None,
+        "historical_date": None,
+        "growth_percentage": None,
+    }
+
+
+@pytest.mark.usefixtures("indicators_data", "sync_assets_read_model")
+def test__growth__missing_params(client):
+    # GIVEN - no params
+
+    # WHEN
+    response = client.get(f"{URL}/growth")
+
+    # THEN
+    assert response.status_code == 400
+    assert response.json() == {
+        "__all__": ["É necessário informar ao menos 'months' ou 'years'."]
+    }
 
 
 @pytest.mark.parametrize("filters", ("", "status=OPENED", "status=CLOSED"))

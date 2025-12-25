@@ -8,6 +8,7 @@ from django.db import transaction as djtransaction
 from django.db.models import BooleanField, Case, F, Sum, Value, When
 from django.utils import timezone
 
+from dateutil.relativedelta import relativedelta
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
@@ -22,6 +23,7 @@ from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK, HTTP_204_NO_CONTENT
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
+from shared.filters import PatrimonyGrowthFilterSet
 from shared.permissions import SubscriptionEndedPermission
 from shared.utils import (
     insert_zeros_if_no_data_in_monthly_historic_data,
@@ -120,21 +122,58 @@ class AssetViewSet(
         filterset = filters.AssetIndicatorsFilterSet(data=request.query_params)
         filterset.is_valid()
         qs = self.get_queryset().indicators(
-            include_yield=filterset.form.cleaned_data.get("include_yield", False)
+            include_yield=filterset.form.cleaned_data.get("include_yield")
         )
-        last_snapshot = dict(
-            AssetsTotalInvestedSnapshot.objects.filter(user_id=self.request.user.id)
-            .order_by("-operation_date")
-            .values("total")
-            .first()
-            or {}
+        last_snapshot = (
+            AssetsTotalInvestedSnapshot.objects.last_total_for_user(self.request.user.id) or 1
         )
         total_diff_percentage = (
-            ((qs["total"]) / last_snapshot.get("total", 1)) - Decimal("1.0")
+            ((qs["total"]) / last_snapshot) - Decimal("1.0")
         ) * Decimal("100.0")
 
         serializer = serializers.AssetRoidIndicatorsSerializer(
             {**qs, "total_diff_percentage": total_diff_percentage}
+        )
+        return Response(serializer.data, status=HTTP_200_OK)
+
+    @action(methods=("GET",), detail=False)
+    def growth(self, request: Request) -> Response:
+        filterset = PatrimonyGrowthFilterSet(data=request.query_params)
+        if not filterset.is_valid():
+            return Response(filterset.errors, status=400)
+
+        months = filterset.form.cleaned_data.get("months")
+        years = filterset.form.cleaned_data.get("years")
+
+        today = timezone.localdate()
+        target_date = today - relativedelta(months=months or 0, years=years or 0)
+
+        current_total = self.get_queryset().aggregate_normalized_current_total()["total"]
+
+        historical_snapshot = AssetsTotalInvestedSnapshot.objects.latest_before(
+            request.user.id, target_date
+        )
+
+        if not historical_snapshot:
+            return Response(
+                {
+                    "current_total": current_total,
+                    "historical_total": None,
+                    "historical_date": None,
+                    "growth_percentage": None,
+                }
+            )
+
+        serializer = serializers.AssetGrowthSerializer(
+            {
+                "current_total": current_total,
+                "historical_total": historical_snapshot["total"],
+                "historical_date": historical_snapshot["operation_date"],
+                "growth_percentage": (
+                    (current_total / historical_snapshot["total"]) - Decimal("1.0")
+                )
+                * Decimal("100.0"),
+            }
         )
         return Response(serializer.data, status=HTTP_200_OK)
 

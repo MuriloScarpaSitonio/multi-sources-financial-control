@@ -1,6 +1,6 @@
 from datetime import date
 
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 from django.utils import timezone
 
 
@@ -50,3 +50,13 @@ class GenericDateFilters:
 
     def filter_range(self, start: date, end: date) -> Q:
         return Q(**{f"{self.date_field_name}__range": (start, end)})
+
+
+class LatestBeforeQuerySet(QuerySet):
+    def latest_before(self, user_id: int, target_date: date) -> dict | None:
+        return (
+            self.filter(user_id=user_id, operation_date__lte=target_date)
+            .order_by("-operation_date")
+            .values("total", "operation_date")
+            .first()
+        )

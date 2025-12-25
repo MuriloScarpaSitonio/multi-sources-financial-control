@@ -33,6 +33,19 @@ export const getIndicators = async (params?: {
     })
   ).data;
 
+type AssetsGrowthResponse = {
+  current_total: number;
+  historical_total: number | null;
+  historical_date: string | null;
+  growth_percentage: number | null;
+};
+
+export const getGrowth = async (params: {
+  months?: number;
+  years?: number;
+}): Promise<AssetsGrowthResponse> =>
+  (await apiProvider.get(`${RESOURCE}/growth`, { params })).data;
+
 export const getReports = async (params: {
   opened?: boolean;
   closed?: boolean;

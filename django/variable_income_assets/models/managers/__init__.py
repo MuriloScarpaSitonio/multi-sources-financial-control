@@ -1,4 +1,4 @@
-from .read import AssetReadModelQuerySet
+from .read import AssetReadModelQuerySet, AssetsTotalInvestedSnapshotQuerySet
 from .write import (
     AssetClosedOperationQuerySet,
     AssetQuerySet,

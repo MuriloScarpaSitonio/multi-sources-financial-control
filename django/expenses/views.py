@@ -5,6 +5,10 @@ from statistics import fmean
 from typing import TYPE_CHECKING, ClassVar, Literal
 from uuid import uuid4
 
+from django.db.models import F, Max
+from django.db.transaction import atomic
+from django.utils import timezone
+
 from djchoices.choices import ChoiceItem
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -18,15 +22,12 @@ from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK
 from rest_framework.utils.serializer_helpers import ReturnList
 from rest_framework.viewsets import GenericViewSet
+
 from shared.permissions import SubscriptionEndedPermission
 from shared.utils import (
     insert_zeros_if_no_data_in_monthly_historic_data,
     insert_zeros_if_no_data_in_yearly_historic_data,
 )
-
-from django.db.models import F, Max
-from django.db.transaction import atomic
-from django.utils import timezone
 
 from . import filters, serializers
 from .choices import ExpenseReportType

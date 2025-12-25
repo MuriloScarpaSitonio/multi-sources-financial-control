@@ -4,10 +4,10 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Literal, Self
 
-from shared.managers_utils import GenericDateFilters
-
 from django.db.models import CharField, Count, F, Q, QuerySet, Sum, Value
 from django.db.models.functions import Coalesce, Concat, Greatest, TruncMonth, TruncYear
+
+from shared.managers_utils import GenericDateFilters, LatestBeforeQuerySet
 
 from .choices import ExpenseReportType
 
@@ -103,10 +103,10 @@ class _PersonalFinancialQuerySet(QuerySet):
     def sum(self) -> dict[str, Decimal]:
         return self.aggregate(total=Coalesce(Sum("value"), Decimal()))
 
-    def annotate_num_of_appearances(self, field_name: str) -> Self:
+    def annotate_num_of_appearances(self, field_name: Literal["category", "source"]) -> Self:
         return self.values(field_name).annotate(num_of_appearances=Count(field_name))
 
-    def as_related_entities(self, field_name: str) -> Self:
+    def as_related_entities(self, field_name: Literal["category", "source"]) -> Self:
         kwargs = {"name": F(field_name)}
         if field_name == "category":
             qs = self.annotate(
@@ -119,7 +119,7 @@ class _PersonalFinancialQuerySet(QuerySet):
 
         return qs.values("id", "name", "hex_color").distinct()
 
-    def most_common(self, field_name: str) -> str:
+    def most_common(self, field_name: Literal["category", "source"]) -> Self:
         return self.annotate_num_of_appearances(field_name).order_by("-num_of_appearances")
 
 
@@ -183,7 +183,7 @@ class ExpenseQueryset(_PersonalFinancialQuerySet):
     def as_related_entities(self, field_name: Literal["category", "source"]) -> Self:
         return super().as_related_entities(field_name)
 
-    def most_common(self, field_name: Literal["category", "source"]) -> str:
+    def most_common(self, field_name: Literal["category", "source"]) -> Self:
         return super().most_common(field_name)
 
 
@@ -201,7 +201,7 @@ class RevenueQueryset(_PersonalFinancialQuerySet):
     def as_related_entities(self) -> Self:
         return super().as_related_entities(field_name="category")
 
-    def most_common(self) -> str:
+    def most_common(self) -> Self:
         return super().most_common(field_name="category")
 
     def percentage_report(self, start_date: date, end_date: date) -> Self:
@@ -217,3 +217,6 @@ class RevenueQueryset(_PersonalFinancialQuerySet):
             .filter(total__gt=0)
             .order_by("-total")
         )
+
+
+class BankAccountSnapshotQuerySet(LatestBeforeQuerySet): ...
