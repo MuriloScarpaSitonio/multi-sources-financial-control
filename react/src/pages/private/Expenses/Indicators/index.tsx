@@ -2,60 +2,27 @@ import { useContext, useMemo } from "react";
 
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
-import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 import MonetizationOnOutlinedIcon from "@mui/icons-material/MonetizationOnOutlined";
-import CheckCircleOutlinedIcon from "@mui/icons-material/CheckCircleOutlined";
 
 import { Indicator } from "../../components";
-import { useExpensesIndicators, useMostExpensiveExpense } from "./hooks";
+import { isFilteringCurrentMonth, useExpensesIndicators, useHomeExpensesIndicators, useMostExpensiveExpense } from "./hooks";
 import PercentageChangeSecondaryIndicator from "./PercentageChangeSecondaryIndicator";
 
-import { Colors, FontSizes, getColor, Text } from "../../../../design-system";
+import { Colors, FontSizes, FontWeights, getColor, Text } from "../../../../design-system";
 import { ExpensesContext } from "../context";
 import { Expense } from "../api/models";
 import { StatusDot } from "../../../../design-system/icons";
 import { useBankAccount } from "../hooks";
 import { IndicatorBox } from "./components";
 import BankAccountIndicator from "./BankAccountIndicator";
-import { useRevenuesIndicators } from "../../Revenues/hooks/useRevenuesIndicators";
+import { useRevenuesIndicators, useHomeRevenuesIndicators } from "../../Revenues/hooks/useRevenuesIndicators";
 import ExpenseRevenuesRatioLinearProgress from "./ExpenseRevenuesRatioLinearProgress";
 import { useHideValues } from "../../../../hooks/useHideValues";
+import { EmergencyFundIndicator } from "./EmergencyFundIndicator";
+import { FutureExpensesIndicator } from "./FutureExpensesIndicator";
+import { formatCurrency } from "../../utils";
 
-const ExpenseAvgDiffIndicator = ({
-  value,
-  isLoading,
-}: {
-  value: number;
-  isLoading: boolean;
-}) => {
-  const variant = value > 0 ? "danger" : "success";
-  return isLoading ? (
-    <Skeleton
-      width="50%"
-      height={80}
-      sx={{
-        borderRadius: "10px",
-      }}
-    />
-  ) : (
-    <IndicatorBox variant={variant} width="50%">
-      <Stack direction="row" gap={1}>
-        {variant === "danger" ? (
-          <ReportProblemOutlinedIcon
-            sx={{ color: getColor(Colors.danger200) }}
-          />
-        ) : (
-          <CheckCircleOutlinedIcon sx={{ color: getColor(Colors.brand) }} />
-        )}
-        <Text size={FontSizes.SMALL}>
-          {`Gasto mensal ${variant === "danger" ? "acima" : "dentro"} da média`}
-        </Text>
-      </Stack>
-    </IndicatorBox>
-  );
-};
-
-const BalanceIndicator = ({
+export const BalanceIndicator = ({
   value,
   isLoading,
 }: {
@@ -76,23 +43,36 @@ const BalanceIndicator = ({
 
   return (
     <IndicatorBox variant={value > 0 ? "success" : "danger"} width="50%">
-      <Text size={FontSizes.SMALL}>
-        <Stack direction="row" gap={1}>
-          Diferença:{" "}
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        sx={{ width: "100%" }}
+      >
+        <Text size={FontSizes.SMALL} color={Colors.neutral300}>
+          Balanço
+        </Text>
+        <Stack direction="row" alignItems="baseline" gap={0.5}>
           {hideValues ? (
             <Skeleton
-              sx={{ bgcolor: getColor(Colors.neutral300), width: "50%" }}
+              sx={{
+                bgcolor: getColor(Colors.neutral300),
+                width: "80px",
+                display: "inline-block",
+              }}
               animation={false}
             />
           ) : (
-            `R$
-          ${value.toLocaleString("pt-br", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}`
+            <Text
+              size={FontSizes.SMALL}
+              weight={FontWeights.BOLD}
+              color={Colors.neutral0}
+            >
+              {formatCurrency(value)}
+            </Text>
           )}
         </Stack>
-      </Text>
+      </Stack>
     </IndicatorBox>
   );
 };
@@ -157,25 +137,51 @@ const MostExpensiveIndicator = ({
 
 const Indicators = () => {
   const { startDate, endDate } = useContext(ExpensesContext);
+
+  // Check if we're filtering the current month - if so, use home indicators instead of separate API calls
+  const isCurrentMonth = isFilteringCurrentMonth(startDate, endDate);
+
+  // Only call these if NOT filtering current month (to avoid duplicate API calls)
   const {
-    data: expensesIndicators,
-    isPending: isExpensesIndicatorsLoading,
+    data: dateFilteredExpenses,
+    isPending: isDateFilteredExpensesLoading,
     isError: isExpensesIndicatorsError,
-  } = useExpensesIndicators({ startDate, endDate });
+  } = useExpensesIndicators({ startDate, endDate }, { enabled: !isCurrentMonth });
   const {
-    data: revenuesIndicators,
-    isPending: isRevenuesIndicatorsLoading,
+    data: dateFilteredRevenues,
+    isPending: isDateFilteredRevenuesLoading,
     isError: isRevenuesIndicatorsError,
-  } = useRevenuesIndicators({ startDate, endDate });
+  } = useRevenuesIndicators({ startDate, endDate }, { enabled: !isCurrentMonth });
+
   const { data: mostExpensiveExpense, isPending: isMostExpensiveLoading } =
     useMostExpensiveExpense({ startDate, endDate });
 
   const { data: bankAccount, isPending: isBankAccountLoading } =
     useBankAccount();
 
+  // Home indicators - always called (used for financial health indicators and current month data)
+  const {
+    data: homeExpensesIndicators,
+    isPending: isHomeExpensesLoading,
+  } = useHomeExpensesIndicators();
+  const {
+    data: homeRevenuesIndicators,
+    isPending: isHomeRevenuesLoading,
+  } = useHomeRevenuesIndicators();
+
+  // Use home indicators when filtering current month, otherwise use date-filtered data
+  const expensesIndicators = isCurrentMonth ? homeExpensesIndicators : dateFilteredExpenses;
+  const revenuesIndicators = isCurrentMonth ? homeRevenuesIndicators : dateFilteredRevenues;
+  const isExpensesIndicatorsLoading = isCurrentMonth ? isHomeExpensesLoading : isDateFilteredExpensesLoading;
+  const isRevenuesIndicatorsLoading = isCurrentMonth ? isHomeRevenuesLoading : isDateFilteredRevenuesLoading;
+
   const isLoading = isExpensesIndicatorsLoading || isRevenuesIndicatorsLoading;
   const isFilteringEntireMonth =
     !isExpensesIndicatorsLoading && expensesIndicators?.diff !== undefined;
+
+  const avgExpenses = homeExpensesIndicators?.avg ?? 0;
+  const bankAmount = bankAccount?.amount ?? 0;
+  const monthsCovered = avgExpenses > 0 ? bankAmount / avgExpenses : 0;
 
   const percentage = useMemo(() => {
     if (expensesIndicators && revenuesIndicators)
@@ -247,12 +253,13 @@ const Indicators = () => {
       />
       <Stack direction="row" gap={4}>
         <BalanceIndicator value={balance} isLoading={isLoading} />
-        {isFilteringEntireMonth && (
-          <ExpenseAvgDiffIndicator
-            value={expensesIndicators?.diff ?? 0}
-            isLoading={isLoading}
-          />
-        )}
+        <FutureExpensesIndicator
+          width="50%"
+          value={homeExpensesIndicators?.future ?? 0}
+          bankAmount={bankAmount}
+          futureRevenues={homeRevenuesIndicators?.future ?? 0}
+          isLoading={isHomeExpensesLoading || isHomeRevenuesLoading}
+        />
       </Stack>
       <Stack direction="row" gap={4}>
         {isBankAccountLoading ? (
@@ -274,6 +281,11 @@ const Indicators = () => {
           isLoading={isMostExpensiveLoading}
         />
       </Stack>
+      <EmergencyFundIndicator
+        monthsCovered={monthsCovered}
+        avgExpenses={avgExpenses}
+        isLoading={isHomeExpensesLoading || isBankAccountLoading}
+      />
     </Stack>
   );
 };

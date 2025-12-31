@@ -9,10 +9,14 @@ import { getAvg, getRevenuesIndicators, getSum } from "../api";
 
 const SUM_QUERY_KEY = "revenues-sum";
 
-export const useRevenuesSum = (params: { startDate: Date; endDate: Date }) =>
+export const useRevenuesSum = (
+  params: { startDate: Date; endDate: Date },
+  options?: { enabled?: boolean },
+) =>
   useQuery({
     queryKey: [SUM_QUERY_KEY, params],
     queryFn: () => getSum(params),
+    enabled: options?.enabled ?? true,
   });
 
 const AVG_QUERY_KEY = "revenues-avg";
@@ -24,22 +28,23 @@ const useRevenuesAvg = ({ enabled = true }: { enabled?: boolean }) =>
     enabled,
   });
 
-export const useRevenuesIndicators = (params: {
-  startDate: Date;
-  endDate: Date;
-}) => {
+export const useRevenuesIndicators = (
+  params: { startDate: Date; endDate: Date },
+  options?: { enabled?: boolean },
+) => {
+  const enabled = options?.enabled ?? true;
   const { startDate, endDate } = params;
   const isFilteringEntireMonth = isFilteringWholeMonth(startDate, endDate);
   const {
     data: revenuesSumData,
     isPending: isRevenuesSumLoading,
     isError: isRevenuesSumError,
-  } = useRevenuesSum({ startDate: startOfMonth(startDate), endDate });
+  } = useRevenuesSum({ startDate: startOfMonth(startDate), endDate }, { enabled });
   const {
     data: revenuesAvgData,
     isPending: isRevenuesAvgLoading,
     isError: isRevenuesAvgError,
-  } = useRevenuesAvg({ enabled: isFilteringEntireMonth });
+  } = useRevenuesAvg({ enabled: enabled && isFilteringEntireMonth });
 
   return {
     data:
@@ -54,7 +59,7 @@ export const useRevenuesIndicators = (params: {
               : undefined,
           }
         : undefined,
-    isPending: isRevenuesSumLoading || isRevenuesAvgLoading,
+    isPending: enabled && (isRevenuesSumLoading || isRevenuesAvgLoading),
     isError: isRevenuesSumError || isRevenuesAvgError,
   };
 };

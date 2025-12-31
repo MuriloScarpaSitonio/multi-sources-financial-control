@@ -49,3 +49,19 @@ export const useInvalidateBankAccountHistoryQueries = (
 
   return { invalidate };
 };
+
+export const useInvalidateAllBankAccountQueries = (client?: QueryClient) => {
+  const queryClient = useQueryClient(client);
+
+  const { invalidate: invalidateBankAccountQueries } =
+    useInvalidateBankAccountQueries(queryClient);
+  const { invalidate: invalidateBankAccountHistoryQueries } =
+    useInvalidateBankAccountHistoryQueries(queryClient);
+
+  const invalidate = async () => {
+    await invalidateBankAccountQueries();
+    await invalidateBankAccountHistoryQueries();
+  };
+
+  return { invalidate };
+};

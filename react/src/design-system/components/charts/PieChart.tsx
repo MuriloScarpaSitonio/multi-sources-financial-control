@@ -10,7 +10,6 @@ import { Colors } from "../../enums";
 import { Skeleton } from "@mui/material";
 
 const CHART_WIDTH = 700;
-const CHART_HEIGHT = 300;
 
 const renderCustomizedLabel = ({
   cx,
@@ -60,13 +59,13 @@ const renderCustomizedLabel = ({
   );
 };
 
-const ChartBox = ({ children }: { children: ReactNode }) => (
+const ChartBox = ({ children, height }: { children: ReactNode; height: number }) => (
   <Stack
     sx={{
       justifyContent: "center",
       alignItems: "center",
       width: CHART_WIDTH,
-      height: CHART_HEIGHT,
+      height,
     }}
   >
     {children}
@@ -85,6 +84,7 @@ const PieChart = ({
   dataKey = "total",
   innerRadius = 70,
   outerRadius = 100,
+  height = 300,
 }: {
   data: any[];
   groupBy: string;
@@ -97,27 +97,28 @@ const PieChart = ({
   dataKey?: string;
   innerRadius?: number;
   outerRadius?: number;
+  height?: number;
 }) => {
   if (isLoading)
     return (
-      <ChartBox>
+      <ChartBox height={height}>
         <Skeleton
-          height={CHART_HEIGHT / 1.3}
-          width={CHART_HEIGHT / 1.3}
+          height={height / 1.3}
+          width={height / 1.3}
           variant="circular"
         />
       </ChartBox>
     );
   if (data.length === 0)
     return (
-      <ChartBox>
+      <ChartBox height={height}>
         <Text>{noDataText}</Text>
       </ChartBox>
     );
 
   const hasFewOptions = data.length < 5;
   return (
-    <PieReChart width={CHART_WIDTH} height={CHART_HEIGHT}>
+    <PieReChart width={CHART_WIDTH} height={height}>
       {!hasFewOptions && (
         <Legend
           payload={data?.map((item) => {

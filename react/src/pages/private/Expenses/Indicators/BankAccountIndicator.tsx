@@ -23,6 +23,7 @@ import { CircularProgress } from "@mui/material";
 import { update as updateBankAccount } from "../api/bank_account";
 import { enqueueSnackbar } from "notistack";
 import { useHideValues } from "../../../../hooks/useHideValues";
+import { useInvalidateAllBankAccountQueries } from "../hooks";
 
 const BankAcountDescriptionInput = ({
   description,
@@ -125,13 +126,15 @@ const BankAccountIndicator = ({
   const [isHoveringAmount, setIsHoveringAmount] = useState(false);
   const [newAmount, setNewAmount] = useState(amount);
   const [newDescription, setNewDescription] = useState(description);
-
+  const { invalidate: invalidateBankAccountQueries } =
+    useInvalidateAllBankAccountQueries();
   const { mutate, isPending } = useMutation({
     mutationFn: updateBankAccount,
-    onSuccess: () => {
+    onSuccess: async () => {
       enqueueSnackbar("Conta bancária atualizada com sucesso!", {
         variant: "success",
       });
+      await invalidateBankAccountQueries();
     },
     onError: () => {
       enqueueSnackbar(

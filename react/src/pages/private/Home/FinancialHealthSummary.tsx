@@ -5,7 +5,6 @@ import Select from "@mui/material/Select";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
-import LinearProgress, { linearProgressClasses } from "@mui/material/LinearProgress";
 import { styled } from "@mui/material/styles";
 import { Cell, Pie, PieChart as PieReChart, ResponsiveContainer } from "recharts";
 
@@ -21,11 +20,14 @@ import {
 import { useBankAccount, usePatrimonyGrowth } from "../Expenses/hooks";
 import { useAssetsIndicators } from "../Assets/Indicators/hooks";
 import { useHomeExpensesIndicators } from "../Expenses/Indicators/hooks";
-import { customEndOfMonth } from "../utils";
+import { customEndOfMonth, formatCurrency } from "../utils";
 import { useHomeRevenuesIndicators } from "../Revenues/hooks/useRevenuesIndicators";
 import { useIncomesSumCredited, useIncomesIndicators } from "../Incomes/Indicators/hooks";
 import { IndicatorBox } from "../Expenses/Indicators/components";
 import { useHideValues } from "../../../hooks/useHideValues";
+import { EmergencyFundIndicator } from "../Expenses/Indicators/EmergencyFundIndicator";
+import { FutureExpensesIndicator } from "../Expenses/Indicators/FutureExpensesIndicator";
+import { PassiveIncomeCoverageIndicator } from "../Expenses/Indicators/PassiveIncomeCoverageIndicator";
 
 type FinancialHealthIndicatorsProps = {
   avgExpenses: number;
@@ -41,12 +43,6 @@ type FinancialHealthIndicatorsProps = {
   isFutureExpensesLoading: boolean;
   isPassiveIncomeLoading: boolean;
 };
-
-const formatCurrency = (value: number) =>
-  `R$ ${Math.abs(value).toLocaleString("pt-br", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
 
 const PatrimonyCompositionIndicator = ({
   investmentsPercentage,
@@ -179,174 +175,6 @@ const PatrimonyCompositionIndicator = ({
   );
 };
 
-const EmergencyFundLinearProgress = styled(LinearProgress)<{ isHealthy?: boolean }>(
-  ({ isHealthy }) => ({
-    height: 6,
-    borderRadius: 3,
-    [`&.${linearProgressClasses.colorPrimary}`]: {
-      backgroundColor: getColor(Colors.neutral600),
-    },
-    [`& .${linearProgressClasses.bar}`]: {
-      borderRadius: 3,
-      backgroundColor: isHealthy
-        ? getColor(Colors.brand)
-        : getColor(Colors.danger200),
-    },
-  }),
-);
-
-const EmergencyFundIndicator = ({
-  monthsCovered,
-  targetMonths,
-  avgExpenses,
-  isLoading,
-}: {
-  monthsCovered: number;
-  targetMonths: number;
-  avgExpenses: number;
-  isLoading: boolean;
-}) => {
-  const { hideValues } = useHideValues();
-  const progress = Math.min((monthsCovered / targetMonths) * 100, 100);
-  const isHealthy = monthsCovered >= targetMonths;
-
-  if (isLoading) {
-    return (
-      <Skeleton width="100%" height={56} sx={{ borderRadius: "10px" }} />
-    );
-  }
-
-  const avgExpensesFormatted = hideValues ? "***" : formatCurrency(avgExpenses);
-  const tooltipTitle = `Saldo em conta / média mensal de despesas (dos últimos 12 meses: ${avgExpensesFormatted}).`;
-
-  return (
-    <Tooltip
-      title={tooltipTitle}
-      arrow
-      placement="top"
-    >
-      <div>
-        <IndicatorBox
-          variant={isHealthy ? "success" : "danger"}
-          width="100%"
-        >
-          <Stack gap={0.5} sx={{ width: "100%" }}>
-            <Stack
-              direction="row"
-              justifyContent="space-between"
-              alignItems="center"
-              sx={{ width: "100%" }}
-            >
-              <Text size={FontSizes.SMALL} color={Colors.neutral300}>
-                Reserva de emergência
-              </Text>
-              <Stack direction="row" alignItems="baseline" gap={0.5}>
-                {hideValues ? (
-                  <Skeleton
-                    sx={{
-                      bgcolor: getColor(Colors.neutral300),
-                      width: "60px",
-                      display: "inline-block",
-                    }}
-                    animation={false}
-                  />
-                ) : (
-                  <Text
-                    size={FontSizes.SMALL}
-                    weight={FontWeights.BOLD}
-                    color={Colors.neutral0}
-                  >
-                    {monthsCovered.toFixed(1)} meses
-                  </Text>
-                )}
-                <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-                  de {targetMonths} meses (meta)
-                </Text>
-              </Stack>
-            </Stack>
-            <EmergencyFundLinearProgress
-              variant="determinate"
-              value={Math.min(progress, 100)}
-              isHealthy={isHealthy}
-            />
-          </Stack>
-        </IndicatorBox>
-      </div>
-    </Tooltip>
-  );
-};
-
-const FutureExpensesIndicator = ({
-  value,
-  bankAmount,
-  futureRevenues,
-  isLoading,
-}: {
-  value: number;
-  bankAmount: number;
-  futureRevenues: number;
-  isLoading: boolean;
-}) => {
-  const { hideValues } = useHideValues();
-  const availableFunds = bankAmount + futureRevenues;
-  const canCoverFutureExpenses = availableFunds >= value;
-
-  if (isLoading) {
-    return (
-      <Skeleton width="100%" height={56} sx={{ borderRadius: "10px" }} />
-    );
-  }
-
-  const bankAmountFormatted = hideValues ? "***" : formatCurrency(bankAmount);
-  const futureRevenuesFormatted = hideValues ? "***" : formatCurrency(futureRevenues);
-  const availableFundsFormatted = hideValues ? "***" : formatCurrency(availableFunds);
-  const tooltipTitle = canCoverFutureExpenses
-    ? `Suas despesas futuras estão cobertas. Saldo em conta (${bankAmountFormatted}) + receitas futuras (${futureRevenuesFormatted}) = ${availableFundsFormatted}`
-    : `Suas despesas futuras excedem seus recursos disponíveis. Saldo em conta (${bankAmountFormatted}) + receitas futuras (${futureRevenuesFormatted}) = ${availableFundsFormatted}`;
-
-  return (
-    <Tooltip
-      title={tooltipTitle}
-      arrow
-      placement="top"
-    >
-      <div>
-        <IndicatorBox variant={canCoverFutureExpenses ? "success" : "danger"} width="100%">
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
-            sx={{ width: "100%" }}
-          >
-            <Text size={FontSizes.SMALL} color={Colors.neutral300}>
-              Despesas futuras
-            </Text>
-            <Stack direction="row" alignItems="baseline" gap={0.5}>
-              {hideValues ? (
-                <Skeleton
-                  sx={{
-                    bgcolor: getColor(Colors.neutral300),
-                    width: "80px",
-                    display: "inline-block",
-                  }}
-                  animation={false}
-                />
-              ) : (
-                <Text
-                  size={FontSizes.SMALL}
-                  weight={FontWeights.BOLD}
-                  color={Colors.neutral0}
-                >
-                  {formatCurrency(value)}
-                </Text>
-              )}
-            </Stack>
-          </Stack>
-        </IndicatorBox>
-      </div>
-    </Tooltip>
-  );
-};
 
 const DividendYieldIndicator = ({
   yieldOnCost,
@@ -538,101 +366,6 @@ const NetWorthGrowthIndicator = () => {
   );
 };
 
-const PassiveIncomeCoverageLinearProgress = styled(LinearProgress)<{ percentage: number }>(
-  ({ percentage }) => ({
-    height: 6,
-    borderRadius: 3,
-    [`&.${linearProgressClasses.colorPrimary}`]: {
-      backgroundColor: getColor(Colors.neutral600),
-    },
-    [`& .${linearProgressClasses.bar}`]: {
-      borderRadius: 3,
-      backgroundColor: percentage >= 100
-        ? getColor(Colors.brand)
-        : getColor(Colors.danger200),
-    },
-  }),
-);
-
-const PassiveIncomeCoverageIndicator = ({
-  avgPassiveIncome,
-  avgExpenses,
-  isLoading,
-}: {
-  avgPassiveIncome: number;
-  avgExpenses: number;
-  isLoading: boolean;
-}) => {
-  const { hideValues } = useHideValues();
-  const coveragePercentage = avgExpenses > 0 ? (avgPassiveIncome / avgExpenses) * 100 : 0;
-  const isFullyCovered = coveragePercentage >= 100;
-
-  if (isLoading) {
-    return (
-      <Skeleton width="100%" height={56} sx={{ borderRadius: "10px" }} />
-    );
-  }
-
-  const avgPassiveIncomeFormatted = hideValues ? "***" : formatCurrency(avgPassiveIncome);
-  const avgExpensesFormatted = hideValues ? "***" : formatCurrency(avgExpenses);
-  const tooltipTitle = `Média mensal de proventos (${avgPassiveIncomeFormatted}) / média mensal de despesas (${avgExpensesFormatted}) dos últimos 12 meses. Meta: 100% para independência financeira.`;
-
-  return (
-    <Tooltip
-      title={tooltipTitle}
-      arrow
-      placement="top"
-    >
-      <div>
-        <IndicatorBox
-          variant={isFullyCovered ? "success" : "danger"}
-          width="100%"
-        >
-          <Stack gap={0.5} sx={{ width: "100%" }}>
-            <Stack
-              direction="row"
-              justifyContent="space-between"
-              alignItems="center"
-              sx={{ width: "100%" }}
-            >
-              <Text size={FontSizes.SMALL} color={Colors.neutral300}>
-                Cobertura de proventos
-              </Text>
-              <Stack direction="row" alignItems="baseline" gap={0.5}>
-                {hideValues ? (
-                  <Skeleton
-                    sx={{
-                      bgcolor: getColor(Colors.neutral300),
-                      width: "60px",
-                      display: "inline-block",
-                    }}
-                    animation={false}
-                  />
-                ) : (
-                  <Text
-                    size={FontSizes.SMALL}
-                    weight={FontWeights.BOLD}
-                    color={Colors.neutral0}
-                  >
-                    {coveragePercentage.toFixed(1)}%
-                  </Text>
-                )}
-                <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-                  das despesas
-                </Text>
-              </Stack>
-            </Stack>
-            <PassiveIncomeCoverageLinearProgress
-              variant="determinate"
-              value={Math.min(coveragePercentage, 100)}
-              percentage={coveragePercentage}
-            />
-          </Stack>
-        </IndicatorBox>
-      </div>
-    </Tooltip>
-  );
-};
 
 const FinancialHealthIndicators = ({
   avgExpenses,
@@ -656,7 +389,6 @@ const FinancialHealthIndicators = ({
 
   // Emergency fund
   const monthsCovered = avgExpenses > 0 ? bankAmount / avgExpenses : 0;
-  const emergencyFundTarget = 6;
 
   if (isLoading) {
     return (
@@ -716,7 +448,6 @@ const FinancialHealthIndicators = ({
       </Tooltip>
       <EmergencyFundIndicator
         monthsCovered={monthsCovered}
-        targetMonths={emergencyFundTarget}
         avgExpenses={avgExpenses}
         isLoading={isLoading}
       />

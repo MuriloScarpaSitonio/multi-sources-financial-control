@@ -1,5 +1,11 @@
 import { endOfMonth } from "date-fns";
 
+export const formatCurrency = (value: number) =>
+  `R$ ${Math.abs(value).toLocaleString("pt-br", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
 export const customEndOfMonth = (date: Date) => {
   const result = endOfMonth(date);
   result.setHours(0, 0, 0, 0);

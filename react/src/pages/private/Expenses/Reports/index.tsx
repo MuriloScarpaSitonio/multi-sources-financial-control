@@ -80,6 +80,7 @@ const PercentageContent = ({ groupBy }: { groupBy: GroupBy }) => {
         noDataText="Nenhuma despesa encontrada"
         colorPredicate={colorsPredicate}
         cellPrefix="expenses-pie-chart-cell"
+        height={400}
       />
     </Stack>
   );

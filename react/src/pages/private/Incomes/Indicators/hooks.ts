@@ -18,7 +18,7 @@ export const useIncomesSumCredited = (params: {
 
 const AVG_QUERY_KEY = "incomes-avg";
 
-const useIncomesAvg = ({ enabled = true }: { enabled?: boolean }) =>
+export const useIncomesAvg = ({ enabled = true }: { enabled?: boolean } = {}) =>
   useQuery({
     queryKey: [AVG_QUERY_KEY],
     queryFn: getAvg,

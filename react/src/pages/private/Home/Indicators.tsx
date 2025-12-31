@@ -25,7 +25,7 @@ import { useAssetsIndicators } from "../Assets/Indicators/hooks";
 import AssetPercentageChangeSecondaryIndicator from "../Assets/Indicators/PercentageChangeSecondaryIndicator";
 import RoiSecondaryIndicator from "../Assets/Indicators/RoiSecondaryIndicator";
 import { useHomeExpensesIndicators } from "../Expenses/Indicators/hooks";
-import { customEndOfMonth } from "../utils";
+import { customEndOfMonth, formatCurrency } from "../utils";
 import ExpensePercentageChangeSecondaryIndicator from "../Expenses/Indicators/PercentageChangeSecondaryIndicator";
 import { useRevenuesIndicators } from "../Revenues/hooks/useRevenuesIndicators";
 import ExpenseRevenuesRatioLinearProgress from "../Expenses/Indicators/ExpenseRevenuesRatioLinearProgress";
@@ -43,12 +43,6 @@ const FIRELinearProgress = styled(LinearProgress)(({ value }) => ({
       value && value >= 100 ? getColor(Colors.brand) : getColor(Colors.danger200),
   },
 }));
-
-const formatCurrency = (value: number) =>
-  `R$ ${Math.abs(value).toLocaleString("pt-br", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
 
 const FIREProgressBar = ({
   patrimonyTotal,

@@ -15,7 +15,7 @@ import {
 } from "recharts";
 
 import { ChartType, Colors, getColor } from "../../../../../design-system";
-import { roundDown, roundUp, numberTickFormatter } from "../../../utils";
+import { roundDown, roundUp, numberTickFormatter, formatCurrency } from "../../../utils";
 import { useHideValues } from "../../../../../hooks/useHideValues";
 import { CHART_HEIGHT } from "../consts";
 
@@ -25,9 +25,6 @@ export type PatrimonyDataItem = {
   bankAccount: number;
   operation_date: string;
 };
-
-const formatCurrency = (value: number) =>
-  `R$ ${value.toLocaleString("pt-br", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const TooltipContent = ({
   active,

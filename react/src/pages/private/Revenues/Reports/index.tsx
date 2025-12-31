@@ -140,6 +140,7 @@ const PercentageContent = () => {
         noDataText="Nenhuma receita encontrada"
         colorPredicate={colorsPredicate}
         cellPrefix="revenues-pie-chart-cell"
+        height={400}
       />
     </Stack>
   );

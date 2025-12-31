@@ -1,6 +1,8 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { startOfMonth, endOfMonth, isEqual } from "date-fns";
+
 import { isFilteringWholeMonth } from "../../../../design-system";
 import {
   getAvg,
@@ -9,12 +11,29 @@ import {
   getSum,
 } from "../api/expenses";
 
+export const isFilteringCurrentMonth = (startDate: Date, endDate: Date) => {
+  const now = new Date();
+  const currentMonthStart = startOfMonth(now);
+  const currentMonthEnd = endOfMonth(now);
+  currentMonthEnd.setHours(0, 0, 0, 0);
+
+  return (
+    isFilteringWholeMonth(startDate, endDate) &&
+    isEqual(startDate, currentMonthStart) &&
+    isEqual(endDate, currentMonthEnd)
+  );
+};
+
 const SUM_QUERY_KEY = "expenses-sum";
 
-export const useExpensesSum = (params: { startDate: Date; endDate: Date }) =>
+export const useExpensesSum = (
+  params: { startDate: Date; endDate: Date },
+  options?: { enabled?: boolean },
+) =>
   useQuery({
     queryKey: [SUM_QUERY_KEY, params],
     queryFn: () => getSum(params),
+    enabled: options?.enabled ?? true,
   });
 
 const AVG_QUERY_KEY = "expenses-avg";
@@ -26,10 +45,11 @@ const useExpensesAvg = ({ enabled = true }: { enabled?: boolean }) =>
     enabled,
   });
 
-export const useExpensesIndicators = (params: {
-  startDate: Date;
-  endDate: Date;
-}) => {
+export const useExpensesIndicators = (
+  params: { startDate: Date; endDate: Date },
+  options?: { enabled?: boolean },
+) => {
+  const enabled = options?.enabled ?? true;
   const isFilteringEntireMonth = isFilteringWholeMonth(
     params.startDate,
     params.endDate,
@@ -39,12 +59,12 @@ export const useExpensesIndicators = (params: {
     data: expensesSumData,
     isPending: isExpensesSumLoading,
     isError: isExpensesSumError,
-  } = useExpensesSum(params);
+  } = useExpensesSum(params, { enabled });
   const {
     data: expensesAvgData,
     isPending: isExpensesAvgLoading,
     isError: isExpensesAvgError,
-  } = useExpensesAvg({ enabled: isFilteringEntireMonth });
+  } = useExpensesAvg({ enabled: enabled && isFilteringEntireMonth });
 
   return {
     data:
@@ -59,7 +79,7 @@ export const useExpensesIndicators = (params: {
               : undefined,
           }
         : undefined,
-    isPending: isExpensesSumLoading || isExpensesAvgLoading,
+    isPending: enabled && (isExpensesSumLoading || isExpensesAvgLoading),
     isError: isExpensesSumError || isExpensesAvgError,
   };
 };

@@ -29,7 +29,7 @@ type HistoricReportDataItem = {
 };
 
 const CHART_WIDTH = 825;
-const CHART_HEIGHT = 300;
+const CHART_HEIGHT = 400;
 
 const BarChartWithReferenceLineToolTipContent = ({
   active,

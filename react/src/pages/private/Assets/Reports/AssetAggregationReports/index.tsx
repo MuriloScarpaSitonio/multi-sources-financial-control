@@ -52,6 +52,7 @@ const PercentageContent = ({
         noDataText="Nenhum ativo encontrado"
         cellPrefix="assets-total-invested-report-pie-chart-cell"
         colorPredicate={colorPredicate}
+        height={350}
       />
     </Stack>
   );
