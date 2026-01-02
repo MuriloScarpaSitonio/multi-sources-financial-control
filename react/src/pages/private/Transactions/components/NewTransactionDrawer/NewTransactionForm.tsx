@@ -44,6 +44,8 @@ import {
   AssetObjectives,
   AssetTypeAutoComplete,
   TransactionQuantity,
+  LiquidityTypeInput,
+  MaturityDateInput,
 } from "../../../Assets/forms/components";
 import { useOnFormSuccess } from "./hooks";
 
@@ -132,12 +134,34 @@ const assetShape = {
     .when("$isCrypto", (isCrypto, schema) =>
       isCrypto[0] ? schema.required("A moeda é obrigatória") : schema,
     ),
+  liquidity_type: yup
+    .string()
+    .nullable()
+    .test(
+      "LiquidityTypeRequired",
+      "Este campo é obrigatório para ativos de renda fixa",
+      function (value) {
+        const { type } = this.parent;
+        if (type?.value === AssetsTypesMapping["Renda fixa BR"].value) {
+          return !!value;
+        }
+        return true;
+      },
+    ),
+  maturity_date: yup.string().nullable(),
 };
 
 const transactionSchema = yup.object().shape(transactionShape);
 const newAssetTransactionSchema = yup
   .object()
   .shape({ ...transactionShape, ...assetShape });
+
+// Convert YYYY-MM-DD to DD/MM/YYYY for backend
+const formatDateForBackend = (dateStr: string | null | undefined) => {
+  if (!dateStr) return null;
+  const [year, month, day] = dateStr.split("-");
+  return `${day}/${month}/${year}`;
+};
 
 const createTransactionAndAsset = async (
   data: yup.Asserts<typeof newAssetTransactionSchema>,
@@ -149,9 +173,12 @@ const createTransactionAndAsset = async (
     currency,
     is_new_asset_held_in_self_custody: is_held_in_self_custody,
     asset_description: description,
+    liquidity_type,
+    maturity_date,
     ...transaction
   } = data;
   const assetCurrency = currency ?? (getCurrencyFromType(type.value) as string);
+  const isFixedBR = type.value === AssetsTypesMapping["Renda fixa BR"].value;
   const asset = await createAsset({
     type: type.value,
     currency: assetCurrency,
@@ -159,6 +186,12 @@ const createTransactionAndAsset = async (
     is_held_in_self_custody,
     description,
     ...(is_held_in_self_custody ? {} : { code }),
+    ...(isFixedBR
+      ? {
+          liquidity_type,
+          maturity_date: formatDateForBackend(maturity_date),
+        }
+      : {}),
   });
 
   const { current_currency_conversion_rate, quantity, price, ...rest } =
@@ -240,6 +273,8 @@ const NewTransactionForm = ({
           objective: "",
           currency: "",
           asset_description: "",
+          liquidity_type: "",
+          maturity_date: "",
         }
       : defaultValues,
     context: { isCrypto },
@@ -256,6 +291,8 @@ const NewTransactionForm = ({
         ...getValues(),
         asset: defaultValues.asset,
         is_new_asset_held_in_self_custody: false,
+        liquidity_type: "",
+        maturity_date: "",
       });
     },
   });
@@ -376,6 +413,22 @@ const NewTransactionForm = ({
               </Stack>
             )}
           />
+          {assetType?.value === AssetsTypesMapping["Renda fixa BR"].value && (
+            <>
+              <LiquidityTypeInput
+                control={control}
+                isFieldInvalid={isFieldInvalid}
+                getFieldHasError={getFieldHasError}
+                getErrorMessage={getErrorMessage}
+              />
+              <MaturityDateInput
+                control={control}
+                isFieldInvalid={isFieldInvalid}
+                getFieldHasError={getFieldHasError}
+                getErrorMessage={getErrorMessage}
+              />
+            </>
+          )}
           <AssetObjectives
             prefix="create-transaction"
             control={control}

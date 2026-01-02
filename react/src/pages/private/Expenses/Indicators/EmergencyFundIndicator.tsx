@@ -36,10 +36,14 @@ const TARGET_MONTHS = 6;
 export const EmergencyFundIndicator = ({
   monthsCovered,
   avgExpenses,
+  bankAmount,
+  liquidAssetsTotal,
   isLoading,
 }: {
   monthsCovered: number;
   avgExpenses: number;
+  bankAmount: number;
+  liquidAssetsTotal: number;
   isLoading: boolean;
 }) => {
   const { hideValues } = useHideValues();
@@ -48,18 +52,18 @@ export const EmergencyFundIndicator = ({
 
   if (isLoading) {
     return (
-      <Skeleton width="100%" height={80} sx={{ borderRadius: "10px" }} />
+      <Skeleton width="100%" height={120} sx={{ borderRadius: "10px" }} />
     );
   }
 
   const avgExpensesFormatted = hideValues ? "***" : formatCurrency(avgExpenses);
-  const tooltipTitle = `Saldo em conta / média mensal de despesas (dos últimos 12 meses: ${avgExpensesFormatted}).`;
+  const tooltipTitle = `Saldo líquido (Saldo em conta + Ativos líquidos: ${formatCurrency(bankAmount + liquidAssetsTotal)}) / média mensal de despesas (dos últimos 12 meses: ${avgExpensesFormatted}).`;
 
   return (
     <Tooltip title={tooltipTitle} arrow placement="top">
       <div style={{ width: "100%" }}>
         <IndicatorBox variant={isHealthy ? "success" : "danger"} width="100%">
-          <Stack gap={0.5} sx={{ width: "100%" }}>
+          <Stack gap={1} sx={{ width: "100%" }}>
             <Stack
               direction="row"
               justifyContent="space-between"
@@ -88,11 +92,55 @@ export const EmergencyFundIndicator = ({
                     {monthsCovered.toFixed(1)} meses
                   </Text>
                 )}
-                <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+                <Text size={FontSizes.SMALL} color={Colors.neutral400}>
                   de {TARGET_MONTHS} meses (meta)
                 </Text>
               </Stack>
             </Stack>
+            <Text size={FontSizes.SEMI_SMALL} color={Colors.neutral400}>
+              Saldo em Conta{" "}
+              {hideValues ? (
+                <Skeleton
+                  sx={{
+                    bgcolor: getColor(Colors.neutral300),
+                    width: "50px",
+                    display: "inline-block",
+                    verticalAlign: "middle",
+                  }}
+                  animation={false}
+                />
+              ) : (
+                <Text
+                  size={FontSizes.SEMI_SMALL}
+                  weight={FontWeights.BOLD}
+                  color={Colors.neutral300}
+                  as="span"
+                >
+                  {formatCurrency(bankAmount)}
+                </Text>
+              )}
+              {" | Ativos líquidos "}
+              {hideValues ? (
+                <Skeleton
+                  sx={{
+                    bgcolor: getColor(Colors.neutral300),
+                    width: "50px",
+                    display: "inline-block",
+                    verticalAlign: "middle",
+                  }}
+                  animation={false}
+                />
+              ) : (
+                <Text
+                  size={FontSizes.SEMI_SMALL}
+                  weight={FontWeights.BOLD}
+                  color={Colors.neutral300}
+                  as="span"
+                >
+                  {formatCurrency(liquidAssetsTotal)}
+                </Text>
+              )}
+            </Text>
             <EmergencyFundLinearProgress
               variant="determinate"
               value={Math.min(progress, 100)}

@@ -62,7 +62,15 @@ class AssetReadFilterSet(AssetReadStatusFilterSet):
         choices=AssetSectors.choices,
         field_name="metadata__sector",  # TODO: unable to resolve via repository?
     )
+    emergency_fund = django_filters.BooleanFilter(
+        method="filter_emergency_fund",
+        required=False,
+    )
 
+    def filter_emergency_fund(
+        self, queryset: AssetReadModelQuerySet[AssetReadModel], _, value: bool
+    ) -> AssetReadModelQuerySet[AssetReadModel]:
+        return queryset.filter_emergency_fund_assets() if value else queryset
 
 class AssetIndicatorsFilterSet(django_filters.FilterSet):
     include_yield = django_filters.BooleanFilter(required=False)

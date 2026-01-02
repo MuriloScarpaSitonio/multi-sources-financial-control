@@ -21,6 +21,7 @@ import { useHideValues } from "../../../../hooks/useHideValues";
 import { EmergencyFundIndicator } from "./EmergencyFundIndicator";
 import { FutureExpensesIndicator } from "./FutureExpensesIndicator";
 import { formatCurrency } from "../../utils";
+import { useEmergencyFundAssets } from "../../Assets/Indicators/hooks";
 
 export const BalanceIndicator = ({
   value,
@@ -159,6 +160,9 @@ const Indicators = () => {
   const { data: bankAccount, isPending: isBankAccountLoading } =
     useBankAccount();
 
+  const { total: emergencyFundAssetsTotal, isPending: isEmergencyFundAssetsLoading } =
+    useEmergencyFundAssets();
+
   // Home indicators - always called (used for financial health indicators and current month data)
   const {
     data: homeExpensesIndicators,
@@ -181,7 +185,8 @@ const Indicators = () => {
 
   const avgExpenses = homeExpensesIndicators?.avg ?? 0;
   const bankAmount = bankAccount?.amount ?? 0;
-  const monthsCovered = avgExpenses > 0 ? bankAmount / avgExpenses : 0;
+  const totalEmergencyFund = bankAmount + emergencyFundAssetsTotal;
+  const monthsCovered = avgExpenses > 0 ? totalEmergencyFund / avgExpenses : 0;
 
   const percentage = useMemo(() => {
     if (expensesIndicators && revenuesIndicators)
@@ -284,7 +289,9 @@ const Indicators = () => {
       <EmergencyFundIndicator
         monthsCovered={monthsCovered}
         avgExpenses={avgExpenses}
-        isLoading={isHomeExpensesLoading || isBankAccountLoading}
+        bankAmount={bankAmount}
+        liquidAssetsTotal={emergencyFundAssetsTotal}
+        isLoading={isHomeExpensesLoading || isBankAccountLoading || isEmergencyFundAssetsLoading}
       />
     </Stack>
   );

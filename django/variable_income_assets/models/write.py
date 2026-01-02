@@ -11,6 +11,7 @@ from ..choices import (
     AssetSectors,
     AssetTypes,
     Currencies,
+    LiquidityTypes,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
     TransactionActions,
@@ -94,6 +95,10 @@ class Asset(models.Model):
         default=AssetObjectives.unknown,
     )
     currency = models.CharField(max_length=6, blank=True, validators=[Currencies.validator])
+    liquidity_type = models.CharField(
+        max_length=20, validators=[LiquidityTypes.validator], default="", blank=True
+    )
+    maturity_date = models.DateField(null=True, blank=True)
     user = models.ForeignKey(
         to=settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

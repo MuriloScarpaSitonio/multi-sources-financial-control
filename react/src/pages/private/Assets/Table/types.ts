@@ -3,4 +3,5 @@ export type Filters = {
   sector: string[];
   objective: string[];
   status: string;
+  emergency_fund?: boolean;
 };

@@ -19,11 +19,14 @@ import {
   AssetsObjectivesMapping,
   AssetsObjectivesValueToLabelMapping,
   AssetsTypesMapping,
+  LiquidityTypes,
 } from "../../consts";
 import {
   AssetCurrenciesInput,
   AssetObjectives,
   AssetTypeAutoComplete,
+  LiquidityTypeInput,
+  MaturityDateInput,
 } from "../../forms/components";
 import { useInvalidateAssetsReportsQueries } from "../../Reports/hooks";
 import { ASSETS_QUERY_KEY } from "../consts";
@@ -33,6 +36,8 @@ import { GroupBy, Kinds } from "../../Reports/types";
 type AssetData = Omit<Asset, "type" | "objective"> & {
   type: { value: string; label: string };
   objective: keyof typeof AssetsObjectivesValueToLabelMapping;
+  liquidity_type: LiquidityTypes | null;
+  maturity_date: string | null;
 };
 
 const schema = yup.object().shape({
@@ -53,12 +58,17 @@ const AssetsForm = ({ asset }: { asset: Asset }) => {
   const [isCrypto, setIsCrypto] = useState(
     assetTypeValue === AssetsTypesMapping.Cripto.value,
   );
+  const [isFixedBR, setIsFixedBR] = useState(
+    assetTypeValue === AssetsTypesMapping["Renda fixa BR"].value,
+  );
   const [deleteDialogIsOpen, setDeleteDialogIsOpen] = useState(false);
 
   const parsedValues = {
     ...asset,
     objective: AssetsObjectivesMapping[asset.objective]?.value,
     type: { label: asset.type, value: assetTypeValue },
+    liquidity_type: asset.liquidity_type,
+    maturity_date: asset.maturity_date,
   };
   const {
     control,
@@ -112,6 +122,7 @@ const AssetsForm = ({ asset }: { asset: Asset }) => {
             ? {
                 ...asset,
                 code: data.code,
+                description: data.description,
                 type: data.type.label,
                 objective: AssetsObjectivesValueToLabelMapping[data.objective],
               }
@@ -159,6 +170,19 @@ const AssetsForm = ({ asset }: { asset: Asset }) => {
             />
           )}
         />
+        <Controller
+          name="description"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              label="Descrição"
+              error={isFieldInvalid(field)}
+              helperText={getErrorMessage(field.name)}
+              variant="standard"
+            />
+          )}
+        />
         <AssetObjectives
           prefix="edit"
           control={control}
@@ -169,6 +193,7 @@ const AssetsForm = ({ asset }: { asset: Asset }) => {
         <AssetTypeAutoComplete
           control={control}
           setIsCrypto={setIsCrypto}
+          setIsFixedBR={setIsFixedBR}
           isFieldInvalid={() => false}
           getFieldHasError={() => false}
           getErrorMessage={() => ""}
@@ -181,6 +206,22 @@ const AssetsForm = ({ asset }: { asset: Asset }) => {
             getFieldHasError={() => false}
             getErrorMessage={() => ""}
           />
+        )}
+        {isFixedBR && (
+          <>
+            <LiquidityTypeInput
+              control={control}
+              isFieldInvalid={isFieldInvalid}
+              getFieldHasError={() => false}
+              getErrorMessage={getErrorMessage}
+            />
+            <MaturityDateInput
+              control={control}
+              isFieldInvalid={isFieldInvalid}
+              getFieldHasError={() => false}
+              getErrorMessage={getErrorMessage}
+            />
+          </>
         )}
 
         <Stack direction="row" justifyContent="flex-end" gap={1}>
@@ -195,13 +236,23 @@ const AssetsForm = ({ asset }: { asset: Asset }) => {
             type="submit"
             disabled={!isDirty}
             onClick={handleSubmit((data: AssetData) => {
+              // Convert YYYY-MM-DD to DD/MM/YYYY for backend
+              const formatDateForBackend = (dateStr: string | null) => {
+                if (!dateStr) return null;
+                const [year, month, day] = dateStr.split("-");
+                return `${day}/${month}/${year}`;
+              };
+
               mutate({
                 id: data.write_model_pk,
                 data: {
                   code: data.code,
+                  description: data.description,
                   currency: data.currency,
                   objective: data.objective,
                   type: data.type.value,
+                  liquidity_type: data.liquidity_type,
+                  maturity_date: formatDateForBackend(data.maturity_date),
                 },
               });
             })}

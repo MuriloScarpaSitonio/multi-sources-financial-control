@@ -5,16 +5,17 @@ from typing import TYPE_CHECKING, Self
 
 from django.db import models
 from django.db.models.functions import Coalesce, NullIf
+from django.utils import timezone
+
+from dateutil.relativedelta import relativedelta
 
 from shared.managers_utils import LatestBeforeQuerySet
 
 from ...adapters import DjangoSQLAssetMetaDataRepository
 from ...adapters.key_value_store import get_dollar_conversion_rate
-from ...choices import AssetsReportsAggregations, AssetTypes, Currencies
+from ...choices import AssetsReportsAggregations, AssetTypes, Currencies, LiquidityTypes
 
 if TYPE_CHECKING:
-    from datetime import date
-
     from ...adapters.sql import AbstractAssetMetaDataRepository
 
 
@@ -267,6 +268,23 @@ class AssetReadModelQuerySet(models.QuerySet):
             qs
             if f == group_by
             else qs.annotate(**{group_by: models.F(f)}).values(group_by, "total")
+        )
+
+    def filter_emergency_fund_assets(self) -> Self:
+        today = timezone.localdate()
+        end_of_month = today.replace(day=1) + relativedelta(months=1) - relativedelta(days=1)
+
+        return (
+            self.filter(
+                type=AssetTypes.fixed_br,
+            )
+            .exclude(liquidity_type="")
+            .filter(
+                models.Q(liquidity_type=LiquidityTypes.daily)
+                | models.Q(
+                    liquidity_type=LiquidityTypes.at_maturity, maturity_date__lte=end_of_month
+                )
+            )
         )
 
 

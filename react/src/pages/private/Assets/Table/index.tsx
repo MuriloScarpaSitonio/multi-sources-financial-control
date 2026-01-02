@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
 
 import EditIcon from "@mui/icons-material/Edit";
+import SavingsOutlinedIcon from "@mui/icons-material/SavingsOutlined";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
@@ -19,7 +20,7 @@ import { StatusDot } from "../../../../design-system/icons";
 import useTable from "../../../../hooks/useTable";
 import { getAssets } from "../api";
 import { Asset } from "../api/models";
-import { AssetCurrencyMap } from "../consts";
+import { AssetCurrencyMap, LiquidityTypes, LiquidityTypesMapping } from "../consts";
 import AssetsForm from "./AssetForm";
 import AssetUpdatePriceDrawer from "./AssetUpdatePriceDrawer";
 import { ASSETS_QUERY_KEY } from "./consts";
@@ -27,6 +28,18 @@ import IncomesTable from "./IncomesTable";
 import OperationPeriodsTable from "./OperationPeriodsTable";
 import TopToolBar from "./TopToolbar";
 import TransactionTable from "./TransactionTable";
+
+const isEmergencyFundEligible = (asset: Asset): boolean => {
+  if (asset.type !== "Renda fixa BR" || !asset.liquidity_type) return false;
+  if (asset.liquidity_type === LiquidityTypesMapping[LiquidityTypes.DAILY].label) return true;
+  if (asset.liquidity_type === LiquidityTypesMapping[LiquidityTypes.AT_MATURITY].label && asset.maturity_date) {
+    const maturityDate = new Date(asset.maturity_date);
+    const today = new Date();
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    return maturityDate <= endOfMonth;
+  }
+  return false;
+};
 
 const DetailPanel = ({
   row,
@@ -100,6 +113,13 @@ const Table = () => {
                 variant={original.normalized_roi > 0 ? "success" : "danger"}
               />
               <span>{original.code}</span>
+              {isEmergencyFundEligible(original) && (
+                <Tooltip title="Reserva de emergência">
+                  <SavingsOutlinedIcon
+                    sx={{ fontSize: 16, color: getColor(Colors.brand) }}
+                  />
+                </Tooltip>
+              )}
             </Stack>
             {!!original.description && (
               <span style={{ marginLeft: "20px" }}>{original.description}</span>

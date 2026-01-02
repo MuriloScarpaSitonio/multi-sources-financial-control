@@ -4,6 +4,7 @@ import {
   AssetCurrencies,
   AssetsObjectivesMapping,
   AssetsTypesMapping,
+  LiquidityTypes,
 } from "../consts";
 
 export type Asset = {
@@ -23,6 +24,8 @@ export type Asset = {
   percentage_invested: number;
   current_percentage: number;
   is_held_in_self_custody: boolean;
+  liquidity_type: LiquidityTypes | null;
+  maturity_date: RawDateString | null;
 };
 
 export type AssetWrite = Omit<

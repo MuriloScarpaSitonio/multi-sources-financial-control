@@ -14,6 +14,7 @@ from ..choices import (
     AssetObjectives,
     AssetTypes,
     Currencies,
+    LiquidityTypes,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
     TransactionActions,
@@ -75,6 +76,10 @@ class Asset:
     # é um ativo custodiado pelo banco emissor?
     # (ou seja, aplica-se apenas para renda fixa e  nao pode ser sincronizado pela b3)
     is_held_in_self_custody: bool = False
+
+    # Emergency fund fields (only for FIXED_BR assets)
+    liquidity_type: choices_to_enum(LiquidityTypes) | None = None
+    maturity_date: date | None = None
 
     def __post_init__(self) -> None:
         self._transactions: list[TransactionDTO] = []

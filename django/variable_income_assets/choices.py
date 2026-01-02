@@ -109,3 +109,8 @@ class AssetReportsKinds(DjangoChoices):
 class AssetStatus(DjangoChoices):
     opened = ChoiceItem("OPENED", label="Aberto")
     closed = ChoiceItem("CLOSED", label="Finalizado")
+
+
+class LiquidityTypes(DjangoChoices):
+    daily = ChoiceItem("DAILY", label="Liquidez Diária")
+    at_maturity = ChoiceItem("AT_MATURITY", label="Somente no Vencimento")

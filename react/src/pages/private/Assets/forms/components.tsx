@@ -26,6 +26,7 @@ import {
   AssetCurrencyMap,
   AssetsObjectivesMapping,
   AssetsTypesMapping,
+  LiquidityTypesOptions,
 } from "../consts";
 import {
   AssetCodeAutoCompleteProps,
@@ -172,11 +173,13 @@ export const AssetCodeAutoComplete = ({
 export const AssetTypeAutoComplete = ({
   control,
   setIsCrypto,
+  setIsFixedBR,
   isFieldInvalid,
   getFieldHasError,
   getErrorMessage,
 }: ReactHookFormsInputCustomProps & {
   setIsCrypto: Dispatch<SetStateAction<boolean>>;
+  setIsFixedBR?: Dispatch<SetStateAction<boolean>>;
 }) => (
   <Controller
     name="type"
@@ -187,6 +190,9 @@ export const AssetTypeAutoComplete = ({
           onChange={(_, type) => {
             if (!type) return;
             setIsCrypto(type.value === AssetsTypesMapping.Cripto.value);
+            setIsFixedBR?.(
+              type.value === AssetsTypesMapping["Renda fixa BR"].value,
+            );
             onChange(type);
           }}
           value={value}
@@ -347,6 +353,68 @@ export const AssetCodeTextField = ({
         disabled
         value={field.value?.label}
       />
+    )}
+  />
+);
+
+export const LiquidityTypeInput = ({
+  control,
+  isFieldInvalid,
+  getFieldHasError,
+  getErrorMessage,
+}: ReactHookFormsInputCustomProps) => (
+  <FormControl>
+    <FormLabel error={isFieldInvalid({ name: "liquidity_type" })} required>
+      Tipo de Liquidez
+    </FormLabel>
+    <Controller
+      name="liquidity_type"
+      control={control}
+      render={({ field }) => (
+        <>
+          <RadioGroup {...field} row>
+            {LiquidityTypesOptions.map(({ label, value }) => (
+              <FormControlLabel
+                key={`liquidity-type-radio-${value}`}
+                value={value}
+                control={<Radio />}
+                label={label}
+              />
+            ))}
+          </RadioGroup>
+          {getFieldHasError("liquidity_type") && (
+            <FormFeedbackError message={getErrorMessage("liquidity_type")} />
+          )}
+        </>
+      )}
+    />
+  </FormControl>
+);
+
+export const MaturityDateInput = ({
+  control,
+  isFieldInvalid,
+  getFieldHasError,
+  getErrorMessage,
+}: ReactHookFormsInputCustomProps) => (
+  <Controller
+    name="maturity_date"
+    control={control}
+    render={({ field }) => (
+      <Stack spacing={0.5}>
+        <TextField
+          {...field}
+          value={field.value || ""}
+          label="Data de Vencimento"
+          type="date"
+          variant="standard"
+          error={isFieldInvalid(field)}
+          InputLabelProps={{ shrink: true }}
+        />
+        {getFieldHasError("maturity_date") && (
+          <FormFeedbackError message={getErrorMessage("maturity_date")} />
+        )}
+      </Stack>
     )}
   />
 );

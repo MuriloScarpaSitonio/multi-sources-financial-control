@@ -38,7 +38,9 @@ def upsert_asset_read_model(
             },
         )
     elif is_aggregate_upsert is False:
-        asset = Asset.objects.only("pk", "user_id", "code", "type", "objective").get(pk=asset_id)
+        asset = Asset.objects.only(
+            "pk", "user_id", "code", "type", "objective", "liquidity_type", "maturity_date"
+        ).get(pk=asset_id)
         metadata = DjangoSQLAssetMetaDataRepository(
             code=asset.code, type=asset.type, currency=asset.currency
         ).get("pk")
@@ -51,6 +53,8 @@ def upsert_asset_read_model(
                 "type": asset.type,
                 "currency": asset.currency,
                 "objective": asset.objective,
+                "liquidity_type": asset.liquidity_type,
+                "maturity_date": asset.maturity_date,
                 "metadata_id": metadata.pk,
             },
         )
@@ -73,6 +77,8 @@ def upsert_asset_read_model(
                 "type": asset.type,
                 "objective": asset.objective,
                 "currency": asset.currency,
+                "liquidity_type": asset.liquidity_type,
+                "maturity_date": asset.maturity_date,
                 "quantity_balance": asset.quantity_balance,
                 "avg_price": asset.avg_price,
                 "normalized_avg_price": asset.normalized_avg_price,

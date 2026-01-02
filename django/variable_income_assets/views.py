@@ -127,9 +127,9 @@ class AssetViewSet(
         last_snapshot = (
             AssetsTotalInvestedSnapshot.objects.last_total_for_user(self.request.user.id) or 1
         )
-        total_diff_percentage = (
-            ((qs["total"]) / last_snapshot) - Decimal("1.0")
-        ) * Decimal("100.0")
+        total_diff_percentage = (((qs["total"]) / last_snapshot) - Decimal("1.0")) * Decimal(
+            "100.0"
+        )
 
         serializer = serializers.AssetRoidIndicatorsSerializer(
             {**qs, "total_diff_percentage": total_diff_percentage}
@@ -242,6 +242,13 @@ class AssetViewSet(
             current_price_updated_at=timezone.now(),
         )
         return Response(status=HTTP_204_NO_CONTENT)
+
+    @action(methods=("GET",), detail=False, url_path="emergency-fund-total")
+    def emergency_fund_total(self, request: Request) -> Response:
+        result = (
+            self.get_queryset().opened().filter_emergency_fund_assets().aggregate_normalized_current_total()
+        )
+        return Response(serializers.TotalSerializer(result).data, status=HTTP_200_OK)
 
 
 class TransactionViewSet(ModelViewSet):

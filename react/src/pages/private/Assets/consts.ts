@@ -52,3 +52,21 @@ export const AssetCurrencyMap = {
   [AssetCurrencies.BRL]: { label: "Real", symbol: "R$" },
   [AssetCurrencies.USD]: { label: "Dólar", symbol: "US$" },
 };
+
+export enum LiquidityTypes {
+  DAILY = "DAILY",
+  AT_MATURITY = "AT_MATURITY",
+}
+
+export const LiquidityTypesMapping = {
+  [LiquidityTypes.DAILY]: { label: "Liquidez Diária", value: "DAILY" },
+  [LiquidityTypes.AT_MATURITY]: {
+    label: "Somente no Vencimento",
+    value: "AT_MATURITY",
+  },
+};
+
+export const LiquidityTypesOptions = [
+  { label: "Liquidez Diária", value: LiquidityTypes.DAILY },
+  { label: "Somente no Vencimento", value: LiquidityTypes.AT_MATURITY },
+];

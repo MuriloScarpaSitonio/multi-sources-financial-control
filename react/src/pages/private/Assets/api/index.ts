@@ -69,6 +69,7 @@ type Params = {
   code?: string;
   status?: "OPENED" | "CLOSED";
   type?: string[];
+  emergency_fund?: boolean;
 };
 export const getAssets = async (
   params: Params = {},
@@ -97,6 +98,8 @@ export const createAsset = async (data: {
   currency: string;
   is_held_in_self_custody: boolean;
   description?: string;
+  liquidity_type?: string | null;
+  maturity_date?: string | null;
 }): Promise<AssetWrite> => (await apiProvider.post(RESOURCE, data)).data;
 
 export const getAssetTransactions = async ({
@@ -184,3 +187,6 @@ export const getAssetOperationPeriods = async (
   assetId: number,
 ): Promise<OperationPeriod[]> =>
   (await apiProvider.get(`${RESOURCE}/${assetId}/operation_periods`)).data;
+
+export const getEmergencyFundTotal = async (): Promise<{ total: number }> =>
+  (await apiProvider.get(`${RESOURCE}/emergency-fund-total`)).data;

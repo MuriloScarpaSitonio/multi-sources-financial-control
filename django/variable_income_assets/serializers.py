@@ -239,6 +239,9 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
 
 class AssetSerializer(MinimalAssetSerializer):
     objective = CustomChoiceField(choices=choices.AssetObjectives.choices)
+    liquidity_type = CustomChoiceField(
+        choices=choices.LiquidityTypes.choices, required=False, allow_null=True
+    )
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     code = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
 
@@ -256,6 +259,8 @@ class AssetSerializer(MinimalAssetSerializer):
             "user",
             "description",
             "is_held_in_self_custody",
+            "liquidity_type",
+            "maturity_date",
         )
         extra_kwargs = {"description": {"default": ""}}
 
@@ -284,6 +289,40 @@ class AssetSerializer(MinimalAssetSerializer):
                 raise serializers.ValidationError(
                     {"code": "Este campo é obrigatório para ativos custodiados na B3."}
                 )
+
+        # Validate liquidity fields for FIXED_BR assets
+        asset_type = attrs.get("type", getattr(self.instance, "type", None))
+        liquidity_type = attrs.get("liquidity_type")
+        maturity_date = attrs.get("maturity_date")
+
+        if asset_type == choices.AssetTypes.fixed_br:
+            # For new FIXED_BR assets, liquidity_type is required
+            if self.instance is None and not liquidity_type:
+                raise serializers.ValidationError(
+                    {"liquidity_type": "Este campo é obrigatório para ativos de renda fixa."}
+                )
+            # For existing FIXED_BR assets with empty liquidity_type, force setting it on edit
+            if (
+                self.instance is not None
+                and not self.instance.liquidity_type
+                and not liquidity_type
+            ):
+                raise serializers.ValidationError(
+                    {"liquidity_type": "Este campo é obrigatório para ativos de renda fixa."}
+                )
+            # maturity_date must be in the future when creating
+            if (
+                self.instance is None
+                and maturity_date is not None
+                and maturity_date <= timezone.localdate()
+            ):
+                raise serializers.ValidationError(
+                    {"maturity_date": "A data de vencimento deve ser no futuro."}
+                )
+        else:
+            # Clear liquidity fields for non-FIXED_BR assets
+            attrs["liquidity_type"] = ""
+            attrs["maturity_date"] = None
 
         return super().validate(attrs)
 
@@ -365,6 +404,9 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
     type = CustomChoiceField(read_only=True, choices=choices.AssetTypes.choices)
     sector = CustomChoiceField(read_only=True, choices=choices.AssetSectors.choices)
     objective = CustomChoiceField(read_only=True, choices=choices.AssetObjectives.choices)
+    liquidity_type = CustomChoiceField(
+        read_only=True, choices=choices.LiquidityTypes.choices, default="", allow_blank=True
+    )
     normalized_total_invested = serializers.DecimalField(decimal_places=4, max_digits=20)
     normalized_roi = serializers.DecimalField(decimal_places=4, max_digits=20)
     roi_percentage = serializers.DecimalField(decimal_places=3, max_digits=20)
@@ -395,6 +437,8 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
             "currency",
             "percentage_invested",
             "is_held_in_self_custody",
+            "liquidity_type",
+            "maturity_date",
         )
 
     def get_percentage_invested(self, obj: AssetReadModel) -> Decimal:

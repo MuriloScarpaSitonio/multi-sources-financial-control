@@ -1,10 +1,18 @@
-import pytest
-from config.settings.base import BASE_API_URL
-from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_204_NO_CONTENT
-
 from django.template.defaultfilters import slugify
 
-from ...choices import AssetObjectives, AssetSectors, AssetTypes, Currencies, TransactionActions
+import pytest
+from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_204_NO_CONTENT
+
+from config.settings.base import BASE_API_URL
+
+from ...choices import (
+    AssetObjectives,
+    AssetSectors,
+    AssetTypes,
+    Currencies,
+    LiquidityTypes,
+    TransactionActions,
+)
 from ...models import Asset, AssetMetaData, AssetReadModel, Transaction
 
 pytestmark = pytest.mark.django_db
@@ -19,6 +27,7 @@ def test__create__fixed__held_custody__e2e(client, user):
         "currency": Currencies.real,
         "description": "CDB Inter liquidez diária",
         "is_held_in_self_custody": True,
+        "liquidity_type": LiquidityTypes.daily,
     }
     transactions_data = {
         "action": TransactionActions.buy,
@@ -106,6 +115,7 @@ def test__create__fixed__held_custody__another_user__e2e(
         "currency": fixed_asset_held_in_self_custody.currency,
         "description": fixed_asset_held_in_self_custody.description,
         "is_held_in_self_custody": True,
+        "liquidity_type": LiquidityTypes.daily,
     }
     transactions_data = {
         "action": TransactionActions.buy,

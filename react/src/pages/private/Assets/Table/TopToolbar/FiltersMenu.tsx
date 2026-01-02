@@ -1,5 +1,6 @@
 import { type Dispatch, type SetStateAction } from "react";
 
+import Checkbox from "@mui/material/Checkbox";
 import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormLabel from "@mui/material/FormLabel";
@@ -37,6 +38,7 @@ const schema = yup.object().shape({
     .string()
     .required()
     .matches(/(OPENED|CLOSED)/),
+  emergency_fund: yup.boolean(),
 });
 
 export const FiltersMenu = ({
@@ -50,13 +52,14 @@ export const FiltersMenu = ({
   anchorEl: null | HTMLElement;
   setFilters: Dispatch<SetStateAction<Filters>>;
 }) => {
-  const { control, getValues } = useForm({
+  const { control, getValues, watch, setValue } = useForm({
     resolver: yupResolver(schema),
     defaultValues: {
       type: [],
       sector: [],
       objective: [],
       status: "OPENED",
+      emergency_fund: false,
     },
     mode: "onSubmit",
     reValidateMode: "onSubmit",
@@ -67,6 +70,10 @@ export const FiltersMenu = ({
     objective: selectedObjectives,
     sector: selectedSectors,
   } = getValues();
+
+  const watchedTypes = watch("type");
+  const isFilteringByFixedBROnly =
+    watchedTypes?.length === 1 && watchedTypes[0]?.value === "FIXED_BR";
 
   const handleChange = (
     values: Options,
@@ -80,6 +87,22 @@ export const FiltersMenu = ({
     if (!values) return;
     const uniqueValues = values.filter((v) => map?.get(v.value) === 1);
     onFieldChange(uniqueValues);
+
+    // Clear emergency_fund filter when type filter changes away from FIXED_BR only
+    if (name === "type") {
+      const isStillFixedBROnly =
+        uniqueValues.length === 1 && uniqueValues[0]?.value === "FIXED_BR";
+      if (!isStillFixedBROnly) {
+        setValue("emergency_fund", false);
+        setFilters((prevFilters) => ({
+          ...prevFilters,
+          [name]: uniqueValues.map((v) => v.value),
+          emergency_fund: undefined,
+        }));
+        return;
+      }
+    }
+
     setFilters((prevFilters) => ({
       ...prevFilters,
       [name]: uniqueValues.map((v) => v.value),
@@ -127,6 +150,29 @@ export const FiltersMenu = ({
               />
             )}
           />
+          {isFilteringByFixedBROnly && (
+            <Controller
+              name="emergency_fund"
+              control={control}
+              render={({ field: { value, onChange, name } }) => (
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={value}
+                      onChange={(e) => {
+                        onChange(e.target.checked);
+                        setFilters((prevFilters) => ({
+                          ...prevFilters,
+                          [name]: e.target.checked || undefined,
+                        }));
+                      }}
+                    />
+                  }
+                  label="Reserva de emergência"
+                />
+              )}
+            />
+          )}
           <Controller
             name="sector"
             control={control}

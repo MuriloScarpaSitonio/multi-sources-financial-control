@@ -21,7 +21,7 @@ from rest_framework.status import (
 from config.settings.base import BASE_API_URL
 from shared.tests import convert_and_quantitize, skip_if_sqlite
 
-from ...choices import AssetObjectives, AssetSectors, AssetTypes, Currencies
+from ...choices import AssetObjectives, AssetSectors, AssetTypes, Currencies, LiquidityTypes
 from ...models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
 from ..shared import (
     get_avg_price_bute_force,
@@ -224,6 +224,7 @@ def test__create__fixed__held_custody(client, user):
         "currency": Currencies.real,
         "description": "CDB Inter liquidez diária",
         "is_held_in_self_custody": True,
+        "liquidity_type": LiquidityTypes.daily,
     }
 
     # WHEN
@@ -277,6 +278,7 @@ def test__create__code__w_space_and_not_held_custody(client):
         "objective": AssetObjectives.dividend,
         "currency": Currencies.real,
         "code": "CDB Inter liquidez diária",
+        "liquidity_type": LiquidityTypes.daily,
     }
 
     # WHEN

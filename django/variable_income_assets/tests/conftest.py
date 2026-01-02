@@ -33,6 +33,7 @@ from ..choices import (
     AssetSectors,
     AssetTypes,
     Currencies,
+    LiquidityTypes,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
     TransactionActions,
@@ -396,14 +397,14 @@ def passive_incomes(stock_asset):
             amount=randint(100, 500),
             event_type=PassiveIncomeEventTypes.credited,
             asset=stock_asset,
-            operation_date=timezone.localdate() - relativedelta(month=i),
+            operation_date=timezone.localdate() - relativedelta(months=i),
         )
         PassiveIncomeFactory(
             type=PassiveIncomeTypes.dividend,
             amount=randint(100, 500),
             event_type=PassiveIncomeEventTypes.provisioned,
             asset=stock_asset,
-            operation_date=timezone.localdate() + relativedelta(month=i),
+            operation_date=timezone.localdate() + relativedelta(months=i),
         )
 
 
@@ -1230,6 +1231,7 @@ def fixed_asset_held_in_self_custody(user):
         code=code,
         description=description,
         user=user,
+        liquidity_type=LiquidityTypes.daily,
     )
     AssetMetaDataFactory(
         type=AssetTypes.fixed_br,

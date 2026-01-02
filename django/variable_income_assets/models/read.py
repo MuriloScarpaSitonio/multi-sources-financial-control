@@ -9,7 +9,7 @@ from django.utils.functional import cached_property
 from shared.models_utils import serializable_today_function
 
 from ..adapters.key_value_store import get_dollar_conversion_rate
-from ..choices import AssetObjectives, AssetTypes, Currencies
+from ..choices import AssetObjectives, AssetTypes, Currencies, LiquidityTypes
 from .managers import AssetReadModelQuerySet, AssetsTotalInvestedSnapshotQuerySet
 from .write import AssetMetaData
 
@@ -29,6 +29,10 @@ class AssetReadModel(models.Model):
 
     write_model_pk = models.PositiveBigIntegerField(editable=False, unique=True, db_index=True)
     currency = models.CharField(max_length=6, blank=True, validators=[Currencies.validator])
+    liquidity_type = models.CharField(
+        max_length=20, validators=[LiquidityTypes.validator], default="", blank=True
+    )
+    maturity_date = models.DateField(null=True, blank=True)
     quantity_balance = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
     avg_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
     normalized_avg_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())

@@ -18,7 +18,7 @@ import {
   Text,
 } from "../../../design-system";
 import { useBankAccount, usePatrimonyGrowth } from "../Expenses/hooks";
-import { useAssetsIndicators } from "../Assets/Indicators/hooks";
+import { useAssetsIndicators, useEmergencyFundAssets } from "../Assets/Indicators/hooks";
 import { useHomeExpensesIndicators } from "../Expenses/Indicators/hooks";
 import { customEndOfMonth, formatCurrency } from "../utils";
 import { useHomeRevenuesIndicators } from "../Revenues/hooks/useRevenuesIndicators";
@@ -33,6 +33,7 @@ type FinancialHealthIndicatorsProps = {
   avgExpenses: number;
   avgPassiveIncome: number;
   bankAmount: number;
+  liquidAssetsTotal: number;
   investmentsTotal: number;
   patrimonyTotal: number;
   passiveIncomes90Days: number;
@@ -42,6 +43,7 @@ type FinancialHealthIndicatorsProps = {
   isLoading: boolean;
   isFutureExpensesLoading: boolean;
   isPassiveIncomeLoading: boolean;
+  isEmergencyFundLoading: boolean;
 };
 
 const PatrimonyCompositionIndicator = ({
@@ -160,7 +162,7 @@ const PatrimonyCompositionIndicator = ({
                           weight={FontWeights.BOLD}
                           color={Colors.neutral0}
                         >
-                          {entry.value.toFixed(0)}%
+                          {entry.value.toFixed(2)}%
                         </Text>
                       )}
                     </Stack>
@@ -371,6 +373,7 @@ const FinancialHealthIndicators = ({
   avgExpenses,
   avgPassiveIncome,
   bankAmount,
+  liquidAssetsTotal,
   investmentsTotal,
   patrimonyTotal,
   passiveIncomes90Days,
@@ -380,6 +383,7 @@ const FinancialHealthIndicators = ({
   isLoading,
   isFutureExpensesLoading,
   isPassiveIncomeLoading,
+  isEmergencyFundLoading,
 }: FinancialHealthIndicatorsProps) => {
   const { hideValues } = useHideValues();
 
@@ -388,7 +392,8 @@ const FinancialHealthIndicators = ({
   const bankPercentage = patrimonyTotal > 0 ? (bankAmount / patrimonyTotal) * 100 : 0;
 
   // Emergency fund
-  const monthsCovered = avgExpenses > 0 ? bankAmount / avgExpenses : 0;
+  const totalEmergencyFund = bankAmount + liquidAssetsTotal;
+  const monthsCovered = avgExpenses > 0 ? totalEmergencyFund / avgExpenses : 0;
 
   if (isLoading) {
     return (
@@ -449,7 +454,9 @@ const FinancialHealthIndicators = ({
       <EmergencyFundIndicator
         monthsCovered={monthsCovered}
         avgExpenses={avgExpenses}
-        isLoading={isLoading}
+        bankAmount={bankAmount}
+        liquidAssetsTotal={liquidAssetsTotal}
+        isLoading={isLoading || isEmergencyFundLoading}
       />
       <PassiveIncomeCoverageIndicator
         avgPassiveIncome={avgPassiveIncome}
@@ -495,6 +502,9 @@ export const FinancialHealthSummary = () => {
     isPending: isBankAccountLoading,
   } = useBankAccount();
 
+  const { total: emergencyFundAssetsTotal, isPending: isEmergencyFundAssetsLoading } =
+    useEmergencyFundAssets();
+
   const {
     data: expensesIndicators,
     isPending: isExpensesIndicatorsLoading,
@@ -525,6 +535,7 @@ export const FinancialHealthSummary = () => {
       avgExpenses={expensesIndicators?.avg ?? 0}
       avgPassiveIncome={incomesIndicators?.avg ?? 0}
       bankAmount={bankAmount}
+      liquidAssetsTotal={emergencyFundAssetsTotal}
       investmentsTotal={assetsIndicators?.total ?? 0}
       patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
       passiveIncomes90Days={passiveIncomes90Days}
@@ -534,6 +545,7 @@ export const FinancialHealthSummary = () => {
       isLoading={isLoading}
       isFutureExpensesLoading={isExpensesIndicatorsLoading || isRevenuesIndicatorsLoading}
       isPassiveIncomeLoading={isIncomesIndicatorsLoading}
+      isEmergencyFundLoading={isEmergencyFundAssetsLoading}
     />
   );
 };
