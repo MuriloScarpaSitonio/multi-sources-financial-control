@@ -60,3 +60,14 @@ class LatestBeforeQuerySet(QuerySet):
             .values("total", "operation_date")
             .first()
         )
+
+    def earliest(self, user_id: int) -> dict | None:
+        return (
+            self.filter(user_id=user_id)
+            .order_by("operation_date")
+            .values("total", "operation_date")
+            .first()
+        )
+
+    def latest_before_or_earliest(self, user_id: int, target_date: date) -> dict | None:
+        return self.latest_before(user_id, target_date) or self.earliest(user_id)

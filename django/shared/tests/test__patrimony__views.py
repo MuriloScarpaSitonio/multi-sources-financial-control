@@ -140,6 +140,43 @@ def test__growth__no_snapshots(client, user, bank_account):
     assert response_json["growth_percentage"] is None
 
 
+def test__growth__falls_back_to_earliest_snapshot_when_requested_period_too_far(
+    client, user, bank_account, bank_account_snapshot_factory
+):
+    # GIVEN
+    today = timezone.localdate()
+
+    # User requests 5 years ago, but only has snapshots from 2 years ago
+    earliest_snapshot_date = today - relativedelta(years=2)
+    bank_account_snapshot_factory(
+        operation_date=earliest_snapshot_date,
+        total=Decimal("5000"),
+    )
+    AssetsTotalInvestedSnapshot.objects.create(
+        user=user,
+        operation_date=earliest_snapshot_date,
+        total=Decimal("3000"),
+    )
+
+    # WHEN - request 5 years (much older than available data)
+    response = client.get(URL, {"years": 5})
+
+    # THEN - should fall back to earliest available snapshot instead of null
+    assert response.status_code == HTTP_200_OK
+
+    response_json = response.json()
+
+    # Current total = 0 (no assets) + 10000 (bank_account.amount) = 10000
+    # Historical total = 3000 (assets) + 5000 (bank) = 8000
+    # Growth = ((10000 / 8000) - 1) * 100 = 25%
+    expected_growth = ((Decimal("10000") / Decimal("8000")) - Decimal("1")) * Decimal("100")
+
+    assert response_json["current_total"] == convert_and_quantitize(bank_account.amount)
+    assert response_json["historical_total"] == convert_and_quantitize(Decimal("8000"))
+    assert response_json["historical_date"] == str(earliest_snapshot_date)
+    assert response_json["growth_percentage"] == convert_and_quantitize(expected_growth)
+
+
 def test__growth__only_bank_snapshot(client, user, bank_account, bank_account_snapshot_factory):
     # GIVEN
     today = timezone.localdate()

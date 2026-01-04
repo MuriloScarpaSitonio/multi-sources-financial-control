@@ -150,7 +150,8 @@ class AssetViewSet(
 
         current_total = self.get_queryset().aggregate_normalized_current_total()["total"]
 
-        historical_snapshot = AssetsTotalInvestedSnapshot.objects.latest_before(
+        # Falls back to earliest available snapshot if no data exists for the target period
+        historical_snapshot = AssetsTotalInvestedSnapshot.objects.latest_before_or_earliest(
             request.user.id, target_date
         )
 
@@ -515,16 +516,17 @@ class AssetOperationPeriodsViewSet(GenericViewSet, ListModelMixin):
             .order_by("operation_datetime")
             .values_list("operation_datetime", "roi")
         ):
+            close_date = timezone.localtime(close_datetime).date()
             if first_transaction_date := self._get_first_transaction_date(pk, previous_close_date):
                 periods.append(
                     {
                         "started_at": first_transaction_date,
-                        "closed_at": close_datetime.date(),
+                        "closed_at": close_date,
                         "roi": roi,
                     }
                 )
 
-            previous_close_date = close_datetime.date()
+            previous_close_date = close_date
 
         # Check if there's a current open operation
         current_quantity = (

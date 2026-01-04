@@ -13,7 +13,7 @@ typing-check:
 	mypy . --exclude=tests --ignore-missing-imports
 
 test:
-	USE_POSTGRES=1 pytest -n auto --disable-warnings --cov-report=term-missing:skip-covered --cov-report=html --cov=.
+	USE_POSTGRES=1 uv run pytest -n auto --disable-warnings --cov-report=term-missing:skip-covered --cov-report=html --cov=.
 
 test-exit:
 	USE_POSTGRES=1 pytest -n auto --disable-warnings --exitfirst
@@ -31,3 +31,6 @@ migrate:
 
 shell: 
 	docker-compose run django python3 manage.py shell
+
+seed:
+	docker-compose exec django bash /app/scripts/seed_db.sh /app/db_dump.sql

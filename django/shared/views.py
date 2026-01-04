@@ -65,10 +65,13 @@ class PatrimonyViewSet(GenericViewSet):
         current_total = current_assets_total + current_bank_amount
 
         # Historical patrimony: assets snapshot + bank account snapshot
-        historical_assets_snapshot = AssetsTotalInvestedSnapshot.objects.latest_before(
-            request.user.id, target_date
+        # Falls back to earliest available snapshot if no data exists for the target period
+        historical_assets_snapshot = (
+            AssetsTotalInvestedSnapshot.objects.latest_before_or_earliest(
+                request.user.id, target_date
+            )
         )
-        historical_bank_snapshot = BankAccountSnapshot.objects.latest_before(
+        historical_bank_snapshot = BankAccountSnapshot.objects.latest_before_or_earliest(
             request.user.id, target_date
         )
 

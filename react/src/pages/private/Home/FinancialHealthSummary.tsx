@@ -36,7 +36,6 @@ type FinancialHealthIndicatorsProps = {
   liquidAssetsTotal: number;
   investmentsTotal: number;
   patrimonyTotal: number;
-  passiveIncomes90Days: number;
   futureExpenses: number;
   futureRevenues: number;
   yieldOnCost: number;
@@ -247,7 +246,7 @@ const DividendYieldIndicator = ({
   );
 };
 
-const GrowthSelect = styled(Select)({
+const PeriodSelect = styled(Select)({
   "& .MuiSelect-select": {
     padding: "2px 8px",
     fontSize: "12px",
@@ -264,10 +263,75 @@ const GrowthSelect = styled(Select)({
   },
 });
 
-const NetWorthGrowthIndicator = () => {
+type PeriodIndicatorProps = {
+  years: number;
+  months: number;
+};
+
+const PassiveIncomesIndicator = ({ years, months }: PeriodIndicatorProps) => {
   const { hideValues } = useHideValues();
-  const [months, setMonths] = useState<number>(0);
-  const [years, setYears] = useState<number>(1);
+
+  const { startDate, endDate } = useMemo(() => {
+    const now = new Date();
+    const totalDays = years * 365 + months * 30;
+    return {
+      startDate: subDays(now, totalDays),
+      endDate: now,
+    };
+  }, [years, months]);
+
+  const { data: { total: passiveIncomesTotal } = { total: 0 }, isPending: isLoading } =
+    useIncomesSumCredited({ startDate, endDate });
+
+  if (isLoading) {
+    return (
+      <Skeleton width="100%" height={56} sx={{ borderRadius: "10px" }} />
+    );
+  }
+
+  return (
+    <Tooltip title="Soma de proventos de renda variável creditados no período" arrow placement="top">
+      <div>
+        <IndicatorBox
+          variant={passiveIncomesTotal > 0 ? "success" : "danger"}
+          width="100%"
+        >
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            sx={{ width: "100%" }}
+          >
+            <Text size={FontSizes.SMALL} color={Colors.neutral300}>
+              Proventos
+            </Text>
+            {hideValues ? (
+              <Skeleton
+                sx={{
+                  bgcolor: getColor(Colors.neutral300),
+                  width: "60px",
+                  display: "inline-block",
+                }}
+                animation={false}
+              />
+            ) : (
+              <Text
+                size={FontSizes.SMALL}
+                weight={FontWeights.BOLD}
+                color={Colors.neutral0}
+              >
+                {formatCurrency(passiveIncomesTotal)}
+              </Text>
+            )}
+          </Stack>
+        </IndicatorBox>
+      </div>
+    </Tooltip>
+  );
+};
+
+const NetWorthGrowthIndicator = ({ years, months }: PeriodIndicatorProps) => {
+  const { hideValues } = useHideValues();
 
   const { data: growthData, isPending: isLoading } = usePatrimonyGrowth({
     months: months || undefined,
@@ -308,42 +372,9 @@ const NetWorthGrowthIndicator = () => {
             alignItems="center"
             sx={{ width: "100%" }}
           >
-            <Stack direction="row" alignItems="center" gap={0.5}>
               <Text size={FontSizes.SMALL} color={Colors.neutral300}>
                 Variação patrimonial
               </Text>
-              <GrowthSelect
-                value={years}
-                onChange={(e) => setYears(Number(e.target.value))}
-                size="small"
-                MenuProps={{
-                  PaperProps: {
-                    sx: { bgcolor: getColor(Colors.neutral800) },
-                  },
-                }}
-              >
-                <MenuItem value={0}>-</MenuItem>
-                <MenuItem value={1}>1a</MenuItem>
-                <MenuItem value={2}>2a</MenuItem>
-                <MenuItem value={3}>3a</MenuItem>
-                <MenuItem value={5}>5a</MenuItem>
-              </GrowthSelect>
-              <GrowthSelect
-                value={months}
-                onChange={(e) => setMonths(Number(e.target.value))}
-                size="small"
-                MenuProps={{
-                  PaperProps: {
-                    sx: { bgcolor: getColor(Colors.neutral800) },
-                  },
-                }}
-              >
-                <MenuItem value={0}>-</MenuItem>
-                <MenuItem value={3}>3m</MenuItem>
-                <MenuItem value={6}>6m</MenuItem>
-                <MenuItem value={9}>9m</MenuItem>
-              </GrowthSelect>
-            </Stack>
             {hideValues ? (
               <Skeleton
                 sx={{
@@ -368,6 +399,56 @@ const NetWorthGrowthIndicator = () => {
   );
 };
 
+export const EvolutionSection = () => {
+  const [months, setMonths] = useState<number>(3);
+  const [years, setYears] = useState<number>(0);
+
+  return (
+    <Stack spacing={2}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Text>Evolução</Text>
+        <Stack direction="row" alignItems="center" gap={0.5}>
+          <PeriodSelect
+            value={years}
+            onChange={(e) => setYears(Number(e.target.value))}
+            size="small"
+            MenuProps={{
+              PaperProps: {
+                sx: { bgcolor: getColor(Colors.neutral800) },
+              },
+            }}
+          >
+            <MenuItem value={0}>-</MenuItem>
+            <MenuItem value={1}>1a</MenuItem>
+            <MenuItem value={2}>2a</MenuItem>
+            <MenuItem value={3}>3a</MenuItem>
+            <MenuItem value={5}>5a</MenuItem>
+          </PeriodSelect>
+          <PeriodSelect
+            value={months}
+            onChange={(e) => setMonths(Number(e.target.value))}
+            size="small"
+            MenuProps={{
+              PaperProps: {
+                sx: { bgcolor: getColor(Colors.neutral800) },
+              },
+            }}
+          >
+            <MenuItem value={0}>-</MenuItem>
+            <MenuItem value={3}>3m</MenuItem>
+            <MenuItem value={6}>6m</MenuItem>
+            <MenuItem value={9}>9m</MenuItem>
+          </PeriodSelect>
+        </Stack>
+      </Stack>
+      <Stack gap={1.5}>
+        <PassiveIncomesIndicator years={years} months={months} />
+        <NetWorthGrowthIndicator years={years} months={months} />
+      </Stack>
+    </Stack>
+  );
+};
+
 
 const FinancialHealthIndicators = ({
   avgExpenses,
@@ -376,7 +457,6 @@ const FinancialHealthIndicators = ({
   liquidAssetsTotal,
   investmentsTotal,
   patrimonyTotal,
-  passiveIncomes90Days,
   futureExpenses,
   futureRevenues,
   yieldOnCost,
@@ -385,8 +465,6 @@ const FinancialHealthIndicators = ({
   isPassiveIncomeLoading,
   isEmergencyFundLoading,
 }: FinancialHealthIndicatorsProps) => {
-  const { hideValues } = useHideValues();
-
   // Patrimony composition
   const investmentsPercentage = patrimonyTotal > 0 ? (investmentsTotal / patrimonyTotal) * 100 : 0;
   const bankPercentage = patrimonyTotal > 0 ? (bankAmount / patrimonyTotal) * 100 : 0;
@@ -412,45 +490,6 @@ const FinancialHealthIndicators = ({
         bankPercentage={bankPercentage}
         isLoading={isLoading}
       />
-      <Tooltip title="Soma de proventos de renda variável creditados nos últimos 90 dias" arrow placement="top">
-        <div>
-          <IndicatorBox
-            variant={passiveIncomes90Days > 0 ? "success" : "danger"}
-            width="100%"
-          >
-            <Stack
-              direction="row"
-              justifyContent="space-between"
-              alignItems="center"
-              sx={{ width: "100%" }}
-            >
-              <Text size={FontSizes.SMALL} color={Colors.neutral300}>
-                Proventos (90 dias)
-              </Text>
-              <Stack direction="row" alignItems="baseline" gap={0.5}>
-                {!hideValues ? (
-                  <Text
-                    size={FontSizes.SMALL}
-                    weight={FontWeights.BOLD}
-                    color={Colors.neutral0}
-                  >
-                    {hideValues ? null : formatCurrency(passiveIncomes90Days)}
-                  </Text>
-                ) : (
-                  <Skeleton
-                    sx={{
-                      bgcolor: getColor(Colors.neutral300),
-                      width: "60px",
-                      display: "inline-block",
-                    }}
-                    animation={false}
-                  />
-                )}
-              </Stack>
-            </Stack>
-          </IndicatorBox>
-        </div>
-      </Tooltip>
       <EmergencyFundIndicator
         monthsCovered={monthsCovered}
         avgExpenses={avgExpenses}
@@ -470,7 +509,6 @@ const FinancialHealthIndicators = ({
         isLoading={isFutureExpensesLoading}
       />
       <DividendYieldIndicator yieldOnCost={yieldOnCost} isLoading={isLoading} />
-      <NetWorthGrowthIndicator />
     </Stack>
   );
 };
@@ -481,14 +519,6 @@ export const FinancialHealthSummary = () => {
     return {
       startDate: startOfMonth(now),
       endDate: customEndOfMonth(now),
-    };
-  }, []);
-
-  const { startDate: incomes90DaysStart, endDate: incomes90DaysEnd } = useMemo(() => {
-    const now = new Date();
-    return {
-      startDate: subDays(now, 90),
-      endDate: now,
     };
   }, []);
 
@@ -515,9 +545,6 @@ export const FinancialHealthSummary = () => {
     isPending: isRevenuesIndicatorsLoading,
   } = useHomeRevenuesIndicators();
 
-  const { data: { total: passiveIncomes90Days } = { total: 0 }, isPending: isIncomesLoading } =
-    useIncomesSumCredited({ startDate: incomes90DaysStart, endDate: incomes90DaysEnd });
-
   const {
     data: incomesIndicators,
     isPending: isIncomesIndicatorsLoading,
@@ -527,8 +554,7 @@ export const FinancialHealthSummary = () => {
     isAssetsIndicatorsLoading ||
     isBankAccountLoading ||
     isExpensesIndicatorsLoading ||
-    isRevenuesIndicatorsLoading ||
-    isIncomesLoading;
+    isRevenuesIndicatorsLoading;
 
   return (
     <FinancialHealthIndicators
@@ -538,7 +564,6 @@ export const FinancialHealthSummary = () => {
       liquidAssetsTotal={emergencyFundAssetsTotal}
       investmentsTotal={assetsIndicators?.total ?? 0}
       patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
-      passiveIncomes90Days={passiveIncomes90Days}
       futureExpenses={expensesIndicators?.future ?? 0}
       futureRevenues={revenuesIndicators?.future ?? 0}
       yieldOnCost={assetsIndicators?.yield_on_cost ?? 0}

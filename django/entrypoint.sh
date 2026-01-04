@@ -1,7 +1,9 @@
 #!/bin/sh
-# python manage.py migrate --noinput
 
-cat <<EOF | python manage.py shell
+# Install dependencies (needed because volume mount overlays the build)
+uv sync --frozen --group production 2>/dev/null || uv sync --frozen
+
+cat <<EOF | uv run python manage.py shell
 import os
 from datetime import date
 
