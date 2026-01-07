@@ -54,11 +54,13 @@ services:
       dockerfile: Dockerfile.local
     volumes:
       - ./react:/app/react
+      - react_node_modules:/app/react/node_modules
     ports:
       - 3000:3000
     depends_on:
       - django
-    command: npm start
+    command: sh -c "yarn install && yarn dev"
 
 volumes:
   postgres_data:
+  react_node_modules:
