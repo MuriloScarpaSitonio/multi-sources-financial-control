@@ -1,9 +1,9 @@
 #!/bin/sh
 
-# Install dependencies (needed because volume mount overlays the build)
-uv sync --frozen --group production 2>/dev/null || uv sync --frozen
+# Cron script for Render - uses the pre-built venv instead of uv
+cd /opt/render/project/src/django
 
-cat <<EOF | uv run python manage.py shell
+python manage.py shell <<EOF
 import os
 from datetime import date
 
@@ -35,7 +35,7 @@ try:
 except NotFirstDayOfMonthException:
     pass
 
-if '$PERFORM_METADATA_UPDATES'.lower() in ("true", "1"):
+if os.environ.get('PERFORM_METADATA_UPDATES', '').lower() in ("true", "1"):
     value = update_dollar_conversion_rate()
     print(f"USD-BRL convertion rate updated to {float(value)}")
     exc = update_assets_metadata_current_price()
@@ -49,7 +49,5 @@ if '$PERFORM_METADATA_UPDATES'.lower() in ("true", "1"):
             pass
     else:
         print(f"Error when trying to update assets prices: {exc}")
-
 EOF
 
-exec "$@"
