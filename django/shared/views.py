@@ -55,21 +55,14 @@ class PatrimonyViewSet(GenericViewSet):
             ).aggregate_normalized_current_total()
         )["total"]
 
-        try:
-            current_bank_amount = BankAccount.objects.values_list("amount", flat=True).get(
-                user_id=request.user.id
-            )
-        except BankAccount.DoesNotExist:
-            current_bank_amount = Decimal()
+        current_bank_amount = BankAccount.objects.get_total(user_id=request.user.id)
 
         current_total = current_assets_total + current_bank_amount
 
         # Historical patrimony: assets snapshot + bank account snapshot
         # Falls back to earliest available snapshot if no data exists for the target period
-        historical_assets_snapshot = (
-            AssetsTotalInvestedSnapshot.objects.latest_before_or_earliest(
-                request.user.id, target_date
-            )
+        historical_assets_snapshot = AssetsTotalInvestedSnapshot.objects.latest_before_or_earliest(
+            request.user.id, target_date
         )
         historical_bank_snapshot = BankAccountSnapshot.objects.latest_before_or_earliest(
             request.user.id, target_date
@@ -93,9 +86,9 @@ class PatrimonyViewSet(GenericViewSet):
         if historical_total == 0:
             growth_percentage = None
         else:
-            growth_percentage = (
-                (current_total / historical_total) - Decimal("1.0")
-            ) * Decimal("100.0")
+            growth_percentage = ((current_total / historical_total) - Decimal("1.0")) * Decimal(
+                "100.0"
+            )
 
         serializer = PatrimonyGrowthSerializer(
             {
@@ -111,7 +104,6 @@ class PatrimonyViewSet(GenericViewSet):
     def _resolve_historical_total_and_date(
         historical_assets_snapshot: _Historical | None, historical_bank_snapshot: _Historical | None
     ) -> tuple[Decimal, date | None]:
-
         historical_assets_total = (
             historical_assets_snapshot["total"] if historical_assets_snapshot else Decimal()
         )

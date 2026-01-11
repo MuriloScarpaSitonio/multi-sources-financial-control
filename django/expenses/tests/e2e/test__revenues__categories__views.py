@@ -60,7 +60,7 @@ def test__list__most_common_ordering(client, direction):
 
     # WHEN
     response = client.get(
-        f"{URL}?page_size=10&ordering={'-' if direction == 'desc' else ''}" "num_of_appearances"
+        f"{URL}?page_size=10&ordering={'-' if direction == 'desc' else ''}num_of_appearances"
     )
 
     # THEN
@@ -224,13 +224,14 @@ def test__update__validate_color(client):
     }
 
 
-def test__delete__e2e_update(client, revenue):
+def test__delete__e2e_update(client, revenue, bank_account):
     # GIVEN
     update_data = {
         "value": revenue.value + 10,
         "description": "Test",
         "category": "Salário",
         "created_at": "01/10/2024",
+        "bank_account_description": bank_account.description,
     }
     category = RevenueCategory.objects.get(name="Salário")
 

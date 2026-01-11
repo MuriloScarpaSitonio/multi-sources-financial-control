@@ -23,6 +23,7 @@ import * as yup from "yup";
 import { REVENUES_QUERY_KEY } from "../../consts";
 import {
   DateInput,
+  FormFeedbackError,
   PriceWithCurrencyInput,
 } from "../../../../../design-system";
 import useFormPlus from "../../../../../hooks/useFormPlus";
@@ -32,6 +33,8 @@ import { Revenue } from "../../models";
 import { ExpensesContext } from "../../../Expenses/context";
 import { ApiListResponse } from "../../../../../types";
 import { AutoCompleteForRelatedEntities } from "../../../Expenses/components";
+import { useDefaultBankAccount } from "../../../Expenses/hooks";
+import Autocomplete from "@mui/material/Autocomplete";
 
 const schema = yup.object().shape({
   description: yup.string().required("A descrição é obrigatória"),
@@ -52,13 +55,21 @@ const schema = yup.object().shape({
       value: yup.string().required("A categoria é obrigatória"),
     })
     .required("A categoria é obrigatória"),
+  bank_account_description: yup
+    .object()
+    .required("A conta bancária é obrigatória")
+    .shape({
+      label: yup.string(),
+      value: yup.string(),
+    }),
 });
 
 const createRevenueMutation = async (data: yup.Asserts<typeof schema>) => {
-  const { isFixed, category, ...rest } = data;
+  const { isFixed, category, bank_account_description, ...rest } = data;
   await createRevenue({
     is_fixed: isFixed,
     category: category.value as string,
+    bank_account_description: bank_account_description.label as string,
     ...rest,
   });
 };
@@ -67,10 +78,15 @@ const editRevenueMutation = async (
   id: number,
   data: yup.Asserts<typeof schema>,
 ) => {
-  const { isFixed, category, ...rest } = data;
+  const { isFixed, category, bank_account_description, ...rest } = data;
   await editRevenue({
     id,
-    data: { is_fixed: isFixed, category: category.value as string, ...rest },
+    data: {
+      is_fixed: isFixed,
+      category: category.value as string,
+      bank_account_description: bank_account_description.label as string,
+      ...rest,
+    },
   });
 };
 
@@ -88,17 +104,38 @@ const RevenueForm = ({
   initialData?: Revenue;
 }) => {
   const { revenuesCategories, mostCommonRevenueCategory } = useContext(ExpensesContext);
+  const { data: defaultBankAccount, accounts: bankAccounts } = useDefaultBankAccount();
+
   const {
     id: revenueId,
     category,
-
     created_at,
     is_fixed,
+    bank_account_description: _bankAccountDescription,
     ...rest
   } = initialData ?? {
     is_fixed: false,
     category: mostCommonRevenueCategory?.name ?? "Salário",
   };
+
+  const bankAccountOptions = useMemo(
+    () =>
+      (bankAccounts ?? []).map((account) => ({
+        label: account.description,
+        value: account.description,
+      })),
+    [bankAccounts],
+  );
+
+  const defaultBankAccountOption = useMemo(() => {
+    if (initialData?.bank_account_description) {
+      return { label: initialData.bank_account_description, value: initialData.bank_account_description };
+    }
+    return defaultBankAccount
+      ? { label: defaultBankAccount.description, value: defaultBankAccount.description }
+      : null;
+  }, [initialData, defaultBankAccount]);
+
   const defaultValues = useMemo(
     () => ({
       description: "",
@@ -110,9 +147,10 @@ const RevenueForm = ({
         value: category,
         hex_color: revenuesCategories.hexColorMapping.get(category),
       },
+      bank_account_description: defaultBankAccountOption,
       ...rest,
     }),
-    [category, created_at, is_fixed, rest, revenuesCategories, mostCommonRevenueCategory],
+    [category, created_at, is_fixed, rest, revenuesCategories, mostCommonRevenueCategory, defaultBankAccountOption],
   );
 
   const queryClient = useQueryClient();
@@ -121,7 +159,7 @@ const RevenueForm = ({
 
   const updateCachedData = useCallback(
     (data: yup.Asserts<typeof schema> & { id: number }) => {
-      const { created_at, category, ...rest } = data;
+      const { created_at, category, bank_account_description, ...rest } = data;
       const revenuesData = queryClient.getQueriesData({
         queryKey: [REVENUES_QUERY_KEY],
         type: "active",
@@ -136,6 +174,7 @@ const RevenueForm = ({
                 ...rest,
                 created_at: formatISO(created_at, { representation: "date" }),
                 category: category.label,
+                bank_account_description: bank_account_description.label,
               }
             : revenue,
         );
@@ -289,6 +328,36 @@ const RevenueForm = ({
         isFieldInvalid={isFieldInvalid}
         getFieldHasError={getFieldHasError}
         getErrorMessage={getErrorMessage}
+      />
+      <Controller
+        name="bank_account_description"
+        control={control}
+        render={({ field }) => (
+          <Stack spacing={0.5}>
+            <Autocomplete
+              {...field}
+              disableClearable
+              options={bankAccountOptions}
+              getOptionLabel={(option) => option?.label ?? ""}
+              isOptionEqualToValue={({ value: optionValue }, { value }) =>
+                optionValue === value
+              }
+              onChange={(_, value) => field.onChange(value)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Conta bancária"
+                  required
+                  error={isFieldInvalid(field)}
+                  variant="standard"
+                />
+              )}
+            />
+            {getFieldHasError(field.name) && (
+              <FormFeedbackError message={getErrorMessage(field.name)} />
+            )}
+          </Stack>
+        )}
       />
     </Stack>
   );

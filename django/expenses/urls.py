@@ -22,6 +22,6 @@ router.register(
     prefix="revenues/categories", viewset=RevenueCategoryViewSet, basename="revenues_categories"
 )
 router.register(prefix="revenues", viewset=RevenueViewSet, basename="revenues")
-router.register(prefix="bank_account", viewset=BankAccountViewSet, basename="bank_account")
+router.register(prefix="bank_accounts", viewset=BankAccountViewSet, basename="bank_accounts")
 
 urlpatterns = router.urls

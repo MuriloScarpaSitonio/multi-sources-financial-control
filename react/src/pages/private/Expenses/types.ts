@@ -53,4 +53,5 @@ export type Filters = {
   category?: string[];
   source?: string[];
   tag?: string[];
+  bank_account_description?: string;
 };

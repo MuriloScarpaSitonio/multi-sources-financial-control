@@ -8,9 +8,11 @@ services:
       - ./django:/app/django
       - ./scripts:/app/scripts:ro
       - ./db_dump.sql:/app/db_dump.sql:ro
+      - django_venv:/opt/venv
     ports:
       - 8000:8000
     environment:
+      - UV_PROJECT_ENVIRONMENT=/opt/venv
       - PERFORM_METADATA_UPDATES=false
       - REDIS_CONNECTION_URL=redis://redis:6379
       - USE_POSTGRES=true
@@ -64,3 +66,4 @@ services:
 volumes:
   postgres_data:
   react_node_modules:
+  django_venv:

@@ -181,6 +181,7 @@ const Table = () => {
     setPagination,
     sorting,
     filters,
+    setFilters,
   } = useTable({
     columns: columns as Column<any>[],
     queryKey: [
@@ -234,6 +235,7 @@ const Table = () => {
         table={table}
         setSearch={setSearch}
         setPagination={setPagination}
+        setFilters={setFilters}
       />
     ),
     renderRowActions: ({ row, table }) => (

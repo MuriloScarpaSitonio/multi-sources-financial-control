@@ -1,12 +1,22 @@
 FROM python:3.13-bookworm
 
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv
 
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential gcc postgresql-client
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential gcc postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN pip install uv
 
 WORKDIR /app/django
+
+# Copy dependency files first for better layer caching
+COPY pyproject.toml uv.lock ./
+
+# Install all dependencies to /opt/venv (outside the volume mount path)
+# This pre-populates the venv for faster first start when using a named volume
+RUN uv sync --frozen --no-install-project
 
 COPY ./entrypoint.sh /app/django/entrypoint.sh
 RUN chmod +x /app/django/entrypoint.sh

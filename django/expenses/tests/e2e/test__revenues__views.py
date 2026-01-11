@@ -57,6 +57,29 @@ def test__list(client, filter_by, count):
     assert response.json()["count"] == count
 
 
+def test__list__response_schema(client, revenue, bank_account):
+    # GIVEN
+    revenue.bank_account = bank_account
+    revenue.save()
+
+    # WHEN
+    response = client.get(URL)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    result = response.json()["results"][0]
+    assert result == {
+        "id": revenue.id,
+        "value": convert_and_quantitize(revenue.value),
+        "description": revenue.description,
+        "created_at": revenue.created_at.isoformat(),
+        "is_fixed": revenue.is_fixed,
+        "full_description": revenue.full_description,
+        "category": revenue.category,
+        "bank_account_description": bank_account.description,
+    }
+
+
 @pytest.mark.parametrize("is_fixed", (True, False))
 def test__list__include_date_fixed_revenue(client, revenue, is_fixed):
     # GIVEN
@@ -82,6 +105,7 @@ def test__create__past(client, bank_account, default_revenue_categories_map):
         "description": "Test",
         "created_at": "01/01/2021",
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
     previous_bank_account_amount = bank_account.amount
 
@@ -111,6 +135,7 @@ def test__create__current(client, bank_account):
         "description": "Test",
         "created_at": today.strftime("%d/%m/%Y"),
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
     previous_bank_account_amount = bank_account.amount
 
@@ -134,6 +159,7 @@ def test__create__future(client, bank_account):
         "description": "Test",
         "created_at": (today + relativedelta(months=1)).strftime("%d/%m/%Y"),
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
     previous_bank_account_amount = bank_account.amount
 
@@ -149,13 +175,14 @@ def test__create__future(client, bank_account):
     assert previous_bank_account_amount == bank_account.amount
 
 
-def test__create__new_category(client):
+def test__create__new_category(client, bank_account):
     # GIVEN
     data = {
         "value": 1200,
         "description": "Test",
         "created_at": "01/01/2021",
         "category": "teste",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -168,13 +195,14 @@ def test__create__new_category(client):
 
 
 @pytest.mark.parametrize("value", (-1, 0))
-def test__create__invalid_value(client, value):
+def test__create__invalid_value(client, bank_account, value):
     # GIVEN
     data = {
         "value": value,
         "description": "Test",
         "created_at": "01/01/2021",
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -185,13 +213,14 @@ def test__create__invalid_value(client, value):
     assert response.json() == {"value": ["Ensure this value is greater than or equal to 0.01."]}
 
 
-def test__create__future(client, bank_account):
+def test__create__future__does_not_update_bank_account(client, bank_account):
     # GIVEN
     data = {
         "value": 1000,
         "description": "Test",
         "created_at": "01/01/2121",
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
     previous_bank_account_amount = bank_account.amount
 
@@ -218,6 +247,7 @@ def test__update__past(client, revenue, bank_account, value):
         "created_at": "01/01/2021",
         "is_fixed": revenue.is_fixed,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -247,6 +277,7 @@ def test__update__current(client, revenue, bank_account, value, operation):
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": revenue.is_fixed,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -278,6 +309,7 @@ def test__update__future(client, revenue, bank_account, value):
         "created_at": (revenue.created_at + relativedelta(months=1)).strftime("%d/%m/%Y"),
         "is_fixed": revenue.is_fixed,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -295,13 +327,14 @@ def test__update__future(client, revenue, bank_account, value):
 
 
 @pytest.mark.parametrize("value", (-1, 0))
-def test__update__invalid_value(client, revenue, value):
+def test__update__invalid_value(client, revenue, bank_account, value):
     # GIVEN
     data = {
         "value": value,
         "description": "Test",
         "created_at": "01/01/2021",
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -312,7 +345,7 @@ def test__update__invalid_value(client, revenue, value):
     assert response.json() == {"value": ["Ensure this value is greater than or equal to 0.01."]}
 
 
-def test__update__new_category(client, revenue):
+def test__update__new_category(client, revenue, bank_account):
     # GIVEN
     data = {
         "value": revenue.value,
@@ -320,6 +353,7 @@ def test__update__new_category(client, revenue):
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": revenue.is_fixed,
         "category": "test",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -331,7 +365,7 @@ def test__update__new_category(client, revenue):
     assert response.json() == {"category": "A categoria não existe"}
 
 
-def test__update__category(client, revenue, default_revenue_categories_map):
+def test__update__category(client, revenue, default_revenue_categories_map, bank_account):
     # GIVEN
     revenue.category = "Outros"
     revenue.expanded_category_id = default_revenue_categories_map[revenue.category]
@@ -343,6 +377,7 @@ def test__update__category(client, revenue, default_revenue_categories_map):
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": revenue.is_fixed,
         "category": "Salário",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN

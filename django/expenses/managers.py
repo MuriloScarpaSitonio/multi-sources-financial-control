@@ -220,3 +220,14 @@ class RevenueQueryset(_PersonalFinancialQuerySet):
 
 
 class BankAccountSnapshotQuerySet(LatestBeforeQuerySet): ...
+
+
+class BankAccountQuerySet(QuerySet):
+    def active(self) -> Self:
+        return self.filter(is_active=True)
+
+    def get_total(self, user_id: int) -> Decimal:
+        """Get total amount across all active bank accounts for a user."""
+        return self.filter(user_id=user_id, is_active=True).aggregate(
+            total=Coalesce(Sum("amount"), Decimal())
+        )["total"]

@@ -120,11 +120,20 @@ def default_revenue_categories_map(default_revenue_categories):
 
 @pytest.fixture
 def bank_account(user) -> BankAccount:
-    return BankAccountFactory(amount=10000, description="Nubank", user=user)
+    return BankAccountFactory(
+        amount=10000, description="Nubank", user=user, is_default=True, is_active=True
+    )
 
 
 @pytest.fixture
-def expense(user, default_categories_map, default_sources_map) -> Expense:
+def second_bank_account(user) -> BankAccount:
+    return BankAccountFactory(
+        amount=5000, description="Itaú", user=user, is_default=False, is_active=True
+    )
+
+
+@pytest.fixture
+def expense(user, default_categories_map, default_sources_map, bank_account) -> Expense:
     return ExpenseFactory(
         value=50,
         description="Expense",
@@ -136,11 +145,12 @@ def expense(user, default_categories_map, default_sources_map) -> Expense:
         is_fixed=True,
         user=user,
         recurring_id=uuid4(),
+        bank_account=bank_account,
     )
 
 
 @pytest.fixture
-def expense_w_tags(user, default_categories_map, default_sources_map) -> Expense:
+def expense_w_tags(user, default_categories_map, default_sources_map, bank_account) -> Expense:
     return ExpenseFactory(
         value=50,
         description="Expense",
@@ -153,6 +163,7 @@ def expense_w_tags(user, default_categories_map, default_sources_map) -> Expense
         user=user,
         recurring_id=None,
         _tags=["abc"],
+        bank_account=bank_account,
     )
 
 
@@ -174,6 +185,7 @@ def fixed_expenses(expense) -> list[Expense]:
                 is_fixed=True,
                 user=expense.user,
                 recurring_id=expense.recurring_id,
+                bank_account=expense.bank_account,
             )
         )
     return expenses
@@ -201,7 +213,7 @@ def fixed_expenses_wo_delta(expense):
 
 
 @pytest.fixture
-def another_expense(user, default_categories_map, default_sources_map) -> Expense:
+def another_expense(user, default_categories_map, default_sources_map, bank_account) -> Expense:
     return ExpenseFactory(
         value=120,
         description="Test",
@@ -212,12 +224,13 @@ def another_expense(user, default_categories_map, default_sources_map) -> Expens
         expanded_source_id=default_sources_map[MONEY_SOURCE],
         is_fixed=True,
         user=user,
+        bank_account=bank_account,
         recurring_id=uuid4(),
     )
 
 
 @pytest.fixture
-def yet_another_expense(user, default_categories_map, default_sources_map) -> Expense:
+def yet_another_expense(user, default_categories_map, default_sources_map, bank_account) -> Expense:
     return ExpenseFactory(
         value=1200,
         description="Test 2",
@@ -228,11 +241,12 @@ def yet_another_expense(user, default_categories_map, default_sources_map) -> Ex
         expanded_source_id=default_sources_map[CREDIT_CARD_SOURCE],
         is_fixed=False,
         user=user,
+        bank_account=bank_account,
     )
 
 
 @pytest.fixture
-def expenses(user, default_categories_map, default_sources_map):
+def expenses(user, default_categories_map, default_sources_map, bank_account):
     today = timezone.localdate()
     _expenses = []
     for i in range(1, 13):
@@ -251,12 +265,13 @@ def expenses(user, default_categories_map, default_sources_map):
                 is_fixed=bool(i % 2),
                 recurring_id=uuid4() if bool(i % 2) else None,
                 user=user,
+                bank_account=bank_account,
             )
         )
 
 
 @pytest.fixture
-def expenses_report_data(expenses, user, default_categories_map, default_sources_map):
+def expenses_report_data(expenses, user, default_categories_map, default_sources_map, bank_account):
     today = timezone.localdate()
     for i in range(1, 7):
         category1 = choice(list(DEFAULT_CATEGORIES_MAP))
@@ -273,6 +288,7 @@ def expenses_report_data(expenses, user, default_categories_map, default_sources
             is_fixed=is_fixed,
             recurring_id=uuid4() if is_fixed else None,
             user=user,
+            bank_account=bank_account,
         )
 
     for i in range(14, 30):
@@ -290,6 +306,7 @@ def expenses_report_data(expenses, user, default_categories_map, default_sources
             is_fixed=is_fixed,
             recurring_id=uuid4() if is_fixed else None,
             user=user,
+            bank_account=bank_account,
         )
 
     for i in range(1, 8):
@@ -298,7 +315,7 @@ def expenses_report_data(expenses, user, default_categories_map, default_sources
         is_fixed = bool(i % 2)
         ExpenseFactory(
             value=randint(5, 10),
-            description=f"Expense {i+30}",
+            description=f"Expense {i + 30}",
             category=category3,
             expanded_category_id=default_categories_map[category3],
             created_at=today + relativedelta(months=i),
@@ -307,11 +324,12 @@ def expenses_report_data(expenses, user, default_categories_map, default_sources
             is_fixed=is_fixed,
             recurring_id=uuid4() if is_fixed else None,
             user=user,
+            bank_account=bank_account,
         )
 
 
 @pytest.fixture
-def expenses2(user, default_categories_map, default_sources_map):
+def expenses2(user, default_categories_map, default_sources_map, bank_account):
     today = timezone.localdate()
     for i in range(-24, 24):
         category = next(iter(DEFAULT_CATEGORIES_MAP))
@@ -327,11 +345,14 @@ def expenses2(user, default_categories_map, default_sources_map):
             is_fixed=bool(i % 2),
             recurring_id=uuid4() if bool(i % 2) else None,
             user=user,
+            bank_account=bank_account,
         )
 
 
 @pytest.fixture
-def expenses_w_installments(user, default_categories_map, default_sources_map) -> list[Expense]:
+def expenses_w_installments(
+    user, default_categories_map, default_sources_map, bank_account
+) -> list[Expense]:
     today = timezone.localdate()
     installments_id, installments_qty = uuid4(), 5
     category = next(iter(DEFAULT_CATEGORIES_MAP))
@@ -349,13 +370,14 @@ def expenses_w_installments(user, default_categories_map, default_sources_map) -
             expanded_source_id=default_sources_map[CREDIT_CARD_SOURCE],
             user=user,
             is_fixed=False,
+            bank_account=bank_account,
         )
         for i in range(installments_qty)
     ]
 
 
 @pytest.fixture
-def revenue(user, default_revenue_categories_map) -> Revenue:
+def revenue(user, default_revenue_categories_map, bank_account) -> Revenue:
     return RevenueFactory(
         value=3902,
         description="Revenue",
@@ -365,11 +387,12 @@ def revenue(user, default_revenue_categories_map) -> Revenue:
         recurring_id=uuid4(),
         category="Salário",
         expanded_category_id=default_revenue_categories_map["Salário"],
+        bank_account=bank_account,
     )
 
 
 @pytest.fixture
-def another_revenue(user, default_revenue_categories_map) -> Revenue:
+def another_revenue(user, default_revenue_categories_map, bank_account) -> Revenue:
     return RevenueFactory(
         value=1000,
         description="Revenue bonus",
@@ -378,11 +401,12 @@ def another_revenue(user, default_revenue_categories_map) -> Revenue:
         user=user,
         category="Bônus",
         expanded_category_id=default_revenue_categories_map["Bônus"],
+        bank_account=bank_account,
     )
 
 
 @pytest.fixture
-def yet_another_revenue(user, revenue, default_revenue_categories_map) -> Revenue:
+def yet_another_revenue(user, revenue, default_revenue_categories_map, bank_account) -> Revenue:
     return RevenueFactory(
         value=4000,
         description="Revenue",
@@ -392,11 +416,12 @@ def yet_another_revenue(user, revenue, default_revenue_categories_map) -> Revenu
         recurring_id=revenue.recurring_id,
         category="Salário",
         expanded_category_id=default_revenue_categories_map["Salário"],
+        bank_account=bank_account,
     )
 
 
 @pytest.fixture
-def revenues(user, default_revenue_categories_map):
+def revenues(user, default_revenue_categories_map, bank_account):
     today = timezone.localdate()
     for i in range(1, 13):
         is_fixed = bool(i % 2)
@@ -409,11 +434,12 @@ def revenues(user, default_revenue_categories_map):
             user=user,
             category="Salário",
             expanded_category_id=default_revenue_categories_map["Salário"],
+            bank_account=bank_account,
         )
 
 
 @pytest.fixture
-def revenues_historic_data(revenues, user):
+def revenues_historic_data(revenues, user, bank_account):
     today = timezone.localdate()
     for i in range(1, 7):
         is_fixed = bool(i % 2)
@@ -424,6 +450,7 @@ def revenues_historic_data(revenues, user):
             is_fixed=is_fixed,
             recurring_id=uuid4() if is_fixed else None,
             user=user,
+            bank_account=bank_account,
         )
 
     for i in range(14, 30):
@@ -435,11 +462,12 @@ def revenues_historic_data(revenues, user):
             is_fixed=is_fixed,
             recurring_id=uuid4() if is_fixed else None,
             user=user,
+            bank_account=bank_account,
         )
 
 
 @pytest.fixture
-def revenues_report_data(revenues, user, default_revenue_categories_map):
+def revenues_report_data(revenues, user, default_revenue_categories_map, bank_account):
     today = timezone.localdate()
     for i in range(1, 7):
         category1 = choice(list(DEFAULT_REVENUE_CATEGORIES_MAP))
@@ -453,6 +481,7 @@ def revenues_report_data(revenues, user, default_revenue_categories_map):
             is_fixed=is_fixed,
             recurring_id=uuid4() if is_fixed else None,
             user=user,
+            bank_account=bank_account,
         )
 
     for i in range(14, 30):
@@ -467,6 +496,7 @@ def revenues_report_data(revenues, user, default_revenue_categories_map):
             is_fixed=is_fixed,
             recurring_id=uuid4() if is_fixed else None,
             user=user,
+            bank_account=bank_account,
         )
 
     for i in range(1, 8):
@@ -474,13 +504,14 @@ def revenues_report_data(revenues, user, default_revenue_categories_map):
         is_fixed = bool(i % 2)
         RevenueFactory(
             value=randint(500, 1000000),
-            description=f"Revenue {i+30}",
+            description=f"Revenue {i + 30}",
             category=category3,
             expanded_category_id=default_revenue_categories_map[category3],
             created_at=today + relativedelta(months=i),
             is_fixed=is_fixed,
             recurring_id=uuid4() if is_fixed else None,
             user=user,
+            bank_account=bank_account,
         )
 
 
@@ -498,6 +529,7 @@ def fixed_revenues(revenue) -> list[Revenue]:
                 is_fixed=True,
                 user=revenue.user,
                 recurring_id=revenue.recurring_id,
+                bank_account=revenue.bank_account,
             )
         )
     return revenues

@@ -48,9 +48,10 @@ class _PersonalFinanceFilterSet(django_filters.FilterSet):
         field_name="created_at", lookup_expr="lte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
     )
     description = django_filters.CharFilter(lookup_expr="icontains")
+    bank_account_description = django_filters.CharFilter(field_name="bank_account__description")
 
     class Meta:
-        fields = ("is_fixed",)
+        fields = ("is_fixed", "bank_account_description")
 
     @property
     def qs(self):

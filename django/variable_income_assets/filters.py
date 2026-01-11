@@ -72,6 +72,7 @@ class AssetReadFilterSet(AssetReadStatusFilterSet):
     ) -> AssetReadModelQuerySet[AssetReadModel]:
         return queryset.filter_emergency_fund_assets() if value else queryset
 
+
 class AssetIndicatorsFilterSet(django_filters.FilterSet):
     include_yield = django_filters.BooleanFilter(required=False)
 

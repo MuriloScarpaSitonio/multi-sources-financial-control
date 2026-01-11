@@ -12,7 +12,7 @@ import {
 } from "../../../../../design-system";
 import { useAssetsTotalInvestedHistory } from "../../../Assets/Reports/hooks";
 import { useAssetsIndicators } from "../../../Assets/Indicators/hooks";
-import { useBankAccount, useBankAccountHistory } from "../../../Expenses/hooks";
+import { useBankAccountsSummary, useBankAccountHistory } from "../../../Expenses/hooks";
 import Chart, { PatrimonyDataItem } from "./Chart";
 
 const PatrimonyHistory = () => {
@@ -54,10 +54,10 @@ const PatrimonyHistory = () => {
   // TODO: consider calling once in the parent component and pass it to the
   // childrens
   const {
-    data: { amount: bankAmount } = { amount: 0 },
+    data: { total: bankAmount } = { total: 0 },
     isPending: isBankAccountLoading,
     isError: isBankAccountError,
-  } = useBankAccount();
+  } = useBankAccountsSummary();
 
   const isLoading =
     isAssetsIndicatorsLoading ||

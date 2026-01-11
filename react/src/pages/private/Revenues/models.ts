@@ -8,4 +8,5 @@ export type Revenue = {
   is_fixed: boolean;
   full_description: string;
   category: string;
+  bank_account_description: string;
 };

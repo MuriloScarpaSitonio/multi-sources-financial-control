@@ -19,7 +19,7 @@ from rest_framework.mixins import (
     UpdateModelMixin,
 )
 from rest_framework.response import Response
-from rest_framework.status import HTTP_200_OK
+from rest_framework.status import HTTP_200_OK, HTTP_204_NO_CONTENT
 from rest_framework.utils.serializer_helpers import ReturnList
 from rest_framework.viewsets import GenericViewSet
 
@@ -134,7 +134,9 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
 
     def get_queryset(self) -> ExpenseQueryset[Expense]:
         return (
-            self.request.user.expenses.all().order_by("-created_at")
+            self.request.user.expenses.all()
+            .annotate(bank_account_description=F("bank_account__description"))
+            .order_by("-created_at")
             if self.request.user.is_authenticated
             else Expense.objects.none()  # pragma: no cover -- drf-spectatular
         )
@@ -148,7 +150,9 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
                     "perform_actions_on_future_fixed_entities", False
                 ),
             ),
-            uow=ExpenseUnitOfWork(user_id=self.request.user.id),
+            uow=ExpenseUnitOfWork(
+                user_id=self.request.user.id, bank_account_id=instance.bank_account_id
+            ),
         )
 
     @staticmethod
@@ -195,7 +199,9 @@ class RevenueViewSet(_PersonalFinanceViewSet):
 
     def get_queryset(self) -> RevenueQueryset[Revenue]:
         return (
-            self.request.user.revenues.all().order_by("-created_at")
+            self.request.user.revenues.all()
+            .annotate(bank_account_description=F("bank_account__description"))
+            .order_by("-created_at")
             if self.request.user.is_authenticated
             else Expense.objects.none()  # pragma: no cover -- drf-spectatular
         )
@@ -222,13 +228,22 @@ class RevenueViewSet(_PersonalFinanceViewSet):
         ):
             messagebus.handle(
                 message=commands.CreateFutureFixedRevenues(revenue=revenue),
-                uow=RevenueUnitOfWork(user_id=self.request.user.id),
+                uow=RevenueUnitOfWork(
+                    user_id=self.request.user.id,
+                    bank_account_id=serializer.instance.bank_account_id,
+                ),
             )
 
         if revenue.is_current_month:
             messagebus.handle(
-                message=events.RevenueCreated(value=serializer.instance.value),
-                uow=RevenueUnitOfWork(user_id=self.request.user.id),
+                message=events.RevenueCreated(
+                    value=serializer.instance.value,
+                    bank_account_id=serializer.instance.bank_account_id,
+                ),
+                uow=RevenueUnitOfWork(
+                    user_id=self.request.user.id,
+                    bank_account_id=serializer.instance.bank_account_id,
+                ),
             )
 
     @atomic
@@ -262,7 +277,9 @@ class RevenueViewSet(_PersonalFinanceViewSet):
             kwargs["recurring_id"] = None
 
         revenue: RevenueDomainModel = serializer.save(**kwargs).to_domain()
-        uow = RevenueUnitOfWork(user_id=self.request.user.id)
+        uow = RevenueUnitOfWork(
+            user_id=self.request.user.id, bank_account_id=serializer.instance.bank_account_id
+        )
         if (
             revenue.recurring_id is not None
             and revenue.is_fixed
@@ -287,7 +304,10 @@ class RevenueViewSet(_PersonalFinanceViewSet):
 
         if revenue.is_current_month:
             messagebus.handle(
-                message=events.RevenueUpdated(diff=prev_value - serializer.instance.value),
+                message=events.RevenueUpdated(
+                    diff=prev_value - serializer.instance.value,
+                    bank_account_id=serializer.instance.bank_account_id,
+                ),
                 uow=uow,
             )
 
@@ -295,6 +315,7 @@ class RevenueViewSet(_PersonalFinanceViewSet):
     def perform_destroy(self, instance: Revenue):
         # TODO move to service layer
         revenue = instance.to_domain()
+        bank_account_id = instance.bank_account_id
         instance.delete()
 
         if (
@@ -303,13 +324,20 @@ class RevenueViewSet(_PersonalFinanceViewSet):
         ):
             messagebus.handle(
                 message=commands.DeleteFutureFixedRevenues(revenue=revenue),
-                uow=RevenueUnitOfWork(user_id=self.request.user.id),
+                uow=RevenueUnitOfWork(
+                    user_id=self.request.user.id, bank_account_id=bank_account_id
+                ),
             )
 
         if revenue.is_current_month:
             messagebus.handle(
-                message=events.RevenueDeleted(value=revenue.value),
-                uow=RevenueUnitOfWork(user_id=self.request.user.id),
+                message=events.RevenueDeleted(
+                    value=revenue.value,
+                    bank_account_id=bank_account_id,
+                ),
+                uow=RevenueUnitOfWork(
+                    user_id=self.request.user.id, bank_account_id=bank_account_id
+                ),
             )
 
     @action(methods=("GET",), detail=False)
@@ -321,43 +349,52 @@ class RevenueViewSet(_PersonalFinanceViewSet):
         return Response(serializer.data, status=HTTP_200_OK)
 
 
-class BankAccountViewSet(GenericViewSet):
+class BankAccountViewSet(GenericViewSet, ListModelMixin, CreateModelMixin, UpdateModelMixin):
     permission_classes = (SubscriptionEndedPermission, PersonalFinancesModulePermission)
     serializer_class = serializers.BankAccountSerializer
+    lookup_field = "description"
 
     def get_queryset(self):
         return (
-            BankAccount.objects.filter(user_id=self.request.user.id)
+            BankAccount.objects.filter(user_id=self.request.user.id, is_active=True).order_by(
+                "is_default", "-updated_at"
+            )
             if self.request.user.is_authenticated
             else BankAccount.objects.none()  # pragma: no cover -- drf-spectatular
         )
 
-    def get_object(self) -> BankAccount:
-        try:
-            return self.get_queryset().get()
-        except BankAccount.DoesNotExist:
-            # return empty bank account
-            return BankAccount(
-                user=self.request.user,
-                amount=Decimal(),
-                description="",
-                updated_at=timezone.now(),
-            )
-
-    def list(self, _: Request) -> Response:
-        return Response(
-            data=serializers.BankAccountSerializer(instance=self.get_object()).data,
-            status=HTTP_200_OK,
-        )
-
-    def put(self, request: Request) -> Response:
-        serializer = serializers.BankAccountSerializer(
-            instance=self.get_object(), data=request.data
-        )
-        serializer.is_valid(raise_exception=True)
+    @atomic
+    def perform_update(self, serializer: serializers.BankAccountSerializer) -> None:
+        # Handle is_default toggle with transaction
+        if serializer.validated_data.get("is_default", False):
+            # Unset current default before setting new one
+            BankAccount.objects.filter(user_id=self.request.user.id, is_default=True).exclude(
+                pk=serializer.instance.pk
+            ).update(is_default=False)
         serializer.save()
 
-        return Response(data=serializer.data, status=HTTP_200_OK)
+    @atomic
+    def perform_create(self, serializer: serializers.BankAccountSerializer) -> None:
+        # Handle is_default toggle with transaction
+        if serializer.validated_data.get("is_default", False):
+            # Unset current default before setting new one
+            BankAccount.objects.filter(user_id=self.request.user.id, is_default=True).update(
+                is_default=False
+            )
+        serializer.save()
+
+    def destroy(self, request: Request, description: str = None) -> Response:
+        instance = self.get_object()
+        if instance.is_default:
+            raise ValidationError({"detail": "Não é possível excluir a conta padrão"})
+        instance.is_active = False
+        instance.save(update_fields=["is_active"])
+        return Response(status=HTTP_204_NO_CONTENT)
+
+    @action(methods=("GET",), detail=False)
+    def summary(self, request: Request) -> Response:
+        total = BankAccount.objects.get_total(user_id=request.user.id)
+        return Response({"total": total}, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
     def history(self, request: Request) -> Response:

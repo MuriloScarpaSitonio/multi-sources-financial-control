@@ -352,45 +352,47 @@ class ExpenseRepository(AbstractExpenseRepository):
 
 
 class AbstractBankAccountRepository(ABC):
-    def __init__(self, user_id: int) -> None:
+    def __init__(self, user_id: int, bank_account_id: int | None) -> None:
         self.user_id = user_id
+        self.bank_account_id = bank_account_id
 
     @abstractmethod
-    def increment(self, total: Decimal) -> int:
+    def increment(self, value: Decimal) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def decrement(self, total: Decimal) -> int:
+    def decrement(self, value: Decimal) -> None:
         raise NotImplementedError
 
 
 class DjangoBankAccountRepository(AbstractBankAccountRepository):
     def increment(self, value: Decimal) -> None:
-        if not value:
+        if not value or not self.bank_account_id:
             return
 
         from ..models import BankAccount
 
-        BankAccount.objects.filter(user_id=self.user_id).update(amount=F("amount") + value)
+        BankAccount.objects.filter(pk=self.bank_account_id, user_id=self.user_id).update(
+            amount=F("amount") + value
+        )
 
     def decrement(self, value: Decimal) -> None:
-        if not value:
+        if not value or not self.bank_account_id:
             return
 
         from ..models import BankAccount
 
-        BankAccount.objects.filter(user_id=self.user_id).update(amount=F("amount") - value)
+        BankAccount.objects.filter(pk=self.bank_account_id, user_id=self.user_id).update(
+            amount=F("amount") - value
+        )
 
 
 class AbstractRevenueRepository(AbstractEntityRepository):
-    def _add(self, *_, **__) -> None:
-        ...
+    def _add(self, *_, **__) -> None: ...
 
-    def _update(self, *_, **__) -> None:
-        ...
+    def _update(self, *_, **__) -> None: ...
 
-    def _delete(self, *_, **__) -> None:
-        ...
+    def _delete(self, *_, **__) -> None: ...
 
     def add_fixed_future_revenues(self, dto: RevenueDTO) -> list[Revenue]:
         raise NotImplementedError

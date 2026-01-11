@@ -71,16 +71,22 @@ const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
   );
 };
 
+type Filters = {
+  bank_account_description?: string;
+};
+
 const TopToolBar = ({
   table,
   search,
   setSearch,
   setPagination,
+  setFilters,
 }: {
   table: DataTable<Row>;
   search: string;
   setSearch: Dispatch<SetStateAction<string>>;
   setPagination: Dispatch<SetStateAction<PaginationState>>;
+  setFilters: Dispatch<SetStateAction<Filters>>;
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openDrawer, setOpenDrawer] = useState(false);
@@ -128,6 +134,7 @@ const TopToolBar = ({
         open={Boolean(anchorEl)}
         onClose={() => setAnchorEl(null)}
         anchorEl={anchorEl}
+        setFilters={setFilters}
       />
       <RevenueDrawer open={openDrawer} onClose={() => setOpenDrawer(false)} />
     </>

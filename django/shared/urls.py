@@ -6,4 +6,3 @@ router = DefaultRouter(trailing_slash=False)
 router.register(prefix="patrimony", viewset=PatrimonyViewSet, basename="patrimony")
 
 urlpatterns = router.urls
-

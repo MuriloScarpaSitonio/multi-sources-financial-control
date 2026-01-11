@@ -5,8 +5,7 @@ from decimal import Decimal
 from ..domain.models import Asset as AssetDomainModel
 
 
-class Event:
-    ...
+class Event: ...
 
 
 @dataclass
@@ -33,12 +32,10 @@ class TransactionsCreated(TransactionEvent):
     fixed_br_asset: bool = False
 
 
-class TransactionUpdated(TransactionEvent):
-    ...
+class TransactionUpdated(TransactionEvent): ...
 
 
-class TransactionDeleted(TransactionEvent):
-    ...
+class TransactionDeleted(TransactionEvent): ...
 
 
 @dataclass
@@ -46,16 +43,13 @@ class PassiveIncomeCreated(RelatedAssetEvent):
     new_asset: bool = False
 
 
-class PassiveIncomeUpdated(RelatedAssetEvent):
-    ...
+class PassiveIncomeUpdated(RelatedAssetEvent): ...
 
 
-class PassiveIncomeDeleted(RelatedAssetEvent):
-    ...
+class PassiveIncomeDeleted(RelatedAssetEvent): ...
 
 
-class AssetOperationClosed(RelatedAssetEvent):
-    ...
+class AssetOperationClosed(RelatedAssetEvent): ...
 
 
 @dataclass
@@ -71,9 +65,7 @@ class AssetEvent(Event):
         self.asset_pk = self.asset.id
 
 
-class AssetCreated(AssetEvent):
-    ...
+class AssetCreated(AssetEvent): ...
 
 
-class AssetUpdated(AssetEvent):
-    ...
+class AssetUpdated(AssetEvent): ...

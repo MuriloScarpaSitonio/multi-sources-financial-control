@@ -34,7 +34,8 @@ import { Expense } from "../../api/models";
 import { AutoCompleteForRelatedEntities } from "../../components";
 import TagsAutoComplete from "../../components/TagsAutoComplete";
 import { ExpensesContext } from "../../context";
-import { useInvalidateExpenseQueries } from "../../hooks";
+import { useDefaultBankAccount, useInvalidateExpenseQueries } from "../../hooks";
+import Autocomplete from "@mui/material/Autocomplete";
 
 const schema = yup.object().shape({
   description: yup.string().required("A descrição é obrigatória"),
@@ -68,6 +69,13 @@ const schema = yup.object().shape({
     .required("A quantidade de parcelas é obrigatório")
     .positive("Apenas números positivos"),
   tags: yup.array().of(yup.string().required("Uma tag vazia não é permitida")),
+  bank_account_description: yup
+    .object()
+    .required("A conta bancária é obrigatória")
+    .shape({
+      label: yup.string(),
+      value: yup.string(),
+    }),
 });
 
 const createExpenseMutation = async (data: yup.Asserts<typeof schema>) => {
@@ -78,6 +86,7 @@ const createExpenseMutation = async (data: yup.Asserts<typeof schema>) => {
     isFixed,
     tags,
     performActionsOnFutureFixedEntities,
+    bank_account_description,
     ...rest
   } = data;
   await createExpense({
@@ -85,6 +94,7 @@ const createExpenseMutation = async (data: yup.Asserts<typeof schema>) => {
     source: source.value as string,
     is_fixed: isFixed,
     tags: tags ?? [],
+    bank_account_description: bank_account_description.label as string,
     ...rest,
     ...(isFixed
       ? { installments: 1, performActionsOnFutureFixedEntities }
@@ -103,6 +113,7 @@ const editExpenseMutation = async (
     isFixed,
     tags,
     performActionsOnFutureFixedEntities,
+    bank_account_description,
     ...rest
   } = data;
   await editExpense({
@@ -112,6 +123,7 @@ const editExpenseMutation = async (
       source: source.value as string,
       is_fixed: isFixed,
       tags: tags ?? [],
+      bank_account_description: bank_account_description.label as string,
       ...rest,
       ...(isFixed
         ? { installments: 1, performActionsOnFutureFixedEntities }
@@ -135,6 +147,7 @@ const ExpenseForm = ({
 }) => {
   const { sources, categories, mostCommonCategory, mostCommonSource } =
     useContext(ExpensesContext);
+  const { data: defaultBankAccount, accounts: bankAccounts } = useDefaultBankAccount();
 
   const {
     id: expenseId,
@@ -142,12 +155,31 @@ const ExpenseForm = ({
     source,
     created_at,
     is_fixed,
+    bank_account_description: _bankAccountDescription,
     ...rest
   } = initialData ?? {
     category: mostCommonCategory?.name ?? "Alimentação",
     source: mostCommonSource?.name ?? "Cartão de crédito",
     is_fixed: false,
   };
+  const bankAccountOptions = useMemo(
+    () =>
+      (bankAccounts ?? []).map((account) => ({
+        label: account.description,
+        value: account.description,
+      })),
+    [bankAccounts],
+  );
+
+  const defaultBankAccountOption = useMemo(() => {
+    if (initialData?.bank_account_description) {
+      return { label: initialData.bank_account_description, value: initialData.bank_account_description };
+    }
+    return defaultBankAccount
+      ? { label: defaultBankAccount.description, value: defaultBankAccount.description }
+      : null;
+  }, [initialData, defaultBankAccount]);
+
   const defaultValues = useMemo(
     () => ({
       description: "",
@@ -165,9 +197,10 @@ const ExpenseForm = ({
         hex_color: sources.hexColorMapping.get(source),
       },
       installments: 1,
+      bank_account_description: defaultBankAccountOption,
       ...rest,
     }),
-    [category, created_at, is_fixed, rest, source, categories, sources, mostCommonCategory, mostCommonSource],
+    [category, created_at, is_fixed, rest, source, categories, sources, mostCommonCategory, mostCommonSource, defaultBankAccountOption],
   );
 
   const queryClient = useQueryClient();
@@ -176,7 +209,7 @@ const ExpenseForm = ({
 
   const updateCachedData = useCallback(
     (data: yup.Asserts<typeof schema> & { id: number }) => {
-      const { category, source, created_at, ...rest } = data;
+      const { category, source, created_at, bank_account_description, ...rest } = data;
       const expensesData = queryClient.getQueriesData({
         queryKey: [EXPENSES_QUERY_KEY],
         type: "active",
@@ -192,6 +225,7 @@ const ExpenseForm = ({
               created_at: formatISO(created_at, { representation: "date" }),
               category: category.label,
               source: source.label,
+              bank_account_description: bank_account_description.label,
             }
             : expense,
         );
@@ -220,6 +254,7 @@ const ExpenseForm = ({
     getErrorMessage,
     watch,
     getValues,
+    setValue,
   } = useFormPlus({
     mutationFn: expenseId
       ? (data) => editExpenseMutation(expenseId, data)
@@ -389,6 +424,35 @@ const ExpenseForm = ({
         isFieldInvalid={isFieldInvalid}
         getFieldHasError={getFieldHasError}
         getErrorMessage={getErrorMessage}
+      />
+      <Controller
+        name="bank_account_description"
+        control={control}
+        render={({ field }) => (
+          <Stack spacing={0.5}>
+            <Autocomplete
+              {...field}
+              disableClearable
+              options={bankAccountOptions}
+              getOptionLabel={(option) => option?.label ?? ""}
+              isOptionEqualToValue={({ value: optionValue }, { value }) =>
+                optionValue === value
+              }              onChange={(_, value) => field.onChange(value)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Conta bancária"
+                  required
+                  error={isFieldInvalid(field)}
+                  variant="standard"
+                />
+              )}
+            />
+            {getFieldHasError(field.name) && (
+              <FormFeedbackError message={getErrorMessage(field.name)} />
+            )}
+          </Stack>
+        )}
       />
       <TagsAutoComplete
         control={control}

@@ -44,6 +44,12 @@ class Revenue(models.Model):
     user = models.ForeignKey(
         to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="revenues"
     )
+    bank_account = models.ForeignKey(
+        "BankAccount",
+        on_delete=models.PROTECT,
+        related_name="revenues",
+        null=True,  # Initially nullable for migration
+    )
 
     tags = models.ManyToManyField(to=RevenueTag, blank=True, related_name="revenues")
 
@@ -73,4 +79,5 @@ class Revenue(models.Model):
             description=self.description,
             is_fixed=self.is_fixed,
             recurring_id=self.recurring_id,
+            bank_account_id=self.bank_account_id,
         )

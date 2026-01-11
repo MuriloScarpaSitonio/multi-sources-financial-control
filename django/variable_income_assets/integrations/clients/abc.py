@@ -28,5 +28,4 @@ class AbstractTransactionsClient(ABC):
         return {}
 
     @abstractmethod
-    async def fetch_transactions(self, **kw) -> list[dict[str, Any]]:
-        ...
+    async def fetch_transactions(self, **kw) -> list[dict[str, Any]]: ...

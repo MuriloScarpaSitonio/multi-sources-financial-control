@@ -1,3 +1,3 @@
-from .bank_account import decrement_credit_card_bill
+from .bank_account import decrement_credit_card_bill_for_account
 from .expenses import create_fixed_expenses_from_last_month
 from .revenues import create_fixed_revenues_from_last_month

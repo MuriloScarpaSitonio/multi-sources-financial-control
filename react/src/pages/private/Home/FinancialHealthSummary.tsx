@@ -17,7 +17,7 @@ import {
   getColor,
   Text,
 } from "../../../design-system";
-import { useBankAccount, usePatrimonyGrowth } from "../Expenses/hooks";
+import { useBankAccountsSummary, usePatrimonyGrowth } from "../Expenses/hooks";
 import { useAssetsIndicators, useEmergencyFundAssets } from "../Assets/Indicators/hooks";
 import { useHomeExpensesIndicators } from "../Expenses/Indicators/hooks";
 import { customEndOfMonth, formatCurrency } from "../utils";
@@ -528,9 +528,9 @@ export const FinancialHealthSummary = () => {
   } = useAssetsIndicators({ includeYield: true });
 
   const {
-    data: { amount: bankAmount } = { amount: 0 },
+    data: { total: bankAmount } = { total: 0 },
     isPending: isBankAccountLoading,
-  } = useBankAccount();
+  } = useBankAccountsSummary();
 
   const { total: emergencyFundAssetsTotal, isPending: isEmergencyFundAssetsLoading } =
     useEmergencyFundAssets();

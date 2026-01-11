@@ -49,6 +49,12 @@ class Expense(models.Model):
     user = models.ForeignKey(
         to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="expenses"
     )
+    bank_account = models.ForeignKey(
+        "BankAccount",
+        on_delete=models.PROTECT,
+        related_name="expenses",
+        null=True,  # Initially nullable for migration
+    )
 
     # needed so we can sort by most common
     expanded_category = models.ForeignKey(
@@ -143,5 +149,6 @@ class Expense(models.Model):
             extra_data={
                 "expanded_category_id": self.expanded_category_id,
                 "expanded_source_id": self.expanded_source_id,
+                "bank_account_id": self.bank_account_id,
             },
         )

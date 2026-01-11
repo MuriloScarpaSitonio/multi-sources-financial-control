@@ -247,7 +247,10 @@ class AssetViewSet(
     @action(methods=("GET",), detail=False, url_path="emergency-fund-total")
     def emergency_fund_total(self, request: Request) -> Response:
         result = (
-            self.get_queryset().opened().filter_emergency_fund_assets().aggregate_normalized_current_total()
+            self.get_queryset()
+            .opened()
+            .filter_emergency_fund_assets()
+            .aggregate_normalized_current_total()
         )
         return Response(serializers.TotalSerializer(result).data, status=HTTP_200_OK)
 

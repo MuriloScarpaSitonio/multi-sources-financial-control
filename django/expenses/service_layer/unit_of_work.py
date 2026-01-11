@@ -13,8 +13,9 @@ if TYPE_CHECKING:
 
 
 class AbstractUnitOfWork(ABC):
-    def __init__(self, user_id: int) -> None:
+    def __init__(self, user_id: int, bank_account_id: int | None = None) -> None:
         self.user_id = user_id
+        self.bank_account_id = bank_account_id
 
     def __enter__(self) -> Self:
         return self
@@ -32,8 +33,10 @@ class AbstractUnitOfWork(ABC):
 
 
 class DjangoUnitOfWork(AbstractUnitOfWork):
-    def __init__(self, user_id: int) -> None:
-        super().__init__(user_id=user_id)
+    bank_account: DjangoBankAccountRepository
+
+    def __init__(self, user_id: int, bank_account_id: int | None = None) -> None:
+        super().__init__(user_id=user_id, bank_account_id=bank_account_id)
 
         # From the docs:
         # https://docs.djangoproject.com/en/4.1/topics/db/transactions/#django.db.transaction.set_autocommit
@@ -44,7 +47,9 @@ class DjangoUnitOfWork(AbstractUnitOfWork):
         self._inside_atomic_block = djtransaction.get_autocommit() is False
 
     def __enter__(self) -> Self:
-        self.bank_account = DjangoBankAccountRepository(user_id=self.user_id)
+        self.bank_account = DjangoBankAccountRepository(
+            user_id=self.user_id, bank_account_id=self.bank_account_id
+        )
         if not self._inside_atomic_block:
             djtransaction.set_autocommit(False)
         return super().__enter__()

@@ -772,9 +772,7 @@ def test__growth__missing_params(client):
 
     # THEN
     assert response.status_code == 400
-    assert response.json() == {
-        "__all__": ["É necessário informar ao menos 'months' ou 'years'."]
-    }
+    assert response.json() == {"__all__": ["É necessário informar ao menos 'months' ou 'years'."]}
 
 
 @pytest.mark.parametrize("filters", ("", "status=OPENED", "status=CLOSED"))

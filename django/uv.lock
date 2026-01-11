@@ -1,6 +1,6 @@
 version = 1
-revision = 2
-requires-python = ">=3.13.0, <3.14"
+revision = 3
+requires-python = "==3.13.*"
 
 [[package]]
 name = "aiohappyeyeballs"
@@ -987,6 +987,7 @@ dependencies = [
     { name = "djangorestframework" },
     { name = "djangorestframework-simplejwt" },
     { name = "drf-spectacular" },
+    { name = "psycopg", extra = ["pool"] },
     { name = "pydantic" },
     { name = "python-dateutil" },
     { name = "python-decouple" },
@@ -1021,7 +1022,6 @@ dev = [
 ]
 production = [
     { name = "gunicorn" },
-    { name = "psycopg", extra = ["pool"] },
 ]
 
 [package.metadata]
@@ -1037,6 +1037,7 @@ requires-dist = [
     { name = "djangorestframework", specifier = ">=3.15.0,<4" },
     { name = "djangorestframework-simplejwt", specifier = ">=5.3.0,<6" },
     { name = "drf-spectacular", specifier = ">=0.27.0,<1" },
+    { name = "psycopg", extras = ["pool"], specifier = ">=3.2.10" },
     { name = "pydantic", specifier = ">=2.5.0,<3" },
     { name = "python-dateutil", specifier = ">=2.8.2,<3" },
     { name = "python-decouple", specifier = "~=3.8" },
@@ -1069,10 +1070,7 @@ dev = [
     { name = "requests-mock", specifier = ">=1.11.0,<2" },
     { name = "ruff", specifier = ">=0.2.0,<1" },
 ]
-production = [
-    { name = "gunicorn", specifier = ">=23.0.0" },
-    { name = "psycopg", extras = ["pool"], specifier = ">=3.2.10" },
-]
+production = [{ name = "gunicorn", specifier = ">=23.0.0" }]
 
 [[package]]
 name = "multidict"

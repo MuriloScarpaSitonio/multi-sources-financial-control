@@ -20,4 +20,3 @@ class PatrimonyGrowthFilterSet(django_filters.FilterSet):
                 self.form.add_error(None, "É necessário informar ao menos 'months' ou 'years'.")
                 return False
         return is_valid
-

@@ -52,6 +52,7 @@ class Revenue(IsPastOrFutureMixin):
     description: str | None = None
     is_fixed: bool = False
     recurring_id: UUID | None = None
+    bank_account_id: int | None = None
 
 
 @dataclass

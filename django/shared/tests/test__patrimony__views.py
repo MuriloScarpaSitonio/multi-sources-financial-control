@@ -48,9 +48,7 @@ def test__growth__missing_params(client):
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {
-        "__all__": ["É necessário informar ao menos 'months' ou 'years'."]
-    }
+    assert response.json() == {"__all__": ["É necessário informar ao menos 'months' ou 'years'."]}
 
 
 def test__growth__with_months(client, user, bank_account, bank_account_snapshot_factory):
@@ -286,4 +284,3 @@ def test__growth__no_bank_account(client, user):
     assert response_json["current_total"] == convert_and_quantitize(Decimal("0"))
     assert response_json["historical_total"] == convert_and_quantitize(Decimal("10000"))
     assert response_json["growth_percentage"] == convert_and_quantitize(Decimal("-100"))
-

@@ -12,7 +12,7 @@ import { Colors, FontSizes, FontWeights, getColor, Text } from "../../../../desi
 import { ExpensesContext } from "../context";
 import { Expense } from "../api/models";
 import { StatusDot } from "../../../../design-system/icons";
-import { useBankAccount } from "../hooks";
+import { useBankAccounts, useBankAccountsSummary } from "../hooks";
 import { IndicatorBox } from "./components";
 import BankAccountIndicator from "./BankAccountIndicator";
 import { useRevenuesIndicators, useHomeRevenuesIndicators } from "../../Revenues/hooks/useRevenuesIndicators";
@@ -157,8 +157,11 @@ const Indicators = () => {
   const { data: mostExpensiveExpense, isPending: isMostExpensiveLoading } =
     useMostExpensiveExpense({ startDate, endDate });
 
-  const { data: bankAccount, isPending: isBankAccountLoading } =
-    useBankAccount();
+  const { data: bankAccountsSummary, isPending: isBankAccountSummaryLoading } =
+    useBankAccountsSummary();
+  const { data: bankAccounts, isPending: isBankAccountsLoading } =
+    useBankAccounts();
+  const isBankAccountLoading = isBankAccountSummaryLoading || isBankAccountsLoading;
 
   const { total: emergencyFundAssetsTotal, isPending: isEmergencyFundAssetsLoading } =
     useEmergencyFundAssets();
@@ -184,7 +187,7 @@ const Indicators = () => {
     !isExpensesIndicatorsLoading && expensesIndicators?.diff !== undefined;
 
   const avgExpenses = homeExpensesIndicators?.avg ?? 0;
-  const bankAmount = bankAccount?.amount ?? 0;
+  const bankAmount = bankAccountsSummary?.total ?? 0;
   const totalEmergencyFund = bankAmount + emergencyFundAssetsTotal;
   const monthsCovered = avgExpenses > 0 ? totalEmergencyFund / avgExpenses : 0;
 
@@ -277,8 +280,8 @@ const Indicators = () => {
           />
         ) : (
           <BankAccountIndicator
-            amount={bankAccount?.amount ?? 0}
-            description={bankAccount?.description ?? ""}
+            total={bankAmount}
+            accountCount={bankAccounts?.length ?? 0}
           />
         )}
         <MostExpensiveIndicator

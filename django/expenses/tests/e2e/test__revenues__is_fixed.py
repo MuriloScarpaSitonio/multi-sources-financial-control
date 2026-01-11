@@ -34,6 +34,7 @@ def test__create(client, bank_account, perform):
         "created_at": "01/01/2021",
         "is_fixed": True,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
     previous_bank_account_amount = bank_account.amount
 
@@ -66,6 +67,7 @@ def test__update__is_fixed__past__value(client, fixed_revenues, bank_account, va
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": True,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -100,6 +102,7 @@ def test__update__is_fixed__current__value(client, fixed_revenues, bank_account,
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": True,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -142,6 +145,7 @@ def test__update__is_fixed__current__value__only_current(
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": True,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -177,6 +181,7 @@ def test__update__is_fixed__future__value(client, fixed_revenues, bank_account, 
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": True,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -218,6 +223,7 @@ def test__update__is_fixed__future__value__only_current(
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": True,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -250,6 +256,7 @@ def test__update__is_fixed__past__created_at(client, fixed_revenues, bank_accoun
         "created_at": (revenue.created_at.replace(day=day)).strftime("%d/%m/%Y"),
         "is_fixed": True,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -284,6 +291,7 @@ def test__update__is_fixed__current__created_at(client, fixed_revenues, bank_acc
         "created_at": (revenue.created_at.replace(day=day)).strftime("%d/%m/%Y"),
         "is_fixed": True,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -323,6 +331,7 @@ def test__update__is_fixed__current__created_at__only_current(client, fixed_reve
         "created_at": (revenue.created_at.replace(day=day)).strftime("%d/%m/%Y"),
         "is_fixed": True,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -357,6 +366,7 @@ def test__update__is_fixed__future__created_at(client, fixed_revenues, bank_acco
         "created_at": (revenue.created_at.replace(day=day)).strftime("%d/%m/%Y"),
         "is_fixed": True,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -404,6 +414,7 @@ def test__update__is_fixed__future__created_at__only_current(client, fixed_reven
         "created_at": (revenue.created_at.replace(day=day)).strftime("%d/%m/%Y"),
         "is_fixed": True,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -442,6 +453,7 @@ def test__update__is_fixed__false_to_true(client, revenue, bank_account, perform
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": True,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -479,6 +491,7 @@ def test__update__is_fixed__false_to_true__past_month(client, revenue, bank_acco
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": True,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -508,7 +521,7 @@ def test__update__is_fixed__false_to_true__past_month(client, revenue, bank_acco
 
 
 @pytest.mark.parametrize("perform", (True, False))
-def test__update__is_fixed__true_to_false(client, fixed_revenues, perform):
+def test__update__is_fixed__true_to_false(client, fixed_revenues, bank_account, perform):
     # GIVEN
     revenue = fixed_revenues[2]
     data = {
@@ -517,6 +530,7 @@ def test__update__is_fixed__true_to_false(client, fixed_revenues, perform):
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": False,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -531,13 +545,13 @@ def test__update__is_fixed__true_to_false(client, fixed_revenues, perform):
     assert revenue.recurring_id is None and not revenue.is_fixed
     assert Revenue.objects.filter(
         recurring_id__isnull=False,
-    ).values(
-        "created_at__month", "created_at__year"
-    ).distinct().count() == (2 if perform else 11)
+    ).values("created_at__month", "created_at__year").distinct().count() == (2 if perform else 11)
 
 
 @pytest.mark.parametrize("perform", (True, False))
-def test__update__is_fixed__true_to_false__past_month(client, fixed_revenues, perform):
+def test__update__is_fixed__true_to_false__past_month(
+    client, fixed_revenues, bank_account, perform
+):
     # GIVEN
     revenue = fixed_revenues[1]
     data = {
@@ -546,6 +560,7 @@ def test__update__is_fixed__true_to_false__past_month(client, fixed_revenues, pe
         "created_at": revenue.created_at.strftime("%d/%m/%Y"),
         "is_fixed": False,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -570,7 +585,9 @@ def test__update__is_fixed__true_to_false__past_month(client, fixed_revenues, pe
 
 
 @pytest.mark.parametrize("delta", ({"months": 1}, {"months": -1}, {"years": 1}, {"years": -1}))
-def test__update__is_fixed__past__created_at__to_another_month(client, fixed_revenues, delta):
+def test__update__is_fixed__past__created_at__to_another_month(
+    client, fixed_revenues, bank_account, delta
+):
     # GIVEN
     revenue = fixed_revenues[0]
 
@@ -580,6 +597,7 @@ def test__update__is_fixed__past__created_at__to_another_month(client, fixed_rev
         "created_at": (revenue.created_at + relativedelta(**delta)).strftime("%d/%m/%Y"),
         "is_fixed": True,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -593,7 +611,9 @@ def test__update__is_fixed__past__created_at__to_another_month(client, fixed_rev
 
 
 @pytest.mark.parametrize("delta", ({"months": 1}, {"months": -1}, {"years": 1}, {"years": -1}))
-def test__update__is_fixed__current__created_at__to_another_month(client, fixed_revenues, delta):
+def test__update__is_fixed__current__created_at__to_another_month(
+    client, fixed_revenues, bank_account, delta
+):
     # GIVEN
     revenue = fixed_revenues[2]
 
@@ -603,6 +623,7 @@ def test__update__is_fixed__current__created_at__to_another_month(client, fixed_
         "created_at": (revenue.created_at + relativedelta(**delta)).strftime("%d/%m/%Y"),
         "is_fixed": True,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -616,7 +637,9 @@ def test__update__is_fixed__current__created_at__to_another_month(client, fixed_
 
 
 @pytest.mark.parametrize("delta", ({"months": 1}, {"months": -1}, {"years": 1}, {"years": -1}))
-def test__update__is_fixed__future__created_at__to_another_month(client, fixed_revenues, delta):
+def test__update__is_fixed__future__created_at__to_another_month(
+    client, fixed_revenues, bank_account, delta
+):
     # GIVEN
     revenue = fixed_revenues[6]
 
@@ -626,6 +649,7 @@ def test__update__is_fixed__future__created_at__to_another_month(client, fixed_r
         "created_at": (revenue.created_at + relativedelta(**delta)).strftime("%d/%m/%Y"),
         "is_fixed": True,
         "category": "Outros",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN

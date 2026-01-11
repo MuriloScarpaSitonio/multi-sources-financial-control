@@ -224,7 +224,7 @@ def test__update__categories__validate_color(client):
     }
 
 
-def test__delete__categories__e2e_update(client, expense):
+def test__delete__categories__e2e_update(client, expense, bank_account):
     # GIVEN
     update_data = {
         "value": expense.value + 10,
@@ -232,6 +232,7 @@ def test__delete__categories__e2e_update(client, expense):
         "category": "Casa",
         "created_at": "01/10/2024",
         "source": MONEY_SOURCE,
+        "bank_account_description": bank_account.description,
     }
     category = ExpenseCategory.objects.get(name="Casa")
 
@@ -477,7 +478,7 @@ def test__update__sources__validate_color(client):
     }
 
 
-def test__delete__sources__e2e_update(client, expense):
+def test__delete__sources__e2e_update(client, expense, bank_account):
     # GIVEN
     update_data = {
         "value": expense.value + 10,
@@ -485,6 +486,7 @@ def test__delete__sources__e2e_update(client, expense):
         "category": "Casa",
         "created_at": "01/10/2024",
         "source": CREDIT_CARD_SOURCE,
+        "bank_account_description": bank_account.description,
     }
     source = ExpenseSource.objects.get(name=CREDIT_CARD_SOURCE)
 

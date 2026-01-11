@@ -1,101 +1,20 @@
-import type { Dispatch, SetStateAction } from "react";
-
 import { useState } from "react";
 
-import Button from "@mui/material/Button";
-import OutlinedInput from "@mui/material/OutlinedInput";
+import Box from "@mui/material/Box";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
 
-import EditIcon from "@mui/icons-material/Edit";
+import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 
 import {
   Colors,
   FontSizes,
   getColor,
-  NumberFormat,
   Text,
 } from "../../../../design-system";
 import { IndicatorBox } from "./components";
-import { useMutation } from "@tanstack/react-query";
-import { CircularProgress } from "@mui/material";
-import { update as updateBankAccount } from "../api/bank_account";
-import { enqueueSnackbar } from "notistack";
 import { useHideValues } from "../../../../hooks/useHideValues";
-import { useInvalidateAllBankAccountQueries } from "../hooks";
-
-const BankAcountDescriptionInput = ({
-  description,
-  setNewDescription,
-}: {
-  description: string;
-  setNewDescription: Dispatch<SetStateAction<string>>;
-}) => (
-  <OutlinedInput
-    size="small"
-    placeholder="Descrição"
-    defaultValue={description}
-    onChange={(e) => setNewDescription(e.target.value)}
-    endAdornment={<EditIcon sx={{ color: getColor(Colors.neutral400) }} />}
-    sx={{
-      "&.MuiOutlinedInput-root": {
-        border: "none",
-        borderRadius: "5px",
-        color: getColor(Colors.neutral300),
-        "&:hover": {
-          backgroundColor: getColor(Colors.neutral600),
-        },
-      },
-      "&.MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline": {
-        border: "none",
-      },
-      "&.MuiOutlinedInput-root .MuiOutlinedInput-input::placeholder": {
-        color: getColor(Colors.neutral0),
-      },
-    }}
-  />
-);
-
-const BankAccountDescriptionText = ({
-  description,
-}: {
-  description: string;
-}) => (
-  <Text size={FontSizes.SEMI_SMALL} color={Colors.neutral300}>
-    {description}
-  </Text>
-);
-
-const BankAccountAmountInput = ({
-  newAmount,
-  setNewAmount,
-}: {
-  newAmount: number;
-  setNewAmount: Dispatch<SetStateAction<number>>;
-}) => (
-  <TextField
-    size="small"
-    placeholder="Saldo em conta"
-    value={newAmount}
-    onChange={(e) => setNewAmount(e.target.value as unknown as number)}
-    InputProps={{
-      inputComponent: NumberFormat,
-      inputProps: { prefix: "R$ " },
-      endAdornment: <EditIcon sx={{ color: getColor(Colors.neutral400) }} />,
-    }}
-    variant="outlined"
-    sx={{
-      borderRadius: "5px",
-      "&:hover": {
-        backgroundColor: getColor(Colors.neutral600),
-      },
-      ".MuiOutlinedInput-notchedOutline": {
-        border: "none",
-      },
-    }}
-  />
-);
+import BankAccountsDrawer from "./BankAccountsDrawer";
 
 const BankAccountAmountText = ({ amount }: { amount: number }) => {
   const { hideValues } = useHideValues();
@@ -116,91 +35,45 @@ const BankAccountAmountText = ({ amount }: { amount: number }) => {
 };
 
 const BankAccountIndicator = ({
-  amount,
-  description,
+  total,
 }: {
-  amount: number;
-  description: string;
+  total: number;
 }) => {
-  const [isHoveringDescription, setIsHoveringDescription] = useState(false);
-  const [isHoveringAmount, setIsHoveringAmount] = useState(false);
-  const [newAmount, setNewAmount] = useState(amount);
-  const [newDescription, setNewDescription] = useState(description);
-  const { invalidate: invalidateBankAccountQueries } =
-    useInvalidateAllBankAccountQueries();
-  const { mutate, isPending } = useMutation({
-    mutationFn: updateBankAccount,
-    onSuccess: async () => {
-      enqueueSnackbar("Conta bancária atualizada com sucesso!", {
-        variant: "success",
-      });
-      await invalidateBankAccountQueries();
-    },
-    onError: () => {
-      enqueueSnackbar(
-        "Não foi possível atualizar a conta bancária no momento. Por favor, tente novamente mais tarde",
-        { variant: "error" },
-      );
-    },
-  });
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   return (
-    <IndicatorBox variant={amount > 0 ? "success" : "danger"} width="50%">
-      <Stack gap={0.5}>
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="center"
+    <>
+      <IndicatorBox variant={total >= 0 ? "success" : "danger"} width="50%">
+        <Box
+          onClick={() => setIsDrawerOpen(true)}
+          sx={{
+            cursor: "pointer",
+            "&:hover": {
+              opacity: 0.8,
+            },
+            width: "100%",
+          }}
         >
-          <Text size={FontSizes.SMALL}>Saldo em conta:</Text>
-          {amount !== newAmount || description !== newDescription ? (
-            <Button
-              variant="brand-text"
-              type="submit"
-              size="small"
-              onClick={() =>
-                mutate({
-                  description: newDescription,
-                  amount: newAmount,
-                })
-              }
+          <Stack gap={0.5}>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
             >
-              {isPending ? (
-                <CircularProgress color="inherit" size={24} />
-              ) : (
-                "Salvar"
-              )}
-            </Button>
-          ) : null}
-        </Stack>
-        <div
-          onMouseOver={() => setIsHoveringDescription(true)}
-          onMouseLeave={() => setIsHoveringDescription(false)}
-        >
-          {isHoveringDescription ? (
-            <BankAcountDescriptionInput
-              description={newDescription}
-              setNewDescription={setNewDescription}
-            />
-          ) : (
-            <BankAccountDescriptionText description={newDescription} />
-          )}
-        </div>
-        <div
-          onMouseOver={() => setIsHoveringAmount(true)}
-          onMouseLeave={() => setIsHoveringAmount(false)}
-        >
-          {isHoveringAmount ? (
-            <BankAccountAmountInput
-              newAmount={newAmount}
-              setNewAmount={setNewAmount}
-            />
-          ) : (
-            <BankAccountAmountText amount={newAmount} />
-          )}
-        </div>
-      </Stack>
-    </IndicatorBox>
+              <Text size={FontSizes.SMALL}>Saldo em conta:</Text>
+            </Stack>
+            <Text size={FontSizes.SEMI_SMALL} color={Colors.neutral300}>
+              Total de todas as contas
+            </Text>
+            <BankAccountAmountText amount={total} />
+          </Stack>
+        </Box>
+      </IndicatorBox>
+      <BankAccountsDrawer
+        open={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+      />
+    </>
   );
 };
 

@@ -37,18 +37,15 @@ class AbstractEntityRepository(ABC):
 
     @overload
     @abstractmethod
-    def _add(self, dto: TransactionDTO) -> Transaction:
-        ...
+    def _add(self, dto: TransactionDTO) -> Transaction: ...
 
     @overload
     @abstractmethod
-    def _add(self, dto: PassiveIncomeDTO) -> PassiveIncome:
-        ...
+    def _add(self, dto: PassiveIncomeDTO) -> PassiveIncome: ...
 
     @overload
     @abstractmethod
-    def _add(self, dto: AssetDomainModel) -> Asset:
-        ...
+    def _add(self, dto: AssetDomainModel) -> Asset: ...
 
     @abstractmethod
     def _add(self, dto: EntityDTO) -> Entity:
@@ -59,16 +56,13 @@ class AbstractEntityRepository(ABC):
         self.seen.add(e)
 
     @overload
-    def update(self, dto: TransactionDTO, entity: Transaction) -> None:
-        ...
+    def update(self, dto: TransactionDTO, entity: Transaction) -> None: ...
 
     @overload
-    def update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> None:
-        ...
+    def update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> None: ...
 
     @overload
-    def update(self, dto: AssetDomainModel, entity: Asset) -> None:
-        ...
+    def update(self, dto: AssetDomainModel, entity: Asset) -> None: ...
 
     def update(self, dto: EntityDTO, entity: Entity) -> None:
         e = self._update(dto=dto, entity=entity)
@@ -76,13 +70,11 @@ class AbstractEntityRepository(ABC):
 
     @overload
     @abstractmethod
-    def _update(self, dto: TransactionDTO, entity: Transaction) -> Transaction:
-        ...
+    def _update(self, dto: TransactionDTO, entity: Transaction) -> Transaction: ...
 
     @overload
     @abstractmethod
-    def _update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> PassiveIncome:
-        ...
+    def _update(self, dto: PassiveIncomeDTO, entity: PassiveIncome) -> PassiveIncome: ...
 
     @abstractmethod
     def _update(self, dto: EntityDTO, entity: Entity) -> Entity:
@@ -280,7 +272,7 @@ class DjangoSQLAssetMetaDataRepository(AbstractAssetMetaDataRepository):
 
     @staticmethod
     def get_current_price_annotation(
-        source: Literal["write", "read", "transactions"]
+        source: Literal["write", "read", "transactions"],
     ) -> F | Coalesce:
         if source == "read":
             return F("metadata__current_price")

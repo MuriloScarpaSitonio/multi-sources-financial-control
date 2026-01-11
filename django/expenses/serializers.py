@@ -46,6 +46,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     installments = serializers.IntegerField(default=1, write_only=True, allow_null=True)
     tags = FlatManyToManySerializer(required=False)
+    bank_account_description = serializers.CharField()
 
     class Meta:
         model = Expense
@@ -61,6 +62,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
             "installments",
             "full_description",
             "tags",
+            "bank_account_description",
         )
         extra_kwargs = {"id": {"read_only": True}, "full_description": {"read_only": True}}
 
@@ -68,17 +70,26 @@ class ExpenseSerializer(serializers.ModelSerializer):
         try:
             user = validated_data.pop("user")
             category = validated_data.pop("category")
-            expanded_category = ExpenseCategory.objects.only("id").get(name=category, user=user)
+            expanded_category_id = ExpenseCategory.objects.values_list("id", flat=True).get(
+                name=category, user=user
+            )
             source = validated_data.pop("source")
-            expanded_source = ExpenseSource.objects.only("id").get(name=source, user=user)
+            expanded_source_id = ExpenseSource.objects.values_list("id", flat=True).get(
+                name=source, user=user
+            )
+            bank_account_description = validated_data.pop("bank_account_description")
+            bank_account_id = BankAccount.objects.values_list("id", flat=True).get(
+                description=bank_account_description, user=user, is_active=True
+            )
             expense = ExpenseDomainModel(
                 **validated_data,
                 category=category,
                 source=source,
                 installments_qty=validated_data.pop("installments") or 1,
                 extra_data={
-                    "expanded_category_id": expanded_category.id,
-                    "expanded_source_id": expanded_source.id,
+                    "expanded_category_id": expanded_category_id,
+                    "expanded_source_id": expanded_source_id,
+                    "bank_account_id": bank_account_id,
                 },
             )
             messagebus.handle(
@@ -88,8 +99,9 @@ class ExpenseSerializer(serializers.ModelSerializer):
                         "perform_actions_on_future_fixed_entities", False
                     ),
                 ),
-                uow=ExpenseUnitOfWork(user_id=user.id),
+                uow=ExpenseUnitOfWork(user_id=user.id, bank_account_id=bank_account_id),
             )
+            expense.bank_account_description = bank_account_description
             return expense
         except DomainValidationError as exception:
             raise serializers.ValidationError(exception.detail) from exception
@@ -97,6 +109,10 @@ class ExpenseSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"category": "A categoria não existe"}) from exc
         except ExpenseSource.DoesNotExist as e:
             raise serializers.ValidationError({"source": "A fonte não existe"}) from e
+        except BankAccount.DoesNotExist as e:
+            raise serializers.ValidationError(
+                {"bank_account_description": "A conta bancária não existe"}
+            ) from e
 
     def update(self, instance: Expense, validated_data: dict) -> Expense:
         try:
@@ -107,15 +123,21 @@ class ExpenseSerializer(serializers.ModelSerializer):
             category = validated_data.pop("category")
 
             if category != instance.category:
-                extra_data["expanded_category_id"] = (
-                    ExpenseCategory.objects.only("id").get(name=category, user=user).id
-                )
+                extra_data["expanded_category_id"] = ExpenseCategory.objects.values_list(
+                    "id", flat=True
+                ).get(name=category, user=user)
 
             source = validated_data.pop("source")
             if source != instance.source:
-                extra_data["expanded_source_id"] = (
-                    ExpenseSource.objects.only("id").get(name=source, user=user).id
-                )
+                extra_data["expanded_source_id"] = ExpenseSource.objects.values_list(
+                    "id", flat=True
+                ).get(name=source, user=user)
+
+            bank_account_description = validated_data.pop("bank_account_description")
+            bank_account_id = BankAccount.objects.values_list("id", flat=True).get(
+                description=bank_account_description, user=user, is_active=True
+            )
+            extra_data["bank_account_id"] = bank_account_id
 
             expense = ExpenseDomainModel(
                 id=instance.pk,
@@ -136,8 +158,9 @@ class ExpenseSerializer(serializers.ModelSerializer):
                         "perform_actions_on_future_fixed_entities", False
                     ),
                 ),
-                uow=ExpenseUnitOfWork(user_id=user.id),
+                uow=ExpenseUnitOfWork(user_id=user.id, bank_account_id=bank_account_id),
             )
+            expense.bank_account_description = bank_account_description
             return expense
         except DomainValidationError as exception:
             raise serializers.ValidationError(exception.detail) from exception
@@ -145,12 +168,17 @@ class ExpenseSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"category": "A categoria não existe"}) from exc
         except ExpenseSource.DoesNotExist as e:
             raise serializers.ValidationError({"source": "A fonte não existe"}) from e
+        except BankAccount.DoesNotExist as e:
+            raise serializers.ValidationError(
+                {"bank_account_description": "A conta bancária não existe"}
+            ) from e
 
 
 class RevenueSerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(
         default=serializers.CurrentUserDefault(),
     )
+    bank_account_description = serializers.CharField()
 
     class Meta:
         model = Revenue
@@ -163,12 +191,50 @@ class RevenueSerializer(serializers.ModelSerializer):
             "user",
             "full_description",
             "category",
+            "bank_account_description",
         )
         extra_kwargs = {
             "id": {"read_only": True},
             "full_description": {"read_only": True},
             "category": {"required": True},
         }
+
+    def create(self, validated_data: dict[str, Any]) -> Revenue:
+        # TODO: move to service layer
+        user = validated_data.pop("user")
+        bank_account_description = validated_data.pop("bank_account_description")
+        try:
+            bank_account_id = BankAccount.objects.values_list("id", flat=True).get(
+                description=bank_account_description, user=user, is_active=True
+            )
+        except BankAccount.DoesNotExist as e:
+            raise serializers.ValidationError(
+                {"bank_account_description": "A conta bancária não existe"}
+            ) from e
+        revenue = Revenue.objects.create(
+            user=user, bank_account_id=bank_account_id, **validated_data
+        )
+        revenue.bank_account_description = bank_account_description
+        return revenue
+
+    def update(self, instance: Revenue, validated_data: dict[str, Any]) -> Revenue:
+        # TODO: move to service layer
+        user = validated_data.pop("user")
+        bank_account_description = validated_data.pop("bank_account_description")
+        try:
+            bank_account_id = BankAccount.objects.values_list("id", flat=True).get(
+                description=bank_account_description, user=user, is_active=True
+            )
+        except BankAccount.DoesNotExist as e:
+            raise serializers.ValidationError(
+                {"bank_account_description": "A conta bancária não existe"}
+            ) from e
+        instance.bank_account_id = bank_account_id
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        instance.bank_account_description = bank_account_description
+        return instance
 
 
 class TotalSerializer(serializers.Serializer):
@@ -225,12 +291,32 @@ class PersonalFinancesIndicatorsSerializer(TotalSerializer, AvgSerializer):
     future = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
 
 
-
 class BankAccountSerializer(serializers.ModelSerializer):
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
     class Meta:
         model = BankAccount
-        fields = ("amount", "description", "updated_at")
-        extra_kwargs = {"updated_at": {"read_only": True}}
+        fields = (
+            "amount",
+            "description",
+            "updated_at",
+            "is_active",
+            "is_default",
+            "credit_card_bill_day",
+            "user",
+        )
+        extra_kwargs = {
+            "updated_at": {"read_only": True},
+            "is_active": {"read_only": True},
+        }
+
+    def save(self, **kwargs):
+        try:
+            return super().save(**kwargs)
+        except IntegrityError as e:
+            raise serializers.ValidationError(
+                {"description": "Já existe uma conta bancária com essa descrição"}
+            ) from e
 
 
 class _ExpenseRelatedEntitySerializer(serializers.ModelSerializer):

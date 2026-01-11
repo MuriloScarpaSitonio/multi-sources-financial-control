@@ -20,7 +20,7 @@ import {
   InvestmentUpIcon,
   Text,
 } from "../../../design-system";
-import { useBankAccount } from "../Expenses/hooks";
+import { useBankAccountsSummary } from "../Expenses/hooks";
 import { useAssetsIndicators } from "../Assets/Indicators/hooks";
 import AssetPercentageChangeSecondaryIndicator from "../Assets/Indicators/PercentageChangeSecondaryIndicator";
 import RoiSecondaryIndicator from "../Assets/Indicators/RoiSecondaryIndicator";
@@ -141,10 +141,10 @@ const Indicators = () => {
     isError: isAssetsIndicatorsError,
   } = useAssetsIndicators({ includeYield: true });
   const {
-    data: { amount: bankAmount } = { amount: 0 },
+    data: { total: bankAmount } = { total: 0 },
     isPending: isBankAccountLoading,
     isError: isBankAccountError,
-  } = useBankAccount();
+  } = useBankAccountsSummary();
 
   const {
     data: expensesIndicators,

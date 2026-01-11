@@ -40,9 +40,9 @@ def test__list__single_closed_operation(
     assert response.json() == [
         {
             "started_at": buy_transaction.operation_date.strftime("%Y-%m-%d"),
-            "closed_at": timezone.localtime(
-                stock_asset_closed_operation.operation_datetime
-            ).date().strftime("%Y-%m-%d"),
+            "closed_at": timezone.localtime(stock_asset_closed_operation.operation_datetime)
+            .date()
+            .strftime("%Y-%m-%d"),
             "roi": float(
                 stock_asset_closed_operation.normalized_total_sold
                 - stock_asset_closed_operation.normalized_total_bought
@@ -63,9 +63,9 @@ def test__list__closed_then_reopened(client, closed_then_reopened_stock_asset):
     assert response.json() == [
         {
             "started_at": first_buy.operation_date.strftime("%Y-%m-%d"),
-            "closed_at": timezone.localtime(closed_op.operation_datetime).date().strftime(
-                "%Y-%m-%d"
-            ),
+            "closed_at": timezone.localtime(closed_op.operation_datetime)
+            .date()
+            .strftime("%Y-%m-%d"),
             "roi": closed_op.normalized_total_sold - closed_op.normalized_total_bought,
         },
         {
@@ -88,16 +88,16 @@ def test__list__multiple_closed_operations(client, twice_closed_stock_asset):
     assert response.json() == [
         {
             "started_at": first_buy.operation_date.strftime("%Y-%m-%d"),
-            "closed_at": timezone.localtime(closed_op1.operation_datetime).date().strftime(
-                "%Y-%m-%d"
-            ),
+            "closed_at": timezone.localtime(closed_op1.operation_datetime)
+            .date()
+            .strftime("%Y-%m-%d"),
             "roi": closed_op1.normalized_total_sold - closed_op1.normalized_total_bought,
         },
         {
             "started_at": second_buy.operation_date.strftime("%Y-%m-%d"),
-            "closed_at": timezone.localtime(closed_op2.operation_datetime).date().strftime(
-                "%Y-%m-%d"
-            ),
+            "closed_at": timezone.localtime(closed_op2.operation_datetime)
+            .date()
+            .strftime("%Y-%m-%d"),
             "roi": closed_op2.normalized_total_sold - closed_op2.normalized_total_bought,
         },
     ]

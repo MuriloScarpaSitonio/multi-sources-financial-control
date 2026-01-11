@@ -53,6 +53,31 @@ def test__list(client, filter_by, count):
     assert response.json()["count"] == count
 
 
+def test__list__response_schema(client, expense, bank_account):
+    # GIVEN
+    expense.bank_account = bank_account
+    expense.save()
+
+    # WHEN
+    response = client.get(URL)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    result = response.json()["results"][0]
+    assert result == {
+        "id": expense.id,
+        "value": convert_and_quantitize(expense.value),
+        "description": expense.description,
+        "category": expense.category,
+        "created_at": expense.created_at.isoformat(),
+        "source": expense.source,
+        "is_fixed": expense.is_fixed,
+        "full_description": expense.full_description,
+        "tags": [],
+        "bank_account_description": bank_account.description,
+    }
+
+
 def test__list__filter_multiple_categories(client, expense, another_expense, yet_another_expense):
     # GIVEN
     yet_another_expense.category = "Transporte"
@@ -195,6 +220,7 @@ def test__create(client, user, bank_account):
         "category": "Casa",
         "created_at": today.strftime("%d/%m/%Y"),
         "source": MONEY_SOURCE,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -205,9 +231,13 @@ def test__create(client, user, bank_account):
 
     assert Expense.objects.count() == 1
 
-    data.update({"created_at": today})
+    filter_data = {
+        k if k != "bank_account_description" else "bank_account__description": v
+        for k, v in data.items()
+    }
+    filter_data.update({"created_at": today})
     assert Expense.objects.filter(
-        **data,
+        **filter_data,
         user=user,
         is_fixed=False,
         recurring_id__isnull=True,
@@ -233,6 +263,7 @@ def test__create__tags(client, user, bank_account):
         "category": "Casa",
         "created_at": today.strftime("%d/%m/%Y"),
         "source": MONEY_SOURCE,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -241,9 +272,10 @@ def test__create__tags(client, user, bank_account):
     # THEN
     assert response.status_code == HTTP_201_CREATED
 
-    data.update({"created_at": today})
+    filter_data = {k: v for k, v in data.items() if k != "bank_account_description"}
+    filter_data.update({"created_at": today})
     assert Expense.objects.filter(
-        **data,
+        **filter_data,
         user=user,
         is_fixed=False,
         recurring_id__isnull=True,
@@ -270,6 +302,7 @@ def test__create__tags__reuse(client, user, bank_account, expense_w_tags):
         "category": "Casa",
         "created_at": today.strftime("%d/%m/%Y"),
         "source": MONEY_SOURCE,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -278,9 +311,10 @@ def test__create__tags__reuse(client, user, bank_account, expense_w_tags):
     # THEN
     assert response.status_code == HTTP_201_CREATED
 
-    data.update({"created_at": today})
+    filter_data = {k: v for k, v in data.items() if k != "bank_account_description"}
+    filter_data.update({"created_at": today})
     assert Expense.objects.filter(
-        **data,
+        **filter_data,
         user=user,
         is_fixed=False,
         recurring_id__isnull=True,
@@ -320,6 +354,7 @@ def test__create__tags__empty(client, user, bank_account):
         "category": "Casa",
         "created_at": today.strftime("%d/%m/%Y"),
         "source": MONEY_SOURCE,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -328,9 +363,10 @@ def test__create__tags__empty(client, user, bank_account):
     # THEN
     assert response.status_code == HTTP_201_CREATED
 
-    data.update({"created_at": today})
+    filter_data = {k: v for k, v in data.items() if k != "bank_account_description"}
+    filter_data.update({"created_at": today})
     assert Expense.objects.filter(
-        **data,
+        **filter_data,
         user=user,
         is_fixed=False,
         recurring_id__isnull=True,
@@ -376,6 +412,7 @@ def test__create__future__credit_card(client, bank_account):
         "category": "Casa",
         "created_at": "01/01/2121",
         "source": CREDIT_CARD_SOURCE,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -399,6 +436,7 @@ def test__create__installments(client, bank_account):
         "created_at": "01/01/2021",
         "source": CREDIT_CARD_SOURCE,
         "installments": installments,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -414,7 +452,7 @@ def test__create__installments(client, bank_account):
         Expense.objects.filter(installments_id__isnull=False).order_by("created_at")
     ):
         assert expense.created_at.month == i + 1
-        assert f"({i+1}/{installments})" in expense.full_description
+        assert f"({i + 1}/{installments})" in expense.full_description
         assert expense.value == data["value"] / installments
 
     bank_account.refresh_from_db()
@@ -433,6 +471,7 @@ def test__create__installments__tags(client, bank_account):
         "source": CREDIT_CARD_SOURCE,
         "installments": installments,
         "tags": ["abc", "def"],
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -448,7 +487,7 @@ def test__create__installments__tags(client, bank_account):
         Expense.objects.filter(installments_id__isnull=False).order_by("created_at")
     ):
         assert expense.created_at.month == i + 1
-        assert f"({i+1}/{installments})" in expense.full_description
+        assert f"({i + 1}/{installments})" in expense.full_description
         assert expense.value == data["value"] / installments
         assert list(expense.tags.values_list("name", flat=True).order_by("name")) == data["tags"]
 
@@ -470,6 +509,7 @@ def test__create__installments__tags__reuse(client, bank_account, expense_w_tags
         "source": CREDIT_CARD_SOURCE,
         "installments": installments,
         "tags": tags,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -499,7 +539,7 @@ def test__create__installments__tags__reuse(client, bank_account, expense_w_tags
     assert previous_bank_account_amount == bank_account.amount
 
 
-def test__create__installments__none(client):
+def test__create__installments__none(client, bank_account):
     # GIVEN
     data = {
         "value": 12.00,
@@ -508,6 +548,7 @@ def test__create__installments__none(client):
         "created_at": "01/01/2021",
         "source": CREDIT_CARD_SOURCE,
         "installments": None,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -518,7 +559,7 @@ def test__create__installments__none(client):
     assert Expense.objects.count() == 1
 
 
-def test__create__installments__source_not_credit_card(client):
+def test__create__installments__source_not_credit_card(client, bank_account):
     # GIVEN
     data = {
         "value": 12.00,
@@ -527,6 +568,7 @@ def test__create__installments__source_not_credit_card(client):
         "created_at": "01/01/2021",
         "source": MONEY_SOURCE,
         "installments": 2,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -538,7 +580,7 @@ def test__create__installments__source_not_credit_card(client):
 
 
 @pytest.mark.parametrize("value", (-1, 0))
-def test__create__invalid_value(client, value):
+def test__create__invalid_value(client, bank_account, value):
     # GIVEN
     data = {
         "value": value,
@@ -546,6 +588,7 @@ def test__create__invalid_value(client, value):
         "category": "Casa",
         "created_at": "01/01/2021",
         "source": "Teste",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -556,7 +599,7 @@ def test__create__invalid_value(client, value):
     assert response.json() == {"value": ["Ensure this value is greater than or equal to 0.01."]}
 
 
-def test__create__new_category(client):
+def test__create__new_category(client, bank_account):
     # GIVEN
     data = {
         "value": 12.00,
@@ -564,6 +607,7 @@ def test__create__new_category(client):
         "category": "CNPJ",
         "created_at": "01/01/2021",
         "source": "Teste",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -575,7 +619,7 @@ def test__create__new_category(client):
     assert response.json() == {"category": "A categoria não existe"}
 
 
-def test__create__new_source(client):
+def test__create__new_source(client, bank_account):
     # GIVEN
     data = {
         "value": 12.00,
@@ -583,6 +627,7 @@ def test__create__new_source(client):
         "category": "Casa",
         "created_at": "01/01/2021",
         "source": "Cheque",
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -601,6 +646,7 @@ def test__update(client, expense, bank_account, value, operation):
     # GIVEN
     expense.is_fixed = False
     expense.recurring_id = None
+    expense.bank_account = bank_account
     expense.save()
     previous_bank_account_amount = bank_account.amount
     data = {
@@ -609,6 +655,7 @@ def test__update(client, expense, bank_account, value, operation):
         "category": "Casa",
         "created_at": (timezone.localdate()).strftime("%d/%m/%Y"),
         "source": MONEY_SOURCE,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -639,6 +686,7 @@ def test__update__tags(client, expense, bank_account):
     # GIVEN
     expense.is_fixed = False
     expense.recurring_id = None
+    expense.bank_account = bank_account
     expense.save()
 
     previous_bank_account_amount = bank_account.amount
@@ -649,6 +697,7 @@ def test__update__tags(client, expense, bank_account):
         "created_at": (timezone.localdate()).strftime("%d/%m/%Y"),
         "source": MONEY_SOURCE,
         "tags": ["def"],
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -683,6 +732,7 @@ def test__update__tags__clear(client, expense_w_tags, bank_account):
         "category": expense_w_tags.category,
         "created_at": (expense_w_tags.created_at).strftime("%d/%m/%Y"),
         "source": expense_w_tags.source,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -709,6 +759,7 @@ def test__update__tags__replace(client, expense_w_tags, bank_account):
         "created_at": (expense_w_tags.created_at).strftime("%d/%m/%Y"),
         "source": expense_w_tags.source,
         "tags": ["def"],
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -738,6 +789,7 @@ def test__update__tags__reuse__empty(client, expense, expense_w_tags, bank_accou
         "created_at": (expense.created_at).strftime("%d/%m/%Y"),
         "source": expense.source,
         "tags": tags,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -781,6 +833,7 @@ def test__update__tags__reuse__replace(client, expense, expense_w_tags, bank_acc
         "created_at": (expense.created_at).strftime("%d/%m/%Y"),
         "source": expense.source,
         "tags": tags,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -839,6 +892,7 @@ def test__update__future__credit_card(client, expense, bank_account):
         "category": "Casa",
         "created_at": "01/01/2121",
         "source": CREDIT_CARD_SOURCE,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -865,6 +919,7 @@ def test__update__installments__value(client, expenses_w_installments, bank_acco
         "category": e.category,
         "created_at": e.created_at.strftime("%d/%m/%Y"),
         "source": e.source,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -892,6 +947,7 @@ def test__update__installments__add_tags(client, expenses_w_installments, bank_a
         "created_at": e.created_at.strftime("%d/%m/%Y"),
         "source": e.source,
         "tags": ["abc", "tag"],
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -924,6 +980,7 @@ def test__update__installments__tags__reuse__empty(
         "created_at": e.created_at.strftime("%d/%m/%Y"),
         "source": e.source,
         "tags": tags,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -975,6 +1032,7 @@ def test__update__installments__tags__reuse__replace(
         "created_at": e.created_at.strftime("%d/%m/%Y"),
         "source": e.source,
         "tags": tags,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -1017,6 +1075,7 @@ def test__update__installments__value__not_1st_expense(
         "category": e.category,
         "created_at": e.created_at.strftime("%d/%m/%Y"),
         "source": e.source,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -1053,6 +1112,7 @@ def test__update__installments__created_at_and_value(client, expenses_w_installm
         "category": e.category,
         "created_at": created_at.strftime("%d/%m/%Y"),
         "source": e.source,
+        "bank_account_description": bank_account.description,
     }
     # WHEN
     response = client.put(f"{URL}/{e.pk}", data=data)
@@ -1072,7 +1132,9 @@ def test__update__installments__created_at_and_value(client, expenses_w_installm
         assert expense.installment_number == i + 1
 
 
-def test__update__installments__created_at__not_1st_installment(client, expenses_w_installments):
+def test__update__installments__created_at__not_1st_installment(
+    client, expenses_w_installments, bank_account
+):
     # GIVEN
     e = expenses_w_installments[3]
     created_at = datetime(year=2021, month=12, day=3)
@@ -1082,6 +1144,7 @@ def test__update__installments__created_at__not_1st_installment(client, expenses
         "category": e.category,
         "created_at": created_at.strftime("%d/%m/%Y"),
         "source": e.source,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -1092,7 +1155,9 @@ def test__update__installments__created_at__not_1st_installment(client, expenses
     assert response.json() == {"created_at": "Você só pode alterar a data da primeira parcela"}
 
 
-def test__update__installments__source_not_credit_card(client, expenses_w_installments):
+def test__update__installments__source_not_credit_card(
+    client, expenses_w_installments, bank_account
+):
     # GIVEN
     e = expenses_w_installments[4]
     data = {
@@ -1101,6 +1166,7 @@ def test__update__installments__source_not_credit_card(client, expenses_w_instal
         "category": e.category,
         "created_at": e.created_at.strftime("%d/%m/%Y"),
         "source": MONEY_SOURCE,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -1112,7 +1178,7 @@ def test__update__installments__source_not_credit_card(client, expenses_w_instal
 
 
 @pytest.mark.parametrize("value", (-1, 0))
-def test__update__invalid_value(client, expense, value):
+def test__update__invalid_value(client, expense, bank_account, value):
     # GIVEN
     data = {
         "value": value,
@@ -1120,6 +1186,7 @@ def test__update__invalid_value(client, expense, value):
         "category": expense.category,
         "created_at": expense.created_at.strftime("%d/%m/%Y"),
         "source": expense.source,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -1130,7 +1197,7 @@ def test__update__invalid_value(client, expense, value):
     assert response.json() == {"value": ["Ensure this value is greater than or equal to 0.01."]}
 
 
-def test__update__new_category(client, expense):
+def test__update__new_category(client, expense, bank_account):
     # GIVEN
     data = {
         "value": expense.value,
@@ -1138,6 +1205,7 @@ def test__update__new_category(client, expense):
         "category": "CNPJ",
         "created_at": "01/01/2021",
         "source": expense.source,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN

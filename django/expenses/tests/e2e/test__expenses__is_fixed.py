@@ -34,6 +34,7 @@ def test__create__is_fixed(client, bank_account):
         "source": CREDIT_CARD_SOURCE,
         "installments": None,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
     previous_bank_account_amount = bank_account.amount
 
@@ -62,7 +63,7 @@ def test__create__is_fixed(client, bank_account):
     )
 
 
-def test__create__installments__none__is_fixed(client):
+def test__create__installments__none__is_fixed(client, bank_account):
     # GIVEN
     data = {
         "value": 12.00,
@@ -72,6 +73,7 @@ def test__create__installments__none__is_fixed(client):
         "source": CREDIT_CARD_SOURCE,
         "installments": None,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -82,7 +84,7 @@ def test__create__installments__none__is_fixed(client):
     assert Expense.objects.count() == 1
 
 
-def test__create__installments__gt_1__is_fixed(client):
+def test__create__installments__gt_1__is_fixed(client, bank_account):
     # GIVEN
     data = {
         "value": 12.00,
@@ -92,6 +94,7 @@ def test__create__installments__gt_1__is_fixed(client):
         "source": CREDIT_CARD_SOURCE,
         "installments": 2,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -113,6 +116,7 @@ def test__create__is_fixed__tags(client, bank_account):
         "installments": None,
         "is_fixed": True,
         "tags": ["a", "b", "c"],
+        "bank_account_description": bank_account.description,
     }
     previous_bank_account_amount = bank_account.amount
 
@@ -156,6 +160,7 @@ def test__create__is_fixed__tags__reuse(client, user, bank_account, expense_w_ta
         "installments": None,
         "is_fixed": True,
         "tags": tags,
+        "bank_account_description": bank_account.description,
     }
     previous_bank_account_amount = bank_account.amount
 
@@ -192,6 +197,7 @@ def test__update__is_fixed__past__value(client, fixed_expenses, bank_account, va
         "created_at": expense.created_at.strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
     # WHEN
     response = client.put(
@@ -226,6 +232,7 @@ def test__update__is_fixed__current__value(client, fixed_expenses, bank_account,
         "created_at": expense.created_at.strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -269,6 +276,7 @@ def test__update__is_fixed__current__value__only_current(
         "created_at": expense.created_at.strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -305,6 +313,7 @@ def test__update__is_fixed__future__value(client, fixed_expenses, bank_account, 
         "created_at": expense.created_at.strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -349,6 +358,7 @@ def test__update__is_fixed__future__value__only_current(
         "created_at": expense.created_at.strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -382,6 +392,7 @@ def test__update__is_fixed__past__created_at(client, fixed_expenses, bank_accoun
         "created_at": (expense.created_at.replace(day=day)).strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -417,6 +428,7 @@ def test__update__is_fixed__current__created_at(client, fixed_expenses, bank_acc
         "created_at": (expense.created_at.replace(day=day)).strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -457,6 +469,7 @@ def test__update__is_fixed__current__created_at__only_current(client, fixed_expe
         "created_at": (expense.created_at.replace(day=day)).strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -492,6 +505,7 @@ def test__update__is_fixed__future__created_at(client, fixed_expenses, bank_acco
         "created_at": (expense.created_at.replace(day=day)).strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -540,6 +554,7 @@ def test__update__is_fixed__future__created_at__only_current(client, fixed_expen
         "created_at": (expense.created_at.replace(day=day)).strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -579,6 +594,7 @@ def test__update__is_fixed__false_to_true(client, expense, bank_account, perform
         "created_at": expense.created_at.strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -617,6 +633,7 @@ def test__update__is_fixed__false_to_true__past_month(client, expense, bank_acco
         "created_at": expense.created_at.strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -646,7 +663,7 @@ def test__update__is_fixed__false_to_true__past_month(client, expense, bank_acco
 
 
 @pytest.mark.parametrize("perform", (True, False))
-def test__update__is_fixed__true_to_false(client, fixed_expenses, perform):
+def test__update__is_fixed__true_to_false(client, fixed_expenses, bank_account, perform):
     # GIVEN
     expense = fixed_expenses[2]
     data = {
@@ -656,6 +673,7 @@ def test__update__is_fixed__true_to_false(client, fixed_expenses, perform):
         "created_at": expense.created_at.strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": False,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -670,13 +688,13 @@ def test__update__is_fixed__true_to_false(client, fixed_expenses, perform):
     assert expense.recurring_id is None and not expense.is_fixed
     assert Expense.objects.filter(
         recurring_id__isnull=False,
-    ).values(
-        "created_at__month", "created_at__year"
-    ).distinct().count() == (2 if perform else 11)
+    ).values("created_at__month", "created_at__year").distinct().count() == (2 if perform else 11)
 
 
 @pytest.mark.parametrize("perform", (True, False))
-def test__update__is_fixed__true_to_false__past_month(client, fixed_expenses, perform):
+def test__update__is_fixed__true_to_false__past_month(
+    client, fixed_expenses, bank_account, perform
+):
     # GIVEN
     expense = fixed_expenses[1]
     data = {
@@ -686,6 +704,7 @@ def test__update__is_fixed__true_to_false__past_month(client, fixed_expenses, pe
         "created_at": expense.created_at.strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": False,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -710,7 +729,9 @@ def test__update__is_fixed__true_to_false__past_month(client, fixed_expenses, pe
 
 
 @pytest.mark.parametrize("delta", ({"months": 1}, {"months": -1}, {"years": 1}, {"years": -1}))
-def test__update__is_fixed__past__created_at__to_another_month(client, fixed_expenses, delta):
+def test__update__is_fixed__past__created_at__to_another_month(
+    client, fixed_expenses, bank_account, delta
+):
     # GIVEN
     expense = fixed_expenses[0]
 
@@ -721,6 +742,7 @@ def test__update__is_fixed__past__created_at__to_another_month(client, fixed_exp
         "created_at": (expense.created_at + relativedelta(**delta)).strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -734,7 +756,9 @@ def test__update__is_fixed__past__created_at__to_another_month(client, fixed_exp
 
 
 @pytest.mark.parametrize("delta", ({"months": 1}, {"months": -1}, {"years": 1}, {"years": -1}))
-def test__update__is_fixed__current__created_at__to_another_month(client, fixed_expenses, delta):
+def test__update__is_fixed__current__created_at__to_another_month(
+    client, fixed_expenses, bank_account, delta
+):
     # GIVEN
     expense = fixed_expenses[2]
 
@@ -745,6 +769,7 @@ def test__update__is_fixed__current__created_at__to_another_month(client, fixed_
         "created_at": (expense.created_at + relativedelta(**delta)).strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -758,7 +783,9 @@ def test__update__is_fixed__current__created_at__to_another_month(client, fixed_
 
 
 @pytest.mark.parametrize("delta", ({"months": 1}, {"months": -1}, {"years": 1}, {"years": -1}))
-def test__update__is_fixed__future__created_at__to_another_month(client, fixed_expenses, delta):
+def test__update__is_fixed__future__created_at__to_another_month(
+    client, fixed_expenses, bank_account, delta
+):
     # GIVEN
     expense = fixed_expenses[6]
 
@@ -769,6 +796,7 @@ def test__update__is_fixed__future__created_at__to_another_month(client, fixed_e
         "created_at": (expense.created_at + relativedelta(**delta)).strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -794,6 +822,7 @@ def test__update__is_fixed__past__tags(client, fixed_expenses, bank_account):
         "source": expense.source,
         "is_fixed": True,
         "tags": ["abc"],
+        "bank_account_description": bank_account.description,
     }
     # WHEN
     response = client.put(
@@ -827,6 +856,7 @@ def test__update__is_fixed__current__tags(client, fixed_expenses, bank_account):
         "source": expense.source,
         "is_fixed": True,
         "tags": ["abc", "def"],
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -882,6 +912,7 @@ def test__update__is_fixed__current__tags__only_current(client, fixed_expenses, 
         "source": expense.source,
         "is_fixed": True,
         "tags": ["abc", "def"],
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -935,6 +966,7 @@ def test__update__is_fixed__current__tags__clear(client, user, fixed_expenses, b
         "created_at": expense.created_at.strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -992,6 +1024,7 @@ def test__update__is_fixed__current__tags__clear__only_current(
         "created_at": expense.created_at.strftime("%d/%m/%Y"),
         "source": expense.source,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -1048,6 +1081,7 @@ def test__update__is_fixed__current__tags__replace(
         "source": expense.source,
         "is_fixed": True,
         "tags": tags,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -1121,6 +1155,7 @@ def test__update__is_fixed__current__tags__reuse__empty(
         "source": expense.source,
         "is_fixed": True,
         "tags": tags,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -1202,6 +1237,7 @@ def test__update__is_fixed__current__tags__reuse__replace(
         "source": expense.source,
         "is_fixed": True,
         "tags": tags,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -1269,6 +1305,7 @@ def test__update__is_fixed__future__tags(client, fixed_expenses, bank_account):
         "source": expense.source,
         "is_fixed": True,
         "tags": ["abc", "def"],
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -1326,6 +1363,7 @@ def test__update__is_fixed__future__tags__only_current(client, fixed_expenses, b
         "source": expense.source,
         "is_fixed": True,
         "tags": ["abc", "def"],
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN
@@ -1362,7 +1400,7 @@ def test__update__is_fixed__future__tags__only_current(client, fixed_expenses, b
     )
 
 
-def test__update__installments__is_fixed(client, expenses_w_installments):
+def test__update__installments__is_fixed(client, expenses_w_installments, bank_account):
     # GIVEN
     e = expenses_w_installments[2]
     data = {
@@ -1372,6 +1410,7 @@ def test__update__installments__is_fixed(client, expenses_w_installments):
         "created_at": e.created_at.strftime("%d/%m/%Y"),
         "source": e.source,
         "is_fixed": True,
+        "bank_account_description": bank_account.description,
     }
 
     # WHEN

@@ -61,9 +61,7 @@ class TestLatestBeforeQuerySet:
         )
 
         # WHEN
-        result = AssetsTotalInvestedSnapshot.objects.latest_before_or_earliest(
-            user.id, target_date
-        )
+        result = AssetsTotalInvestedSnapshot.objects.latest_before_or_earliest(user.id, target_date)
 
         # THEN
         assert result == {"total": Decimal("1500"), "operation_date": before_target}
@@ -87,9 +85,7 @@ class TestLatestBeforeQuerySet:
         )
 
         # WHEN
-        result = AssetsTotalInvestedSnapshot.objects.latest_before_or_earliest(
-            user.id, target_date
-        )
+        result = AssetsTotalInvestedSnapshot.objects.latest_before_or_earliest(user.id, target_date)
 
         # THEN - should fall back to the earliest available snapshot
         assert result == {"total": Decimal("1000"), "operation_date": earliest_date}
@@ -101,10 +97,7 @@ class TestLatestBeforeQuerySet:
         # No snapshots created
 
         # WHEN
-        result = AssetsTotalInvestedSnapshot.objects.latest_before_or_earliest(
-            user.id, target_date
-        )
+        result = AssetsTotalInvestedSnapshot.objects.latest_before_or_earliest(user.id, target_date)
 
         # THEN
         assert result is None
-

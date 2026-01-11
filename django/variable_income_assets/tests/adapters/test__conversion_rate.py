@@ -57,6 +57,7 @@ class TestGetDollarConversionRate:
         assert result == db_value
         assert mock_backend.get(settings.DOLLAR_CONVERSION_RATE_KEY) == db_value
 
+
 class TestUpdateDollarConversionRate:
     def test__creates_db_row_and_updates_cache_with_provided_value(self, settings):
         # GIVEN
@@ -125,4 +126,3 @@ class TestUpdateDollarConversionRate:
             from_currency=Currencies.dollar, to_currency=Currencies.real
         )
         assert rate.value == api_value
-
