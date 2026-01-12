@@ -283,6 +283,7 @@ const EditTransactionForm = ({
                   inputComponent: NumberFormat,
                   inputProps: { prefix: AssetCurrencyMap.BRL.symbol + " " },
                 }}
+                InputLabelProps={{ shrink: true }}
                 error={isFieldInvalid(field)}
                 variant="standard"
               />

@@ -145,8 +145,9 @@ const BankAccountForm = ({
               error={isFieldInvalid("amount")}
               InputProps={{
                 inputComponent: NumberFormat,
-                inputProps: { prefix: field.value < 0 ? "R$ -" : "R$ " },
+                inputProps: { prefix: field.value < 0 ? "R$ -" : "R$ ", allowNegative: true },
               }}
+              InputLabelProps={{ shrink: true }}
               size="small"
               fullWidth
               variant="standard"
@@ -267,7 +268,7 @@ const BankAccountItem = ({
               label={`Venc. dia ${account.credit_card_bill_day}`}
               size="small"
               sx={{
-                backgroundColor: getColor(Colors.neutral500),
+                backgroundColor: getColor(Colors.neutral400),
                 color: getColor(Colors.neutral200),
                 height: "20px",
                 fontSize: "10px",
@@ -283,7 +284,7 @@ const BankAccountItem = ({
         ) : (
           <Text
             size={FontSizes.SEMI_SMALL}
-            color={account.amount >= 0 ? Colors.success : Colors.danger}
+            color={account.amount >= 0 ? Colors.brand : Colors.danger200}
           >
             R${" "}
             {account.amount.toLocaleString("pt-br", {
@@ -311,23 +312,21 @@ const BankAccountItem = ({
         >
           <EditIcon fontSize="small" />
         </IconButton>
-        <IconButton
+        {!account.is_default && <IconButton
           size="small"
           onClick={onDelete}
-          disabled={account.is_default || isDeleting}
+          disabled={isDeleting}
           sx={{
-            color: account.is_default
-              ? getColor(Colors.neutral600)
-              : getColor(Colors.danger),
+            color: getColor(Colors.neutral400),
           }}
-          title={account.is_default ? "Não é possível excluir a conta padrão" : "Excluir"}
+          title="Excluir"
         >
           {isDeleting ? (
             <CircularProgress size={16} />
           ) : (
             <DeleteIcon fontSize="small" />
           )}
-        </IconButton>
+        </IconButton>}
       </Stack>
     </Stack>
   );
@@ -468,7 +467,7 @@ const BankAccountsDrawer = ({
           </Button>
         </Stack>
 
-        <Divider sx={{ borderColor: getColor(Colors.neutral500) }} />
+        <Divider sx={{ borderColor: getColor(Colors.neutral400) }} />
 
         {isCreating && (
           <BankAccountForm

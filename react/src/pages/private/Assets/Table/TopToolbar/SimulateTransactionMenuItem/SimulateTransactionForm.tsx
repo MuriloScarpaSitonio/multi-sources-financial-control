@@ -155,6 +155,7 @@ const SimulateTransactionForm = ({
                 inputComponent: NumberFormat,
                 inputProps: { prefix: currencySymbol + " " },
               }}
+              InputLabelProps={{ shrink: true }}
               error={isFieldInvalid(field)}
               variant="standard"
             />

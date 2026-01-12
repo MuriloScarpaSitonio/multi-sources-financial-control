@@ -315,6 +315,7 @@ export const TransactionQuantity = ({
           InputProps={{
             inputComponent: NumberFormat,
           }}
+          InputLabelProps={{ shrink: true }}
           error={isFieldInvalid(field)}
           variant="standard"
         />

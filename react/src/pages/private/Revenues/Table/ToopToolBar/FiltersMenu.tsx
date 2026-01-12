@@ -151,10 +151,10 @@ export const FiltersMenu = ({
                     return options;
                   }
                   return options.filter((option) =>
-                    option.label.toLowerCase().includes(state.inputValue.toLowerCase())
+                    option.label?.toLowerCase().includes(state.inputValue.toLowerCase())
                   );
                 }}
-                onChange={(_, value: BankAccountOption) => {
+                onChange={(_, value) => {
                   field.onChange(value);
                   setFilters((prevFilters) => ({
                     ...prevFilters,

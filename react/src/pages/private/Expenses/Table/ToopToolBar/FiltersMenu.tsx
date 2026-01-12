@@ -9,7 +9,7 @@ import Menu from "@mui/material/Menu";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, type Control } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 
 import * as yup from "yup";
@@ -233,10 +233,10 @@ export const FiltersMenu = ({
                     return options;
                   }
                   return options.filter((option) =>
-                    option.label.toLowerCase().includes(state.inputValue.toLowerCase())
+                    option.label?.toLowerCase().includes(state.inputValue.toLowerCase())
                   );
                 }}
-                onChange={(_, value: BankAccountOption) => {
+                onChange={(_, value) => {
                   field.onChange(value);
                   setFilters((prevFilters) => ({
                     ...prevFilters,
@@ -250,7 +250,7 @@ export const FiltersMenu = ({
             )}
           />
           <TagsAutoComplete
-            control={control}
+            control={control as unknown as Control}
             isFieldInvalid={() => false}
             getFieldHasError={() => false}
             getErrorMessage={() => ""}

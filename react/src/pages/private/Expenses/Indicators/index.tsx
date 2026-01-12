@@ -279,10 +279,7 @@ const Indicators = () => {
             }}
           />
         ) : (
-          <BankAccountIndicator
-            total={bankAmount}
-            accountCount={bankAccounts?.length ?? 0}
-          />
+          <BankAccountIndicator total={bankAmount} />
         )}
         <MostExpensiveIndicator
           expense={mostExpensiveExpense}
