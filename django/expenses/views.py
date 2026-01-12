@@ -357,7 +357,7 @@ class BankAccountViewSet(GenericViewSet, ListModelMixin, CreateModelMixin, Updat
     def get_queryset(self):
         return (
             BankAccount.objects.filter(user_id=self.request.user.id, is_active=True).order_by(
-                "is_default", "-updated_at"
+                "-is_default", "-updated_at"
             )
             if self.request.user.is_authenticated
             else BankAccount.objects.none()  # pragma: no cover -- drf-spectatular

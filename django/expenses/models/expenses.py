@@ -53,7 +53,6 @@ class Expense(models.Model):
         "BankAccount",
         on_delete=models.PROTECT,
         related_name="expenses",
-        null=True,  # Initially nullable for migration
     )
 
     # needed so we can sort by most common

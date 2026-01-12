@@ -48,7 +48,6 @@ class Revenue(models.Model):
         "BankAccount",
         on_delete=models.PROTECT,
         related_name="revenues",
-        null=True,  # Initially nullable for migration
     )
 
     tags = models.ManyToManyField(to=RevenueTag, blank=True, related_name="revenues")
