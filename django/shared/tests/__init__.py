@@ -54,7 +54,8 @@ def calculate_since_year_ago_avg(queryset: "QuerySet") -> Decimal:
 
     today = timezone.localdate()
     # Replicate since_a_year_ago filter:
-    # (month >= today.month AND year == today.year - 1) OR (month <= today.month AND year == today.year)
+    # (month >= today.month AND year == today.year - 1) OR
+    # (month <= today.month AND year == today.year)
     # Exclude current month
     total_sum = Decimal("0.0")
     distinct_months = set()

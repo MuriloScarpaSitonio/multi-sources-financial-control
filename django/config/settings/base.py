@@ -1,4 +1,3 @@
-from decimal import Decimal
 from pathlib import Path
 
 from decouple import Csv

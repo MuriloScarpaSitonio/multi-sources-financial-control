@@ -7,7 +7,6 @@ from uuid import uuid4
 
 from django.db.models import F, Max
 from django.db.transaction import atomic
-from django.utils import timezone
 
 from djchoices.choices import ChoiceItem
 from rest_framework.decorators import action

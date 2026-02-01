@@ -280,7 +280,8 @@ class AssetSerializer(MinimalAssetSerializer):
             if code:
                 raise serializers.ValidationError(
                     {
-                        "code": "Ativos custodiados fora da B3 não devem ter um código. O código será gerado automaticamente a partir da descrição."
+                        "code": "Ativos custodiados fora da B3 não devem ter um código. "
+                        "O código será gerado automaticamente a partir da descrição."
                     }
                 )
             attrs.pop("code", None)

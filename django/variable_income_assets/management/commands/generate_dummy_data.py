@@ -505,7 +505,7 @@ class Command(BaseCommand):
 
         # Generate fixed values for each fixed expense
         fixed_expense_values = {}
-        for desc, category, source, val_min, val_max in FIXED_EXPENSES:
+        for desc, _category, _source, val_min, val_max in FIXED_EXPENSES:
             fixed_expense_values[desc] = Decimal(
                 random.uniform(float(val_min), float(val_max))
             ).quantize(Decimal("0.01"))
@@ -1117,7 +1117,10 @@ class Command(BaseCommand):
     def _generate_snapshots(
         self, user: CustomUser, bank_account: BankAccount, months: list[date], target_total: Decimal
     ) -> None:
-        """Generate historical snapshots for bank accounts and investments based on actual transactions."""
+        """
+        Generate historical snapshots for bank accounts and investments
+        based on actual transactions.
+        """
         bank_snapshots = []
         investment_snapshots = []
 

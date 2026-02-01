@@ -1,5 +1,6 @@
+from django.utils import timezone
+
 import pytest
-from config.settings.base import BASE_API_URL
 from dateutil.relativedelta import relativedelta
 from rest_framework.status import (
     HTTP_200_OK,
@@ -9,9 +10,9 @@ from rest_framework.status import (
     HTTP_401_UNAUTHORIZED,
     HTTP_403_FORBIDDEN,
 )
-from shared.tests import convert_and_quantitize
 
-from django.utils import timezone
+from config.settings.base import BASE_API_URL
+from shared.tests import convert_and_quantitize
 
 from ...models import BankAccount
 

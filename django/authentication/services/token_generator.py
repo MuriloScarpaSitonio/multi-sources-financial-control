@@ -41,10 +41,9 @@ class TokenGenerator(PasswordResetTokenGenerator):
             return False
 
         # Check the timestamp is within limit.
-        if expire and (self._num_seconds(self._now()) - ts) > settings.PASSWORD_RESET_TIMEOUT:
-            return False
-
-        return True
+        return not (
+            expire and self._num_seconds(self._now()) - ts > settings.PASSWORD_RESET_TIMEOUT
+        )
 
 
 token_generator = TokenGenerator()

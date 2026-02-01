@@ -3,10 +3,10 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING, Literal, Self
 
-from shared.managers_utils import GenericDateFilters
-
 from django.db.models import Case, CharField, Count, F, OuterRef, Q, QuerySet, Subquery, Sum, Value
 from django.db.models.functions import Coalesce, Concat, Greatest, TruncMonth, TruncYear
+
+from shared.managers_utils import GenericDateFilters
 
 from ...choices import AssetTypes, PassiveIncomeEventTypes
 from .expressions import GenericQuerySetExpressions
