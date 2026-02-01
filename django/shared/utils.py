@@ -36,7 +36,7 @@ def insert_zeros_if_no_data_in_monthly_historic_data(
             result.append(historic_map[current_date])
         else:
             # Create a new entry with 0 values for total_fields
-            zero_entry = {month_field: current_date, **{field: 0.0 for field in total_fields}}
+            zero_entry = {month_field: current_date, **dict.fromkeys(total_fields, 0.0)}
             result.append(zero_entry)
 
         current_date += relativedelta(months=1)
@@ -63,7 +63,7 @@ def insert_zeros_if_no_data_in_yearly_historic_data(
             result.append(historic_map[current_date])
         else:
             # Create a new entry with 0 values for total_fields
-            zero_entry = {year_field: current_date, **{field: 0.0 for field in total_fields}}
+            zero_entry = {year_field: current_date, **dict.fromkeys(total_fields, 0.0)}
             result.append(zero_entry)
 
         current_date += relativedelta(years=1)

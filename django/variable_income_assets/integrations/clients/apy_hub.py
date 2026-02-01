@@ -1,6 +1,6 @@
 from django.conf import settings
 
-from aiohttp import ClientResponse, ClientSession, ClientTimeout, TCPConnector
+from aiohttp import ClientSession, ClientTimeout, TCPConnector
 
 
 class ApyHubClient:

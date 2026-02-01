@@ -718,6 +718,43 @@ def test__assets_aggregation_report(client, user):
         assert convert_and_quantitize(total_provisioned) == r["provisioned"]
 
 
+@pytest.mark.usefixtures(
+    "passive_incomes", "another_income", "assets_w_incomes", "stock_asset", "stock_usa_asset"
+)
+def test__credited_by_asset_type_report(client, user):
+    # GIVEN
+    today = timezone.localdate()
+    start_date, end_date = today, today + relativedelta(months=1)
+    qs = PassiveIncome.objects.filter(
+        asset__user_id=user.id,
+        operation_date__gte=start_date,
+        operation_date__lte=end_date,
+    )
+    result = []
+    for asset_type in qs.credited().values_list("asset__type", flat=True).distinct():
+        total_credited = sum(
+            p.amount * p.current_currency_conversion_rate
+            for p in qs.credited().filter(asset__type=asset_type)
+        )
+        result.append(
+            {
+                "asset_type": AssetTypes.get_choice(asset_type).label,
+                "total_credited": convert_and_quantitize(total_credited),
+            }
+        )
+
+    # WHEN
+    response = client.get(
+        f"{URL}/credited_by_asset_type_report"
+        + f"?start_date={start_date.strftime('%d/%m/%Y')}"
+        + f"&end_date={end_date.strftime('%d/%m/%Y')}"
+    )
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert response.json() == sorted(result, key=lambda r: r["total_credited"], reverse=True)
+
+
 def test__forbidden__module_not_enabled(user, client):
     # GIVEN
     user.is_investments_module_enabled = False

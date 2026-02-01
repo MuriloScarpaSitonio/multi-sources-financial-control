@@ -17,6 +17,11 @@ export type TopAssetsResponse = {
   provisioned: number;
 }[];
 
+export type CreditedByAssetTypeResponse = {
+  asset_type: string;
+  total_credited: number;
+}[];
+
 export type Income = {
   id: number;
   type: keyof typeof TypesMapping;

@@ -27,15 +27,16 @@ class _PersonalFinancialDateFilters(GenericDateFilters):
 class _PersonalFinancialQuerySet(QuerySet):
     filters = _PersonalFinancialDateFilters()
 
-    @property
-    def _monthly_avg_expression(self) -> CombinedExpression:
-        return Sum(
-            "value", filter=self.filters.since_a_year_ago & ~self.filters.current, default=Decimal()
-        ) / (
+    def _monthly_avg_expression(self, exclude_fire_categories: bool = False) -> CombinedExpression:
+        base_filter = self.filters.since_a_year_ago & ~self.filters.current
+        if exclude_fire_categories:
+            base_filter = base_filter & ~Q(expanded_category__exclude_from_fire=True)
+
+        return Sum("value", filter=base_filter, default=Decimal()) / (
             Greatest(
                 Count(
                     Concat("created_at__month", "created_at__year", output_field=CharField()),
-                    filter=self.filters.since_a_year_ago & ~self.filters.current,
+                    filter=base_filter,
                     distinct=True,
                 ),
                 1,
@@ -46,30 +47,30 @@ class _PersonalFinancialQuerySet(QuerySet):
     def since_a_year_ago(self) -> Self:
         return self.filter(self.filters.since_a_year_ago)
 
-    def since_a_year_ago_avg(self) -> dict[str, Decimal]:
-        return (
-            self.filter(self.filters.since_a_year_ago)
-            .exclude(self.filters.current)
-            .aggregate(
-                avg=Coalesce(
-                    Sum("value", default=Decimal())
-                    / (
-                        Greatest(
-                            Count(
-                                Concat(
-                                    "created_at__month",
-                                    "created_at__year",
-                                    output_field=CharField(),
-                                ),
-                                distinct=True,
+    def since_a_year_ago_avg(self, exclude_fire_categories: bool = False) -> dict[str, Decimal]:
+        qs = self.filter(self.filters.since_a_year_ago).exclude(self.filters.current)
+        if exclude_fire_categories:
+            qs = qs.exclude(expanded_category__exclude_from_fire=True)
+
+        return qs.aggregate(
+            avg=Coalesce(
+                Sum("value", default=Decimal())
+                / (
+                    Greatest(
+                        Count(
+                            Concat(
+                                "created_at__month",
+                                "created_at__year",
+                                output_field=CharField(),
                             ),
-                            1,
-                        )
-                        * Value(Decimal("1.0"))
-                    ),
-                    Decimal(),
+                            distinct=True,
+                        ),
+                        1,
+                    )
+                    * Value(Decimal("1.0"))
                 ),
-            )
+                Decimal(),
+            ),
         )
 
     def current_month_and_past(self) -> Self:
@@ -81,8 +82,10 @@ class _PersonalFinancialQuerySet(QuerySet):
     def future(self) -> Self:
         return self.filter(self.filters.future)
 
-    def monthly_avg(self) -> dict[str, Decimal]:
-        return self.aggregate(avg=Coalesce(self._monthly_avg_expression, Decimal()))
+    def monthly_avg(self, exclude_fire_categories: bool = False) -> dict[str, Decimal]:
+        return self.aggregate(
+            avg=Coalesce(self._monthly_avg_expression(exclude_fire_categories), Decimal())
+        )
 
     def trunc_months(self) -> Self:
         return (
@@ -170,12 +173,17 @@ class ExpenseQueryset(_PersonalFinancialQuerySet):
             .order_by("-total", "-avg")
         )
 
-    def indicators(self) -> dict[str, Decimal]:
-        return self.aggregate(
-            total=Sum("value", filter=self.filters.current, default=Decimal()),
-            future=Sum("value", filter=self.filters.future, default=Decimal()),
-            avg=Coalesce(self._monthly_avg_expression, Decimal()),
-        )
+    def indicators(self, include_fire_avg: bool = False) -> dict[str, Decimal]:
+        aggregations = {
+            "total": Sum("value", filter=self.filters.current, default=Decimal()),
+            "future": Sum("value", filter=self.filters.future, default=Decimal()),
+            "avg": Coalesce(self._monthly_avg_expression(), Decimal()),
+        }
+        if include_fire_avg:
+            aggregations["fire_avg"] = Coalesce(
+                self._monthly_avg_expression(exclude_fire_categories=True), Decimal()
+            )
+        return self.aggregate(**aggregations)
 
     def annotate_num_of_appearances(self, field_name: Literal["category", "source"]) -> Self:
         return super().annotate_num_of_appearances(field_name)
@@ -188,11 +196,12 @@ class ExpenseQueryset(_PersonalFinancialQuerySet):
 
 
 class RevenueQueryset(_PersonalFinancialQuerySet):
-    def indicators(self) -> dict[str, Decimal]:
+    def indicators(self, include_fire_avg: bool = False) -> dict[str, Decimal]:
+        # include_fire_avg is accepted for API compatibility but not used for revenues
         return self.aggregate(
             total=Sum("value", filter=self.filters.current, default=Decimal()),
             future=Sum("value", filter=self.filters.future, default=Decimal()),
-            avg=Coalesce(self._monthly_avg_expression, Decimal()),
+            avg=Coalesce(self._monthly_avg_expression(), Decimal()),
         )
 
     def annotate_num_of_appearances(self, _: str = "") -> Self:

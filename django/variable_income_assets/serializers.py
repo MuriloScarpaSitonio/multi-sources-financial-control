@@ -280,7 +280,8 @@ class AssetSerializer(MinimalAssetSerializer):
             if code:
                 raise serializers.ValidationError(
                     {
-                        "code": "Ativos custodiados fora da B3 não devem ter um código. O código será gerado automaticamente a partir da descrição."
+                        "code": "Ativos custodiados fora da B3 não devem ter um código. "
+                        "O código será gerado automaticamente a partir da descrição."
                     }
                 )
             attrs.pop("code", None)
@@ -620,6 +621,13 @@ class TransactionsSumSerializer(serializers.Serializer):
 
 class TransactionsAssetTypeReportSerializer(serializers.Serializer):
     total_bought = serializers.DecimalField(max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP)
+    asset_type = CustomChoiceField(choices=choices.AssetTypes.choices)
+
+
+class PassiveIncomeAssetTypeAggregationSerializer(serializers.Serializer):
+    total_credited = serializers.DecimalField(
+        max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP
+    )
     asset_type = CustomChoiceField(choices=choices.AssetTypes.choices)
 
 

@@ -1,7 +1,6 @@
 from decimal import Decimal
 
 from django.conf import settings
-from django.db import OperationalError, ProgrammingError
 
 from config.key_value_store import key_value_backend
 

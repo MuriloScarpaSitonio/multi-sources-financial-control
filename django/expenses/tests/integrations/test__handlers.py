@@ -1,7 +1,8 @@
 from decimal import Decimal
 
-import pytest
 from django.utils import timezone
+
+import pytest
 
 from ...choices import CREDIT_CARD_SOURCE, MONEY_SOURCE
 from ...domain import events

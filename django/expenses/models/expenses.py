@@ -1,10 +1,10 @@
 from decimal import Decimal
 
-from shared.models_utils import serializable_today_function
-
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
+
+from shared.models_utils import serializable_today_function
 
 from ..domain.models import Expense as ExpenseDomainModel
 from ..managers import ExpenseQueryset
@@ -15,6 +15,7 @@ class ExpenseCategory(RelatedEntity):
     user = models.ForeignKey(
         to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="expense_categories"
     )
+    exclude_from_fire = models.BooleanField(default=False)
 
 
 class ExpenseSource(RelatedEntity):

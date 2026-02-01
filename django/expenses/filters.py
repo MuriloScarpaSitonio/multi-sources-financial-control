@@ -269,3 +269,12 @@ class PersonalFinanceContextFilterSet(django_filters.FilterSet):
                 return cleaned_data
             return {"perform_actions_on_future_fixed_entities": False}
         raise django_filters.utils.translate_validation(error_dict=self.errors)
+
+
+class IndicatorsFilterSet(django_filters.FilterSet):
+    include_fire_avg = django_filters.BooleanFilter(required=False)
+
+    def get_include_fire_avg(self) -> bool:
+        if self.is_valid():
+            return self.form.cleaned_data.get("include_fire_avg") or False
+        raise django_filters.utils.translate_validation(error_dict=self.errors)

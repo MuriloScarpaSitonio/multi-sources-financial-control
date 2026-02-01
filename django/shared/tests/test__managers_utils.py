@@ -1,10 +1,11 @@
 from decimal import Decimal
 
+from django.utils import timezone
+
 import pytest
 from dateutil.relativedelta import relativedelta
-from variable_income_assets.models import AssetsTotalInvestedSnapshot
 
-from django.utils import timezone
+from variable_income_assets.models import AssetsTotalInvestedSnapshot
 
 pytestmark = pytest.mark.django_db
 

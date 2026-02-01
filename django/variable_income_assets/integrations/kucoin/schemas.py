@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal, DecimalException
 from typing import Annotated
 
@@ -44,4 +44,4 @@ class KuCoinTransaction(TransactionFromIntegration):
     @property
     def operation_date(self) -> date:
         # divide by 1000 to convert from milliseconds to seconds
-        return datetime.fromtimestamp(self.createdAt / 1000, tz=timezone.utc).date()
+        return datetime.fromtimestamp(self.createdAt / 1000, tz=UTC).date()

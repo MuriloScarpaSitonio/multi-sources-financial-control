@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from time import time
 
 from django.db.utils import IntegrityError
@@ -81,7 +81,7 @@ def test__webhook__subscription_updated(api_client, event_factory, stripe_user, 
     assert not stripe_user.is_investments_integrations_module_enabled
     assert stripe_user.has_default_payment_method
     assert stripe_user.subscription_ends_at == datetime.fromtimestamp(
-        int(time()) + 24 * 60 * 60, tz=timezone.utc
+        int(time()) + 24 * 60 * 60, tz=UTC
     )
     assert stripe_user.stripe_subscription_updated_at == now()
 

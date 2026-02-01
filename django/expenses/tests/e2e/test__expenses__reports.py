@@ -227,7 +227,7 @@ def test__reports__percentage(client, group_by, field_name):
 
 
 @pytest.mark.usefixtures("expenses_report_data")
-def test__historic_report__month(client, user):
+def test__historic_report__month(client, user, bank_account):
     # GIVEN
     today = timezone.localdate().replace(day=12)
     start_date, end_date = today - relativedelta(months=18), today
@@ -240,6 +240,7 @@ def test__historic_report__month(client, user):
         source=CREDIT_CARD_SOURCE,
         is_fixed=False,
         user=user,
+        bank_account=bank_account,
     )
     qs = Expense.objects.filter(
         user_id=user.id,
@@ -269,7 +270,7 @@ def test__historic_report__month(client, user):
 
 
 @pytest.mark.usefixtures("expenses_report_data")
-def test__historic_report__year(client, user):
+def test__historic_report__year(client, user, bank_account):
     # GIVEN
     today = timezone.localdate().replace(day=12)
     start_date, end_date = today - relativedelta(years=3), today
@@ -282,6 +283,7 @@ def test__historic_report__year(client, user):
         source=CREDIT_CARD_SOURCE,
         is_fixed=False,
         user=user,
+        bank_account=bank_account,
     )
     # Create additional expenses in different years to test properly
     Expense.objects.create(
@@ -292,6 +294,7 @@ def test__historic_report__year(client, user):
         source=CREDIT_CARD_SOURCE,
         is_fixed=False,
         user=user,
+        bank_account=bank_account,
     )
     Expense.objects.create(
         created_at=(today - relativedelta(years=1)).replace(month=3, day=10),
@@ -299,6 +302,7 @@ def test__historic_report__year(client, user):
         description="last_year",
         category="Alimentação",
         source=CREDIT_CARD_SOURCE,
+        bank_account=bank_account,
         is_fixed=False,
         user=user,
     )

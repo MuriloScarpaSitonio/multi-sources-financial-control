@@ -57,7 +57,7 @@ async def _fetch_prices(
     for i, result in enumerate(results):  # order is guaranteed
         if isinstance(result, Exception):
             # TODO: log error
-            print(repr(result))
+            print(f"Exception on _fetch_prices [index: {i}]: {repr(result)}")
             continue
         prices.append({"prices": result, **task_metadata[i]})
 
@@ -85,6 +85,6 @@ async def update_prices() -> Exception | None:
     except Exception as e:
         # TODO: log error
         exc = e
-        print(repr(exc))
+        print("Broader exception on update_prices: ", repr(exc))
 
     return exc

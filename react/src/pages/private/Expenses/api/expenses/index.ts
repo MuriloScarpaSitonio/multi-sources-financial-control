@@ -208,7 +208,7 @@ export const updateCategory = async ({
   data,
 }: {
   id: number;
-  data: { name: string; hex_color: string };
+  data: { name: string; hex_color: string; exclude_from_fire?: boolean };
 }): Promise<ExpenseRelatedEntity> =>
   (await apiProvider.put(`${RESOURCE}/categories/${id}`, data)).data;
 
@@ -218,6 +218,7 @@ export const deleteCategory = async (id: number) =>
 export const addCategory = async (data: {
   name: string;
   hex_color: string;
+  exclude_from_fire?: boolean;
 }): Promise<ExpenseRelatedEntity> =>
   (await apiProvider.post(`${RESOURCE}/categories`, data)).data;
 
@@ -260,8 +261,14 @@ export type ExpensesIndicatorsResponse = {
   avg: number;
   diff: number;
   future: number;
+  fire_avg?: number;
 };
 
-export const getExpensesIndicators =
-  async (): Promise<ExpensesIndicatorsResponse> =>
-    (await apiProvider.get(`${RESOURCE}/indicators`)).data;
+export const getExpensesIndicators = async (params?: {
+  includeFireAvg?: boolean;
+}): Promise<ExpensesIndicatorsResponse> =>
+  (
+    await apiProvider.get(`${RESOURCE}/indicators`, {
+      params: params?.includeFireAvg ? { include_fire_avg: true } : undefined,
+    })
+  ).data;

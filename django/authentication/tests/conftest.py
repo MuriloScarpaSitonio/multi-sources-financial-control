@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 
 from django.conf import settings
 from django.contrib.auth.hashers import make_password
@@ -11,10 +11,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from ..choices import SubscriptionStatus
 from ..models import IntegrationSecret
 
-default_subscription_ends_at = datetime(year=2999, month=12, day=31, tzinfo=timezone.utc)
-default_stripe_subscription_updated_at = datetime(
-    year=2022, month=12, day=31, hour=13, tzinfo=timezone.utc
-)
+default_subscription_ends_at = datetime(year=2999, month=12, day=31, tzinfo=UTC)
+default_stripe_subscription_updated_at = datetime(year=2022, month=12, day=31, hour=13, tzinfo=UTC)
 
 
 class UserFactory(DjangoModelFactory):

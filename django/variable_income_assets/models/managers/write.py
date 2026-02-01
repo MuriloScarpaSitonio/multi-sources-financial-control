@@ -3,10 +3,10 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING, Literal, Self
 
-from shared.managers_utils import GenericDateFilters
-
 from django.db.models import Case, CharField, Count, F, OuterRef, Q, QuerySet, Subquery, Sum, Value
 from django.db.models.functions import Coalesce, Concat, Greatest, TruncMonth, TruncYear
+
+from shared.managers_utils import GenericDateFilters
 
 from ...choices import AssetTypes, PassiveIncomeEventTypes
 from .expressions import GenericQuerySetExpressions
@@ -544,6 +544,19 @@ class PassiveIncomeQuerySet(QuerySet):
                 ),
             )
             .order_by(aggregate_period)
+        )
+
+    def credited_aggregation_by_asset_type(self) -> Self:
+        return (
+            self.credited()
+            .values("asset__type")
+            .annotate(
+                total_credited=self.expressions.sum(self.expressions.normalized_incomes_total),
+                asset_type=F("asset__type"),
+            )
+            .filter(total_credited__gt=0)
+            .values("asset_type", "total_credited")
+            .order_by("-total_credited")
         )
 
 

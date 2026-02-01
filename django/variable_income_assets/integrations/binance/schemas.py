@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from pydantic import ConfigDict, Field, computed_field
@@ -74,7 +74,7 @@ class BinanceTransaction(TransactionFromIntegration):
     def operation_date(self) -> date:
         # divide by 1000 to convert from milliseconds to seconds
         return (
-            datetime.fromtimestamp(self.createTime / 1000, tz=timezone.utc).date()
+            datetime.fromtimestamp(self.createTime / 1000, tz=UTC).date()
             if self.type_ == TransactionType.FIAT
-            else datetime.fromtimestamp(self.time / 1000, tz=timezone.utc).date()
+            else datetime.fromtimestamp(self.time / 1000, tz=UTC).date()
         )

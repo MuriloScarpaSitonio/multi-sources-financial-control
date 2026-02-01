@@ -62,6 +62,7 @@ def update_snapshot_from_diff(asset_pk: int, snapshot_operation_date: date, quan
             code=asset.code,
             asset_type=asset.type,
             currency=asset.currency,
+            secrets=asset.user.secrets,
             operation_date=op_date,
         )
 

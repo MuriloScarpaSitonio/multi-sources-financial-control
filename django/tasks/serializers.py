@@ -32,9 +32,9 @@ class TaskHistorySerializer(serializers.ModelSerializer):
             "sync_kucoin_transactions_task": "Transações da KuCoin",
         }
         try:
-            return "Integração '{}' {}".format(
-                tasks_notification_display_map[obj.name],
-                TaskStates.get_choice(obj.state).notification_display,
+            return (
+                f"Integração '{tasks_notification_display_map[obj.name]}' "
+                f"{TaskStates.get_choice(obj.state).notification_display}"
             )
         except KeyError:
             return "Integração depreceada"

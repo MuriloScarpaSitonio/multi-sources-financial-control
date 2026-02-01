@@ -289,6 +289,9 @@ class YearlyHistoricResponseSerializer(AvgSerializer, serializers.Serializer):
 class PersonalFinancesIndicatorsSerializer(TotalSerializer, AvgSerializer):
     diff = serializers.DecimalField(max_digits=8, decimal_places=2, rounding=ROUND_HALF_UP)
     future = serializers.DecimalField(max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP)
+    fire_avg = serializers.DecimalField(
+        max_digits=12, decimal_places=2, rounding=ROUND_HALF_UP, required=False
+    )
 
 
 class BankAccountSerializer(serializers.ModelSerializer):
@@ -368,6 +371,7 @@ class _ExpenseRelatedEntitySerializer(serializers.ModelSerializer):
 class ExpenseCategorySerializer(_ExpenseRelatedEntitySerializer):
     class Meta(_ExpenseRelatedEntitySerializer.Meta):
         model = ExpenseCategory
+        fields = (*_ExpenseRelatedEntitySerializer.Meta.fields, "exclude_from_fire")
 
 
 class ExpenseSourceSerializer(_ExpenseRelatedEntitySerializer):
