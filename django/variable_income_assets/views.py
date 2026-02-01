@@ -421,6 +421,15 @@ class PassiveIncomeViewSet(ModelViewSet):
         )
         return Response(serializer.data, status=HTTP_200_OK)
 
+    @action(methods=("GET",), detail=False)
+    def credited_by_asset_type_report(self, request: Request) -> Response:
+        filterset = filters.DateRangeFilterSet(data=request.GET, queryset=self.get_queryset())
+        qs: PassiveIncomeQuerySet = filterset.qs
+        serializer = serializers.PassiveIncomeAssetTypeAggregationSerializer(
+            qs.credited_aggregation_by_asset_type(), many=True
+        )
+        return Response(serializer.data, status=HTTP_200_OK)
+
 
 class AssetTransactionViewSet(GenericViewSet, ListModelMixin):
     permission_classes = (SubscriptionEndedPermission, InvestmentsModulePermission)

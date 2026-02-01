@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
-from django.db.models import Avg, Q, Sum
+from django.db.models import Q, Sum
 from django.utils import timezone
 
 import pytest
@@ -19,6 +19,7 @@ from rest_framework.status import (
 )
 
 from config.settings.base import BASE_API_URL
+from expenses.tests.conftest import ExpenseCategoryFactory, ExpenseFactory
 from shared.tests import calculate_since_year_ago_avg, convert_and_quantitize, skip_if_sqlite
 
 from ...choices import CREDIT_CARD_SOURCE, MONEY_SOURCE, PIX_SOURCE
@@ -1352,6 +1353,81 @@ def test__indicators__wo_data(client):
     # THEN
     assert response.status_code == HTTP_200_OK
     assert response.json() == {"total": 0.0, "avg": 0.0, "diff": 0.0, "future": 0.0}
+
+
+@skip_if_sqlite
+def test__indicators__include_fire_avg(client, user, bank_account):
+    # GIVEN
+    today = timezone.localdate()
+    last_month = today - relativedelta(months=1)
+
+    regular_category = ExpenseCategoryFactory(
+        name="TestCategory", hex_color="#000000", user=user, exclude_from_fire=False
+    )
+    fire_excluded_category = ExpenseCategoryFactory(
+        name="WorkExpenses", hex_color="#111111", user=user, exclude_from_fire=True
+    )
+
+    # Create regular expenses last month
+    ExpenseFactory(
+        value=Decimal("100.00"),
+        category="TestCategory",
+        expanded_category=regular_category,
+        created_at=last_month,
+        user=user,
+        bank_account=bank_account,
+    )
+
+    # Create expenses with exclude_from_fire=True (should be excluded from fire_avg)
+    ExpenseFactory(
+        value=Decimal("200.00"),
+        category="WorkExpenses",
+        expanded_category=fire_excluded_category,
+        created_at=last_month,
+        user=user,
+        bank_account=bank_account,
+    )
+
+    # WHEN
+    response = client.get(f"{URL}/indicators?include_fire_avg=true")
+
+    # THEN
+    response_json = response.json()
+
+    assert response.status_code == HTTP_200_OK
+    # avg includes all expenses: (100 + 200) / 1 month = 300
+    assert response_json["avg"] == 300.0
+    # fire_avg excludes categories with exclude_from_fire=True: 100 / 1 month = 100
+    assert response_json["fire_avg"] == 100.0
+
+
+@skip_if_sqlite
+def test__indicators__include_fire_avg_false_by_default(client, user, bank_account):
+    # GIVEN
+    today = timezone.localdate()
+    last_month = today - relativedelta(months=1)
+
+    fire_excluded_category = ExpenseCategoryFactory(
+        name="WorkExpenses", hex_color="#111111", user=user, exclude_from_fire=True
+    )
+
+    ExpenseFactory(
+        value=Decimal("100.00"),
+        category="WorkExpenses",
+        expanded_category=fire_excluded_category,
+        created_at=last_month,
+        user=user,
+        bank_account=bank_account,
+    )
+
+    # WHEN
+    response = client.get(f"{URL}/indicators")
+
+    # THEN
+    response_json = response.json()
+
+    assert response.status_code == HTTP_200_OK
+    assert "fire_avg" not in response_json
 
 
 def test__forbidden__module_not_enabled(user, client):

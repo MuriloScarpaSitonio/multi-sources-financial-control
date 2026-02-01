@@ -42,6 +42,12 @@ class TwelveDataClient:
     async def get_prices(self, codes: list[str]) -> dict[str, str]:
         if not codes:
             return {}
+        
+        # TwelveData API has a limit of 8 symbols per minute
+        # TODO: handle this by splitting the list into chunks of 8 symbols and 
+        # making requests with a one minute delay between chunks
+        if len(codes) > 8:
+            codes = codes[:8]
         response = await self._get(path="price", params={"symbol": ",".join(codes)})
         result = await response.json()
         return (
@@ -54,7 +60,7 @@ class TwelveDataClient:
         self, symbols: list[str], operation_date: date
     ) -> dict[str, Decimal]:
         if not symbols:
-            return
+            return {}
 
         async def _get(symbol):
             """

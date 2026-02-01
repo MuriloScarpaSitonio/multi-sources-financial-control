@@ -5,18 +5,20 @@ import { useCallback, useContext, useEffect, useState } from "react";
 import Tab from "@mui/material/Tab";
 
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
 import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-
 import Drawer from "@mui/material/Drawer";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import AddIcon from "@mui/icons-material/Add";
 import RuleIcon from "@mui/icons-material/Rule";
 
@@ -66,6 +68,7 @@ const schema = yup.object().shape({
       value: yup.string().required("A cor é obrigatória"),
     })
     .required("A cor é obrigatória"),
+  exclude_from_fire: yup.boolean().optional(),
 });
 
 const FORM_ID = "new-expense-related-entity-form-id";
@@ -107,7 +110,7 @@ const NewRelatedEntityForm = ({
   } = useFormPlus({
     mutationFn: kind === "category" ? addCategory : addSource,
     schema: schema,
-    defaultValues: { name: "", hex_color: { label: "", value: "" } },
+    defaultValues: { name: "", hex_color: { label: "", value: "" }, exclude_from_fire: false },
     onSuccess: () => {
       onSuccess();
       reset();
@@ -126,7 +129,11 @@ const NewRelatedEntityForm = ({
       noValidate
       id={id}
       onSubmit={handleSubmit((data: yup.Asserts<typeof schema>) =>
-        mutate({ ...data, hex_color: data.hex_color.value }),
+        mutate({
+          name: data.name,
+          hex_color: data.hex_color.value,
+          ...(kind === "category" && { exclude_from_fire: data.exclude_from_fire }),
+        }),
       )}
       sx={{ marginBottom: 2 }}
     >
@@ -156,6 +163,23 @@ const NewRelatedEntityForm = ({
           excludeValues={excludeColors}
         />
       </Stack>
+      {kind === "category" && (
+        <Controller
+          name="exclude_from_fire"
+          control={control}
+          render={({ field }) => (
+            <Tooltip
+              title="Despesas desta categoria não serão consideradas no cálculo do indicador FIRE (ex: impostos de trabalho PJ)"
+              arrow
+            >
+              <FormControlLabel
+                control={<Checkbox {...field} checked={field.value} size="small" />}
+                label="Excluir do FIRE"
+              />
+            </Tooltip>
+          )}
+        />
+      )}
     </Stack>
   );
 };
@@ -291,6 +315,7 @@ const RelatedEntityForm = ({
         label: entity.hex_color,
         value: entity.hex_color,
       },
+      exclude_from_fire: entity.exclude_from_fire ?? false,
     },
     onSuccess: async () => {
       const data = getValues() as yup.Asserts<typeof schema>;
@@ -339,6 +364,23 @@ const RelatedEntityForm = ({
           getErrorMessage={getErrorMessage}
         />
       </Stack>
+      {kind === "category" && (
+        <Controller
+          name="exclude_from_fire"
+          control={control}
+          render={({ field }) => (
+            <Tooltip
+              title="Despesas desta categoria não serão consideradas no cálculo do indicador FIRE (ex: impostos de trabalho PJ)"
+              arrow
+            >
+              <FormControlLabel
+                control={<Checkbox {...field} checked={field.value} size="small" />}
+                label="Excluir do FIRE"
+              />
+            </Tooltip>
+          )}
+        />
+      )}
       <Stack direction="row" gap={0.1} justifyContent="flex-end">
         <Button variant="danger-text" onClick={() => deleteEntity(entity.id)}>
           {isDeleting ? (
@@ -355,12 +397,14 @@ const RelatedEntityForm = ({
             ({
               name,
               hex_color: { value: hex_color },
+              exclude_from_fire,
             }: yup.Asserts<typeof schema>) => {
               updateEntity({
                 id: entity.id,
                 data: {
                   name,
                   hex_color,
+                  ...(kind === "category" && { exclude_from_fire }),
                 },
               });
             },

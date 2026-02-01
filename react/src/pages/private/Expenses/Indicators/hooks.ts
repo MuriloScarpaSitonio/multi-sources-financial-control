@@ -97,10 +97,10 @@ export const useMostExpensiveExpense = (params: {
 
 const INDICATORS_QUERY_KEY = "expenses-indicators";
 
-export const useHomeExpensesIndicators = () =>
+export const useHomeExpensesIndicators = (params?: { includeFireAvg?: boolean }) =>
   useQuery({
-    queryKey: [INDICATORS_QUERY_KEY],
-    queryFn: getExpensesIndicators,
+    queryKey: [INDICATORS_QUERY_KEY, params],
+    queryFn: () => getExpensesIndicators(params),
   });
 
 export const useInvalidateExpensesIndicatorsQueries = (

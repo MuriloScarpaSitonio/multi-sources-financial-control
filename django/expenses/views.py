@@ -96,8 +96,9 @@ class _PersonalFinanceViewSet(
         return Response(serializer.data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
-    def indicators(self, _: Request) -> Response:
-        qs = self.get_queryset().indicators()
+    def indicators(self, request: Request) -> Response:
+        filterset = filters.IndicatorsFilterSet(data=request.GET, queryset=self.get_queryset())
+        qs = self.get_queryset().indicators(include_fire_avg=filterset.get_include_fire_avg())
         # TODO: do this via SQL
         percentage = (
             (((qs["total"] / qs["avg"]) - Decimal("1.0")) * Decimal("100.0"))

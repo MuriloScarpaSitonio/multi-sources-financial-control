@@ -207,6 +207,7 @@ def fixed_expenses_wo_delta(expense):
                 is_fixed=True,
                 user=expense.user,
                 recurring_id=expense.recurring_id,
+                bank_account=expense.bank_account,
             )
         )
     return expenses

@@ -546,6 +546,19 @@ class PassiveIncomeQuerySet(QuerySet):
             .order_by(aggregate_period)
         )
 
+    def credited_aggregation_by_asset_type(self) -> Self:
+        return (
+            self.credited()
+            .values("asset__type")
+            .annotate(
+                total_credited=self.expressions.sum(self.expressions.normalized_incomes_total),
+                asset_type=F("asset__type"),
+            )
+            .filter(total_credited__gt=0)
+            .values("asset_type", "total_credited")
+            .order_by("-total_credited")
+        )
+
 
 class AssetClosedOperationQuerySet(QuerySet):
     def annotate_roi(self) -> Self:

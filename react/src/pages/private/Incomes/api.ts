@@ -1,4 +1,8 @@
-import type { HistoricReportResponse, TopAssetsResponse } from "./types";
+import type {
+  CreditedByAssetTypeResponse,
+  HistoricReportResponse,
+  TopAssetsResponse,
+} from "./types";
 
 import qs from "qs";
 
@@ -50,6 +54,21 @@ export const getTopAssets = async (params: {
   const { startDate, endDate } = params;
   return (
     await apiProvider.get(`${RESOURCE}/assets_aggregation_report`, {
+      params: {
+        start_date: startDate.toLocaleDateString("pt-br"),
+        end_date: endDate.toLocaleDateString("pt-br"),
+      },
+    })
+  ).data;
+};
+
+export const getCreditedByAssetType = async (params: {
+  startDate: Date;
+  endDate: Date;
+}): Promise<CreditedByAssetTypeResponse> => {
+  const { startDate, endDate } = params;
+  return (
+    await apiProvider.get(`${RESOURCE}/credited_by_asset_type_report`, {
       params: {
         start_date: startDate.toLocaleDateString("pt-br"),
         end_date: endDate.toLocaleDateString("pt-br"),

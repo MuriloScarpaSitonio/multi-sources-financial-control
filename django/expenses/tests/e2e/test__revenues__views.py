@@ -571,7 +571,7 @@ def test__unauthorized__inactive(client, user):
 
 
 @pytest.mark.usefixtures("revenues_historic_data")
-def test__historic_report__month(client, user):
+def test__historic_report__month(client, user, bank_account):
     # GIVEN
     today = timezone.localdate().replace(day=12)
     start_date, end_date = today - relativedelta(months=18), today
@@ -583,6 +583,7 @@ def test__historic_report__month(client, user):
         category="Outros",
         is_fixed=False,
         user=user,
+        bank_account=bank_account,
     )
     qs = Revenue.objects.filter(
         user_id=user.id,
@@ -612,7 +613,7 @@ def test__historic_report__month(client, user):
 
 
 @pytest.mark.usefixtures("revenues_historic_data")
-def test__historic_report__year(client, user):
+def test__historic_report__year(client, user, bank_account):
     # GIVEN
     today = timezone.localdate().replace(day=12)
     start_date, end_date = today - relativedelta(years=3), today
@@ -624,6 +625,7 @@ def test__historic_report__year(client, user):
         category="Outros",
         is_fixed=False,
         user=user,
+        bank_account=bank_account,
     )
     # Create additional revenues in different years to test properly
     Revenue.objects.create(
@@ -633,6 +635,7 @@ def test__historic_report__year(client, user):
         category="Outros",
         is_fixed=False,
         user=user,
+        bank_account=bank_account,
     )
     Revenue.objects.create(
         created_at=(today - relativedelta(years=1)).replace(month=3, day=10),
@@ -641,6 +644,7 @@ def test__historic_report__year(client, user):
         category="Outros",
         is_fixed=False,
         user=user,
+        bank_account=bank_account,
     )
     qs = Revenue.objects.filter(
         user_id=user.id,

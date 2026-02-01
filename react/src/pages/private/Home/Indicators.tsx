@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import Grid from "@mui/material/Grid";
 import Skeleton from "@mui/material/Skeleton";
+import Slider from "@mui/material/Slider";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import LinearProgress, { linearProgressClasses } from "@mui/material/LinearProgress";
@@ -48,30 +49,31 @@ const FIREProgressBar = ({
   patrimonyTotal,
   avgExpenses,
   isLoading,
+  multiplier,
+  onMultiplierChange,
 }: {
   patrimonyTotal: number;
   avgExpenses: number;
   isLoading: boolean;
+  multiplier: number;
+  onMultiplierChange: (value: number) => void;
 }) => {
   const { hideValues } = useHideValues();
   const annualExpenses = avgExpenses * 12;
-  const fireNumber = annualExpenses * 25;
+  const fireNumber = annualExpenses * multiplier;
   const fireProgress = fireNumber > 0 ? (patrimonyTotal / fireNumber) * 100 : 0;
+  const withdrawalRate = (100 / multiplier).toFixed(1);
 
   if (isLoading) {
     return <Skeleton height={48} sx={{ borderRadius: "10px" }} />;
   }
 
   const annualExpensesFormatted = hideValues ? "***" : formatCurrency(annualExpenses);
-  const tooltipTitle = `Patrimônio / (despesas anuais × 25). Despesas anuais: ${annualExpensesFormatted}. Meta: acumular 25x suas despesas anuais para viver dos rendimentos (regra dos 4%)`;
+  const tooltipTitle = `Patrimônio / (despesas anuais × ${multiplier}). Despesas anuais: ${annualExpensesFormatted}. Meta: acumular ${multiplier}x suas despesas anuais para viver dos rendimentos (regra dos ${withdrawalRate}%)`;
 
   return (
-    <Tooltip
-      title={tooltipTitle}
-      arrow
-      placement="top"
-    >
-      <Stack gap={0.5}>
+    <Stack gap={0.5}>
+      <Tooltip title={tooltipTitle} arrow placement="top">
         <div style={{ position: "relative" }}>
           <FIRELinearProgress
             variant="determinate"
@@ -117,16 +119,54 @@ const FIREProgressBar = ({
             )}
           </Stack>
         </div>
+      </Tooltip>
+      <Stack direction="row" alignItems="center" gap={2}>
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Progresso rumo à independência financeira (regra dos 4%)
+          Multiplicador: {multiplier}x ({withdrawalRate}%)
         </Text>
+        <Slider
+          value={multiplier}
+          onChange={(_, value) => onMultiplierChange(value as number)}
+          min={25}
+          max={35}
+          step={1}
+          size="medium"
+          sx={{
+            width: 100,
+            "& .MuiSlider-thumb": {
+              width: 14,
+              height: 14,
+              backgroundColor: getColor(Colors.brand500),
+              "&:hover, &.Mui-focusVisible": {
+                boxShadow: `0 0 0 8px ${getColor(Colors.brand500)}33`,
+              },
+            },
+            "& .MuiSlider-track": {
+              backgroundColor: getColor(Colors.brand500),
+              border: "none",
+            },
+            "& .MuiSlider-rail": {
+              backgroundColor: getColor(Colors.brand500),
+            },
+          }}
+        />
+        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+          {multiplier === 25
+            ? "Regra clássica do Trinity Study (30 anos de aposentadoria)."
+            : multiplier <= 28
+              ? "Margem de segurança um pouco maior."
+              : multiplier <= 32
+                ? "Conservador, ideal para aposentadorias de 40+ anos."
+                : "Ultra-conservador, para horizontes de 50+ anos."}
+        </Text>
+      </Stack>
     </Stack>
-    </Tooltip>
   );
 };
 
 const Indicators = () => {
   const { hideValues } = useHideValues();
+  const [fireMultiplier, setFireMultiplier] = useState(25);
   const { startDate, endDate } = useMemo(() => {
     const now = new Date();
     return {
@@ -150,7 +190,7 @@ const Indicators = () => {
     data: expensesIndicators,
     isPending: isExpensesIndicatorsLoading,
     isError: isExpensesIndicatorsError,
-  } = useHomeExpensesIndicators();
+  } = useHomeExpensesIndicators({ includeFireAvg: true });
 
   const {
     data: revenuesIndicators,
@@ -226,8 +266,10 @@ const Indicators = () => {
           </Stack>
           <FIREProgressBar
             patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
-            avgExpenses={expensesIndicators?.avg ?? 0}
+            avgExpenses={expensesIndicators?.fire_avg ?? 0}
             isLoading={isLoading || isExpensesIndicatorsLoading}
+            multiplier={fireMultiplier}
+            onMultiplierChange={setFireMultiplier}
           />
         </Stack>
       </Grid>

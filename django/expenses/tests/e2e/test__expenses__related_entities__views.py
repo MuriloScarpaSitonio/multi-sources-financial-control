@@ -44,7 +44,7 @@ def test__list__categories(client):
         _remove_key_from_dicts(response.json()["results"], "id"), key=lambda r: r["name"]
     ) == sorted(
         [
-            {"name": category, "hex_color": color}
+            {"name": category, "hex_color": color, "exclude_from_fire": False}
             for category, color in DEFAULT_CATEGORIES_MAP.items()
         ],
         key=lambda r: r["name"],
