@@ -624,7 +624,9 @@ class TransactionsAssetTypeReportSerializer(serializers.Serializer):
 
 
 class PassiveIncomeAssetTypeAggregationSerializer(serializers.Serializer):
-    total_credited = serializers.DecimalField(max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP)
+    total_credited = serializers.DecimalField(
+        max_digits=20, decimal_places=2, rounding=ROUND_HALF_UP
+    )
     asset_type = CustomChoiceField(choices=choices.AssetTypes.choices)
 
 

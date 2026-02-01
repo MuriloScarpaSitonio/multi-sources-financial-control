@@ -337,7 +337,9 @@ class Command(BaseCommand):
 
                 # Create related entities (categories, sources)
                 related_entities = self._create_related_entities(user)
-                self.stdout.write(self.style.SUCCESS("Created expense/revenue categories and sources"))
+                self.stdout.write(
+                    self.style.SUCCESS("Created expense/revenue categories and sources")
+                )
 
                 # Generate expenses and revenues
                 self._generate_expenses_and_revenues(user, bank_account, months, related_entities)
@@ -729,8 +731,15 @@ class Command(BaseCommand):
 
             if is_fixed_income:
                 asset = self._create_fixed_income_asset(
-                    user, code, asset_type, currency, metadata, target_in_currency, months,
-                    liquidity_type, description
+                    user,
+                    code,
+                    asset_type,
+                    currency,
+                    metadata,
+                    target_in_currency,
+                    months,
+                    liquidity_type,
+                    description,
                 )
             else:
                 asset = self._create_variable_income_asset(

@@ -479,9 +479,7 @@ class TestGenerateDummyDataCommandMonthCalculation:
 
         # Get unique months from expenses
         expenses = Expense.objects.filter(user=user)
-        expense_months = set(
-            expenses.values_list("created_at__year", "created_at__month")
-        )
+        expense_months = set(expenses.values_list("created_at__year", "created_at__month"))
 
         # Should have expenses spanning multiple months
         assert len(expense_months) >= 3
