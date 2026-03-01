@@ -23,6 +23,7 @@ import {
 } from "material-react-table";
 
 import { Colors, getColor } from "../../../../../design-system";
+import FilterIndicators, { type DateFilterProps } from "../../../../../components/FilterIndicators";
 import {
   ShowHideColumnsMenuItem,
   ToggleDensityMenuItem,
@@ -32,6 +33,7 @@ import {
 import NewTransactionDrawer from "../../components/NewTransactionDrawer";
 import FiltersMenu from "./FiltersMenu";
 import { Filters } from "../../types";
+import { transactionsFilterConfig } from "../../filterConfig";
 import { SearchBar } from "../../../components";
 
 const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
@@ -64,13 +66,19 @@ const TopToolBar = ({
   search,
   setSearch,
   setPagination,
+  filters,
   setFilters,
+  defaultFilters,
+  dateFilters,
 }: {
   table: DataTable<Row>;
   search: string;
   setSearch: Dispatch<SetStateAction<string>>;
   setPagination: Dispatch<SetStateAction<PaginationState>>;
+  filters: Filters;
   setFilters: Dispatch<SetStateAction<Filters>>;
+  defaultFilters: Filters;
+  dateFilters: DateFilterProps;
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openDrawer, setOpenDrawer] = useState(false);
@@ -114,10 +122,18 @@ const TopToolBar = ({
           </Stack>
         </Grid>
       </Grid>
+      <FilterIndicators
+        filters={filters}
+        setFilters={setFilters}
+        defaultFilters={defaultFilters}
+        fieldConfigs={transactionsFilterConfig}
+        dateFilters={dateFilters}
+      />
       <FiltersMenu
         open={Boolean(anchorEl)}
         onClose={() => setAnchorEl(null)}
         anchorEl={anchorEl}
+        filters={filters}
         setFilters={setFilters}
       />
       <NewTransactionDrawer

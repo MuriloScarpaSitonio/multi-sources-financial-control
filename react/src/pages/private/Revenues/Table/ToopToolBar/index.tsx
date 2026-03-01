@@ -1,5 +1,4 @@
 import {
-  useEffect,
   useState,
   type Dispatch,
   type MouseEvent,
@@ -22,6 +21,7 @@ import {
 } from "material-react-table";
 
 import { Colors, getColor } from "../../../../../design-system";
+import FilterIndicators, { type DateFilterProps } from "../../../../../components/FilterIndicators";
 import {
   ShowHideColumnsMenuItem,
   ToggleDensityMenuItem,
@@ -34,8 +34,8 @@ import {
   ManageRelatedEntitiesMenuItem,
   ManageRelatedEntitiesDrawer,
 } from "./ManageRelatedEntitiesMenuItem";
-import { Revenue } from "../../models";
-import { removeProperties } from "../../../../../utils";
+import { revenuesFilterConfig } from "../../filterConfig";
+import { Filters } from "../../types";
 import { SearchBar } from "../../../components";
 
 const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
@@ -71,22 +71,24 @@ const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
   );
 };
 
-type Filters = {
-  bank_account_description?: string;
-};
-
 const TopToolBar = ({
   table,
   search,
   setSearch,
   setPagination,
+  filters,
   setFilters,
+  defaultFilters,
+  dateFilters,
 }: {
   table: DataTable<Row>;
   search: string;
   setSearch: Dispatch<SetStateAction<string>>;
   setPagination: Dispatch<SetStateAction<PaginationState>>;
+  filters: Filters;
   setFilters: Dispatch<SetStateAction<Filters>>;
+  defaultFilters: Filters;
+  dateFilters: DateFilterProps;
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openDrawer, setOpenDrawer] = useState(false);
@@ -130,10 +132,18 @@ const TopToolBar = ({
           </Stack>
         </Grid>
       </Grid>
+      <FilterIndicators
+        filters={filters}
+        setFilters={setFilters}
+        defaultFilters={defaultFilters}
+        fieldConfigs={revenuesFilterConfig}
+        dateFilters={dateFilters}
+      />
       <FiltersMenu
         open={Boolean(anchorEl)}
         onClose={() => setAnchorEl(null)}
         anchorEl={anchorEl}
+        filters={filters}
         setFilters={setFilters}
       />
       <RevenueDrawer open={openDrawer} onClose={() => setOpenDrawer(false)} />

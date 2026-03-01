@@ -2,6 +2,8 @@ import type { ApiListResponse, RawDateString } from "../../../../types";
 
 import { useContext, useMemo, useState } from "react";
 
+import { startOfMonth } from "date-fns";
+
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import IconButton from "@mui/material/IconButton";
@@ -33,9 +35,11 @@ import { removeProperties } from "../../../../utils";
 import { ExpensesContext } from "../../Expenses/context";
 import { REVENUES_QUERY_KEY } from "../consts";
 import { useInvalidateRevenuesQueries } from "../hooks";
+import { customEndOfMonth } from "../../utils";
 import DeleteRevenueDialog from "./DeleteRevenueDialog";
 import RevenueDrawer from "./RevenueDrawer";
 import TopToolBar from "./ToopToolBar";
+import { Filters } from "../types";
 
 type GroupedRevenue = Revenue & { type: string };
 
@@ -106,8 +110,20 @@ const Table = () => {
   >();
   const [editRevenue, setEditRevenue] = useState<GroupedRevenue | undefined>();
 
-  const { startDate, endDate, isRelatedEntitiesLoading, revenuesCategories } =
+  const { startDate, setStartDate, endDate, setEndDate, isRelatedEntitiesLoading, revenuesCategories } =
     useContext(ExpensesContext);
+
+  const dateFilters = useMemo(() => {
+    const now = new Date();
+    return {
+      startDate,
+      setStartDate,
+      endDate,
+      setEndDate,
+      defaultStartDate: startOfMonth(now),
+      defaultEndDate: customEndOfMonth(now),
+    };
+  }, [startDate, setStartDate, endDate, setEndDate]);
 
   const { hideValues } = useHideValues();
 
@@ -182,6 +198,7 @@ const Table = () => {
     sorting,
     filters,
     setFilters,
+    defaultFilters,
   } = useTable({
     columns: columns as Column<any>[],
     queryKey: [
@@ -235,7 +252,10 @@ const Table = () => {
         table={table}
         setSearch={setSearch}
         setPagination={setPagination}
+        filters={filters as Filters}
         setFilters={setFilters}
+        defaultFilters={defaultFilters as Filters}
+        dateFilters={dateFilters}
       />
     ),
     renderRowActions: ({ row, table }) => (

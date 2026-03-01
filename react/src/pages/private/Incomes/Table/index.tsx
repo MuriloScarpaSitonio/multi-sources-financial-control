@@ -9,6 +9,7 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 
+import { startOfMonth } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   MaterialReactTable,
@@ -23,6 +24,7 @@ import CreateOrEditIncomeDrawer from "../components/CreateOrEditIncomeDrawer";
 import { useOnFormSuccess as useInvalidateIncomesQueries } from "../components/CreateOrEditIncomeDrawer/hooks";
 import { INCOMES_QUERY_KEY } from "../consts";
 import { IncomesContext } from "../context";
+import { customEndOfMonth } from "../../utils";
 import { Income } from "../types";
 import DeleteIncomeDialog from "./DeleteIncomeDialog";
 import TopToolBar from "./ToopToolBar";
@@ -79,7 +81,20 @@ const Table = () => {
   const [deleteIncome, setDeleteIncome] = useState<Income | undefined>();
   const [editIncome, setEditIncome] = useState<Income | undefined>();
 
-  const { startDate, endDate } = useContext(IncomesContext);
+  const { startDate, setStartDate, endDate, setEndDate } = useContext(IncomesContext);
+
+  const dateFilters = useMemo(() => {
+    const now = new Date();
+    return {
+      startDate,
+      setStartDate,
+      endDate,
+      setEndDate,
+      defaultStartDate: startOfMonth(now),
+      defaultEndDate: customEndOfMonth(now),
+    };
+  }, [startDate, setStartDate, endDate, setEndDate]);
+
   const columns = useMemo<Column<Income>[]>(
     () => [
       {
@@ -143,6 +158,7 @@ const Table = () => {
     sorting,
     filters,
     setFilters,
+    defaultFilters,
   } = useTable({
     columns: columns as Column<any>[],
     queryKey: [
@@ -180,7 +196,10 @@ const Table = () => {
         search={search}
         setSearch={setSearch}
         setPagination={setPagination}
+        filters={filters as Filters}
         setFilters={setFilters}
+        defaultFilters={defaultFilters as Filters}
+        dateFilters={dateFilters}
       />
     ),
     renderRowActions: ({ row }) => (

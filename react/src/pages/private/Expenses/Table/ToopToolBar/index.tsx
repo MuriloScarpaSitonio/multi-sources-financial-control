@@ -27,12 +27,14 @@ import {
   ToggleFullScreenMenuItem,
 } from "../../../../Datatable/components";
 
+import FilterIndicators, { type DateFilterProps } from "../../../../../components/FilterIndicators";
 import FiltersMenu from "./FiltersMenu";
 import {
   ManageRelatedEntitiesMenuItem,
   ManageRelatedEntitiesDrawer,
 } from "./ManageRelatedEntitiesMenuItem";
 import { Filters } from "../../types";
+import { expensesFilterConfig } from "../../filterConfig";
 import { SearchBar } from "../../../components";
 import ExpenseDrawer from "../ExpenseDrawer";
 
@@ -74,13 +76,19 @@ const TopToolBar = ({
   search,
   setSearch,
   setPagination,
+  filters,
   setFilters,
+  defaultFilters,
+  dateFilters,
 }: {
   table: DataTable<Row>;
   search: string;
   setSearch: Dispatch<SetStateAction<string>>;
   setPagination: Dispatch<SetStateAction<PaginationState>>;
+  filters: Filters;
   setFilters: Dispatch<SetStateAction<Filters>>;
+  defaultFilters: Filters;
+  dateFilters: DateFilterProps;
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openDrawer, setOpenDrawer] = useState(false);
@@ -124,10 +132,18 @@ const TopToolBar = ({
           </Stack>
         </Grid>
       </Grid>
+      <FilterIndicators
+        filters={filters}
+        setFilters={setFilters}
+        defaultFilters={defaultFilters}
+        fieldConfigs={expensesFilterConfig}
+        dateFilters={dateFilters}
+      />
       <FiltersMenu
         open={Boolean(anchorEl)}
         onClose={() => setAnchorEl(null)}
         anchorEl={anchorEl}
+        filters={filters}
         setFilters={setFilters}
       />
       <ExpenseDrawer open={openDrawer} onClose={() => setOpenDrawer(false)} />

@@ -9,6 +9,7 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 
+import { startOfMonth } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   MaterialReactTable,
@@ -35,6 +36,7 @@ import { removeProperties } from "../../../../utils";
 import { EXPENSES_QUERY_KEY } from "../consts";
 import { ExpensesContext } from "../context";
 import { useInvalidateExpenseQueries } from "../hooks";
+import { customEndOfMonth } from "../../utils";
 import DeleteExpenseDialog from "./DeleteExpenseDialog";
 import ExpenseDrawer from "./ExpenseDrawer";
 import TopToolBar from "./ToopToolBar";
@@ -121,10 +123,22 @@ const Table = () => {
   >();
   const [editExpense, setEditExpense] = useState<GroupedExpense | undefined>();
 
-  const { startDate, endDate, categories, sources, isRelatedEntitiesLoading } =
+  const { startDate, setStartDate, endDate, setEndDate, categories, sources, isRelatedEntitiesLoading } =
     useContext(ExpensesContext);
 
   const { hideValues } = useHideValues();
+
+  const dateFilters = useMemo(() => {
+    const now = new Date();
+    return {
+      startDate,
+      setStartDate,
+      endDate,
+      setEndDate,
+      defaultStartDate: startOfMonth(now),
+      defaultEndDate: customEndOfMonth(now),
+    };
+  }, [startDate, setStartDate, endDate, setEndDate]);
 
   const columns = useMemo<Column<GroupedExpense>[]>(
     () => [
@@ -234,6 +248,7 @@ const Table = () => {
     sorting,
     filters,
     setFilters,
+    defaultFilters,
   } = useTable({
     columns: columns as Column<any>[],
     queryKey: [
@@ -288,7 +303,10 @@ const Table = () => {
         search={search}
         setSearch={setSearch}
         setPagination={setPagination}
+        filters={filters as Filters}
         setFilters={setFilters}
+        defaultFilters={defaultFilters as Filters}
+        dateFilters={dateFilters}
       />
     ),
     renderRowActions: ({ row, table }) => (

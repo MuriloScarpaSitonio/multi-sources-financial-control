@@ -28,6 +28,7 @@ import IncomesTable from "./IncomesTable";
 import OperationPeriodsTable from "./OperationPeriodsTable";
 import TopToolBar from "./TopToolbar";
 import TransactionTable from "./TransactionTable";
+import { Filters } from "./types";
 
 const isEmergencyFundEligible = (asset: Asset): boolean => {
   if (asset.type !== "Renda fixa BR" || !asset.liquidity_type) return false;
@@ -272,6 +273,7 @@ const Table = () => {
     sorting,
     filters,
     setFilters,
+    defaultFilters,
   } = useTable({
     columns: columns as Column<any>[],
     queryKey: [ASSETS_QUERY_KEY],
@@ -297,7 +299,9 @@ const Table = () => {
         search={search}
         setSearch={setSearch}
         setPagination={setPagination}
+        filters={filters as Filters}
         setFilters={setFilters}
+        defaultFilters={defaultFilters as Filters}
       />
     ),
     renderDetailPanel: ({ row }) => (

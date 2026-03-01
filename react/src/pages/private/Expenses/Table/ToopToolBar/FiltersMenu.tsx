@@ -1,4 +1,4 @@
-import { useContext, type Dispatch, type SetStateAction } from "react";
+import { useContext, useEffect, type Dispatch, type SetStateAction } from "react";
 
 import { ptBR } from "date-fns/locale/pt-BR";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFnsV3";
@@ -48,11 +48,13 @@ export const FiltersMenu = ({
   open,
   onClose,
   anchorEl,
+  filters,
   setFilters,
 }: {
   open: boolean;
   onClose: () => void;
   anchorEl: null | HTMLElement;
+  filters: Filters;
   setFilters: Dispatch<SetStateAction<Filters>>;
 }) => {
   const {
@@ -70,7 +72,7 @@ export const FiltersMenu = ({
     label: account.description,
   }));
 
-  const { control, watch, getValues } = useForm({
+  const { control, watch, getValues, reset } = useForm({
     resolver: yupResolver(schema),
     defaultValues: {
       source: [],
@@ -81,6 +83,18 @@ export const FiltersMenu = ({
     mode: "onSubmit",
     reValidateMode: "onSubmit",
   });
+
+  // Sync form state with external filters
+  useEffect(() => {
+    reset({
+      category: (filters.category ?? []).map((v) => ({ label: v, value: v })),
+      source: (filters.source ?? []).map((v) => ({ label: v, value: v })),
+      tags: filters.tag ?? [],
+      bank_account_description: filters.bank_account_description
+        ? { label: filters.bank_account_description, value: filters.bank_account_description }
+        : null,
+    });
+  }, [filters, reset]);
 
   const { category: selectedCategoris, source: selectedSources } = getValues();
   const selectedTags = watch("tags") as string[];

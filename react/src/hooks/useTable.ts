@@ -128,6 +128,7 @@ const useTable = ({
     expanded,
     filters,
     setFilters,
+    defaultFilters,
   };
 };
 

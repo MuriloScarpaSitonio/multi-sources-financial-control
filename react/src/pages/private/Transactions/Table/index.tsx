@@ -9,6 +9,7 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 
+import { startOfMonth } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   MaterialReactTable,
@@ -27,6 +28,7 @@ import { useInvalidateTransactionsQueries } from "./hooks";
 
 import { AssetCurrencyMap } from "../../Assets/consts";
 import { TransactionsContext } from "../context";
+import { customEndOfMonth } from "../../utils";
 import TopToolBar from "./ToopToolBar";
 
 export const useOnTransactionDeleteSuccess = () => {
@@ -68,7 +70,20 @@ const Table = () => {
     Transaction | undefined
   >();
 
-  const { startDate, endDate } = useContext(TransactionsContext);
+  const { startDate, setStartDate, endDate, setEndDate } = useContext(TransactionsContext);
+
+  const dateFilters = useMemo(() => {
+    const now = new Date();
+    return {
+      startDate,
+      setStartDate,
+      endDate,
+      setEndDate,
+      defaultStartDate: startOfMonth(now),
+      defaultEndDate: customEndOfMonth(now),
+    };
+  }, [startDate, setStartDate, endDate, setEndDate]);
+
   const columns = useMemo<Column<Transaction>[]>(
     () => [
       {
@@ -134,6 +149,7 @@ const Table = () => {
     sorting,
     filters,
     setFilters,
+    defaultFilters,
   } = useTable({
     columns: columns as Column<any>[],
     queryKey: [
@@ -171,7 +187,10 @@ const Table = () => {
         search={search}
         setSearch={setSearch}
         setPagination={setPagination}
+        filters={filters as Filters}
         setFilters={setFilters}
+        defaultFilters={defaultFilters as Filters}
+        dateFilters={dateFilters}
       />
     ),
     renderRowActions: ({ row }) => (
