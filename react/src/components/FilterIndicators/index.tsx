@@ -28,7 +28,13 @@ const FilterIndicators = <T extends Record<string, any>>({
   const activeDateFilters = useMemo(() => {
     if (!dateFilters) return [];
 
-    const { startDate, endDate } = dateFilters;
+    const { startDate, endDate, defaultStartDate, defaultEndDate } = dateFilters;
+
+    // Check if dates match their defaults (compare by date string to avoid time issues)
+    const isStartDateDefault =
+      formatDate(startDate) === formatDate(defaultStartDate);
+    const isEndDateDefault =
+      formatDate(endDate) === formatDate(defaultEndDate);
 
     return [
       {
@@ -36,19 +42,24 @@ const FilterIndicators = <T extends Record<string, any>>({
         label: "Início",
         value: startDate.toISOString(),
         displayValue: formatDate(startDate),
-        isDefault: true,
+        isDefault: isStartDateDefault,
       },
       {
         key: "endDate",
         label: "Fim",
         value: endDate.toISOString(),
         displayValue: formatDate(endDate),
-        isDefault: true,
+        isDefault: isEndDateDefault,
       },
     ];
   }, [dateFilters]);
 
   const allActiveFilters = [...activeDateFilters, ...activeFilters];
+
+  // Count filters that are not at their default values
+  const nonDefaultFiltersCount = allActiveFilters.filter(
+    (filter) => !filter.isDefault
+  ).length;
 
   const handleDeleteFilter = (filterToRemove: ActiveFilter) => {
     if (filterToRemove.key === "startDate" && dateFilters) {
@@ -93,7 +104,7 @@ const FilterIndicators = <T extends Record<string, any>>({
             onDelete={handleDeleteFilter}
           />
         ))}
-        {allActiveFilters.length >= 2 && (
+        {nonDefaultFiltersCount >= 2 && (
           <Button
             variant="text"
             size="small"

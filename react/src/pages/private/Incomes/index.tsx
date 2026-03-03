@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { Month, startOfMonth } from "date-fns";
 
@@ -6,33 +6,75 @@ import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
 
 import { PeriodsManager } from "../../../design-system";
+import useURLFilters from "../../../hooks/useURLFilters";
 import { default as AssetIndicators } from "../Assets/Indicators";
 import { IncomesContext } from "./context";
+import { incomesFilterSchema } from "./filterConfig";
 import Indicators from "./Indicators";
 import Reports from "./Reports";
 import Table from "./Table";
+import { Filters } from "./types";
 import { customEndOfMonth } from "../utils";
+
+const defaultFilters: Filters = {
+  asset_type: [],
+  event_type: "",
+  type: [],
+};
 
 const Incomes = () => {
   const now = new Date();
-  const [startDate, setStartDate] = useState(startOfMonth(now));
-  const [endDate, setEndDate] = useState(customEndOfMonth(now));
+  const defaultDates = useMemo(
+    () => ({
+      startDate: startOfMonth(now),
+      endDate: customEndOfMonth(now),
+    }),
+    []
+  );
+
+  const { filters, setFilters, dates, setDates } = useURLFilters<Filters>({
+    schema: incomesFilterSchema,
+    defaults: defaultFilters,
+    defaultDates,
+  });
+
   const [month, setMonth] = useState(now.getMonth() as Month | undefined);
   const [year, setYear] = useState(now.getFullYear());
 
+  const setStartDate = useCallback(
+    (value: Date | ((prev: Date) => Date)) => {
+      setDates((prev) => ({
+        ...prev,
+        startDate: typeof value === "function" ? value(prev.startDate) : value,
+      }));
+    },
+    [setDates]
+  );
+
+  const setEndDate = useCallback(
+    (value: Date | ((prev: Date) => Date)) => {
+      setDates((prev) => ({
+        ...prev,
+        endDate: typeof value === "function" ? value(prev.endDate) : value,
+      }));
+    },
+    [setDates]
+  );
+
   const contextValue = useMemo(
     () => ({
-      startDate,
+      startDate: dates?.startDate ?? defaultDates.startDate,
       setStartDate,
-      endDate,
+      endDate: dates?.endDate ?? defaultDates.endDate,
       setEndDate,
       month,
       setMonth,
       year,
       setYear,
     }),
-    [startDate, endDate, month, year],
+    [dates, setStartDate, setEndDate, month, year, defaultDates]
   );
+
   return (
     <IncomesContext.Provider value={contextValue}>
       <Stack spacing={2}>
@@ -41,7 +83,7 @@ const Incomes = () => {
         <Reports />
         <Grid container spacing={4}>
           <Grid item xs={12}>
-            <Table />
+            <Table externalFilters={{ filters, setFilters }} />
           </Grid>
         </Grid>
       </Stack>

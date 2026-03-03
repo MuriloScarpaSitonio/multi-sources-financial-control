@@ -1,4 +1,5 @@
 import type { FilterFieldConfigs } from "../../../components/FilterIndicators";
+import type { FilterSchema } from "../../../urlParams";
 
 const typesValueMapping: Record<string, string> = {
   STOCK: "Ação BR",
@@ -61,4 +62,12 @@ export const assetsFilterConfig: FilterFieldConfigs = {
 
 export const defaultAssetsFilters = {
   status: "OPENED",
+};
+
+export const assetsFilterSchema: FilterSchema = {
+  type: { type: "array" },
+  sector: { type: "array" },
+  objective: { type: "array" },
+  status: { type: "string" },
+  emergency_fund: { type: "boolean" },
 };

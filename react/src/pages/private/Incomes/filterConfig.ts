@@ -1,4 +1,5 @@
 import type { FilterFieldConfigs } from "../../../components/FilterIndicators";
+import type { FilterSchema } from "../../../urlParams";
 
 const assetTypesValueMapping: Record<string, string> = {
   STOCK: "Ação BR",
@@ -33,4 +34,10 @@ export const incomesFilterConfig: FilterFieldConfigs = {
     label: "Evento",
     valueMapping: eventTypesValueMapping,
   },
+};
+
+export const incomesFilterSchema: FilterSchema = {
+  asset_type: { type: "array" },
+  type: { type: "array" },
+  event_type: { type: "string" },
 };

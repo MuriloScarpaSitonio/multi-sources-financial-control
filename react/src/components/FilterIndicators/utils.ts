@@ -1,5 +1,15 @@
 import type { ActiveFilter, FilterFieldConfigs } from "./types";
 
+// Check if a value matches its default
+const isValueDefault = (value: any, defaultValue: any): boolean => {
+  if (Array.isArray(value) && Array.isArray(defaultValue)) {
+    // For arrays, check if they contain the same elements
+    if (value.length !== defaultValue.length) return false;
+    return value.every((v) => defaultValue.includes(v));
+  }
+  return value === defaultValue;
+};
+
 export const computeActiveFilters = <T extends Record<string, any>>(
   filters: T,
   defaultFilters: T,
@@ -14,10 +24,10 @@ export const computeActiveFilters = <T extends Record<string, any>>(
 
     if (!config) return;
 
-    const isDefaultField = key in defaultFilters;
-
     if (Array.isArray(value)) {
       if (value.length > 0) {
+        // For array filters, check if this specific value is in the default array
+        const defaultArray = Array.isArray(defaultValue) ? defaultValue : [];
         value.forEach((v) => {
           const displayValue = config.valueMapping?.[v] ?? v;
           activeFilters.push({
@@ -25,7 +35,7 @@ export const computeActiveFilters = <T extends Record<string, any>>(
             label: config.label,
             value: v,
             displayValue,
-            isDefault: isDefaultField,
+            isDefault: defaultArray.includes(v),
           });
         });
       }
@@ -36,7 +46,7 @@ export const computeActiveFilters = <T extends Record<string, any>>(
         label: config.label,
         value,
         displayValue,
-        isDefault: isDefaultField,
+        isDefault: value === defaultValue,
       });
     }
   });

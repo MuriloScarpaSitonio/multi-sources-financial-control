@@ -1,7 +1,7 @@
 import type { ApiListResponse, RawDateString } from "../../../../types";
 import type { Filters } from "../types";
 
-import { useContext, useMemo, useState } from "react";
+import { useContext, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -40,6 +40,13 @@ import { customEndOfMonth } from "../../utils";
 import DeleteExpenseDialog from "./DeleteExpenseDialog";
 import ExpenseDrawer from "./ExpenseDrawer";
 import TopToolBar from "./ToopToolBar";
+
+interface TableProps {
+  externalFilters: {
+    filters: Filters;
+    setFilters: Dispatch<SetStateAction<Filters>> | ((filters: Filters) => void);
+  };
+}
 
 type GroupedExpense = Expense & { type: string };
 
@@ -117,7 +124,9 @@ const useOnExpenseDeleteSuccess = () => {
   };
 };
 
-const Table = () => {
+const defaultFilters: Filters = {};
+
+const Table = ({ externalFilters }: TableProps) => {
   const [deleteExpense, setDeleteExpense] = useState<
     GroupedExpense | undefined
   >();
@@ -248,7 +257,6 @@ const Table = () => {
     sorting,
     filters,
     setFilters,
-    defaultFilters,
   } = useTable({
     columns: columns as Column<any>[],
     queryKey: [
@@ -256,6 +264,8 @@ const Table = () => {
       startDate.toLocaleDateString("pt-br"),
       endDate.toLocaleDateString("pt-br"),
     ],
+    defaultFilters,
+    externalFilters: externalFilters as { filters: Record<string, any>; setFilters: any },
     enableExpanding: true,
     enableExpandAll: true,
     enableGrouping: true,
@@ -305,7 +315,7 @@ const Table = () => {
         setPagination={setPagination}
         filters={filters as Filters}
         setFilters={setFilters}
-        defaultFilters={defaultFilters as Filters}
+        defaultFilters={defaultFilters}
         dateFilters={dateFilters}
       />
     ),

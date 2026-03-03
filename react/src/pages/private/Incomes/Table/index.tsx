@@ -1,7 +1,7 @@
 import type { ApiListResponse, RawDateString } from "../../../../types";
 import type { Filters } from "../types";
 
-import { useCallback, useContext, useMemo, useState } from "react";
+import { useCallback, useContext, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -28,6 +28,13 @@ import { customEndOfMonth } from "../../utils";
 import { Income } from "../types";
 import DeleteIncomeDialog from "./DeleteIncomeDialog";
 import TopToolBar from "./ToopToolBar";
+
+interface TableProps {
+  externalFilters: {
+    filters: Filters;
+    setFilters: Dispatch<SetStateAction<Filters>> | ((filters: Filters) => void);
+  };
+}
 
 export const useOnIncomeDeleteSuccess = () => {
   const queryClient = useQueryClient();
@@ -77,7 +84,13 @@ export const useOnIncomeDeleteSuccess = () => {
   return { onDeleteSuccess };
 };
 
-const Table = () => {
+const defaultFilters: Filters = {
+  asset_type: [],
+  event_type: "",
+  type: [],
+};
+
+const Table = ({ externalFilters }: TableProps) => {
   const [deleteIncome, setDeleteIncome] = useState<Income | undefined>();
   const [editIncome, setEditIncome] = useState<Income | undefined>();
 
@@ -158,7 +171,6 @@ const Table = () => {
     sorting,
     filters,
     setFilters,
-    defaultFilters,
   } = useTable({
     columns: columns as Column<any>[],
     queryKey: [
@@ -166,6 +178,8 @@ const Table = () => {
       startDate.toLocaleDateString("pt-br"),
       endDate.toLocaleDateString("pt-br"),
     ],
+    defaultFilters,
+    externalFilters: externalFilters as { filters: Record<string, any>; setFilters: any },
     positionToolbarAlertBanner: "none",
     defaultPageSize: 100,
     editDisplayMode: "custom",
@@ -198,7 +212,7 @@ const Table = () => {
         setPagination={setPagination}
         filters={filters as Filters}
         setFilters={setFilters}
-        defaultFilters={defaultFilters as Filters}
+        defaultFilters={defaultFilters}
         dateFilters={dateFilters}
       />
     ),

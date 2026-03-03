@@ -1,4 +1,4 @@
-import { useMemo, useState, type Context, type SyntheticEvent } from "react";
+import { useCallback, useMemo, useState, type Context, type SyntheticEvent } from "react";
 
 import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
@@ -10,15 +10,20 @@ import { useSearchParams } from "react-router-dom";
 
 import { Colors, getColor, PeriodsManager } from "../../../design-system";
 import { ContextType as PeriodsManagerContextType } from "../../../design-system/components/PeriodsManager";
+import useURLFilters from "../../../hooks/useURLFilters";
 import { useGetCategories as useRevenuesCategories, useGetMostCommonCategory as useRevenuesMostCommonCategory } from "../Revenues/hooks/useGetCategories";
+import { revenuesFilterSchema } from "../Revenues/filterConfig";
 import { default as RevenueReports } from "../Revenues/Reports";
 import { default as RevenuesTable } from "../Revenues/Table";
+import { Filters as RevenueFilters } from "../Revenues/types";
 import { customEndOfMonth } from "../utils";
 import { ExpensesContext } from "./context";
+import { expensesFilterSchema } from "./filterConfig";
 import { useGetCategories, useGetMostCommonCategory, useGetMostCommonSource, useGetSources } from "./hooks";
 import Indicators from "./Indicators";
 import { default as ExpenseReports } from "./Reports";
 import { default as ExpensesTable } from "./Table";
+import { Filters as ExpenseFilters } from "./types";
 
 const CustomTabs = ({
   tabValue,
@@ -41,15 +46,77 @@ const CustomTabs = ({
   </Tabs>
 );
 
+const defaultExpenseFilters: ExpenseFilters = {};
+const defaultRevenueFilters: RevenueFilters = {};
+
 const Expenses = () => {
   const now = new Date();
-  const [startDate, setStartDate] = useState(startOfMonth(now));
-  const [endDate, setEndDate] = useState(customEndOfMonth(now));
+  const defaultDates = useMemo(
+    () => ({
+      startDate: startOfMonth(now),
+      endDate: customEndOfMonth(now),
+    }),
+    []
+  );
+
+  // URL filters for expenses (includes dates)
+  const {
+    filters: expenseFilters,
+    setFilters: setExpenseFilters,
+    dates,
+    setDates,
+  } = useURLFilters<ExpenseFilters>({
+    schema: expensesFilterSchema,
+    defaults: defaultExpenseFilters,
+    defaultDates,
+  });
+
+  // URL filters for revenues (scoped with "revenues_" prefix)
+  const {
+    filters: revenueFilters,
+    setFilters: setRevenueFilters,
+  } = useURLFilters<RevenueFilters>({
+    schema: revenuesFilterSchema,
+    defaults: defaultRevenueFilters,
+    scope: "revenues",
+  });
+
   const [month, setMonth] = useState(now.getMonth() as Month | undefined);
   const [year, setYear] = useState(now.getFullYear());
   const [searchParams, setSearchParams] = useSearchParams();
 
   const displayRevenuesComponents = searchParams.get("revenues") === "true";
+
+  const setStartDate = useCallback(
+    (value: Date | ((prev: Date) => Date)) => {
+      setDates((prev) => ({
+        ...prev,
+        startDate: typeof value === "function" ? value(prev.startDate) : value,
+      }));
+    },
+    [setDates]
+  );
+
+  const setEndDate = useCallback(
+    (value: Date | ((prev: Date) => Date)) => {
+      setDates((prev) => ({
+        ...prev,
+        endDate: typeof value === "function" ? value(prev.endDate) : value,
+      }));
+    },
+    [setDates]
+  );
+
+  const handleTabChange = useCallback(
+    (_: SyntheticEvent, value: number) => {
+      setSearchParams((prev) => {
+        const newParams = new URLSearchParams(prev);
+        newParams.set("revenues", value === 1 ? "true" : "false");
+        return newParams;
+      }, { replace: true });
+    },
+    [setSearchParams]
+  );
 
   const { data: categoriesData, isPending: isLoadingCategories } =
     useGetCategories({ ordering: "name" });
@@ -76,9 +143,9 @@ const Expenses = () => {
 
   const contextValue = useMemo(
     () => ({
-      startDate,
+      startDate: dates?.startDate ?? defaultDates.startDate,
       setStartDate,
-      endDate,
+      endDate: dates?.endDate ?? defaultDates.endDate,
       setEndDate,
       month,
       setMonth,
@@ -117,8 +184,10 @@ const Expenses = () => {
       mostCommonRevenueCategory,
     }),
     [
-      startDate,
-      endDate,
+      dates,
+      defaultDates,
+      setStartDate,
+      setEndDate,
       month,
       year,
       categoriesData?.results,
@@ -145,9 +214,7 @@ const Expenses = () => {
           <Grid item xs={6}>
             <CustomTabs
               tabValue={displayRevenuesComponents ? 1 : 0}
-              onTabChange={(_: SyntheticEvent, value: number) =>
-                setSearchParams({ revenues: value === 1 ? "true" : "false" })
-              }
+              onTabChange={handleTabChange}
             />
             {displayRevenuesComponents ? (
               <RevenueReports />
@@ -160,11 +227,13 @@ const Expenses = () => {
           <Grid item xs={12}>
             <CustomTabs
               tabValue={displayRevenuesComponents ? 1 : 0}
-              onTabChange={(_: SyntheticEvent, value: number) =>
-                setSearchParams({ revenues: value === 1 ? "true" : "false" })
-              }
+              onTabChange={handleTabChange}
             />
-            {displayRevenuesComponents ? <RevenuesTable /> : <ExpensesTable />}
+            {displayRevenuesComponents ? (
+              <RevenuesTable externalFilters={{ filters: revenueFilters, setFilters: setRevenueFilters }} />
+            ) : (
+              <ExpensesTable externalFilters={{ filters: expenseFilters, setFilters: setExpenseFilters }} />
+            )}
           </Grid>
         </Grid>
       </Stack>
