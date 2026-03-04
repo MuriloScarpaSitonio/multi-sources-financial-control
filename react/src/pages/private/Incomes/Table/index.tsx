@@ -1,7 +1,7 @@
 import type { ApiListResponse, RawDateString } from "../../../../types";
 import type { Filters } from "../types";
 
-import { useCallback, useContext, useMemo, useState } from "react";
+import { useCallback, useContext, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -9,6 +9,7 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 
+import { startOfMonth } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   MaterialReactTable,
@@ -23,9 +24,17 @@ import CreateOrEditIncomeDrawer from "../components/CreateOrEditIncomeDrawer";
 import { useOnFormSuccess as useInvalidateIncomesQueries } from "../components/CreateOrEditIncomeDrawer/hooks";
 import { INCOMES_QUERY_KEY } from "../consts";
 import { IncomesContext } from "../context";
+import { customEndOfMonth } from "../../utils";
 import { Income } from "../types";
 import DeleteIncomeDialog from "./DeleteIncomeDialog";
 import TopToolBar from "./ToopToolBar";
+
+interface TableProps {
+  externalFilters: {
+    filters: Filters;
+    setFilters: Dispatch<SetStateAction<Filters>> | ((filters: Filters) => void);
+  };
+}
 
 export const useOnIncomeDeleteSuccess = () => {
   const queryClient = useQueryClient();
@@ -75,11 +84,30 @@ export const useOnIncomeDeleteSuccess = () => {
   return { onDeleteSuccess };
 };
 
-const Table = () => {
+const defaultFilters: Filters = {
+  asset_type: [],
+  event_type: "",
+  type: [],
+};
+
+const Table = ({ externalFilters }: TableProps) => {
   const [deleteIncome, setDeleteIncome] = useState<Income | undefined>();
   const [editIncome, setEditIncome] = useState<Income | undefined>();
 
-  const { startDate, endDate } = useContext(IncomesContext);
+  const { startDate, setStartDate, endDate, setEndDate } = useContext(IncomesContext);
+
+  const dateFilters = useMemo(() => {
+    const now = new Date();
+    return {
+      startDate,
+      setStartDate,
+      endDate,
+      setEndDate,
+      defaultStartDate: startOfMonth(now),
+      defaultEndDate: customEndOfMonth(now),
+    };
+  }, [startDate, setStartDate, endDate, setEndDate]);
+
   const columns = useMemo<Column<Income>[]>(
     () => [
       {
@@ -150,6 +178,8 @@ const Table = () => {
       startDate.toLocaleDateString("pt-br"),
       endDate.toLocaleDateString("pt-br"),
     ],
+    defaultFilters,
+    externalFilters: externalFilters as { filters: Record<string, any>; setFilters: any },
     positionToolbarAlertBanner: "none",
     defaultPageSize: 100,
     editDisplayMode: "custom",
@@ -180,7 +210,10 @@ const Table = () => {
         search={search}
         setSearch={setSearch}
         setPagination={setPagination}
+        filters={filters as Filters}
         setFilters={setFilters}
+        defaultFilters={defaultFilters}
+        dateFilters={dateFilters}
       />
     ),
     renderRowActions: ({ row }) => (

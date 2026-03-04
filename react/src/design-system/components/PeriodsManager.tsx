@@ -4,6 +4,7 @@ import { format, Month } from "date-fns";
 import { ptBR } from "date-fns/locale/pt-BR";
 
 import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
@@ -118,7 +119,8 @@ const MonthChips = ({
 };
 
 const PeriodsManager = ({ context }: { context: Context<ContextType> }) => {
-  const { startDate, endDate, setMonth } = useContext(context);
+  const { startDate, endDate, setMonth, setYear, setStartDate, setEndDate } =
+    useContext(context);
 
   const isFilteringEntireMonth = useMemo(
     () => isFilteringWholeMonth(startDate, endDate),
@@ -130,6 +132,37 @@ const PeriodsManager = ({ context }: { context: Context<ContextType> }) => {
       setMonth(undefined);
     }
   });
+
+  const onPreviousMonth = useCallback(() => {
+    const currentMonth = startDate.getMonth();
+    const currentYear = startDate.getFullYear();
+    if (currentMonth === 0) {
+      setYear(currentYear - 1);
+      setMonth(11);
+      setStartDate(new Date(currentYear - 1, 11, 1));
+      setEndDate(new Date(currentYear, 0, 0));
+    } else {
+      setMonth((currentMonth - 1) as Month);
+      setStartDate(new Date(currentYear, currentMonth - 1, 1));
+      setEndDate(new Date(currentYear, currentMonth, 0));
+    }
+  }, [startDate, setYear, setMonth, setStartDate, setEndDate]);
+
+  const onNextMonth = useCallback(() => {
+    const currentMonth = startDate.getMonth();
+    const currentYear = startDate.getFullYear();
+    if (currentMonth === 11) {
+      setYear(currentYear + 1);
+      setMonth(0);
+      setStartDate(new Date(currentYear + 1, 0, 1));
+      setEndDate(new Date(currentYear + 1, 1, 0));
+    } else {
+      setMonth((currentMonth + 1) as Month);
+      setStartDate(new Date(currentYear, currentMonth + 1, 1));
+      setEndDate(new Date(currentYear, currentMonth + 2, 0));
+    }
+  }, [startDate, setYear, setMonth, setStartDate, setEndDate]);
+
   const getPeriod = useCallback(() => {
     if (isFilteringWholeMonth(startDate, endDate))
       return `${months[startDate.getMonth()]} ${startDate.getFullYear()}`;
@@ -142,9 +175,17 @@ const PeriodsManager = ({ context }: { context: Context<ContextType> }) => {
 
   return (
     <Stack spacing={2} alignItems="center">
-      <Text size={FontSizes.LARGE} weight={FontWeights.BOLD}>
-        {getPeriod()}
-      </Text>
+      <Stack direction="row" alignItems="center" spacing={1}>
+        <IconButton onClick={onPreviousMonth} size="small">
+          <ArrowBackIosIcon fontSize="small" />
+        </IconButton>
+        <Text size={FontSizes.LARGE} weight={FontWeights.BOLD}>
+          {getPeriod()}
+        </Text>
+        <IconButton onClick={onNextMonth} size="small">
+          <ArrowForwardIosIcon fontSize="small" />
+        </IconButton>
+      </Stack>
       <MonthChips
         context={context}
         isFilteringEntireMonth={isFilteringEntireMonth}

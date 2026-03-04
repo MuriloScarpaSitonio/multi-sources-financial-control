@@ -71,7 +71,7 @@ class TestGenerateDummyDataCommand:
         assert new_user.check_password("newpass123") is True
 
         # Old data should be gone, new data created
-        assert Asset.objects.filter(user=new_user).count() > 0
+        assert Asset.objects.filter(user=new_user).exists()
 
     def test__should_fail_if_total_is_zero_or_negative(self):
         """Command should fail if total is zero or negative."""
@@ -188,14 +188,14 @@ class TestGenerateDummyDataCommand:
         expenses = Expense.objects.filter(user=user)
 
         # Should have multiple expenses
-        assert expenses.count() > 0
+        assert expenses.exists()
 
         # Past expenses should not be before from_date
-        assert expenses.filter(created_at__lt=from_date).count() == 0
+        assert not expenses.filter(created_at__lt=from_date).exists()
 
         # Future expenses should only be fixed (for planning purposes)
         future_expenses = expenses.filter(created_at__gt=date.today())
-        assert future_expenses.filter(is_fixed=False).count() == 0
+        assert not future_expenses.filter(is_fixed=False).exists()
 
     def test__should_create_revenues_including_salary(self):
         """Command should create revenues including monthly salary."""
@@ -211,11 +211,11 @@ class TestGenerateDummyDataCommand:
         revenues = Revenue.objects.filter(user=user)
 
         # Should have revenues
-        assert revenues.count() > 0
+        assert revenues.exists()
 
         # Should have fixed salary revenues
         salary_revenues = revenues.filter(is_fixed=True, category="Salário")
-        assert salary_revenues.count() > 0
+        assert salary_revenues.exists()
 
     def test__should_create_assets_and_transactions(self):
         """Command should create assets and transactions."""
@@ -232,10 +232,10 @@ class TestGenerateDummyDataCommand:
         transactions = Transaction.objects.filter(asset__user=user)
 
         # Should have assets
-        assert assets.count() > 0
+        assert assets.exists()
 
         # Should have transactions for those assets
-        assert transactions.count() > 0
+        assert transactions.exists()
 
         # Should have both BUY and SELL transactions
         buy_count = transactions.filter(action="BUY").count()
@@ -257,7 +257,7 @@ class TestGenerateDummyDataCommand:
 
         # Should have at least one closed operation (guaranteed by the command)
         closed_ops = AssetClosedOperation.objects.filter(asset__user=user)
-        assert closed_ops.count() >= 1
+        assert closed_ops.exists()
 
         # Verify closed operation has valid values
         for closed_op in closed_ops:
@@ -337,7 +337,7 @@ class TestGenerateDummyDataCommand:
         if dividend_assets.exists():
             # Should have some passive incomes
             incomes = PassiveIncome.objects.filter(asset__user=user)
-            assert incomes.count() > 0
+            assert incomes.exists()
 
             # All incomes should be credited
             assert (
@@ -359,7 +359,7 @@ class TestGenerateDummyDataCommand:
         snapshots = BankAccountSnapshot.objects.filter(user=user)
 
         # Should have snapshots
-        assert snapshots.count() > 0
+        assert snapshots.exists()
 
     def test__should_create_investment_snapshots(self):
         """Command should create historical investment snapshots."""
@@ -375,7 +375,7 @@ class TestGenerateDummyDataCommand:
         snapshots = AssetsTotalInvestedSnapshot.objects.filter(user=user)
 
         # Should have snapshots
-        assert snapshots.count() > 0
+        assert snapshots.exists()
 
     def test__transaction_should_be_atomic(self):
         """If command fails midway, no data should be created."""

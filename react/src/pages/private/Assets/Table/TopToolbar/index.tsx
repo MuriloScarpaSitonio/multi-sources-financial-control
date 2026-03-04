@@ -23,6 +23,7 @@ import {
 } from "material-react-table";
 
 import { Colors, getColor } from "../../../../../design-system";
+import FilterIndicators from "../../../../../components/FilterIndicators";
 import FiltersMenu from "./FiltersMenu";
 import {
   ShowHideColumnsMenuItem,
@@ -34,6 +35,7 @@ import {
   SimulateTransactionDrawer,
 } from "./SimulateTransactionMenuItem";
 import { Filters } from "../types";
+import { assetsFilterConfig } from "../../filterConfig";
 import NewTransactionDrawer from "../../../Transactions/components/NewTransactionDrawer";
 import CreateOrEditIncomeDrawer from "../../../Incomes/components/CreateOrEditIncomeDrawer";
 import { SearchBar } from "../../../components";
@@ -78,13 +80,17 @@ const TopToolBar = ({
   search,
   setSearch,
   setPagination,
+  filters,
   setFilters,
+  defaultFilters,
 }: {
   table: DataTable<Row>;
   search: string;
   setSearch: Dispatch<SetStateAction<string>>;
   setPagination: Dispatch<SetStateAction<PaginationState>>;
+  filters: Filters;
   setFilters: Dispatch<SetStateAction<Filters>>;
+  defaultFilters: Filters;
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openTransactionDrawer, setOpenTransactionDrawer] = useState(false);
@@ -137,10 +143,17 @@ const TopToolBar = ({
           </Stack>
         </Grid>
       </Grid>
+      <FilterIndicators
+        filters={filters}
+        setFilters={setFilters}
+        defaultFilters={defaultFilters}
+        fieldConfigs={assetsFilterConfig}
+      />
       <FiltersMenu
         open={Boolean(anchorEl)}
         onClose={() => setAnchorEl(null)}
         anchorEl={anchorEl}
+        filters={filters}
         setFilters={setFilters}
       />
       <NewTransactionDrawer

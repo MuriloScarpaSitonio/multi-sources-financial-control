@@ -1,4 +1,4 @@
-import { useContext, type Dispatch, type SetStateAction } from "react";
+import { useContext, useEffect, type Dispatch, type SetStateAction } from "react";
 
 import { ptBR } from "date-fns/locale/pt-BR";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFnsV3";
@@ -17,10 +17,7 @@ import * as yup from "yup";
 import { isFilteringWholeMonth, Text } from "../../../../../design-system";
 import { ExpensesContext } from "../../../Expenses/context";
 import { useBankAccounts } from "../../../Expenses/hooks";
-
-type Filters = {
-  bank_account_description?: string;
-};
+import { Filters } from "../../types";
 
 type BankAccountOption = { value: string; label: string } | null;
 
@@ -37,11 +34,13 @@ export const FiltersMenu = ({
   open,
   onClose,
   anchorEl,
+  filters,
   setFilters,
 }: {
   open: boolean;
   onClose: () => void;
   anchorEl: null | HTMLElement;
+  filters: Filters;
   setFilters: Dispatch<SetStateAction<Filters>>;
 }) => {
   const { startDate, setStartDate, endDate, setEndDate, setMonth } =
@@ -52,7 +51,7 @@ export const FiltersMenu = ({
     label: account.description,
   }));
 
-  const { control } = useForm({
+  const { control, reset } = useForm({
     resolver: yupResolver(schema),
     defaultValues: {
       bank_account_description: null,
@@ -60,6 +59,14 @@ export const FiltersMenu = ({
     mode: "onSubmit",
     reValidateMode: "onSubmit",
   });
+
+  useEffect(() => {
+    reset({
+      bank_account_description: filters.bank_account_description
+        ? { label: filters.bank_account_description, value: filters.bank_account_description }
+        : null,
+    });
+  }, [filters, reset]);
 
   return (
     <Menu

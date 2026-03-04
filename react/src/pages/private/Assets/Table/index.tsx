@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction, type SyntheticEvent } from "react";
 
 import EditIcon from "@mui/icons-material/Edit";
 import SavingsOutlinedIcon from "@mui/icons-material/SavingsOutlined";
@@ -18,6 +18,7 @@ import {
 import { Colors, getColor } from "../../../../design-system";
 import { StatusDot } from "../../../../design-system/icons";
 import useTable from "../../../../hooks/useTable";
+import { defaultAssetsFilters } from "../filterConfig";
 import { getAssets } from "../api";
 import { Asset } from "../api/models";
 import { AssetCurrencyMap, LiquidityTypes, LiquidityTypesMapping } from "../consts";
@@ -28,6 +29,14 @@ import IncomesTable from "./IncomesTable";
 import OperationPeriodsTable from "./OperationPeriodsTable";
 import TopToolBar from "./TopToolbar";
 import TransactionTable from "./TransactionTable";
+import { Filters } from "./types";
+
+interface TableProps {
+  externalFilters: {
+    filters: Filters;
+    setFilters: Dispatch<SetStateAction<Filters>> | ((filters: Filters) => void);
+  };
+}
 
 const isEmergencyFundEligible = (asset: Asset): boolean => {
   if (asset.type !== "Renda fixa BR" || !asset.liquidity_type) return false;
@@ -95,7 +104,7 @@ const DetailPanel = ({
   );
 };
 
-const Table = () => {
+const Table = ({ externalFilters }: TableProps) => {
   const [tabValues, setTabValues] = useState<Record<string, number>>({});
   const [columnVisibility, setColumnVisibility] = useState({});
   const [assetToUpdatePrice, setAssetToUpdatePrice] = useState<Asset>();
@@ -275,7 +284,8 @@ const Table = () => {
   } = useTable({
     columns: columns as Column<any>[],
     queryKey: [ASSETS_QUERY_KEY],
-    defaultFilters: { status: "OPENED" },
+    defaultFilters: defaultAssetsFilters,
+    externalFilters: externalFilters as { filters: Record<string, any>; setFilters: any },
     localization: { noRecordsToDisplay: "Nenhum ativo encontrado", rowsPerPage: "Ativos por página", expand: "" },
     enableExpanding: true,
     defaultPageSize: 20,
@@ -297,7 +307,9 @@ const Table = () => {
         search={search}
         setSearch={setSearch}
         setPagination={setPagination}
+        filters={filters as Filters}
         setFilters={setFilters}
+        defaultFilters={defaultAssetsFilters as Filters}
       />
     ),
     renderDetailPanel: ({ row }) => (

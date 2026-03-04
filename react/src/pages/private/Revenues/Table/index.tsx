@@ -1,6 +1,8 @@
 import type { ApiListResponse, RawDateString } from "../../../../types";
 
-import { useContext, useMemo, useState } from "react";
+import { useContext, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+
+import { startOfMonth } from "date-fns";
 
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -33,9 +35,18 @@ import { removeProperties } from "../../../../utils";
 import { ExpensesContext } from "../../Expenses/context";
 import { REVENUES_QUERY_KEY } from "../consts";
 import { useInvalidateRevenuesQueries } from "../hooks";
+import { customEndOfMonth } from "../../utils";
 import DeleteRevenueDialog from "./DeleteRevenueDialog";
 import RevenueDrawer from "./RevenueDrawer";
 import TopToolBar from "./ToopToolBar";
+import { Filters } from "../types";
+
+interface TableProps {
+  externalFilters: {
+    filters: Filters;
+    setFilters: Dispatch<SetStateAction<Filters>> | ((filters: Filters) => void);
+  };
+}
 
 type GroupedRevenue = Revenue & { type: string };
 
@@ -100,14 +111,28 @@ const useOnRevenueDeleteSuccess = () => {
   };
 };
 
-const Table = () => {
+const defaultFilters: Filters = {};
+
+const Table = ({ externalFilters }: TableProps) => {
   const [deleteRevenue, setDeleteRevenue] = useState<
     GroupedRevenue | undefined
   >();
   const [editRevenue, setEditRevenue] = useState<GroupedRevenue | undefined>();
 
-  const { startDate, endDate, isRelatedEntitiesLoading, revenuesCategories } =
+  const { startDate, setStartDate, endDate, setEndDate, isRelatedEntitiesLoading, revenuesCategories } =
     useContext(ExpensesContext);
+
+  const dateFilters = useMemo(() => {
+    const now = new Date();
+    return {
+      startDate,
+      setStartDate,
+      endDate,
+      setEndDate,
+      defaultStartDate: startOfMonth(now),
+      defaultEndDate: customEndOfMonth(now),
+    };
+  }, [startDate, setStartDate, endDate, setEndDate]);
 
   const { hideValues } = useHideValues();
 
@@ -189,6 +214,8 @@ const Table = () => {
       startDate.toLocaleDateString("pt-br"),
       endDate.toLocaleDateString("pt-br"),
     ],
+    defaultFilters,
+    externalFilters: externalFilters as { filters: Record<string, any>; setFilters: any },
     enableExpanding: true,
     enableExpandAll: true,
     enableGrouping: true,
@@ -235,7 +262,10 @@ const Table = () => {
         table={table}
         setSearch={setSearch}
         setPagination={setPagination}
+        filters={filters as Filters}
         setFilters={setFilters}
+        defaultFilters={defaultFilters}
+        dateFilters={dateFilters}
       />
     ),
     renderRowActions: ({ row, table }) => (

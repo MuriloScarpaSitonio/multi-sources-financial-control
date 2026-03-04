@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 
 import { useQuery, type QueryFunction } from "@tanstack/react-query";
 import {
@@ -14,6 +14,11 @@ import { MRT_Localization_PT_BR } from "material-react-table/locales/pt-BR";
 import { Colors, getColor } from "../design-system";
 import { type ApiListResponse } from "../types";
 
+interface ExternalFilters {
+  filters: Record<string, any>;
+  setFilters: Dispatch<SetStateAction<Record<string, any>>> | ((filters: Record<string, any>) => void);
+}
+
 interface TableProps extends TableOptions<any> {
   queryFn: QueryFunction<ApiListResponse<any>>;
   queryKey: string[];
@@ -21,6 +26,7 @@ interface TableProps extends TableOptions<any> {
   defaultFilters?: Record<string, any>;
   columnVisibility?: VisibilityState;
   isLoading?: boolean;
+  externalFilters?: ExternalFilters;
 }
 
 const useTable = ({
@@ -28,6 +34,7 @@ const useTable = ({
   defaultFilters = {},
   isLoading = false,
   columnVisibility,
+  externalFilters,
   ...rest
 }: Omit<TableProps, "data">) => {
   const [search, setSearch] = useState("");
@@ -39,7 +46,11 @@ const useTable = ({
   const [expanded, setExpanded] = useState<ExpandedState>(
     rest.initialState?.expanded ?? {},
   );
-  const [filters, setFilters] = useState(defaultFilters);
+  const [internalFilters, setInternalFilters] = useState(defaultFilters);
+
+  // Use external filters if provided, otherwise use internal state
+  const filters = externalFilters?.filters ?? internalFilters;
+  const setFilters = externalFilters?.setFilters ?? setInternalFilters;
 
   const { queryFn, queryKey, ...props } = rest;
   const {
@@ -128,6 +139,7 @@ const useTable = ({
     expanded,
     filters,
     setFilters,
+    defaultFilters,
   };
 };
 

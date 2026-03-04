@@ -1,7 +1,7 @@
 import type { ApiListResponse, RawDateString } from "../../../../types";
 import type { Filters } from "../types";
 
-import { useContext, useMemo, useState } from "react";
+import { useContext, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -9,6 +9,7 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 
+import { startOfMonth } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   MaterialReactTable,
@@ -35,9 +36,17 @@ import { removeProperties } from "../../../../utils";
 import { EXPENSES_QUERY_KEY } from "../consts";
 import { ExpensesContext } from "../context";
 import { useInvalidateExpenseQueries } from "../hooks";
+import { customEndOfMonth } from "../../utils";
 import DeleteExpenseDialog from "./DeleteExpenseDialog";
 import ExpenseDrawer from "./ExpenseDrawer";
 import TopToolBar from "./ToopToolBar";
+
+interface TableProps {
+  externalFilters: {
+    filters: Filters;
+    setFilters: Dispatch<SetStateAction<Filters>> | ((filters: Filters) => void);
+  };
+}
 
 type GroupedExpense = Expense & { type: string };
 
@@ -115,16 +124,30 @@ const useOnExpenseDeleteSuccess = () => {
   };
 };
 
-const Table = () => {
+const defaultFilters: Filters = {};
+
+const Table = ({ externalFilters }: TableProps) => {
   const [deleteExpense, setDeleteExpense] = useState<
     GroupedExpense | undefined
   >();
   const [editExpense, setEditExpense] = useState<GroupedExpense | undefined>();
 
-  const { startDate, endDate, categories, sources, isRelatedEntitiesLoading } =
+  const { startDate, setStartDate, endDate, setEndDate, categories, sources, isRelatedEntitiesLoading } =
     useContext(ExpensesContext);
 
   const { hideValues } = useHideValues();
+
+  const dateFilters = useMemo(() => {
+    const now = new Date();
+    return {
+      startDate,
+      setStartDate,
+      endDate,
+      setEndDate,
+      defaultStartDate: startOfMonth(now),
+      defaultEndDate: customEndOfMonth(now),
+    };
+  }, [startDate, setStartDate, endDate, setEndDate]);
 
   const columns = useMemo<Column<GroupedExpense>[]>(
     () => [
@@ -241,6 +264,8 @@ const Table = () => {
       startDate.toLocaleDateString("pt-br"),
       endDate.toLocaleDateString("pt-br"),
     ],
+    defaultFilters,
+    externalFilters: externalFilters as { filters: Record<string, any>; setFilters: any },
     enableExpanding: true,
     enableExpandAll: true,
     enableGrouping: true,
@@ -288,7 +313,10 @@ const Table = () => {
         search={search}
         setSearch={setSearch}
         setPagination={setPagination}
+        filters={filters as Filters}
         setFilters={setFilters}
+        defaultFilters={defaultFilters}
+        dateFilters={dateFilters}
       />
     ),
     renderRowActions: ({ row, table }) => (

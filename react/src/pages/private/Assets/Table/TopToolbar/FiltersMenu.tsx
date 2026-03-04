@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction } from "react";
+import { useEffect, type Dispatch, type SetStateAction } from "react";
 
 import Checkbox from "@mui/material/Checkbox";
 import FormControl from "@mui/material/FormControl";
@@ -45,14 +45,16 @@ export const FiltersMenu = ({
   open,
   onClose,
   anchorEl,
+  filters,
   setFilters,
 }: {
   open: boolean;
   onClose: () => void;
   anchorEl: null | HTMLElement;
+  filters: Filters;
   setFilters: Dispatch<SetStateAction<Filters>>;
 }) => {
-  const { control, getValues, watch, setValue } = useForm({
+  const { control, getValues, watch, setValue, reset } = useForm({
     resolver: yupResolver(schema),
     defaultValues: {
       type: [],
@@ -64,6 +66,43 @@ export const FiltersMenu = ({
     mode: "onSubmit",
     reValidateMode: "onSubmit",
   });
+
+  // Sync form state with external filters
+  useEffect(() => {
+    const typeToLabel: Record<string, string> = {
+      STOCK: "Ação BR",
+      STOCK_USA: "Ação EUA",
+      CRYPTO: "Cripto",
+      FII: "FII",
+      FIXED_BR: "Renda fixa BR",
+    };
+    const sectorToLabel: Record<string, string> = {
+      INDUSTRIALS: "Bens industriais",
+      COMMUNICATION: "Comunicações",
+      "CONSUMER DISCRETIONARY": "Consumo não cíclico",
+      "CONSUMER STAPLES": "Consumo cíclico",
+      FINANCIALS: "Financeiro",
+      MATERIALS: "Materiais básicos",
+      "HEALTH CARE": "Saúde",
+      "RAW ENERGY": "Petróleo e derivados",
+      TECH: "Tecnologia",
+      UTILITIES: "Utilidade pública",
+      UNKNOWN: "Desconhecido",
+    };
+    const objectiveToLabel: Record<string, string> = {
+      GROWTH: "Crescimento",
+      DIVIDEND: "Dividendo",
+      UNKNOWN: "Desconhecido",
+    };
+
+    reset({
+      type: (filters.type ?? []).map((v) => ({ label: typeToLabel[v] ?? v, value: v })),
+      sector: (filters.sector ?? []).map((v) => ({ label: sectorToLabel[v] ?? v, value: v })),
+      objective: (filters.objective ?? []).map((v) => ({ label: objectiveToLabel[v] ?? v, value: v })),
+      status: filters.status ?? "OPENED",
+      emergency_fund: filters.emergency_fund ?? false,
+    });
+  }, [filters, reset]);
 
   const {
     type: selectedTypes,

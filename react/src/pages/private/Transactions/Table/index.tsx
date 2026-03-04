@@ -1,7 +1,7 @@
 import type { ApiListResponse, RawDateString } from "../../../../types";
 import type { Filters } from "../types";
 
-import { useContext, useMemo, useState } from "react";
+import { useContext, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -9,6 +9,7 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 
+import { startOfMonth } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   MaterialReactTable,
@@ -27,7 +28,15 @@ import { useInvalidateTransactionsQueries } from "./hooks";
 
 import { AssetCurrencyMap } from "../../Assets/consts";
 import { TransactionsContext } from "../context";
+import { customEndOfMonth } from "../../utils";
 import TopToolBar from "./ToopToolBar";
+
+interface TableProps {
+  externalFilters: {
+    filters: Filters;
+    setFilters: Dispatch<SetStateAction<Filters>> | ((filters: Filters) => void);
+  };
+}
 
 export const useOnTransactionDeleteSuccess = () => {
   const queryClient = useQueryClient();
@@ -60,7 +69,12 @@ export const useOnTransactionDeleteSuccess = () => {
   };
 };
 
-const Table = () => {
+const defaultFilters: Filters = {
+  asset_type: [],
+  action: "",
+};
+
+const Table = ({ externalFilters }: TableProps) => {
   const [deleteTransaction, setDeleteTransaction] = useState<
     Transaction | undefined
   >();
@@ -68,7 +82,20 @@ const Table = () => {
     Transaction | undefined
   >();
 
-  const { startDate, endDate } = useContext(TransactionsContext);
+  const { startDate, setStartDate, endDate, setEndDate } = useContext(TransactionsContext);
+
+  const dateFilters = useMemo(() => {
+    const now = new Date();
+    return {
+      startDate,
+      setStartDate,
+      endDate,
+      setEndDate,
+      defaultStartDate: startOfMonth(now),
+      defaultEndDate: customEndOfMonth(now),
+    };
+  }, [startDate, setStartDate, endDate, setEndDate]);
+
   const columns = useMemo<Column<Transaction>[]>(
     () => [
       {
@@ -141,6 +168,8 @@ const Table = () => {
       startDate.toLocaleDateString("pt-br"),
       endDate.toLocaleDateString("pt-br"),
     ],
+    defaultFilters,
+    externalFilters: externalFilters as { filters: Record<string, any>; setFilters: any },
     positionToolbarAlertBanner: "none",
     defaultPageSize: 100,
     editDisplayMode: "custom",
@@ -171,7 +200,10 @@ const Table = () => {
         search={search}
         setSearch={setSearch}
         setPagination={setPagination}
+        filters={filters as Filters}
         setFilters={setFilters}
+        defaultFilters={defaultFilters}
+        dateFilters={dateFilters}
       />
     ),
     renderRowActions: ({ row }) => (

@@ -1,4 +1,4 @@
-import { useContext, type Dispatch, type SetStateAction } from "react";
+import { useContext, useEffect, type Dispatch, type SetStateAction } from "react";
 
 import { ptBR } from "date-fns/locale/pt-BR";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFnsV3";
@@ -40,17 +40,19 @@ export const FiltersMenu = ({
   open,
   onClose,
   anchorEl,
+  filters,
   setFilters,
 }: {
   open: boolean;
   onClose: () => void;
   anchorEl: null | HTMLElement;
+  filters: Filters;
   setFilters: Dispatch<SetStateAction<Filters>>;
 }) => {
   const { startDate, setStartDate, endDate, setEndDate, setMonth } =
     useContext(TransactionsContext);
 
-  const { control, getValues } = useForm({
+  const { control, getValues, reset } = useForm({
     resolver: yupResolver(schema),
     defaultValues: {
       action: {},
@@ -59,6 +61,23 @@ export const FiltersMenu = ({
     mode: "onSubmit",
     reValidateMode: "onSubmit",
   });
+
+  // Sync form state with external filters
+  useEffect(() => {
+    const assetTypeToLabel: Record<string, string> = {
+      STOCK: "Ação BR",
+      STOCK_USA: "Ação EUA",
+      CRYPTO: "Cripto",
+      FII: "FII",
+      FIXED_BR: "Renda fixa BR",
+    };
+
+    reset({
+      asset_type: (filters.asset_type ?? []).map((v) => ({ label: assetTypeToLabel[v] ?? v, value: v })),
+      // RadioGroup uses string values directly, not objects
+      action: (filters.action ?? "") as unknown as { value?: string; label?: string },
+    });
+  }, [filters, reset]);
 
   const { asset_type: selectedTypes } = getValues();
 
