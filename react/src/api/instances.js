@@ -1,4 +1,5 @@
 import axios from "axios";
+import createAuthRefresh from "axios-auth-refresh";
 
 import { apiProvider } from "./methods";
 
@@ -27,31 +28,19 @@ const logout = () => {
   privateAxios.defaults.headers = {};
 };
 
-privateAxios.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const { config, response } = error;
-    const originalRequest = config;
-    if (response?.status === 401) {
-      return apiProvider
-        .refreshToken()
-        .then(() => {
-          let headers = getAuthHeaders();
-          privateAxios.defaults.headers = headers;
-          originalRequest.headers = headers;
-          if (["put", "patch", "post"].includes(originalRequest.method)) {
-            originalRequest.data = JSON.parse(originalRequest.data);
-          }
-          return privateAxios(originalRequest).then((response) => response);
-        })
-        .catch((err) => {
-          logout();
-          return Promise.reject(err);
-        });
-    }
-    return Promise.reject(error);
-  }
-);
+const refreshAuthLogic = (failedRequest) =>
+  apiProvider
+    .refreshToken()
+    .then(() => {
+      const headers = getAuthHeaders();
+      privateAxios.defaults.headers = headers;
+      failedRequest.response.config.headers = headers;
+    })
+    .catch((err) => {
+      logout();
+      return Promise.reject(err);
+    });
+
+createAuthRefresh(privateAxios, refreshAuthLogic);
 
 export { logout, privateAxios, publicAxios };
-
