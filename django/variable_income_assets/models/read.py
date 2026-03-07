@@ -56,6 +56,15 @@ class AssetReadModel(models.Model):
 
     objects = AssetReadModelQuerySet.as_manager()
 
+    class Meta:
+        indexes = [
+            # Default status filter (always applied, can't be removed by user)
+            # status='OPENED' = quantity_balance > 0 OR normalized_closed_roi = 0
+            # Composite with user_id since queries always filter by user + status
+            models.Index(fields=["user_id", "quantity_balance"]),
+            models.Index(fields=["user_id", "normalized_closed_roi"]),
+        ]
+
     def __str__(self) -> str:  # pragma: no cover
         return f"<AssetReadModel ({self.code} | {self.type} | {self.currency} | {self.user_id})>"
 

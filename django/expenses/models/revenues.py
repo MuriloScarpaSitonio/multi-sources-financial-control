@@ -54,6 +54,13 @@ class Revenue(models.Model):
 
     objects = RevenueQueryset.as_manager()
 
+    class Meta:
+        indexes = [
+            # Default date filter (always applied, can't be removed by user)
+            # Composite with user since queries always filter by user + date range
+            models.Index(fields=["user", "created_at"]),
+        ]
+
     def __str__(self) -> str:  # pragma: no cover
         return f"<Revenue ({self.full_description})>"
 

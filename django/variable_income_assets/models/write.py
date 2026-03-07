@@ -190,6 +190,12 @@ class Transaction(models.Model):
 
     objects = TransactionQuerySet.as_manager()
 
+    class Meta:
+        indexes = [
+            # Default date filter (always applied, can't be removed by user)
+            models.Index(fields=["operation_date"]),
+        ]
+
     def __str__(self) -> str:  # pragma: no cover
         return f"<Transaction {self.action} {self.quantity} {self.asset.code} {self.price}>"
 
@@ -208,6 +214,12 @@ class PassiveIncome(models.Model):
     asset = models.ForeignKey(to=Asset, on_delete=models.CASCADE, related_name="incomes")
 
     objects = PassiveIncomeQuerySet.as_manager()
+
+    class Meta:
+        indexes = [
+            # Default date filter (always applied, can't be removed by user)
+            models.Index(fields=["operation_date"]),
+        ]
 
     def __str__(self) -> str:  # pragma: no cover
         return f"<PassiveIncome {self.type} {self.event_type} {self.asset.code} {self.amount}>"
