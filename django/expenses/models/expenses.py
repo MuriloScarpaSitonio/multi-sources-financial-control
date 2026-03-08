@@ -78,6 +78,11 @@ class Expense(models.Model):
     objects = ExpenseQueryset.as_manager()
 
     class Meta:
+        indexes = [
+            # Default date filter (always applied, can't be removed by user)
+            # Composite with user since queries always filter by user + date range
+            models.Index(fields=["user", "created_at"]),
+        ]
         constraints = [
             models.CheckConstraint(
                 condition=(
