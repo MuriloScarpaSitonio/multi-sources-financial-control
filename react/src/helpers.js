@@ -64,6 +64,9 @@ export function stringToBoolean(value) {
 
 export function setUserDataToLocalStorage(data) {
   for (const [key, value] of Object.entries(data)) {
-    localStorage.setItem("user_" + key, value);
+    localStorage.setItem(
+      "user_" + key,
+      typeof value === "object" && value !== null ? JSON.stringify(value) : value,
+    );
   }
 }

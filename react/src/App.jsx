@@ -21,6 +21,7 @@ import {
   Expenses,
   Home,
   Incomes,
+  Planning,
   Transactions,
   Wrapper as WrapperV2,
 } from "./pages/private";
@@ -246,6 +247,14 @@ export default function App() {
             element={
               <PrivateRoute path="/assets/incomes" v2>
                 <Incomes />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/planning"
+            element={
+              <PrivateRoute path="/planning" v2>
+                <Planning />
               </PrivateRoute>
             }
           />

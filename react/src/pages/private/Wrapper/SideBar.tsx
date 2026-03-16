@@ -10,6 +10,7 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Toolbar from "@mui/material/Toolbar";
 import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
+import CalculateOutlinedIcon from "@mui/icons-material/CalculateOutlined";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import MonetizationOnOutlinedIcon from "@mui/icons-material/MonetizationOnOutlined";
@@ -147,6 +148,45 @@ const InvestmentsMenu = () => {
   );
 };
 
+const PlanningMenu = () => {
+  const [open, setOpen] = useState<boolean>(true);
+
+  const iconColor = getColor(Colors.neutral300);
+  const gap = 3;
+  return (
+    <>
+      <ListItemButton
+        sx={{ pl: gap }}
+        disableGutters
+        onClick={() => setOpen(!open)}
+      >
+        {open ? (
+          <ExpandLess sx={{ color: getColor(Colors.neutral0) }} />
+        ) : (
+          <ExpandMore sx={{ color: getColor(Colors.neutral0) }} />
+        )}
+        <ListItemText
+          primary="Planejamento"
+          sx={{ color: getColor(Colors.neutral0) }}
+        />
+      </ListItemButton>
+      <Collapse in={open} timeout="auto" unmountOnExit>
+        <List component="div" disablePadding>
+          <ListItemButton disableGutters sx={{ pl: gap + 1.5 }} href="/planning">
+            <ListItemIcon sx={{ color: iconColor, minWidth: 32 }}>
+              <CalculateOutlinedIcon />
+            </ListItemIcon>
+            <ListItemText
+              primary="Estratégias"
+              sx={{ color: getColor(Colors.neutral300) }}
+            />
+          </ListItemButton>
+        </List>
+      </Collapse>
+    </>
+  );
+};
+
 const SideBar = () => {
   const isPersonalFinancesModuleEnabled = stringToBoolean(
     localStorage.getItem("user_is_personal_finances_module_enabled"),
@@ -176,6 +216,7 @@ const SideBar = () => {
         <List>
           {isPersonalFinancesModuleEnabled && <FinancesMenus />}
           {isInvestmentsModuleEnabled && <InvestmentsMenu />}
+          {isInvestmentsModuleEnabled && <PlanningMenu />}
         </List>
       </Box>
     </Drawer>

@@ -106,10 +106,19 @@ class IntegrationSecretSerializer(serializers.ModelSerializer):
         return value
 
 
+class PlanningPreferencesSerializer(serializers.Serializer):
+    selected_method = serializers.ChoiceField(
+        choices=["fire", "dividends_only", "constant_withdrawal"],
+        required=False,
+    )
+    show_galeno = serializers.BooleanField(required=False, default=False)
+
+
 class UserSerializer(serializers.ModelSerializer):
     secrets = IntegrationSecretSerializer(required=False, write_only=True)
     password2 = serializers.CharField(required=False, write_only=True, min_length=4)
     trial_will_end_message = serializers.SerializerMethodField()
+    planning_preferences = PlanningPreferencesSerializer(required=False)
 
     class Meta:
         model = UserModel
@@ -130,6 +139,7 @@ class UserSerializer(serializers.ModelSerializer):
             "subscription_status",
             "stripe_subscription_updated_at",
             "credit_card_bill_day",
+            "planning_preferences",
         )
         extra_kwargs = {
             "email": {
@@ -204,6 +214,21 @@ class UserSerializer(serializers.ModelSerializer):
             secrets_serializer.update(
                 instance=instance.secrets, validated_data=validated_data.pop("secrets")
             )
+
+        if "planning_preferences" in validated_data:
+            merged = {
+                **(instance.planning_preferences or {}),
+                **validated_data["planning_preferences"],
+            }
+            if merged.get("show_galeno") and merged.get("selected_method") not in ("fire", "constant_withdrawal"):
+                raise serializers.ValidationError(
+                    {"planning_preferences": {"show_galeno": "Galeno só pode ser ativado com FIRE ou Retirada constante."}}
+                )
+            if merged.get("show_galeno") and "selected_method" not in merged:
+                raise serializers.ValidationError(
+                    {"planning_preferences": {"show_galeno": "Selecione uma estratégia antes de ativar o Galeno."}}
+                )
+            validated_data["planning_preferences"] = merged
 
         validated_data.pop("password", None)
         validated_data.pop("password2", None)
