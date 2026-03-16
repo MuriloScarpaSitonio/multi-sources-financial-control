@@ -73,6 +73,7 @@ class CustomUser(AbstractUser):
     credit_card_bill_day = models.PositiveSmallIntegerField(
         null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(31)]
     )
+    planning_preferences = models.JSONField(default=dict, blank=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]

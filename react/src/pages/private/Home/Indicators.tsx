@@ -1,12 +1,7 @@
 import { useMemo, useState } from "react";
 
 import Grid from "@mui/material/Grid";
-import Skeleton from "@mui/material/Skeleton";
-import Slider from "@mui/material/Slider";
 import Stack from "@mui/material/Stack";
-import Tooltip from "@mui/material/Tooltip";
-import LinearProgress, { linearProgressClasses } from "@mui/material/LinearProgress";
-import { styled } from "@mui/material/styles";
 import MonetizationOnOutlinedIcon from "@mui/icons-material/MonetizationOnOutlined";
 import SvgIcon from "@mui/material/SvgIcon";
 
@@ -15,11 +10,7 @@ import { startOfMonth } from "date-fns";
 import { Indicator } from "../components";
 import {
   Colors,
-  FontSizes,
-  FontWeights,
-  getColor,
   InvestmentUpIcon,
-  Text,
 } from "../../../design-system";
 import { useBankAccountsSummary } from "../Expenses/hooks";
 import { useAssetsIndicators } from "../Assets/Indicators/hooks";
@@ -31,142 +22,27 @@ import ExpensePercentageChangeSecondaryIndicator from "../Expenses/Indicators/Pe
 import { useRevenuesIndicators } from "../Revenues/hooks/useRevenuesIndicators";
 import ExpenseRevenuesRatioLinearProgress from "../Expenses/Indicators/ExpenseRevenuesRatioLinearProgress";
 import { useHideValues } from "../../../hooks/useHideValues";
-
-const FIRELinearProgress = styled(LinearProgress)(({ value }) => ({
-  height: 24,
-  borderRadius: 10,
-  [`&.${linearProgressClasses.colorPrimary}`]: {
-    backgroundColor: getColor(Colors.neutral600),
-  },
-  [`& .${linearProgressClasses.bar}`]: {
-    borderRadius: 10,
-    backgroundColor:
-      value && value >= 100 ? getColor(Colors.brand) : getColor(Colors.danger200),
-  },
-}));
-
-const FIREProgressBar = ({
-  patrimonyTotal,
-  avgExpenses,
-  isLoading,
-  multiplier,
-  onMultiplierChange,
-}: {
-  patrimonyTotal: number;
-  avgExpenses: number;
-  isLoading: boolean;
-  multiplier: number;
-  onMultiplierChange: (value: number) => void;
-}) => {
-  const { hideValues } = useHideValues();
-  const annualExpenses = avgExpenses * 12;
-  const fireNumber = annualExpenses * multiplier;
-  const fireProgress = fireNumber > 0 ? (patrimonyTotal / fireNumber) * 100 : 0;
-  const withdrawalRate = (100 / multiplier).toFixed(1);
-
-  if (isLoading) {
-    return <Skeleton height={48} sx={{ borderRadius: "10px" }} />;
-  }
-
-  const annualExpensesFormatted = hideValues ? "***" : formatCurrency(annualExpenses);
-  const tooltipTitle = `Patrimônio / (despesas anuais × ${multiplier}). Despesas anuais: ${annualExpensesFormatted}. Meta: acumular ${multiplier}x suas despesas anuais para viver dos rendimentos (regra dos ${withdrawalRate}%)`;
-
-  return (
-    <Stack gap={0.5}>
-      <Tooltip title={tooltipTitle} arrow placement="top">
-        <div style={{ position: "relative" }}>
-          <FIRELinearProgress
-            variant="determinate"
-            value={Math.min(fireProgress, 100)}
-          />
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
-            sx={{
-              position: "absolute",
-              top: "50%",
-              left: 0,
-              right: 0,
-              transform: "translateY(-50%)",
-              px: 1.5,
-              textShadow: "0 1px 2px rgba(0, 0, 0, 0.6)",
-            }}
-          >
-            <Text
-              color={Colors.neutral0}
-              weight={FontWeights.MEDIUM}
-              size={FontSizes.SEMI_SMALL}
-            >
-              Independência financeira (FIRE)
-            </Text>
-            {hideValues ? (
-              <Skeleton
-                sx={{
-                  bgcolor: getColor(Colors.neutral300),
-                  width: "60px",
-                }}
-                animation={false}
-              />
-            ) : (
-              <Text
-                color={Colors.neutral0}
-                weight={FontWeights.SEMI_BOLD}
-                size={FontSizes.SEMI_SMALL}
-              >
-                {fireProgress.toFixed(1)}%
-              </Text>
-            )}
-          </Stack>
-        </div>
-      </Tooltip>
-      <Stack direction="row" alignItems="center" gap={2}>
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Multiplicador: {multiplier}x ({withdrawalRate}%)
-        </Text>
-        <Slider
-          value={multiplier}
-          onChange={(_, value) => onMultiplierChange(value as number)}
-          min={25}
-          max={35}
-          step={1}
-          size="medium"
-          sx={{
-            width: 100,
-            "& .MuiSlider-thumb": {
-              width: 14,
-              height: 14,
-              backgroundColor: getColor(Colors.brand500),
-              "&:hover, &.Mui-focusVisible": {
-                boxShadow: `0 0 0 8px ${getColor(Colors.brand500)}33`,
-              },
-            },
-            "& .MuiSlider-track": {
-              backgroundColor: getColor(Colors.brand500),
-              border: "none",
-            },
-            "& .MuiSlider-rail": {
-              backgroundColor: getColor(Colors.brand500),
-            },
-          }}
-        />
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          {multiplier === 25
-            ? "Regra clássica do Trinity Study (30 anos de aposentadoria)."
-            : multiplier <= 28
-              ? "Margem de segurança um pouco maior."
-              : multiplier <= 32
-                ? "Conservador, ideal para aposentadorias de 40+ anos."
-                : "Ultra-conservador, para horizontes de 50+ anos."}
-        </Text>
-      </Stack>
-    </Stack>
-  );
-};
+import { useIncomesAvg } from "../Incomes/Indicators/hooks";
+import { useAssetsReports } from "../Assets/Reports/AssetAggregationReports/hooks";
+import { GroupBy, Kinds } from "../Assets/Reports/types";
+import type { ReportAggregatedByTypeDataItem } from "../Assets/Reports/types";
+import { usePlanningPreferences, useSelectedMethod } from "../Planning/hooks";
+import type { WithdrawalMethodKey } from "../Planning/api";
+import FIREProgressBar from "./FIREProgressBar";
+import DividendsOnlyIndicator from "./DividendsOnlyIndicator";
+import ConstantDollarIndicator from "./ConstantDollarIndicator";
+import GalenoIndicator from "./GalenoIndicator";
 
 const Indicators = () => {
   const { hideValues } = useHideValues();
   const [fireMultiplier, setFireMultiplier] = useState(25);
+  const [realReturn, setRealReturn] = useState(5);
+  const [targetYears, setTargetYears] = useState(30);
+  const [galenoTransferRate, setGalenoTransferRate] = useState(6);
+  const [galenoTargetBufferYears, setGalenoTargetBufferYears] = useState(7);
+  const { selectedMethod } = useSelectedMethod();
+  const { data: preferences } = usePlanningPreferences();
+  const showGaleno = (preferences?.show_galeno ?? false) && selectedMethod !== "dividends_only";
   const { startDate, endDate } = useMemo(() => {
     const now = new Date();
     return {
@@ -197,6 +73,21 @@ const Indicators = () => {
     isPending: isRevenuesIndicatorsLoading,
     isError: isRevenuesIndicatorsError,
   } = useRevenuesIndicators({ startDate, endDate });
+
+  const {
+    data: { avg: avgPassiveIncome } = { avg: 0 },
+    isPending: isIncomesAvgLoading,
+  } = useIncomesAvg({ enabled: selectedMethod === "dividends_only" });
+
+  const {
+    data: assetsReportData,
+    isPending: isReportsLoading,
+  } = useAssetsReports({
+    kind: Kinds.TOTAL_INVESTED,
+    group_by: GroupBy.TYPE,
+    current: true,
+    percentage: false,
+  });
 
   const percentage = useMemo(() => {
     if (expensesIndicators && revenuesIndicators)
@@ -264,13 +155,63 @@ const Indicators = () => {
               sx={{ width: "50%" }}
             />
           </Stack>
-          <FIREProgressBar
-            patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
-            avgExpenses={expensesIndicators?.fire_avg ?? 0}
-            isLoading={isLoading || isExpensesIndicatorsLoading}
-            multiplier={fireMultiplier}
-            onMultiplierChange={setFireMultiplier}
-          />
+          {{
+            fire: (
+              <>
+                <FIREProgressBar
+                  patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
+                  avgExpenses={expensesIndicators?.fire_avg ?? 0}
+                  isLoading={isLoading || isExpensesIndicatorsLoading}
+                  multiplier={fireMultiplier}
+                  onMultiplierChange={setFireMultiplier}
+                />
+                {showGaleno && (
+                  <GalenoIndicator
+                    reportData={(assetsReportData ?? []) as ReportAggregatedByTypeDataItem[]}
+                    bankAmount={bankAmount}
+                    avgExpenses={expensesIndicators?.fire_avg ?? 0}
+                    isLoading={isLoading || isExpensesIndicatorsLoading || isReportsLoading}
+                    transferRate={galenoTransferRate}
+                    onTransferRateChange={setGalenoTransferRate}
+                    targetBufferYears={galenoTargetBufferYears}
+                    onTargetBufferYearsChange={setGalenoTargetBufferYears}
+                  />
+                )}
+              </>
+            ),
+            dividends_only: (
+              <DividendsOnlyIndicator
+                avgPassiveIncome={avgPassiveIncome}
+                avgExpenses={expensesIndicators?.fire_avg ?? 0}
+                isLoading={isLoading || isExpensesIndicatorsLoading || isIncomesAvgLoading}
+              />
+            ),
+            constant_withdrawal: (
+              <>
+                <ConstantDollarIndicator
+                  patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
+                  avgExpenses={expensesIndicators?.fire_avg ?? 0}
+                  isLoading={isLoading || isExpensesIndicatorsLoading}
+                  realReturn={realReturn}
+                  onRealReturnChange={setRealReturn}
+                  targetYears={targetYears}
+                  onTargetYearsChange={setTargetYears}
+                />
+                {showGaleno && (
+                  <GalenoIndicator
+                    reportData={(assetsReportData ?? []) as ReportAggregatedByTypeDataItem[]}
+                    bankAmount={bankAmount}
+                    avgExpenses={expensesIndicators?.fire_avg ?? 0}
+                    isLoading={isLoading || isExpensesIndicatorsLoading || isReportsLoading}
+                    transferRate={galenoTransferRate}
+                    onTransferRateChange={setGalenoTransferRate}
+                    targetBufferYears={galenoTargetBufferYears}
+                    onTargetBufferYearsChange={setGalenoTargetBufferYears}
+                  />
+                )}
+              </>
+            ),
+          }[selectedMethod] satisfies Record<WithdrawalMethodKey, React.ReactNode>[WithdrawalMethodKey]}
         </Stack>
       </Grid>
       <Grid item xs={6}>
