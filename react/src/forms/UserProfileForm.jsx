@@ -16,7 +16,14 @@ import { FormFeedback } from "../components/FormFeedback";
 const schema = yup.object().shape({
   username: yup.string().required("O nome de usuário é obrigatório"),
   email: yup.string().required("O email é obrigatório"),
+  date_of_birth: yup.string(),
 });
+
+const formatDateForApi = (isoDate) => {
+  if (!isoDate) return undefined;
+  const [year, month, day] = isoDate.split("-");
+  return `${day}/${month}/${year}`;
+};
 
 export function UserProfileForm({ initialData }) {
   const [isLoaded, setIsLoaded] = useState(true);
@@ -35,8 +42,14 @@ export function UserProfileForm({ initialData }) {
   const onSubmit = (data) => {
     if (isDirty) {
       setIsLoaded(false);
+      const payload = { ...data };
+      if (payload.date_of_birth) {
+        payload.date_of_birth = formatDateForApi(payload.date_of_birth);
+      } else {
+        delete payload.date_of_birth;
+      }
       new UserApi(initialData.userId)
-        .patch(data)
+        .patch(payload)
         .then(() => {
           setAlertInfos({
             message: "Perfil atualizado com sucesso!",
@@ -95,6 +108,21 @@ export function UserProfileForm({ initialData }) {
                 error={!!errors.email}
                 helperText={errors.email?.message}
                 defaultValue={initialData.email}
+              />
+            )}
+          />
+          <Controller
+            name="date_of_birth"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                margin="normal"
+                label="Data de nascimento"
+                type="date"
+                style={{ width: "100%" }}
+                defaultValue={initialData.dateOfBirth}
+                slotProps={{ inputLabel: { shrink: true } }}
               />
             )}
           />

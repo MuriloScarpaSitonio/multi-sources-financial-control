@@ -32,6 +32,7 @@ import FIREProgressBar from "./FIREProgressBar";
 import DividendsOnlyIndicator from "./DividendsOnlyIndicator";
 import ConstantDollarIndicator from "./ConstantDollarIndicator";
 import GalenoIndicator from "./GalenoIndicator";
+import OneOverNIndicator from "./OneOverNIndicator";
 
 const Indicators = () => {
   const { hideValues } = useHideValues();
@@ -40,8 +41,12 @@ const Indicators = () => {
   const [targetYears, setTargetYears] = useState(30);
   const [galenoTransferRate, setGalenoTransferRate] = useState(6);
   const [galenoTargetBufferYears, setGalenoTargetBufferYears] = useState(7);
+  const [targetDepletionAge, setTargetDepletionAge] = useState(90);
+  const [oneOverNInflation, setOneOverNInflation] = useState(4.5);
   const { selectedMethod } = useSelectedMethod();
-  const { data: preferences } = usePlanningPreferences();
+  const { data: planningData } = usePlanningPreferences();
+  const preferences = planningData?.preferences;
+  const dateOfBirth = planningData?.dateOfBirth ?? null;
   const showGaleno = (preferences?.show_galeno ?? false) && selectedMethod !== "dividends_only";
   const { startDate, endDate } = useMemo(() => {
     const now = new Date();
@@ -183,6 +188,7 @@ const Indicators = () => {
               <DividendsOnlyIndicator
                 avgPassiveIncome={avgPassiveIncome}
                 avgExpenses={expensesIndicators?.fire_avg ?? 0}
+                patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
                 isLoading={isLoading || isExpensesIndicatorsLoading || isIncomesAvgLoading}
               />
             ),
@@ -196,6 +202,34 @@ const Indicators = () => {
                   onRealReturnChange={setRealReturn}
                   targetYears={targetYears}
                   onTargetYearsChange={setTargetYears}
+                />
+                {showGaleno && (
+                  <GalenoIndicator
+                    reportData={(assetsReportData ?? []) as ReportAggregatedByTypeDataItem[]}
+                    bankAmount={bankAmount}
+                    avgExpenses={expensesIndicators?.fire_avg ?? 0}
+                    isLoading={isLoading || isExpensesIndicatorsLoading || isReportsLoading}
+                    transferRate={galenoTransferRate}
+                    onTransferRateChange={setGalenoTransferRate}
+                    targetBufferYears={galenoTargetBufferYears}
+                    onTargetBufferYearsChange={setGalenoTargetBufferYears}
+                  />
+                )}
+              </>
+            ),
+            one_over_n: (
+              <>
+                <OneOverNIndicator
+                  patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
+                  avgExpenses={expensesIndicators?.fire_avg ?? 0}
+                  isLoading={isLoading || isExpensesIndicatorsLoading}
+                  dateOfBirth={dateOfBirth}
+                  targetDepletionAge={targetDepletionAge}
+                  onTargetDepletionAgeChange={setTargetDepletionAge}
+                  realReturn={realReturn}
+                  onRealReturnChange={setRealReturn}
+                  inflation={oneOverNInflation}
+                  onInflationChange={setOneOverNInflation}
                 />
                 {showGaleno && (
                   <GalenoIndicator

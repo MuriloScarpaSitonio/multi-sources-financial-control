@@ -1,19 +1,27 @@
 import { apiProvider } from "../../../api/methods";
 
-export type WithdrawalMethodKey = "fire" | "dividends_only" | "constant_withdrawal";
+export type WithdrawalMethodKey = "fire" | "dividends_only" | "constant_withdrawal" | "one_over_n";
 
 export type PlanningPreferences = {
   selected_method?: WithdrawalMethodKey;
   show_galeno?: boolean;
 };
 
+export type PlanningData = {
+  preferences: PlanningPreferences;
+  dateOfBirth: string | null;
+};
+
 const RESOURCE = "users";
 
 const getUserId = () => localStorage.getItem("user_id");
 
-export const getPlanningPreferences = async (): Promise<PlanningPreferences> => {
+export const getPlanningPreferences = async (): Promise<PlanningData> => {
   const { data } = await apiProvider.get(`${RESOURCE}/${getUserId()}`);
-  return data.planning_preferences ?? {};
+  return {
+    preferences: data.planning_preferences ?? {},
+    dateOfBirth: data.date_of_birth ?? null,
+  };
 };
 
 export const updatePlanningPreferences = async (

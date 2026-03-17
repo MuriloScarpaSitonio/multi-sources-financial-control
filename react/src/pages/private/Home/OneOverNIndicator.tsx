@@ -11,6 +11,7 @@ import { styled } from "@mui/material/styles";
 
 import {
   ComposedChart,
+  Area,
   Line,
   XAxis,
   YAxis,
@@ -62,56 +63,47 @@ const sliderSx = {
   },
 };
 
-const computeYearsUntilDepletion = (
-  portfolio: number,
-  annualExpenses: number,
-  realReturn: number,
-): number => {
-  if (portfolio <= 0 || annualExpenses <= 0) return 0;
-  let balance = portfolio;
-  let years = 0;
-  const maxYears = 100;
-  while (balance > 0 && years < maxYears) {
-    balance = balance * (1 + realReturn) - annualExpenses;
-    years++;
+const computeAge = (dateOfBirth: string): number => {
+  const birth = new Date(dateOfBirth + "T00:00:00");
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
   }
-  return years;
+  return age;
 };
 
 type ProjectionPoint = {
-  year: number;
+  age: number;
   withdrawal: number;
-  portfolio: number;
+  expenses: number;
 };
 
 const computeProjection = (
   portfolio: number,
-  annualExpenses: number,
+  avgMonthlyExpenses: number,
+  currentAge: number,
+  targetAge: number,
   realReturn: number,
-  maxYears: number,
+  inflation: number,
 ): ProjectionPoint[] => {
-  if (annualExpenses <= 0) return [];
   const points: ProjectionPoint[] = [];
   let balance = portfolio;
+  let annualExpenses = avgMonthlyExpenses * 12;
 
-  for (let year = 0; year <= maxYears; year++) {
-    const monthlyWithdrawal = annualExpenses / 12;
+  for (let age = currentAge; age < targetAge; age++) {
+    const remaining = targetAge - age;
+    const monthlyWithdrawal = balance / remaining / 12;
     points.push({
-      year,
-      withdrawal: balance > 0 ? monthlyWithdrawal : 0,
-      portfolio: Math.max(balance, 0),
+      age,
+      withdrawal: monthlyWithdrawal,
+      expenses: annualExpenses / 12,
     });
-    if (balance > 0) {
-      balance = balance * (1 + realReturn) - annualExpenses;
-    }
+    balance = (balance - balance / remaining) * (1 + realReturn / 100);
+    annualExpenses *= 1 + inflation / 100;
   }
   return points;
-};
-
-const numberTickFormatter = (value: number) => {
-  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
-  return value.toFixed(0);
 };
 
 const ChartTooltipContent = ({
@@ -125,6 +117,7 @@ const ChartTooltipContent = ({
 }) => {
   if (!active || !payload?.length) return null;
   const data = payload[0].payload;
+  const gap = data.withdrawal - data.expenses;
   return (
     <Stack
       spacing={0.5}
@@ -135,68 +128,141 @@ const ChartTooltipContent = ({
         backgroundColor: getColor(Colors.neutral600),
       }}
     >
-      <p style={{ color: getColor(Colors.neutral300) }}>Ano {data.year}</p>
+      <p style={{ color: getColor(Colors.neutral300) }}>Idade: {data.age}</p>
       <p style={{ color: getColor(Colors.brand400) }}>
         Retirada: {hideValues ? "***" : formatCurrency(data.withdrawal)}/mês
       </p>
       <p style={{ color: getColor(Colors.danger200) }}>
-        Patrimônio restante: {hideValues ? "***" : formatCurrency(data.portfolio)}
+        Despesas: {hideValues ? "***" : formatCurrency(data.expenses)}/mês
+      </p>
+      <p style={{ color: gap >= 0 ? getColor(Colors.brand) : getColor(Colors.danger200) }}>
+        {gap >= 0 ? "Sobra" : "Falta"}: {hideValues ? "***" : formatCurrency(Math.abs(gap))}/mês
       </p>
     </Stack>
   );
 };
 
-const ConstantDollarIndicator = ({
+const numberTickFormatter = (value: number) => {
+  if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
+  return value.toFixed(0);
+};
+
+const OneOverNIndicator = ({
   patrimonyTotal,
   avgExpenses,
   isLoading,
+  dateOfBirth,
+  targetDepletionAge,
+  onTargetDepletionAgeChange,
   realReturn,
   onRealReturnChange,
-  targetYears,
-  onTargetYearsChange,
+  inflation,
+  onInflationChange,
 }: {
   patrimonyTotal: number;
   avgExpenses: number;
   isLoading: boolean;
+  dateOfBirth: string | null;
+  targetDepletionAge: number;
+  onTargetDepletionAgeChange: (value: number) => void;
   realReturn: number;
   onRealReturnChange: (value: number) => void;
-  targetYears: number;
-  onTargetYearsChange: (value: number) => void;
+  inflation: number;
+  onInflationChange: (value: number) => void;
 }) => {
   const { hideValues } = useHideValues();
   const [simulatedPatrimony, setSimulatedPatrimony] = useState<number | null>(null);
 
   const effectivePatrimony = simulatedPatrimony ?? patrimonyTotal;
 
-  const annualExpenses = avgExpenses * 12;
-  const depletionYears = computeYearsUntilDepletion(
-    effectivePatrimony,
-    annualExpenses,
-    realReturn / 100,
-  );
-  const progress = targetYears > 0 ? (depletionYears / targetYears) * 100 : 0;
+  const currentAge = dateOfBirth ? computeAge(dateOfBirth) : null;
+  const yearsRemaining =
+    currentAge !== null ? targetDepletionAge - currentAge : null;
 
-  const projection = useMemo(
-    () =>
-      computeProjection(
-        effectivePatrimony,
-        annualExpenses,
-        realReturn / 100,
-        targetYears,
-      ),
-    [effectivePatrimony, annualExpenses, realReturn, targetYears],
-  );
+  const projection = useMemo(() => {
+    if (currentAge === null || yearsRemaining === null || yearsRemaining <= 0)
+      return [];
+    return computeProjection(
+      effectivePatrimony,
+      avgExpenses,
+      currentAge,
+      targetDepletionAge,
+      realReturn,
+      inflation,
+    );
+  }, [
+    effectivePatrimony,
+    avgExpenses,
+    currentAge,
+    targetDepletionAge,
+    realReturn,
+    inflation,
+    yearsRemaining,
+  ]);
 
   if (isLoading) {
     return <Skeleton height={48} sx={{ borderRadius: "10px" }} />;
   }
 
-  const monthlyFormatted = hideValues ? "***" : formatCurrency(avgExpenses);
-  const depletionLabel = depletionYears >= 100 ? "100+" : depletionYears;
+  if (!dateOfBirth || currentAge === null) {
+    return (
+      <Stack
+        sx={{
+          height: 24,
+          borderRadius: "10px",
+          backgroundColor: getColor(Colors.neutral600),
+          justifyContent: "center",
+          px: 1.5,
+        }}
+      >
+        <Text
+          color={Colors.neutral300}
+          size={FontSizes.SEMI_SMALL}
+          weight={FontWeights.MEDIUM}
+        >
+          Retirada 1/N — configure sua data de nascimento no perfil
+        </Text>
+      </Stack>
+    );
+  }
+
+  if (yearsRemaining === null || yearsRemaining <= 0) {
+    return (
+      <Stack
+        sx={{
+          height: 24,
+          borderRadius: "10px",
+          backgroundColor: getColor(Colors.danger200),
+          justifyContent: "center",
+          px: 1.5,
+        }}
+      >
+        <Text
+          color={Colors.neutral0}
+          size={FontSizes.SEMI_SMALL}
+          weight={FontWeights.MEDIUM}
+        >
+          Retirada 1/N — idade alvo deve ser maior que sua idade atual (
+          {currentAge})
+        </Text>
+      </Stack>
+    );
+  }
+
+  const withdrawalPct = (1 / yearsRemaining) * 100;
+  const annualWithdrawal = effectivePatrimony / yearsRemaining;
+  const monthlyWithdrawal = annualWithdrawal / 12;
+  const coverage =
+    avgExpenses > 0 ? (monthlyWithdrawal / avgExpenses) * 100 : 0;
+
+  const monthlyFormatted = hideValues
+    ? "***"
+    : formatCurrency(monthlyWithdrawal);
   const tooltipTitle =
-    `Retirada constante: retire suas despesas atuais (${monthlyFormatted}/mês) ajustadas pela inflação. ` +
-    `Com retorno real de ${realReturn.toFixed(1)}% a.a., o portfólio sustenta ${depletionLabel} anos. ` +
-    `Meta: ${targetYears} anos.`;
+    `Retirada 1/N: divida o patrimônio pelos anos restantes. ` +
+    `Idade: ${currentAge}, meta: ${targetDepletionAge}, anos restantes: ${yearsRemaining}. ` +
+    `Retirada: ${withdrawalPct.toFixed(1)}% a.a. (${monthlyFormatted}/mês). ` +
+    `O patrimônio será totalmente consumido até a idade alvo.`;
 
   const patrimonyStep = 50000;
   const patrimonyMax = Math.max(patrimonyTotal * 5, 1000000);
@@ -207,7 +273,7 @@ const ConstantDollarIndicator = ({
         <div style={{ position: "relative" }}>
           <ProgressBar
             variant="determinate"
-            value={Math.min(progress, 100)}
+            value={Math.min(coverage, 100)}
           />
           <Stack
             direction="row"
@@ -228,7 +294,7 @@ const ConstantDollarIndicator = ({
               weight={FontWeights.MEDIUM}
               size={FontSizes.SEMI_SMALL}
             >
-              Retirada constante
+              Retirada 1/N
             </Text>
             {hideValues ? (
               <Skeleton
@@ -244,7 +310,7 @@ const ConstantDollarIndicator = ({
                 weight={FontWeights.SEMI_BOLD}
                 size={FontSizes.SEMI_SMALL}
               >
-                {progress.toFixed(1)}%
+                {coverage.toFixed(1)}%
               </Text>
             )}
           </Stack>
@@ -252,11 +318,24 @@ const ConstantDollarIndicator = ({
       </Tooltip>
       <Stack direction="row" alignItems="center" gap={2}>
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          {depletionLabel} anos estimados · meta: {targetYears} anos ·{" "}
-          {hideValues ? "***" : formatCurrency(avgExpenses)}/mês
+          N = {targetDepletionAge} − {currentAge} = {yearsRemaining} anos · 1/
+          {yearsRemaining} = {withdrawalPct.toFixed(1)}% ·{" "}
+          {hideValues ? "***" : formatCurrency(monthlyWithdrawal)}/mês
         </Text>
       </Stack>
       <Stack direction="row" alignItems="center" gap={2}>
+        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+          Idade alvo: {targetDepletionAge}
+        </Text>
+        <Slider
+          value={targetDepletionAge}
+          onChange={(_, value) => onTargetDepletionAgeChange(value as number)}
+          min={70}
+          max={105}
+          step={1}
+          size="medium"
+          sx={sliderSx}
+        />
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
           Retorno real: {realReturn.toFixed(1)}%
         </Text>
@@ -270,14 +349,14 @@ const ConstantDollarIndicator = ({
           sx={sliderSx}
         />
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Horizonte: {targetYears} anos
+          Inflação: {inflation.toFixed(1)}%
         </Text>
         <Slider
-          value={targetYears}
-          onChange={(_, value) => onTargetYearsChange(value as number)}
-          min={20}
-          max={80}
-          step={5}
+          value={inflation}
+          onChange={(_, value) => onInflationChange(value as number)}
+          min={0}
+          max={10}
+          step={0.5}
           size="medium"
           sx={sliderSx}
         />
@@ -328,7 +407,7 @@ const ConstantDollarIndicator = ({
           </Button>
         )}
       </Stack>
-      {projection.length > 1 && (
+      {projection.length > 0 && (
         <>
           <ResponsiveContainer width="100%" height={200}>
             <ComposedChart
@@ -337,23 +416,13 @@ const ConstantDollarIndicator = ({
             >
               <CartesianGrid strokeDasharray="5" vertical={false} />
               <XAxis
-                dataKey="year"
+                dataKey="age"
                 stroke={getColor(Colors.neutral0)}
                 tickLine={false}
                 tickFormatter={(v) => `${v}`}
               />
               <YAxis
-                yAxisId="left"
-                stroke={getColor(Colors.brand400)}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={numberTickFormatter}
-                tickCount={hideValues ? 0 : undefined}
-              />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                stroke={getColor(Colors.danger200)}
+                stroke={getColor(Colors.neutral0)}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={numberTickFormatter}
@@ -363,23 +432,23 @@ const ConstantDollarIndicator = ({
                 cursor={false}
                 content={<ChartTooltipContent hideValues={hideValues} />}
               />
-              <Line
-                yAxisId="left"
+              <Area
                 type="monotone"
                 dataKey="withdrawal"
                 stroke={getColor(Colors.brand400)}
+                fill={getColor(Colors.brand400)}
+                fillOpacity={0.15}
                 strokeWidth={2}
-                dot={false}
-                name="Retirada mensal"
+                name="Retirada"
               />
               <Line
-                yAxisId="right"
                 type="monotone"
-                dataKey="portfolio"
+                dataKey="expenses"
                 stroke={getColor(Colors.danger200)}
                 strokeWidth={2}
+                strokeDasharray="5 5"
                 dot={false}
-                name="Patrimônio restante"
+                name="Despesas"
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -389,4 +458,4 @@ const ConstantDollarIndicator = ({
   );
 };
 
-export default ConstantDollarIndicator;
+export default OneOverNIndicator;

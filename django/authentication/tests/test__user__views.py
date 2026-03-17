@@ -386,6 +386,8 @@ def test__retrieve(client, user):
             default_stripe_subscription_updated_at
         ).isoformat(),
         "credit_card_bill_day": 5,
+        "planning_preferences": {"show_galeno": False},
+        "date_of_birth": None,
     }
 
 
@@ -565,3 +567,58 @@ def test__unauthorized__inactive(client, user):
 
     # THEN
     assert response.status_code == HTTP_401_UNAUTHORIZED
+
+
+def test__partial_update__planning_preferences__one_over_n(client, user):
+    # GIVEN
+    data = {"planning_preferences": {"selected_method": "one_over_n"}}
+
+    # WHEN
+    response = client.patch(f"{URL}/{user.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    user.refresh_from_db()
+    assert user.planning_preferences["selected_method"] == "one_over_n"
+
+
+def test__partial_update__planning_preferences__one_over_n_with_galeno(client, user):
+    # GIVEN
+    user.planning_preferences = {"selected_method": "one_over_n"}
+    user.save()
+    data = {"planning_preferences": {"show_galeno": True}}
+
+    # WHEN
+    response = client.patch(f"{URL}/{user.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    user.refresh_from_db()
+    assert user.planning_preferences["show_galeno"] is True
+
+
+def test__partial_update__date_of_birth(client, user):
+    # GIVEN
+    data = {"date_of_birth": "15/06/1990"}
+
+    # WHEN
+    response = client.patch(f"{URL}/{user.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    user.refresh_from_db()
+    assert str(user.date_of_birth) == "1990-06-15"
+
+
+def test__retrieve__includes_date_of_birth(client, user):
+    # GIVEN
+    user.subscription_ends_at = timezone.localtime() + timedelta(days=1)
+    user.save()
+
+    # WHEN
+    response = client.get(f"{URL}/{user.pk}")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert "date_of_birth" in response.json()
+    assert response.json()["date_of_birth"] is None
