@@ -217,8 +217,9 @@ class PassiveIncome(models.Model):
 
     class Meta:
         indexes = [
-            # Default date filter (always applied, can't be removed by user)
-            models.Index(fields=["operation_date"]),
+            # Home page: incomes/sum_credited, incomes/avg
+            # filter by asset (joined via user), event_type, and operation_date range
+            models.Index(fields=["asset", "event_type", "operation_date"]),
         ]
 
     def __str__(self) -> str:  # pragma: no cover

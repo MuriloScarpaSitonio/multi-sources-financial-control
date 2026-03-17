@@ -57,6 +57,13 @@ class BankAccountSnapshot(models.Model):
 
     objects = BankAccountSnapshotQuerySet.as_manager()
 
+    class Meta:
+        indexes = [
+            # Home page: bank_accounts/history, patrimony/growth
+            # both filter by user + order/range on operation_date
+            models.Index(fields=["user", "operation_date"]),
+        ]
+
     def __str__(self) -> str:  # pragma: no cover
         return f"<BankAccountSnapshot ({self.user_id} | {self.operation_date} | {self.total})>"
 
