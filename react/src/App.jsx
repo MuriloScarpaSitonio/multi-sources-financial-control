@@ -23,13 +23,14 @@ import {
   Incomes,
   Planning,
   Transactions,
+  User as UserV2,
   Wrapper as WrapperV2,
 } from "./pages/private";
 import { ForgotPassword, Login, Signup } from "./pages/public";
 import { ResetPassword } from "./pages/ResetPassword";
 import Subscription from "./pages/Subscription";
 import { SubscriptionDone } from "./pages/SubscriptionDone";
-import User from "./pages/User";
+// User page is now in pages/private/User (v2 design system)
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -261,8 +262,8 @@ export default function App() {
           <Route
             path="/me"
             element={
-              <PrivateRoute path="/me">
-                <User />
+              <PrivateRoute path="/me" v2>
+                <UserV2 />
               </PrivateRoute>
             }
           />

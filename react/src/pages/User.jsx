@@ -105,6 +105,7 @@ export default function User() {
             userId: localStorage.getItem("user_id"),
             username: localStorage.getItem("user_username"),
             email: localStorage.getItem("user_email"),
+            dateOfBirth: localStorage.getItem("user_date_of_birth") || "",
           }}
         />
       </TabPanel>

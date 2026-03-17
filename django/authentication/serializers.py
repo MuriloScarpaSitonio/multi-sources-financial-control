@@ -108,7 +108,7 @@ class IntegrationSecretSerializer(serializers.ModelSerializer):
 
 class PlanningPreferencesSerializer(serializers.Serializer):
     selected_method = serializers.ChoiceField(
-        choices=["fire", "dividends_only", "constant_withdrawal"],
+        choices=["fire", "dividends_only", "constant_withdrawal", "one_over_n"],
         required=False,
     )
     show_galeno = serializers.BooleanField(required=False, default=False)
@@ -140,6 +140,7 @@ class UserSerializer(serializers.ModelSerializer):
             "stripe_subscription_updated_at",
             "credit_card_bill_day",
             "planning_preferences",
+            "date_of_birth",
         )
         extra_kwargs = {
             "email": {
@@ -220,9 +221,9 @@ class UserSerializer(serializers.ModelSerializer):
                 **(instance.planning_preferences or {}),
                 **validated_data["planning_preferences"],
             }
-            if merged.get("show_galeno") and merged.get("selected_method") not in ("fire", "constant_withdrawal"):
+            if merged.get("show_galeno") and merged.get("selected_method") not in ("fire", "constant_withdrawal", "one_over_n"):
                 raise serializers.ValidationError(
-                    {"planning_preferences": {"show_galeno": "Galeno só pode ser ativado com FIRE ou Retirada constante."}}
+                    {"planning_preferences": {"show_galeno": "Galeno só pode ser ativado com FIRE, Retirada constante ou Retirada 1/N."}}
                 )
             if merged.get("show_galeno") and "selected_method" not in merged:
                 raise serializers.ValidationError(

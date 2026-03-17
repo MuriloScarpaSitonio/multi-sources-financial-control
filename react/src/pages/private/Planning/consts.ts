@@ -89,4 +89,26 @@ export const METHODS: MethodConfig[] = [
       { text: "Exige monitoramento da sustentabilidade ao longo do tempo" },
     ],
   },
+  {
+    key: "one_over_n",
+    title: "Retirada 1/N (Esgotamento planejado)",
+    subtitle:
+      "Divida o patrimônio pelo número de anos restantes até a idade alvo.",
+    rationale:
+      "A cada ano, você retira 1/N do patrimônio, onde N é o número de anos restantes " +
+      "até a idade alvo. A porcentagem de retirada aumenta a cada ano: aos 35 anos com " +
+      "meta de 90, retira-se 1/55 (1,8%); aos 70, retira-se 1/20 (5%). O patrimônio é " +
+      "totalmente consumido na idade alvo — ideal para quem não pretende deixar herança.",
+    pros: [
+      { text: "Cronograma previsível — você sabe exatamente quando o patrimônio acaba" },
+      { text: "Renda nominal cresce a cada ano conforme N diminui, criando um colchão natural contra a inflação" },
+      { text: "Simples de calcular: basta dividir pelo número de anos restantes" },
+    ],
+    cons: [
+      { text: "Patrimônio chega a zero — não sobra herança" },
+      { text: "Risco de viver além da idade alvo sem recursos" },
+      { text: "Retiradas nos primeiros anos podem ser muito baixas" },
+      { text: "Não garante proteção contra inflação — se a inflação superar o crescimento da retirada, o poder de compra cai" },
+    ],
+  },
 ];

@@ -1,4 +1,4 @@
-# ⬜ NOT STARTED — 1/N Withdrawal Method Indicator
+# ✅ COMPLETED — 1/N Withdrawal Method Indicator
 
 ## 1. Method Summary
 
@@ -58,13 +58,13 @@ Below/alongside the existing FIRE progress bar in `react/src/pages/private/Home/
 
 ## 4. Backend Changes Needed
 
-### Option A: Frontend-Only MVP -- RECOMMENDED
-**No backend changes.** Birth year stored in localStorage, all math on frontend.
-
-### Option B: With `date_of_birth` persistence
+### Add `date_of_birth` to `CustomUser`
 - Add `date_of_birth = models.DateField(null=True, blank=True)` to `CustomUser` at `django/authentication/models.py`
 - Migration + serializer update
+- Add `"one_over_n"` to `PlanningPreferencesSerializer.selected_method` choices
 - **Complexity:** Small
+
+This also unlocks the shared prereq for all future age-based methods (VPW, Glide-Path, both Age-in-Bonds).
 
 ---
 
@@ -75,7 +75,8 @@ Below/alongside the existing FIRE progress bar in `react/src/pages/private/Home/
 **Complexity:** Medium
 
 - Accept props or use hooks: `patrimonyTotal`, `avgExpenses`, `isLoading`
-- Internal state for `birthYear` (localStorage-backed) and `targetAge` (default 90, slider 70-105)
+- Uses `date_of_birth` from user profile; if not set, shows prompt to configure it
+- Internal state for `targetAge` (default 90, slider 70-105)
 - Calculate `currentAge`, `yearsRemaining`, `withdrawalPct`, `annualWithdrawal`, `monthlyWithdrawal`
 - Coverage ratio: `monthlyWithdrawal / avgExpenses * 100`
 - If no birth year set, prompt to enter it
@@ -92,7 +93,7 @@ Below/alongside the existing FIRE progress bar in `react/src/pages/private/Home/
 
 ## 6. Edge Cases
 
-1. **No birth year set**: Show prompt to enter it
+1. **No `date_of_birth` set**: Show prompt to configure it in user profile
 2. **years_remaining <= 0**: User's age >= target age. Show warning, suggest increasing target
 3. **years_remaining = 1**: Withdrawal = 100% of portfolio. Valid but show caution
 4. **Very young user (e.g., age 25, target 90)**: 1/65 = 1.5% -- very low withdrawal, which is correct
@@ -119,10 +120,14 @@ This would account for portfolio returns during depletion. Requires assumed retu
 
 | File | Action | Complexity |
 |------|--------|------------|
+| `django/authentication/models.py` | MODIFY | Small |
+| `django/authentication/serializers.py` | MODIFY | Small |
+| `django/authentication/migrations/` | CREATE (auto) | Small |
 | `react/src/pages/private/Home/OneOverNWithdrawalIndicator.tsx` | CREATE | Medium |
 | `react/src/pages/private/Home/Indicators.tsx` | MODIFY | Small |
-
-**No backend changes for MVP.**
+| `react/src/pages/private/Planning/consts.ts` | MODIFY | Small |
+| `react/src/pages/private/Planning/api.ts` | MODIFY | Small |
+| `react/src/pages/private/Planning/index.tsx` | MODIFY | Small |
 
 ---
 
@@ -130,11 +135,12 @@ This would account for portfolio returns during depletion. Requires assumed retu
 
 | Task | Effort |
 |------|--------|
-| Component with birth year input + target slider | 3 hours |
+| `date_of_birth` on model + migration + serializer | 1 hour |
+| Add `one_over_n` to planning preferences + consts | 30 minutes |
+| OneOverNIndicator component with target age slider | 3 hours |
 | 1/N calculation logic | 30 minutes |
-| Integration into Indicators.tsx | 30 minutes |
-| localStorage persistence for birth year | 30 minutes |
+| Integration into Indicators.tsx + Planning page | 30 minutes |
 | Testing and edge cases | 1 hour |
-| **Total** | **~5.5 hours** |
+| **Total** | **~6.5 hours** |
 
-**Overall complexity: Small-Medium. Frontend-only, simplest math of all methods.**
+**Overall complexity: Small-Medium. Simplest math of all methods. Small backend cost for `date_of_birth` pays off as shared prereq for all future age-based methods (VPW, Glide-Path, both Age-in-Bonds).**

@@ -74,6 +74,7 @@ class CustomUser(AbstractUser):
         null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(31)]
     )
     planning_preferences = models.JSONField(default=dict, blank=True)
+    date_of_birth = models.DateField(null=True, blank=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]

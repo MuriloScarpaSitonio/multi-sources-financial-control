@@ -16,6 +16,7 @@ import FIREProgressBar from "../Home/FIREProgressBar";
 import DividendsOnlyIndicator from "../Home/DividendsOnlyIndicator";
 import ConstantDollarIndicator from "../Home/ConstantDollarIndicator";
 import GalenoIndicator from "../Home/GalenoIndicator";
+import OneOverNIndicator from "../Home/OneOverNIndicator";
 import { usePlanningPreferences, useUpdatePlanningPreferences } from "./hooks";
 import type { WithdrawalMethodKey } from "./api";
 import { METHODS, GALENO_RATIONALE, GALENO_PROS, GALENO_CONS } from "./consts";
@@ -29,8 +30,13 @@ const Planning = () => {
   const [galenoTargetBufferYears, setGalenoTargetBufferYears] = useState(7);
   const [localGalenoFire, setLocalGalenoFire] = useState(false);
   const [localGalenoConstant, setLocalGalenoConstant] = useState(false);
+  const [targetDepletionAge, setTargetDepletionAge] = useState(90);
+  const [oneOverNInflation, setOneOverNInflation] = useState(4.5);
+  const [localGalenoOneOverN, setLocalGalenoOneOverN] = useState(false);
 
-  const { data: preferences } = usePlanningPreferences();
+  const { data: planningData } = usePlanningPreferences();
+  const preferences = planningData?.preferences;
+  const dateOfBirth = planningData?.dateOfBirth ?? null;
   const { mutate: updatePreferences, isPending: isUpdating } =
     useUpdatePlanningPreferences();
 
@@ -60,7 +66,7 @@ const Planning = () => {
     percentage: false,
   });
 
-  const validMethods: WithdrawalMethodKey[] = ["fire", "dividends_only", "constant_withdrawal"];
+  const validMethods: WithdrawalMethodKey[] = ["fire", "dividends_only", "constant_withdrawal", "one_over_n"];
   const saved = preferences?.selected_method;
   const selectedMethod: WithdrawalMethodKey =
     saved && validMethods.includes(saved as WithdrawalMethodKey)
@@ -85,6 +91,7 @@ const Planning = () => {
     if (selectedMethod === method) return showGaleno;
     if (method === "fire") return localGalenoFire;
     if (method === "constant_withdrawal") return localGalenoConstant;
+    if (method === "one_over_n") return localGalenoOneOverN;
     return false;
   };
 
@@ -95,6 +102,8 @@ const Planning = () => {
       setLocalGalenoFire(checked);
     } else if (method === "constant_withdrawal") {
       setLocalGalenoConstant(checked);
+    } else if (method === "one_over_n") {
+      setLocalGalenoOneOverN(checked);
     }
   };
 
@@ -147,6 +156,7 @@ const Planning = () => {
       <DividendsOnlyIndicator
         avgPassiveIncome={avgPassiveIncome}
         avgExpenses={avgExpenses}
+        patrimonyTotal={patrimonyTotal}
         isLoading={isDataLoading || isIncomesLoading}
       />
     ),
@@ -162,6 +172,23 @@ const Planning = () => {
           onTargetYearsChange={setTargetYears}
         />
         {galenoToggle("constant_withdrawal")}
+      </>
+    ),
+    one_over_n: (
+      <>
+        <OneOverNIndicator
+          patrimonyTotal={patrimonyTotal}
+          avgExpenses={avgExpenses}
+          isLoading={isDataLoading}
+          dateOfBirth={dateOfBirth}
+          targetDepletionAge={targetDepletionAge}
+          onTargetDepletionAgeChange={setTargetDepletionAge}
+          realReturn={realReturn}
+          onRealReturnChange={setRealReturn}
+          inflation={oneOverNInflation}
+          onInflationChange={setOneOverNInflation}
+        />
+        {galenoToggle("one_over_n")}
       </>
     ),
   };

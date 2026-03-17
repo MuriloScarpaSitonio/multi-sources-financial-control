@@ -14,14 +14,14 @@ export const usePlanningPreferences = () =>
     queryFn: getPlanningPreferences,
   });
 
-const VALID_METHODS: WithdrawalMethodKey[] = ["fire", "dividends_only", "constant_withdrawal"];
+const VALID_METHODS: WithdrawalMethodKey[] = ["fire", "dividends_only", "constant_withdrawal", "one_over_n"];
 
 export const useSelectedMethod = (): {
   selectedMethod: WithdrawalMethodKey;
   isLoading: boolean;
 } => {
   const { data, isPending } = usePlanningPreferences();
-  const saved = data?.selected_method;
+  const saved = data?.preferences.selected_method;
   const selectedMethod = saved && VALID_METHODS.includes(saved as WithdrawalMethodKey)
     ? (saved as WithdrawalMethodKey)
     : "fire";
