@@ -111,6 +111,13 @@ class AssetsTotalInvestedSnapshot(models.Model):
 
     objects = AssetsTotalInvestedSnapshotQuerySet.as_manager()
 
+    class Meta:
+        indexes = [
+            # Home page: assets/indicators, total_invested_history, patrimony/growth
+            # all filter by user + order/range on operation_date
+            models.Index(fields=["user", "operation_date"]),
+        ]
+
     def __str__(self) -> str:  # pragma: no cover
         return (
             f"<AssetsTotalInvestedSnapshot ({self.user_id} | {self.operation_date} | {self.total})>"
