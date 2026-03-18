@@ -33,16 +33,20 @@ import DividendsOnlyIndicator from "./DividendsOnlyIndicator";
 import ConstantDollarIndicator from "./ConstantDollarIndicator";
 import GalenoIndicator from "./GalenoIndicator";
 import OneOverNIndicator from "./OneOverNIndicator";
+import AgeInBondsIndicator from "./AgeInBondsIndicator";
 
 const Indicators = () => {
   const { hideValues } = useHideValues();
-  const [fireMultiplier, setFireMultiplier] = useState(25);
+  const [fireWithdrawalRate, setFireWithdrawalRate] = useState(4);
   const [realReturn, setRealReturn] = useState(5);
   const [targetYears, setTargetYears] = useState(30);
   const [galenoTransferRate, setGalenoTransferRate] = useState(6);
   const [galenoTargetBufferYears, setGalenoTargetBufferYears] = useState(7);
   const [targetDepletionAge, setTargetDepletionAge] = useState(90);
   const [oneOverNInflation, setOneOverNInflation] = useState(4.5);
+  const [ageInBondsWithdrawalRate, setAgeInBondsWithdrawalRate] = useState(4);
+  const [ageInBondsStockReturn, setAgeInBondsStockReturn] = useState(8);
+  const [ageInBondsBondReturn, setAgeInBondsBondReturn] = useState(3);
   const { selectedMethod } = useSelectedMethod();
   const { data: planningData } = usePlanningPreferences();
   const preferences = planningData?.preferences;
@@ -93,6 +97,15 @@ const Indicators = () => {
     current: true,
     percentage: false,
   });
+
+  const { fixedIncomeTotal, variableIncomeTotal } = useMemo(() => {
+    const data = (assetsReportData ?? []) as ReportAggregatedByTypeDataItem[];
+    const fixed = data.find((d) => d.type === "FIXED_BR")?.total ?? 0;
+    const variable = data
+      .filter((d) => ["STOCK", "STOCK_USA", "CRYPTO", "FII"].includes(d.type))
+      .reduce((sum, d) => sum + d.total, 0);
+    return { fixedIncomeTotal: fixed, variableIncomeTotal: variable };
+  }, [assetsReportData]);
 
   const percentage = useMemo(() => {
     if (expensesIndicators && revenuesIndicators)
@@ -167,8 +180,9 @@ const Indicators = () => {
                   patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
                   avgExpenses={expensesIndicators?.fire_avg ?? 0}
                   isLoading={isLoading || isExpensesIndicatorsLoading}
-                  multiplier={fireMultiplier}
-                  onMultiplierChange={setFireMultiplier}
+                  withdrawalRate={fireWithdrawalRate}
+                  onWithdrawalRateChange={setFireWithdrawalRate}
+                  compact
                 />
                 {showGaleno && (
                   <GalenoIndicator
@@ -190,6 +204,7 @@ const Indicators = () => {
                 avgExpenses={expensesIndicators?.fire_avg ?? 0}
                 patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
                 isLoading={isLoading || isExpensesIndicatorsLoading || isIncomesAvgLoading}
+                compact
               />
             ),
             constant_withdrawal: (
@@ -202,6 +217,7 @@ const Indicators = () => {
                   onRealReturnChange={setRealReturn}
                   targetYears={targetYears}
                   onTargetYearsChange={setTargetYears}
+                  compact
                 />
                 {showGaleno && (
                   <GalenoIndicator
@@ -230,6 +246,38 @@ const Indicators = () => {
                   onRealReturnChange={setRealReturn}
                   inflation={oneOverNInflation}
                   onInflationChange={setOneOverNInflation}
+                  compact
+                />
+                {showGaleno && (
+                  <GalenoIndicator
+                    reportData={(assetsReportData ?? []) as ReportAggregatedByTypeDataItem[]}
+                    bankAmount={bankAmount}
+                    avgExpenses={expensesIndicators?.fire_avg ?? 0}
+                    isLoading={isLoading || isExpensesIndicatorsLoading || isReportsLoading}
+                    transferRate={galenoTransferRate}
+                    onTransferRateChange={setGalenoTransferRate}
+                    targetBufferYears={galenoTargetBufferYears}
+                    onTargetBufferYearsChange={setGalenoTargetBufferYears}
+                  />
+                )}
+              </>
+            ),
+            constant_percentage_age_in_bonds: (
+              <>
+                <AgeInBondsIndicator
+                  patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
+                  avgExpenses={expensesIndicators?.fire_avg ?? 0}
+                  isLoading={isLoading || isExpensesIndicatorsLoading || isReportsLoading}
+                  dateOfBirth={dateOfBirth}
+                  fixedIncomeTotal={fixedIncomeTotal}
+                  variableIncomeTotal={variableIncomeTotal}
+                  withdrawalRate={ageInBondsWithdrawalRate}
+                  onWithdrawalRateChange={setAgeInBondsWithdrawalRate}
+                  stockReturn={ageInBondsStockReturn}
+                  onStockReturnChange={setAgeInBondsStockReturn}
+                  bondReturn={ageInBondsBondReturn}
+                  onBondReturnChange={setAgeInBondsBondReturn}
+                  compact
                 />
                 {showGaleno && (
                   <GalenoIndicator

@@ -111,4 +111,26 @@ export const METHODS: MethodConfig[] = [
       { text: "Não garante proteção contra inflação — se a inflação superar o crescimento da retirada, o poder de compra cai" },
     ],
   },
+  {
+    key: "constant_percentage_age_in_bonds",
+    title: "% Constante (Idade em Renda Fixa)",
+    subtitle:
+      "Retire uma porcentagem fixa do patrimônio por ano, ajustando a alocação para que a % em renda fixa acompanhe sua idade.",
+    rationale:
+      "Combina a retirada de porcentagem constante com a regra 'idade em renda fixa': " +
+      "a cada ano, sua alocação em renda fixa é igual à sua idade (ex: 40 anos = 40% RF, 60% RV). " +
+      "Conforme você envelhece, o portfólio fica mais conservador, reduzindo volatilidade. " +
+      "Os retornos são menores, mas mais estáveis — suavizando variações na renda.",
+    pros: [
+      { text: "Alocação se ajusta automaticamente ao risco apropriado para a idade" },
+      { text: "Reduz volatilidade progressivamente — menos exposição a quedas do mercado" },
+      { text: "Retirada percentual se adapta ao tamanho do portfólio (nunca zera abruptamente)" },
+    ],
+    cons: [
+      { text: "Renda varia ano a ano conforme o portfólio cresce ou encolhe" },
+      { text: "Alta alocação em RF em idades avançadas pode não acompanhar a inflação" },
+      { text: "Requer rebalanceamento anual entre RF e RV" },
+      { text: "Regra de alocação por idade pode ser conservadora demais para alguns perfis" },
+    ],
+  },
 ];

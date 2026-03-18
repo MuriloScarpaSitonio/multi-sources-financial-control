@@ -138,14 +138,16 @@ const FIREProgressBar = ({
   patrimonyTotal,
   avgExpenses,
   isLoading,
-  multiplier,
-  onMultiplierChange,
+  withdrawalRate,
+  onWithdrawalRateChange,
+  compact = false,
 }: {
   patrimonyTotal: number;
   avgExpenses: number;
   isLoading: boolean;
-  multiplier: number;
-  onMultiplierChange: (value: number) => void;
+  withdrawalRate: number;
+  onWithdrawalRateChange: (value: number) => void;
+  compact?: boolean;
 }) => {
   const { hideValues } = useHideValues();
   const [simulatedPatrimony, setSimulatedPatrimony] = useState<number | null>(null);
@@ -154,20 +156,20 @@ const FIREProgressBar = ({
 
   const effectivePatrimony = simulatedPatrimony ?? patrimonyTotal;
   const annualExpenses = avgExpenses * 12;
+  const multiplier = 100 / withdrawalRate;
   const fireNumber = annualExpenses * multiplier;
   const fireProgress = fireNumber > 0 ? (effectivePatrimony / fireNumber) * 100 : 0;
-  const withdrawalRate = (100 / multiplier).toFixed(1);
-  const monthlyWithdrawal = effectivePatrimony * (100 / multiplier / 100) / 12;
+  const monthlyWithdrawal = effectivePatrimony * (withdrawalRate / 100) / 12;
 
   const projection = useMemo(
     () =>
       computeProjection(
         effectivePatrimony,
-        100 / multiplier,
+        withdrawalRate,
         realReturn,
         horizon,
       ),
-    [effectivePatrimony, multiplier, realReturn, horizon],
+    [effectivePatrimony, withdrawalRate, realReturn, horizon],
   );
 
   if (isLoading) {
@@ -176,7 +178,7 @@ const FIREProgressBar = ({
 
   const annualExpensesFormatted = hideValues ? "***" : formatCurrency(annualExpenses);
   const monthlyWithdrawalFormatted = hideValues ? "***" : formatCurrency(monthlyWithdrawal);
-  const tooltipTitle = `Patrimônio / (despesas anuais × ${multiplier}). Despesas anuais: ${annualExpensesFormatted}. Meta: acumular ${multiplier}x suas despesas anuais para viver dos rendimentos (regra dos ${withdrawalRate}%). Retirada mensal: ${monthlyWithdrawalFormatted}`;
+  const tooltipTitle = `Regra dos ${withdrawalRate}%: retire ${withdrawalRate}% do patrimônio por ano (${multiplier.toFixed(0)}x despesas anuais). Despesas anuais: ${annualExpensesFormatted}. Retirada mensal: ${monthlyWithdrawalFormatted}`;
 
   const patrimonyStep = 50000;
   const patrimonyMax = Math.max(patrimonyTotal * 5, 1000000);
@@ -232,95 +234,114 @@ const FIREProgressBar = ({
       </Tooltip>
       <Stack direction="row" alignItems="center" gap={2}>
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          {multiplier}x ({withdrawalRate}%) ·{" "}
-          {hideValues ? "***" : formatCurrency(monthlyWithdrawal)}/mês
+          {withdrawalRate}% a.a. ·{" "}
+          {hideValues ? "***" : formatCurrency(monthlyWithdrawal)}/mês ·{" "}
+          {withdrawalRate > 5
+            ? "Agressivo — risco elevado de esgotar o patrimônio."
+            : withdrawalRate > 4
+              ? "Acima da regra clássica — horizonte mais curto ou maior tolerância a risco."
+              : withdrawalRate === 4
+                ? "Regra clássica do Trinity Study (30 anos de aposentadoria)."
+                : withdrawalRate >= 3.5
+                  ? "Margem de segurança um pouco maior."
+                  : withdrawalRate >= 3
+                    ? "Conservador, ideal para aposentadorias de 40+ anos."
+                    : "Ultra-conservador, para horizontes de 50+ anos."}
         </Text>
       </Stack>
       <Stack direction="row" alignItems="center" gap={2}>
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Multiplicador: {multiplier}x
+          Saque: {withdrawalRate}% a.a.
         </Text>
         <Slider
-          value={multiplier}
-          onChange={(_, value) => onMultiplierChange(value as number)}
-          min={25}
-          max={35}
-          step={1}
-          size="medium"
-          sx={sliderSx}
-        />
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Retorno real: {realReturn.toFixed(1)}%
-        </Text>
-        <Slider
-          value={realReturn}
-          onChange={(_, value) => setRealReturn(value as number)}
-          min={1}
-          max={8}
+          value={withdrawalRate}
+          onChange={(_, value) => onWithdrawalRateChange(value as number)}
+          min={2}
+          max={6}
           step={0.5}
           size="medium"
           sx={sliderSx}
         />
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Horizonte: {horizon} anos
-        </Text>
-        <Slider
-          value={horizon}
-          onChange={(_, value) => setHorizon(value as number)}
-          min={10}
-          max={80}
-          step={5}
-          size="medium"
-          sx={sliderSx}
-        />
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400} extraStyle={{ marginLeft: 4 }}>
-          Patrimônio:
-        </Text>
-        <TextField
-          value={effectivePatrimony}
-          onChange={(e) => {
-            const v = Number(e.target.value);
-            if (!isNaN(v) && v >= 0) setSimulatedPatrimony(v);
-          }}
-          size="small"
-          slotProps={{
-            input: {
-              inputComponent: NumberFormat,
-              inputProps: { prefix: "R$ ", decimalScale: 2 },
-            } as any,
-          }}
-          sx={{
-            width: 180,
-            "& .MuiInputBase-input": {
-              color: getColor(Colors.neutral0),
-              fontSize: 12,
-              py: 0.5,
-            },
-            "& .MuiOutlinedInput-root": {
-              "& fieldset": { borderColor: getColor(Colors.neutral600) },
-            },
-          }}
-        />
-        <Slider
-          value={effectivePatrimony}
-          onChange={(_, value) => setSimulatedPatrimony(value as number)}
-          min={0}
-          max={patrimonyMax}
-          step={patrimonyStep}
-          size="medium"
-          sx={{ ...sliderSx, width: 200 }}
-        />
-        {simulatedPatrimony !== null && (
-          <Button
-            variant="brand-text"
-            size="small"
-            onClick={() => setSimulatedPatrimony(null)}
-          >
-            Resetar
-          </Button>
+        {!compact && (
+          <>
+            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+              Retorno real: {realReturn.toFixed(1)}%
+            </Text>
+            <Slider
+              value={realReturn}
+              onChange={(_, value) => setRealReturn(value as number)}
+              min={1}
+              max={8}
+              step={0.5}
+              size="medium"
+              sx={sliderSx}
+            />
+            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+              Horizonte: {horizon} anos
+            </Text>
+            <Slider
+              value={horizon}
+              onChange={(_, value) => setHorizon(value as number)}
+              min={10}
+              max={80}
+              step={5}
+              size="medium"
+              sx={sliderSx}
+            />
+          </>
         )}
       </Stack>
-      {projection.length > 1 && (
+      {!compact && (
+        <Stack direction="row" alignItems="center" gap={2}>
+          <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+            Patrimônio:
+          </Text>
+          <TextField
+            value={effectivePatrimony}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (!isNaN(v) && v >= 0) setSimulatedPatrimony(v);
+            }}
+            size="small"
+            slotProps={{
+              input: {
+                inputComponent: NumberFormat,
+                inputProps: { prefix: "R$ ", decimalScale: 2 },
+              } as any,
+            }}
+            sx={{
+              width: 180,
+              "& .MuiInputBase-input": {
+                color: getColor(Colors.neutral0),
+                fontSize: 12,
+                py: 0.5,
+              },
+              "& .MuiOutlinedInput-root": {
+                "& fieldset": { borderColor: getColor(Colors.neutral600) },
+              },
+            }}
+          />
+          <Slider
+            value={effectivePatrimony}
+            onChange={(_, value) => setSimulatedPatrimony(value as number)}
+            min={0}
+            max={patrimonyMax}
+            step={patrimonyStep}
+            size="medium"
+            sx={{ ...sliderSx, width: 200 }}
+          />
+          {simulatedPatrimony !== null && (
+            <Button
+              variant="brand-text"
+              size="small"
+              onClick={() => setSimulatedPatrimony(null)}
+            >
+              Resetar
+            </Button>
+          )}
+        </Stack>
+      )}
+      {!compact && projection.length > 1 && (
         <ResponsiveContainer width="100%" height={200}>
           <ComposedChart
             data={projection}

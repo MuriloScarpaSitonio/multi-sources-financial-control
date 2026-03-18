@@ -78,30 +78,39 @@ type ProjectionPoint = {
   age: number;
   withdrawal: number;
   expenses: number;
+  portfolio: number;
+  bondPct: number;
 };
 
 const computeProjection = (
   portfolio: number,
   avgMonthlyExpenses: number,
   currentAge: number,
-  targetAge: number,
-  realReturn: number,
-  inflation: number,
+  withdrawalRate: number,
+  stockReturn: number,
+  bondReturn: number,
 ): ProjectionPoint[] => {
   const points: ProjectionPoint[] = [];
   let balance = portfolio;
-  let annualExpenses = avgMonthlyExpenses * 12;
 
-  for (let age = currentAge; age < targetAge; age++) {
-    const remaining = targetAge - age;
-    const monthlyWithdrawal = balance / remaining / 12;
+  for (let age = currentAge; age <= 100 && balance > 0; age++) {
+    const bondPct = Math.min(age, 100);
+    const stockPct = 100 - bondPct;
+    const blendedReturn = (bondPct * bondReturn + stockPct * stockReturn) / 100;
+
+    const annualWithdrawal = balance * (withdrawalRate / 100);
+    const monthlyWithdrawal = annualWithdrawal / 12;
+
     points.push({
       age,
       withdrawal: monthlyWithdrawal,
-      expenses: annualExpenses / 12,
+      expenses: avgMonthlyExpenses,
+      portfolio: balance,
+      bondPct,
     });
-    balance = (balance - balance / remaining) * (1 + realReturn / 100);
-    annualExpenses *= 1 + inflation / 100;
+
+    balance = (balance - annualWithdrawal) * (1 + blendedReturn / 100);
+    if (balance < 0) balance = 0;
   }
   return points;
 };
@@ -128,7 +137,9 @@ const ChartTooltipContent = ({
         backgroundColor: getColor(Colors.neutral600),
       }}
     >
-      <p style={{ color: getColor(Colors.neutral300) }}>Idade: {data.age}</p>
+      <p style={{ color: getColor(Colors.neutral300) }}>
+        Idade: {data.age} ({data.bondPct}% RF / {100 - data.bondPct}% RV)
+      </p>
       <p style={{ color: getColor(Colors.brand400) }}>
         Retirada: {hideValues ? "***" : formatCurrency(data.withdrawal)}/mês
       </p>
@@ -138,38 +149,46 @@ const ChartTooltipContent = ({
       <p style={{ color: gap >= 0 ? getColor(Colors.brand) : getColor(Colors.danger200) }}>
         {gap >= 0 ? "Sobra" : "Falta"}: {hideValues ? "***" : formatCurrency(Math.abs(gap))}/mês
       </p>
+      <p style={{ color: getColor(Colors.neutral300) }}>
+        Patrimônio: {hideValues ? "***" : formatCurrency(data.portfolio)}
+      </p>
     </Stack>
   );
 };
 
 const numberTickFormatter = (value: number) => {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
   return value.toFixed(0);
 };
 
-const OneOverNIndicator = ({
+const AgeInBondsIndicator = ({
   patrimonyTotal,
   avgExpenses,
   isLoading,
   dateOfBirth,
-  targetDepletionAge,
-  onTargetDepletionAgeChange,
-  realReturn,
-  onRealReturnChange,
-  inflation,
-  onInflationChange,
+  fixedIncomeTotal,
+  variableIncomeTotal,
+  withdrawalRate,
+  onWithdrawalRateChange,
+  stockReturn,
+  onStockReturnChange,
+  bondReturn,
+  onBondReturnChange,
   compact = false,
 }: {
   patrimonyTotal: number;
   avgExpenses: number;
   isLoading: boolean;
   dateOfBirth: string | null;
-  targetDepletionAge: number;
-  onTargetDepletionAgeChange: (value: number) => void;
-  realReturn: number;
-  onRealReturnChange: (value: number) => void;
-  inflation: number;
-  onInflationChange: (value: number) => void;
+  fixedIncomeTotal: number;
+  variableIncomeTotal: number;
+  withdrawalRate: number;
+  onWithdrawalRateChange: (value: number) => void;
+  stockReturn: number;
+  onStockReturnChange: (value: number) => void;
+  bondReturn: number;
+  onBondReturnChange: (value: number) => void;
   compact?: boolean;
 }) => {
   const { hideValues } = useHideValues();
@@ -178,29 +197,31 @@ const OneOverNIndicator = ({
   const effectivePatrimony = simulatedPatrimony ?? patrimonyTotal;
 
   const currentAge = dateOfBirth ? computeAge(dateOfBirth) : null;
-  const yearsRemaining =
-    currentAge !== null ? targetDepletionAge - currentAge : null;
+
+  const investmentTotal = fixedIncomeTotal + variableIncomeTotal;
+  const currentBondPct = investmentTotal > 0 ? (fixedIncomeTotal / investmentTotal) * 100 : 0;
+  const targetBondPct = currentAge !== null ? Math.min(currentAge, 100) : 0;
+  const isOnTarget = Math.abs(currentBondPct - targetBondPct) <= 5;
+
+  const rebalanceAmount = investmentTotal > 0
+    ? (targetBondPct / 100) * investmentTotal - fixedIncomeTotal
+    : 0;
+
+  const annualWithdrawal = effectivePatrimony * (withdrawalRate / 100);
+  const monthlyWithdrawal = annualWithdrawal / 12;
+  const coverage = avgExpenses > 0 ? (monthlyWithdrawal / avgExpenses) * 100 : 0;
 
   const projection = useMemo(() => {
-    if (currentAge === null || yearsRemaining === null || yearsRemaining <= 0)
-      return [];
+    if (currentAge === null) return [];
     return computeProjection(
       effectivePatrimony,
       avgExpenses,
       currentAge,
-      targetDepletionAge,
-      realReturn,
-      inflation,
+      withdrawalRate,
+      stockReturn,
+      bondReturn,
     );
-  }, [
-    effectivePatrimony,
-    avgExpenses,
-    currentAge,
-    targetDepletionAge,
-    realReturn,
-    inflation,
-    yearsRemaining,
-  ]);
+  }, [effectivePatrimony, avgExpenses, currentAge, withdrawalRate, stockReturn, bondReturn]);
 
   if (isLoading) {
     return <Skeleton height={48} sx={{ borderRadius: "10px" }} />;
@@ -222,49 +243,18 @@ const OneOverNIndicator = ({
           size={FontSizes.SEMI_SMALL}
           weight={FontWeights.MEDIUM}
         >
-          Retirada 1/N — configure sua data de nascimento no perfil
+          % Constante (Idade em RF) — configure sua data de nascimento no perfil
         </Text>
       </Stack>
     );
   }
 
-  if (yearsRemaining === null || yearsRemaining <= 0) {
-    return (
-      <Stack
-        sx={{
-          height: 24,
-          borderRadius: "10px",
-          backgroundColor: getColor(Colors.danger200),
-          justifyContent: "center",
-          px: 1.5,
-        }}
-      >
-        <Text
-          color={Colors.neutral0}
-          size={FontSizes.SEMI_SMALL}
-          weight={FontWeights.MEDIUM}
-        >
-          Retirada 1/N — idade alvo deve ser maior que sua idade atual (
-          {currentAge})
-        </Text>
-      </Stack>
-    );
-  }
-
-  const withdrawalPct = (1 / yearsRemaining) * 100;
-  const annualWithdrawal = effectivePatrimony / yearsRemaining;
-  const monthlyWithdrawal = annualWithdrawal / 12;
-  const coverage =
-    avgExpenses > 0 ? (monthlyWithdrawal / avgExpenses) * 100 : 0;
-
-  const monthlyFormatted = hideValues
-    ? "***"
-    : formatCurrency(monthlyWithdrawal);
+  const monthlyFormatted = hideValues ? "***" : formatCurrency(monthlyWithdrawal);
   const tooltipTitle =
-    `Retirada 1/N: divida o patrimônio pelos anos restantes. ` +
-    `Idade: ${currentAge}, meta: ${targetDepletionAge}, anos restantes: ${yearsRemaining}. ` +
-    `Retirada: ${withdrawalPct.toFixed(1)}% a.a. (${monthlyFormatted}/mês). ` +
-    `O patrimônio será totalmente consumido até a idade alvo.`;
+    `Retirada % Constante com alocação Idade em Renda Fixa. ` +
+    `Idade: ${currentAge}, meta de RF: ${targetBondPct}%, atual: ${currentBondPct.toFixed(1)}%. ` +
+    `Retirada: ${withdrawalRate}% a.a. (${monthlyFormatted}/mês). ` +
+    `A alocação em renda fixa acompanha sua idade, reduzindo risco progressivamente.`;
 
   const patrimonyStep = 50000;
   const patrimonyMax = Math.max(patrimonyTotal * 5, 1000000);
@@ -296,7 +286,7 @@ const OneOverNIndicator = ({
               weight={FontWeights.MEDIUM}
               size={FontSizes.SEMI_SMALL}
             >
-              Retirada 1/N
+              % Constante (Idade em RF)
             </Text>
             {hideValues ? (
               <Skeleton
@@ -320,46 +310,56 @@ const OneOverNIndicator = ({
       </Tooltip>
       <Stack direction="row" alignItems="center" gap={2}>
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          N = {targetDepletionAge} − {currentAge} = {yearsRemaining} anos · 1/
-          {yearsRemaining} = {withdrawalPct.toFixed(1)}% ·{" "}
-          {hideValues ? "***" : formatCurrency(monthlyWithdrawal)}/mês
+          {withdrawalRate}% a.a. · {hideValues ? "***" : formatCurrency(monthlyWithdrawal)}/mês
+          {" · "}
+          <span style={{ color: getColor(isOnTarget ? Colors.brand : Colors.danger200) }}>
+            RF: {currentBondPct.toFixed(0)}% (meta {targetBondPct}%)
+          </span>
+          {Math.abs(rebalanceAmount) > 0 && !hideValues && (
+            <span>
+              {" · "}
+              {rebalanceAmount > 0
+                ? `Mover ${formatCurrency(rebalanceAmount)} para RF`
+                : `Mover ${formatCurrency(Math.abs(rebalanceAmount))} para RV`}
+            </span>
+          )}
         </Text>
       </Stack>
-      <Stack direction="row" alignItems="center" gap={2}>
+      <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Idade alvo: {targetDepletionAge}
+          Saque: {withdrawalRate}% a.a.
         </Text>
         <Slider
-          value={targetDepletionAge}
-          onChange={(_, value) => onTargetDepletionAgeChange(value as number)}
-          min={70}
-          max={105}
-          step={1}
+          value={withdrawalRate}
+          onChange={(_, value) => onWithdrawalRateChange(value as number)}
+          min={2}
+          max={8}
+          step={0.5}
           size="medium"
           sx={sliderSx}
         />
         {!compact && (
           <>
             <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-              Retorno real: {realReturn.toFixed(1)}%
+              Retorno RV: {stockReturn}%
             </Text>
             <Slider
-              value={realReturn}
-              onChange={(_, value) => onRealReturnChange(value as number)}
-              min={1}
-              max={8}
+              value={stockReturn}
+              onChange={(_, value) => onStockReturnChange(value as number)}
+              min={3}
+              max={15}
               step={0.5}
               size="medium"
               sx={sliderSx}
             />
             <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-              Inflação: {inflation.toFixed(1)}%
+              Retorno RF: {bondReturn}%
             </Text>
             <Slider
-              value={inflation}
-              onChange={(_, value) => onInflationChange(value as number)}
-              min={0}
-              max={10}
+              value={bondReturn}
+              onChange={(_, value) => onBondReturnChange(value as number)}
+              min={1}
+              max={8}
               step={0.5}
               size="medium"
               sx={sliderSx}
@@ -418,54 +418,52 @@ const OneOverNIndicator = ({
         </Stack>
       )}
       {!compact && projection.length > 0 && (
-        <>
-          <ResponsiveContainer width="100%" height={200}>
-            <ComposedChart
-              data={projection}
-              margin={{ top: 10, right: 5, left: 5, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="5" vertical={false} />
-              <XAxis
-                dataKey="age"
-                stroke={getColor(Colors.neutral0)}
-                tickLine={false}
-                tickFormatter={(v) => `${v}`}
-              />
-              <YAxis
-                stroke={getColor(Colors.neutral0)}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={numberTickFormatter}
-                tickCount={hideValues ? 0 : undefined}
-              />
-              <RechartsTooltip
-                cursor={false}
-                content={<ChartTooltipContent hideValues={hideValues} />}
-              />
-              <Area
-                type="monotone"
-                dataKey="withdrawal"
-                stroke={getColor(Colors.brand400)}
-                fill={getColor(Colors.brand400)}
-                fillOpacity={0.15}
-                strokeWidth={2}
-                name="Retirada"
-              />
-              <Line
-                type="monotone"
-                dataKey="expenses"
-                stroke={getColor(Colors.danger200)}
-                strokeWidth={2}
-                strokeDasharray="5 5"
-                dot={false}
-                name="Despesas"
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </>
+        <ResponsiveContainer width="100%" height={200}>
+          <ComposedChart
+            data={projection}
+            margin={{ top: 10, right: 5, left: 5, bottom: 0 }}
+          >
+            <CartesianGrid strokeDasharray="5" vertical={false} />
+            <XAxis
+              dataKey="age"
+              stroke={getColor(Colors.neutral0)}
+              tickLine={false}
+              tickFormatter={(v) => `${v}`}
+            />
+            <YAxis
+              stroke={getColor(Colors.neutral0)}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={numberTickFormatter}
+              tickCount={hideValues ? 0 : undefined}
+            />
+            <RechartsTooltip
+              cursor={false}
+              content={<ChartTooltipContent hideValues={hideValues} />}
+            />
+            <Area
+              type="monotone"
+              dataKey="withdrawal"
+              stroke={getColor(Colors.brand400)}
+              fill={getColor(Colors.brand400)}
+              fillOpacity={0.15}
+              strokeWidth={2}
+              name="Retirada"
+            />
+            <Line
+              type="monotone"
+              dataKey="expenses"
+              stroke={getColor(Colors.danger200)}
+              strokeWidth={2}
+              strokeDasharray="5 5"
+              dot={false}
+              name="Despesas"
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
       )}
     </Stack>
   );
 };
 
-export default OneOverNIndicator;
+export default AgeInBondsIndicator;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Stack from "@mui/material/Stack";
@@ -17,13 +17,14 @@ import DividendsOnlyIndicator from "../Home/DividendsOnlyIndicator";
 import ConstantDollarIndicator from "../Home/ConstantDollarIndicator";
 import GalenoIndicator from "../Home/GalenoIndicator";
 import OneOverNIndicator from "../Home/OneOverNIndicator";
+import AgeInBondsIndicator from "../Home/AgeInBondsIndicator";
 import { usePlanningPreferences, useUpdatePlanningPreferences } from "./hooks";
 import type { WithdrawalMethodKey } from "./api";
 import { METHODS, GALENO_RATIONALE, GALENO_PROS, GALENO_CONS } from "./consts";
 import MethodCard from "./MethodCard";
 
 const Planning = () => {
-  const [fireMultiplier, setFireMultiplier] = useState(25);
+  const [fireWithdrawalRate, setFireWithdrawalRate] = useState(4);
   const [realReturn, setRealReturn] = useState(5);
   const [targetYears, setTargetYears] = useState(30);
   const [galenoTransferRate, setGalenoTransferRate] = useState(6);
@@ -33,6 +34,10 @@ const Planning = () => {
   const [targetDepletionAge, setTargetDepletionAge] = useState(90);
   const [oneOverNInflation, setOneOverNInflation] = useState(4.5);
   const [localGalenoOneOverN, setLocalGalenoOneOverN] = useState(false);
+  const [localGalenoAgeInBonds, setLocalGalenoAgeInBonds] = useState(false);
+  const [ageInBondsWithdrawalRate, setAgeInBondsWithdrawalRate] = useState(4);
+  const [ageInBondsStockReturn, setAgeInBondsStockReturn] = useState(8);
+  const [ageInBondsBondReturn, setAgeInBondsBondReturn] = useState(3);
 
   const { data: planningData } = usePlanningPreferences();
   const preferences = planningData?.preferences;
@@ -66,7 +71,7 @@ const Planning = () => {
     percentage: false,
   });
 
-  const validMethods: WithdrawalMethodKey[] = ["fire", "dividends_only", "constant_withdrawal", "one_over_n"];
+  const validMethods: WithdrawalMethodKey[] = ["fire", "dividends_only", "constant_withdrawal", "one_over_n", "constant_percentage_age_in_bonds"];
   const saved = preferences?.selected_method;
   const selectedMethod: WithdrawalMethodKey =
     saved && validMethods.includes(saved as WithdrawalMethodKey)
@@ -76,6 +81,15 @@ const Planning = () => {
   const patrimonyTotal = (assetsIndicators?.total ?? 0) + bankAmount;
   const avgExpenses = expensesIndicators?.fire_avg ?? 0;
   const isDataLoading = isAssetsLoading || isBankLoading || isExpensesLoading;
+
+  const { fixedIncomeTotal, variableIncomeTotal } = useMemo(() => {
+    const data = (assetsReportData ?? []) as ReportAggregatedByTypeDataItem[];
+    const fixed = data.find((d) => d.type === "FIXED_BR")?.total ?? 0;
+    const variable = data
+      .filter((d) => ["STOCK", "STOCK_USA", "CRYPTO", "FII"].includes(d.type))
+      .reduce((sum, d) => sum + d.total, 0);
+    return { fixedIncomeTotal: fixed, variableIncomeTotal: variable };
+  }, [assetsReportData]);
 
   const showGaleno = preferences?.show_galeno ?? false;
 
@@ -92,6 +106,7 @@ const Planning = () => {
     if (method === "fire") return localGalenoFire;
     if (method === "constant_withdrawal") return localGalenoConstant;
     if (method === "one_over_n") return localGalenoOneOverN;
+    if (method === "constant_percentage_age_in_bonds") return localGalenoAgeInBonds;
     return false;
   };
 
@@ -104,6 +119,8 @@ const Planning = () => {
       setLocalGalenoConstant(checked);
     } else if (method === "one_over_n") {
       setLocalGalenoOneOverN(checked);
+    } else if (method === "constant_percentage_age_in_bonds") {
+      setLocalGalenoAgeInBonds(checked);
     }
   };
 
@@ -146,8 +163,8 @@ const Planning = () => {
           patrimonyTotal={patrimonyTotal}
           avgExpenses={avgExpenses}
           isLoading={isDataLoading}
-          multiplier={fireMultiplier}
-          onMultiplierChange={setFireMultiplier}
+          withdrawalRate={fireWithdrawalRate}
+          onWithdrawalRateChange={setFireWithdrawalRate}
         />
         {galenoToggle("fire")}
       </>
@@ -189,6 +206,25 @@ const Planning = () => {
           onInflationChange={setOneOverNInflation}
         />
         {galenoToggle("one_over_n")}
+      </>
+    ),
+    constant_percentage_age_in_bonds: (
+      <>
+        <AgeInBondsIndicator
+          patrimonyTotal={patrimonyTotal}
+          avgExpenses={avgExpenses}
+          isLoading={isDataLoading || isReportsLoading}
+          dateOfBirth={dateOfBirth}
+          fixedIncomeTotal={fixedIncomeTotal}
+          variableIncomeTotal={variableIncomeTotal}
+          withdrawalRate={ageInBondsWithdrawalRate}
+          onWithdrawalRateChange={setAgeInBondsWithdrawalRate}
+          stockReturn={ageInBondsStockReturn}
+          onStockReturnChange={setAgeInBondsStockReturn}
+          bondReturn={ageInBondsBondReturn}
+          onBondReturnChange={setAgeInBondsBondReturn}
+        />
+        {galenoToggle("constant_percentage_age_in_bonds")}
       </>
     ),
   };

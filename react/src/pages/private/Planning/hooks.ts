@@ -14,7 +14,7 @@ export const usePlanningPreferences = () =>
     queryFn: getPlanningPreferences,
   });
 
-const VALID_METHODS: WithdrawalMethodKey[] = ["fire", "dividends_only", "constant_withdrawal", "one_over_n"];
+const VALID_METHODS: WithdrawalMethodKey[] = ["fire", "dividends_only", "constant_withdrawal", "one_over_n", "constant_percentage_age_in_bonds"];
 
 export const useSelectedMethod = (): {
   selectedMethod: WithdrawalMethodKey;

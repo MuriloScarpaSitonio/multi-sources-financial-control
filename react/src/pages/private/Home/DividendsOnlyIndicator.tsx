@@ -116,11 +116,13 @@ const DividendsOnlyIndicator = ({
   avgExpenses,
   patrimonyTotal,
   isLoading,
+  compact = false,
 }: {
   avgPassiveIncome: number;
   avgExpenses: number;
   patrimonyTotal: number;
   isLoading: boolean;
+  compact?: boolean;
 }) => {
   const { hideValues } = useHideValues();
   const currentYield = patrimonyTotal > 0 ? (avgPassiveIncome * 12 / patrimonyTotal) * 100 : 6;
@@ -239,57 +241,61 @@ const DividendsOnlyIndicator = ({
           size="medium"
           sx={sliderSx}
         />
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400} extraStyle={{ marginLeft: 4 }}>
-          Patrimônio:
-        </Text>
-        <TextField
-          value={effectivePatrimony}
-          onChange={(e) => {
-            const v = Number(e.target.value);
-            if (!isNaN(v) && v >= 0) setSimulatedPatrimony(v);
-          }}
-          size="small"
-          slotProps={{
-            input: {
-              inputComponent: NumberFormat,
-              inputProps: { prefix: "R$ ", decimalScale: 2 },
-            } as any,
-          }}
-          sx={{
-            width: 180,
-            "& .MuiInputBase-input": {
-              color: getColor(Colors.neutral0),
-              fontSize: 12,
-              py: 0.5,
-            },
-            "& .MuiOutlinedInput-root": {
-              "& fieldset": { borderColor: getColor(Colors.neutral600) },
-            },
-          }}
-        />
-        <Slider
-          value={effectivePatrimony}
-          onChange={(_, value) => setSimulatedPatrimony(value as number)}
-          min={0}
-          max={5000000}
-          step={50000}
-          size="medium"
-          sx={{ ...sliderSx, width: 200 }}
-        />
-        {(simulatedPatrimony !== null || simulatedYield !== null) && (
-          <Button
-            variant="brand-text"
-            size="small"
-            onClick={() => {
-              setSimulatedPatrimony(null);
-              setSimulatedYield(null);
-            }}
-          >
-            Resetar
-          </Button>
+        {!compact && (
+          <>
+            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400} extraStyle={{ marginLeft: 4 }}>
+              Patrimônio:
+            </Text>
+            <TextField
+              value={effectivePatrimony}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (!isNaN(v) && v >= 0) setSimulatedPatrimony(v);
+              }}
+              size="small"
+              slotProps={{
+                input: {
+                  inputComponent: NumberFormat,
+                  inputProps: { prefix: "R$ ", decimalScale: 2 },
+                } as any,
+              }}
+              sx={{
+                width: 180,
+                "& .MuiInputBase-input": {
+                  color: getColor(Colors.neutral0),
+                  fontSize: 12,
+                  py: 0.5,
+                },
+                "& .MuiOutlinedInput-root": {
+                  "& fieldset": { borderColor: getColor(Colors.neutral600) },
+                },
+              }}
+            />
+            <Slider
+              value={effectivePatrimony}
+              onChange={(_, value) => setSimulatedPatrimony(value as number)}
+              min={0}
+              max={5000000}
+              step={50000}
+              size="medium"
+              sx={{ ...sliderSx, width: 200 }}
+            />
+            {(simulatedPatrimony !== null || simulatedYield !== null) && (
+              <Button
+                variant="brand-text"
+                size="small"
+                onClick={() => {
+                  setSimulatedPatrimony(null);
+                  setSimulatedYield(null);
+                }}
+              >
+                Resetar
+              </Button>
+            )}
+          </>
         )}
       </Stack>
-      {projection.length > 1 && (
+      {!compact && projection.length > 1 && (
         <ResponsiveContainer width="100%" height={200}>
           <ComposedChart
             data={projection}
