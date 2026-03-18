@@ -113,11 +113,11 @@ class PlanningPreferencesSerializer(serializers.Serializer):
             "dividends_only",
             "constant_withdrawal",
             "one_over_n",
-            "constant_percentage_age_in_bonds",
         ],
         required=False,
     )
     show_galeno = serializers.BooleanField(required=False, default=False)
+    show_age_in_bonds = serializers.BooleanField(required=False, default=False)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -231,7 +231,6 @@ class UserSerializer(serializers.ModelSerializer):
                 "fire",
                 "constant_withdrawal",
                 "one_over_n",
-                "constant_percentage_age_in_bonds",
             ):
                 raise serializers.ValidationError(
                     {
@@ -245,6 +244,25 @@ class UserSerializer(serializers.ModelSerializer):
                     {
                         "planning_preferences": {
                             "show_galeno": "Selecione uma estratégia antes de ativar o Galeno."
+                        }
+                    }
+                )
+            if merged.get("show_age_in_bonds") and merged.get("selected_method") not in (
+                "fire",
+                "constant_withdrawal",
+            ):
+                raise serializers.ValidationError(
+                    {
+                        "planning_preferences": {
+                            "show_age_in_bonds": "Idade em RF só pode ser ativado com Regra dos X% ou Retirada constante."
+                        }
+                    }
+                )
+            if merged.get("show_age_in_bonds") and merged.get("show_galeno"):
+                raise serializers.ValidationError(
+                    {
+                        "planning_preferences": {
+                            "show_age_in_bonds": "Idade em RF e Galeno não podem ser ativados ao mesmo tempo."
                         }
                     }
                 )
