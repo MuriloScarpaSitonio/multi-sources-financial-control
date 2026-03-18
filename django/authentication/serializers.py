@@ -108,7 +108,13 @@ class IntegrationSecretSerializer(serializers.ModelSerializer):
 
 class PlanningPreferencesSerializer(serializers.Serializer):
     selected_method = serializers.ChoiceField(
-        choices=["fire", "dividends_only", "constant_withdrawal", "one_over_n"],
+        choices=[
+            "fire",
+            "dividends_only",
+            "constant_withdrawal",
+            "one_over_n",
+            "constant_percentage_age_in_bonds",
+        ],
         required=False,
     )
     show_galeno = serializers.BooleanField(required=False, default=False)
@@ -221,13 +227,26 @@ class UserSerializer(serializers.ModelSerializer):
                 **(instance.planning_preferences or {}),
                 **validated_data["planning_preferences"],
             }
-            if merged.get("show_galeno") and merged.get("selected_method") not in ("fire", "constant_withdrawal", "one_over_n"):
+            if merged.get("show_galeno") and merged.get("selected_method") not in (
+                "fire",
+                "constant_withdrawal",
+                "one_over_n",
+                "constant_percentage_age_in_bonds",
+            ):
                 raise serializers.ValidationError(
-                    {"planning_preferences": {"show_galeno": "Galeno só pode ser ativado com FIRE, Retirada constante ou Retirada 1/N."}}
+                    {
+                        "planning_preferences": {
+                            "show_galeno": "Galeno só pode ser ativado com FIRE, Retirada constante ou Retirada 1/N."
+                        }
+                    }
                 )
             if merged.get("show_galeno") and "selected_method" not in merged:
                 raise serializers.ValidationError(
-                    {"planning_preferences": {"show_galeno": "Selecione uma estratégia antes de ativar o Galeno."}}
+                    {
+                        "planning_preferences": {
+                            "show_galeno": "Selecione uma estratégia antes de ativar o Galeno."
+                        }
+                    }
                 )
             validated_data["planning_preferences"] = merged
 
