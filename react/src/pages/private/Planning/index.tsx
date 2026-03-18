@@ -18,9 +18,10 @@ import ConstantDollarIndicator from "../Home/ConstantDollarIndicator";
 import GalenoIndicator from "../Home/GalenoIndicator";
 import OneOverNIndicator from "../Home/OneOverNIndicator";
 import AgeInBondsIndicator from "../Home/AgeInBondsIndicator";
+import ConstantDollarAgeInBondsIndicator from "../Home/ConstantDollarAgeInBondsIndicator";
 import { usePlanningPreferences, useUpdatePlanningPreferences } from "./hooks";
 import type { WithdrawalMethodKey } from "./api";
-import { METHODS, GALENO_RATIONALE, GALENO_PROS, GALENO_CONS } from "./consts";
+import { METHODS, GALENO_RATIONALE, GALENO_PROS, GALENO_CONS, AGE_IN_BONDS_RATIONALE, AGE_IN_BONDS_PROS, AGE_IN_BONDS_CONS, AGE_IN_BONDS_TITLES } from "./consts";
 import MethodCard from "./MethodCard";
 
 const Planning = () => {
@@ -34,10 +35,15 @@ const Planning = () => {
   const [targetDepletionAge, setTargetDepletionAge] = useState(90);
   const [oneOverNInflation, setOneOverNInflation] = useState(4.5);
   const [localGalenoOneOverN, setLocalGalenoOneOverN] = useState(false);
-  const [localGalenoAgeInBonds, setLocalGalenoAgeInBonds] = useState(false);
+  const [localAgeInBondsFire, setLocalAgeInBondsFire] = useState(false);
+  const [localAgeInBondsConstant, setLocalAgeInBondsConstant] = useState(false);
   const [ageInBondsWithdrawalRate, setAgeInBondsWithdrawalRate] = useState(4);
   const [ageInBondsStockReturn, setAgeInBondsStockReturn] = useState(8);
   const [ageInBondsBondReturn, setAgeInBondsBondReturn] = useState(3);
+  const [cdAibInflation, setCdAibInflation] = useState(4.5);
+  const [cdAibStockReturn, setCdAibStockReturn] = useState(8);
+  const [cdAibBondReturn, setCdAibBondReturn] = useState(3);
+  const [cdAibTargetYears, setCdAibTargetYears] = useState(30);
 
   const { data: planningData } = usePlanningPreferences();
   const preferences = planningData?.preferences;
@@ -71,7 +77,7 @@ const Planning = () => {
     percentage: false,
   });
 
-  const validMethods: WithdrawalMethodKey[] = ["fire", "dividends_only", "constant_withdrawal", "one_over_n", "constant_percentage_age_in_bonds"];
+  const validMethods: WithdrawalMethodKey[] = ["fire", "dividends_only", "constant_withdrawal", "one_over_n"];
   const saved = preferences?.selected_method;
   const selectedMethod: WithdrawalMethodKey =
     saved && validMethods.includes(saved as WithdrawalMethodKey)
@@ -84,14 +90,15 @@ const Planning = () => {
 
   const { fixedIncomeTotal, variableIncomeTotal } = useMemo(() => {
     const data = (assetsReportData ?? []) as ReportAggregatedByTypeDataItem[];
-    const fixed = data.find((d) => d.type === "FIXED_BR")?.total ?? 0;
+    const fixed = data.find((d) => d.type === "Renda fixa BR")?.total ?? 0;
     const variable = data
-      .filter((d) => ["STOCK", "STOCK_USA", "CRYPTO", "FII"].includes(d.type))
+      .filter((d) => ["Ação BR", "Ação EUA", "Cripto", "FII"].includes(d.type))
       .reduce((sum, d) => sum + d.total, 0);
     return { fixedIncomeTotal: fixed, variableIncomeTotal: variable };
   }, [assetsReportData]);
 
   const showGaleno = preferences?.show_galeno ?? false;
+  const showAgeInBonds = preferences?.show_age_in_bonds ?? false;
 
   const handleSelect = (method: WithdrawalMethodKey) => {
     updatePreferences({ selected_method: method });
@@ -101,12 +108,15 @@ const Planning = () => {
     updatePreferences({ show_galeno: checked });
   };
 
+  const handleToggleAgeInBonds = (checked: boolean) => {
+    updatePreferences({ show_age_in_bonds: checked });
+  };
+
   const isGalenoChecked = (method: WithdrawalMethodKey) => {
     if (selectedMethod === method) return showGaleno;
     if (method === "fire") return localGalenoFire;
     if (method === "constant_withdrawal") return localGalenoConstant;
     if (method === "one_over_n") return localGalenoOneOverN;
-    if (method === "constant_percentage_age_in_bonds") return localGalenoAgeInBonds;
     return false;
   };
 
@@ -119,9 +129,42 @@ const Planning = () => {
       setLocalGalenoConstant(checked);
     } else if (method === "one_over_n") {
       setLocalGalenoOneOverN(checked);
-    } else if (method === "constant_percentage_age_in_bonds") {
-      setLocalGalenoAgeInBonds(checked);
     }
+  };
+
+  const isAgeInBondsChecked = (method: WithdrawalMethodKey) => {
+    if (selectedMethod === method) return showAgeInBonds;
+    if (method === "fire") return localAgeInBondsFire;
+    if (method === "constant_withdrawal") return localAgeInBondsConstant;
+    return false;
+  };
+
+  const handleAgeInBondsChange = (method: WithdrawalMethodKey, checked: boolean) => {
+    if (selectedMethod === method) {
+      handleToggleAgeInBonds(checked);
+    } else if (method === "fire") {
+      setLocalAgeInBondsFire(checked);
+    } else if (method === "constant_withdrawal") {
+      setLocalAgeInBondsConstant(checked);
+    }
+  };
+
+  const ageInBondsToggle = (method: WithdrawalMethodKey) => {
+    const checked = isAgeInBondsChecked(method);
+    return (
+      <FormControlLabel
+        control={
+          <Switch
+            checked={checked}
+            onChange={(_, value) => handleAgeInBondsChange(method, value)}
+            disabled={selectedMethod === method && isUpdating}
+            size="small"
+          />
+        }
+        label="Alocação Idade em Renda Fixa"
+        slotProps={{ typography: { variant: "caption" } }}
+      />
+    );
   };
 
   const galenoProps = {
@@ -159,14 +202,32 @@ const Planning = () => {
   const indicators: Record<WithdrawalMethodKey, React.ReactNode> = {
     fire: (
       <>
-        <FIREProgressBar
-          patrimonyTotal={patrimonyTotal}
-          avgExpenses={avgExpenses}
-          isLoading={isDataLoading}
-          withdrawalRate={fireWithdrawalRate}
-          onWithdrawalRateChange={setFireWithdrawalRate}
-        />
-        {galenoToggle("fire")}
+        {isAgeInBondsChecked("fire") ? (
+          <AgeInBondsIndicator
+            patrimonyTotal={patrimonyTotal}
+            avgExpenses={avgExpenses}
+            isLoading={isDataLoading || isReportsLoading}
+            dateOfBirth={dateOfBirth}
+            fixedIncomeTotal={fixedIncomeTotal}
+            variableIncomeTotal={variableIncomeTotal}
+            withdrawalRate={ageInBondsWithdrawalRate}
+            onWithdrawalRateChange={setAgeInBondsWithdrawalRate}
+            stockReturn={ageInBondsStockReturn}
+            onStockReturnChange={setAgeInBondsStockReturn}
+            bondReturn={ageInBondsBondReturn}
+            onBondReturnChange={setAgeInBondsBondReturn}
+          />
+        ) : (
+          <FIREProgressBar
+            patrimonyTotal={patrimonyTotal}
+            avgExpenses={avgExpenses}
+            isLoading={isDataLoading}
+            withdrawalRate={fireWithdrawalRate}
+            onWithdrawalRateChange={setFireWithdrawalRate}
+          />
+        )}
+        {ageInBondsToggle("fire")}
+        {!isAgeInBondsChecked("fire") && galenoToggle("fire")}
       </>
     ),
     dividends_only: (
@@ -179,16 +240,36 @@ const Planning = () => {
     ),
     constant_withdrawal: (
       <>
-        <ConstantDollarIndicator
-          patrimonyTotal={patrimonyTotal}
-          avgExpenses={avgExpenses}
-          isLoading={isDataLoading}
-          realReturn={realReturn}
-          onRealReturnChange={setRealReturn}
-          targetYears={targetYears}
-          onTargetYearsChange={setTargetYears}
-        />
-        {galenoToggle("constant_withdrawal")}
+        {isAgeInBondsChecked("constant_withdrawal") ? (
+          <ConstantDollarAgeInBondsIndicator
+            patrimonyTotal={patrimonyTotal}
+            avgExpenses={avgExpenses}
+            isLoading={isDataLoading || isReportsLoading}
+            dateOfBirth={dateOfBirth}
+            fixedIncomeTotal={fixedIncomeTotal}
+            variableIncomeTotal={variableIncomeTotal}
+            inflation={cdAibInflation}
+            onInflationChange={setCdAibInflation}
+            stockReturn={cdAibStockReturn}
+            onStockReturnChange={setCdAibStockReturn}
+            bondReturn={cdAibBondReturn}
+            onBondReturnChange={setCdAibBondReturn}
+            targetYears={cdAibTargetYears}
+            onTargetYearsChange={setCdAibTargetYears}
+          />
+        ) : (
+          <ConstantDollarIndicator
+            patrimonyTotal={patrimonyTotal}
+            avgExpenses={avgExpenses}
+            isLoading={isDataLoading}
+            realReturn={realReturn}
+            onRealReturnChange={setRealReturn}
+            targetYears={targetYears}
+            onTargetYearsChange={setTargetYears}
+          />
+        )}
+        {ageInBondsToggle("constant_withdrawal")}
+        {!isAgeInBondsChecked("constant_withdrawal") && galenoToggle("constant_withdrawal")}
       </>
     ),
     one_over_n: (
@@ -208,25 +289,6 @@ const Planning = () => {
         {galenoToggle("one_over_n")}
       </>
     ),
-    constant_percentage_age_in_bonds: (
-      <>
-        <AgeInBondsIndicator
-          patrimonyTotal={patrimonyTotal}
-          avgExpenses={avgExpenses}
-          isLoading={isDataLoading || isReportsLoading}
-          dateOfBirth={dateOfBirth}
-          fixedIncomeTotal={fixedIncomeTotal}
-          variableIncomeTotal={variableIncomeTotal}
-          withdrawalRate={ageInBondsWithdrawalRate}
-          onWithdrawalRateChange={setAgeInBondsWithdrawalRate}
-          stockReturn={ageInBondsStockReturn}
-          onStockReturnChange={setAgeInBondsStockReturn}
-          bondReturn={ageInBondsBondReturn}
-          onBondReturnChange={setAgeInBondsBondReturn}
-        />
-        {galenoToggle("constant_percentage_age_in_bonds")}
-      </>
-    ),
   };
 
   return (
@@ -235,23 +297,25 @@ const Planning = () => {
       {METHODS.map((method) => (
         <MethodCard
           key={method.key}
-          title={method.title}
-          subtitle={method.subtitle}
+          title={isAgeInBondsChecked(method.key) ? (AGE_IN_BONDS_TITLES[method.key]?.title ?? method.title) : method.title}
+          subtitle={isAgeInBondsChecked(method.key) ? (AGE_IN_BONDS_TITLES[method.key]?.subtitle ?? method.subtitle) : method.subtitle}
           rationale={
-            isGalenoChecked(method.key)
-              ? method.rationale + " " + GALENO_RATIONALE
-              : method.rationale
+            [
+              method.rationale,
+              isGalenoChecked(method.key) ? GALENO_RATIONALE : "",
+              isAgeInBondsChecked(method.key) ? AGE_IN_BONDS_RATIONALE : "",
+            ].filter(Boolean).join(" ")
           }
-          pros={
-            isGalenoChecked(method.key)
-              ? [...method.pros, ...GALENO_PROS]
-              : method.pros
-          }
-          cons={
-            isGalenoChecked(method.key)
-              ? [...method.cons, ...GALENO_CONS]
-              : method.cons
-          }
+          pros={[
+            ...method.pros,
+            ...(isGalenoChecked(method.key) ? GALENO_PROS : []),
+            ...(isAgeInBondsChecked(method.key) ? AGE_IN_BONDS_PROS : []),
+          ]}
+          cons={[
+            ...method.cons,
+            ...(isGalenoChecked(method.key) ? GALENO_CONS : []),
+            ...(isAgeInBondsChecked(method.key) ? AGE_IN_BONDS_CONS : []),
+          ]}
           isSelected={selectedMethod === method.key}
           onSelect={() => handleSelect(method.key)}
           isSelectLoading={isUpdating}

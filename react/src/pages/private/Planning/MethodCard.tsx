@@ -17,7 +17,7 @@ import {
   Text,
 } from "../../../design-system";
 
-export type ProConItem = { text: string; galeno?: boolean };
+export type ProConItem = { text: string; galeno?: boolean; ageInBonds?: boolean };
 
 const MethodCard = ({
   title,
