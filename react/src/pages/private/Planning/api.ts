@@ -1,10 +1,11 @@
 import { apiProvider } from "../../../api/methods";
 
-export type WithdrawalMethodKey = "fire" | "dividends_only" | "constant_withdrawal" | "one_over_n" | "constant_percentage_age_in_bonds";
+export type WithdrawalMethodKey = "fire" | "dividends_only" | "constant_withdrawal" | "one_over_n";
 
 export type PlanningPreferences = {
   selected_method?: WithdrawalMethodKey;
   show_galeno?: boolean;
+  show_age_in_bonds?: boolean;
 };
 
 export type PlanningData = {
