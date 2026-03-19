@@ -35,6 +35,7 @@ import GalenoIndicator from "./GalenoIndicator";
 import OneOverNIndicator from "./OneOverNIndicator";
 import AgeInBondsIndicator from "./AgeInBondsIndicator";
 import ConstantDollarAgeInBondsIndicator from "./ConstantDollarAgeInBondsIndicator";
+import VPWIndicator from "./VPWIndicator";
 
 const Indicators = () => {
   const { hideValues } = useHideValues();
@@ -44,7 +45,6 @@ const Indicators = () => {
   const [galenoTransferRate, setGalenoTransferRate] = useState(6);
   const [galenoTargetBufferYears, setGalenoTargetBufferYears] = useState(7);
   const [targetDepletionAge, setTargetDepletionAge] = useState(90);
-  const [oneOverNInflation, setOneOverNInflation] = useState(4.5);
   const [ageInBondsWithdrawalRate, setAgeInBondsWithdrawalRate] = useState(4);
   const [ageInBondsStockReturn, setAgeInBondsStockReturn] = useState(8);
   const [ageInBondsBondReturn, setAgeInBondsBondReturn] = useState(3);
@@ -52,6 +52,9 @@ const Indicators = () => {
   const [cdAibStockReturn, setCdAibStockReturn] = useState(8);
   const [cdAibBondReturn, setCdAibBondReturn] = useState(3);
   const [cdAibTargetYears, setCdAibTargetYears] = useState(30);
+  const [vpwTargetAge, setVpwTargetAge] = useState(100);
+  const [vpwStockReturn, setVpwStockReturn] = useState(5);
+  const [vpwBondReturn, setVpwBondReturn] = useState(1.8);
   const { selectedMethod } = useSelectedMethod();
   const { data: planningData } = usePlanningPreferences();
   const preferences = planningData?.preferences;
@@ -288,8 +291,37 @@ const Indicators = () => {
                   onTargetDepletionAgeChange={setTargetDepletionAge}
                   realReturn={realReturn}
                   onRealReturnChange={setRealReturn}
-                  inflation={oneOverNInflation}
-                  onInflationChange={setOneOverNInflation}
+                  compact
+                />
+                {showGaleno && (
+                  <GalenoIndicator
+                    reportData={(assetsReportData ?? []) as ReportAggregatedByTypeDataItem[]}
+                    bankAmount={bankAmount}
+                    avgExpenses={expensesIndicators?.fire_avg ?? 0}
+                    isLoading={isLoading || isExpensesIndicatorsLoading || isReportsLoading}
+                    transferRate={galenoTransferRate}
+                    onTransferRateChange={setGalenoTransferRate}
+                    targetBufferYears={galenoTargetBufferYears}
+                    onTargetBufferYearsChange={setGalenoTargetBufferYears}
+                  />
+                )}
+              </>
+            ),
+            vpw: (
+              <>
+                <VPWIndicator
+                  patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
+                  avgExpenses={expensesIndicators?.fire_avg ?? 0}
+                  isLoading={isLoading || isExpensesIndicatorsLoading || isReportsLoading}
+                  dateOfBirth={dateOfBirth}
+                  fixedIncomeTotal={fixedIncomeTotal}
+                  variableIncomeTotal={variableIncomeTotal}
+                  targetAge={vpwTargetAge}
+                  onTargetAgeChange={setVpwTargetAge}
+                  stockReturn={vpwStockReturn}
+                  onStockReturnChange={setVpwStockReturn}
+                  bondReturn={vpwBondReturn}
+                  onBondReturnChange={setVpwBondReturn}
                   compact
                 />
                 {showGaleno && (

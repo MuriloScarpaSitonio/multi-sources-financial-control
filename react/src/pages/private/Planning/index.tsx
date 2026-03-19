@@ -19,6 +19,7 @@ import GalenoIndicator from "../Home/GalenoIndicator";
 import OneOverNIndicator from "../Home/OneOverNIndicator";
 import AgeInBondsIndicator from "../Home/AgeInBondsIndicator";
 import ConstantDollarAgeInBondsIndicator from "../Home/ConstantDollarAgeInBondsIndicator";
+import VPWIndicator from "../Home/VPWIndicator";
 import { usePlanningPreferences, useUpdatePlanningPreferences } from "./hooks";
 import type { WithdrawalMethodKey } from "./api";
 import { METHODS, GALENO_RATIONALE, GALENO_PROS, GALENO_CONS, AGE_IN_BONDS_RATIONALE, AGE_IN_BONDS_PROS, AGE_IN_BONDS_CONS, AGE_IN_BONDS_TITLES } from "./consts";
@@ -33,7 +34,6 @@ const Planning = () => {
   const [localGalenoFire, setLocalGalenoFire] = useState(false);
   const [localGalenoConstant, setLocalGalenoConstant] = useState(false);
   const [targetDepletionAge, setTargetDepletionAge] = useState(90);
-  const [oneOverNInflation, setOneOverNInflation] = useState(4.5);
   const [localGalenoOneOverN, setLocalGalenoOneOverN] = useState(false);
   const [localAgeInBondsFire, setLocalAgeInBondsFire] = useState(false);
   const [localAgeInBondsConstant, setLocalAgeInBondsConstant] = useState(false);
@@ -44,6 +44,10 @@ const Planning = () => {
   const [cdAibStockReturn, setCdAibStockReturn] = useState(8);
   const [cdAibBondReturn, setCdAibBondReturn] = useState(3);
   const [cdAibTargetYears, setCdAibTargetYears] = useState(30);
+  const [localGalenoVpw, setLocalGalenoVpw] = useState(false);
+  const [vpwTargetAge, setVpwTargetAge] = useState(100);
+  const [vpwStockReturn, setVpwStockReturn] = useState(5);
+  const [vpwBondReturn, setVpwBondReturn] = useState(1.8);
 
   const { data: planningData } = usePlanningPreferences();
   const preferences = planningData?.preferences;
@@ -77,7 +81,7 @@ const Planning = () => {
     percentage: false,
   });
 
-  const validMethods: WithdrawalMethodKey[] = ["fire", "dividends_only", "constant_withdrawal", "one_over_n"];
+  const validMethods: WithdrawalMethodKey[] = ["fire", "dividends_only", "constant_withdrawal", "one_over_n", "vpw"];
   const saved = preferences?.selected_method;
   const selectedMethod: WithdrawalMethodKey =
     saved && validMethods.includes(saved as WithdrawalMethodKey)
@@ -117,6 +121,7 @@ const Planning = () => {
     if (method === "fire") return localGalenoFire;
     if (method === "constant_withdrawal") return localGalenoConstant;
     if (method === "one_over_n") return localGalenoOneOverN;
+    if (method === "vpw") return localGalenoVpw;
     return false;
   };
 
@@ -129,6 +134,8 @@ const Planning = () => {
       setLocalGalenoConstant(checked);
     } else if (method === "one_over_n") {
       setLocalGalenoOneOverN(checked);
+    } else if (method === "vpw") {
+      setLocalGalenoVpw(checked);
     }
   };
 
@@ -283,10 +290,27 @@ const Planning = () => {
           onTargetDepletionAgeChange={setTargetDepletionAge}
           realReturn={realReturn}
           onRealReturnChange={setRealReturn}
-          inflation={oneOverNInflation}
-          onInflationChange={setOneOverNInflation}
         />
         {galenoToggle("one_over_n")}
+      </>
+    ),
+    vpw: (
+      <>
+        <VPWIndicator
+          patrimonyTotal={patrimonyTotal}
+          avgExpenses={avgExpenses}
+          isLoading={isDataLoading || isReportsLoading}
+          dateOfBirth={dateOfBirth}
+          fixedIncomeTotal={fixedIncomeTotal}
+          variableIncomeTotal={variableIncomeTotal}
+          targetAge={vpwTargetAge}
+          onTargetAgeChange={setVpwTargetAge}
+          stockReturn={vpwStockReturn}
+          onStockReturnChange={setVpwStockReturn}
+          bondReturn={vpwBondReturn}
+          onBondReturnChange={setVpwBondReturn}
+        />
+        {galenoToggle("vpw")}
       </>
     ),
   };

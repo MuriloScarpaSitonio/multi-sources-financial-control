@@ -137,4 +137,26 @@ export const METHODS: MethodConfig[] = [
       { text: "Não garante proteção contra inflação — se a inflação superar o crescimento da retirada, o poder de compra cai" },
     ],
   },
+  {
+    key: "vpw",
+    title: "VPW (Saque % Variável)",
+    subtitle:
+      "A porcentagem de saque aumenta a cada ano conforme você envelhece, consumindo o patrimônio até a idade alvo.",
+    rationale:
+      "O VPW usa a fórmula PMT — a mesma usada por bancos para calcular parcelas de empréstimos. " +
+      "Dado o saldo, o retorno esperado e os anos restantes, a fórmula calcula o saque exato que " +
+      "consome o patrimônio até zero na idade alvo. A porcentagem de saque é recalculada a cada ano " +
+      "com base nos anos restantes e na alocação entre renda variável e fixa. " +
+      "Nos primeiros anos o saque é baixo (~3-4%), crescendo progressivamente (~9-12% aos 80+).",
+    pros: [
+      { text: "Saque se adapta automaticamente à idade e à alocação do portfólio" },
+      { text: "Renda cresce ao longo do tempo — compensa parcialmente a inflação" },
+      { text: "Baseado em fórmula financeira robusta (PMT), não em regras empíricas" },
+    ],
+    cons: [
+      { text: "Renda varia ano a ano conforme o portfólio oscila" },
+      { text: "Patrimônio chega próximo de zero — não sobra herança significativa" },
+      { text: "Risco de longevidade se viver além da idade alvo" },
+    ],
+  },
 ];

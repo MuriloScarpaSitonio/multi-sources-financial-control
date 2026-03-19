@@ -74,10 +74,30 @@ const computeAge = (dateOfBirth: string): number => {
   return age;
 };
 
+const pmt = (rate: number, nper: number, pv: number = -1, fv: number = 0): number => {
+  if (nper <= 0) return 0;
+  if (rate === 0) return -pv / nper;
+  const rateFactor = Math.pow(1 + rate, nper);
+  return (rate * (fv + pv * rateFactor)) / (rateFactor - 1);
+};
+
+const computeVPWRate = (
+  stockPct: number,
+  bondPct: number,
+  yearsRemaining: number,
+  stockReturn: number,
+  bondReturn: number,
+): number => {
+  if (yearsRemaining <= 0) return 100;
+  const realReturn = (stockPct * stockReturn + bondPct * bondReturn) / 100 / 100;
+  return -pmt(realReturn, yearsRemaining) * 100;
+};
+
 type ProjectionPoint = {
   age: number;
   withdrawal: number;
   expenses: number;
+  vpwRate: number;
 };
 
 const computeProjection = (
@@ -85,20 +105,29 @@ const computeProjection = (
   avgMonthlyExpenses: number,
   currentAge: number,
   targetAge: number,
-  realReturn: number,
+  stockPct: number,
+  bondPct: number,
+  stockReturn: number,
+  bondReturn: number,
 ): ProjectionPoint[] => {
   const points: ProjectionPoint[] = [];
   let balance = portfolio;
+  const realReturn = (stockPct * stockReturn + bondPct * bondReturn) / 100 / 100;
 
-  for (let age = currentAge; age < targetAge; age++) {
-    const remaining = targetAge - age;
-    const monthlyWithdrawal = balance / remaining / 12;
+  for (let age = currentAge; age < targetAge && balance > 0; age++) {
+    const yearsRemaining = targetAge - age;
+    const vpwRate = computeVPWRate(stockPct, bondPct, yearsRemaining, stockReturn, bondReturn);
+    const annualWithdrawal = balance * (vpwRate / 100);
+
     points.push({
       age,
-      withdrawal: monthlyWithdrawal,
+      withdrawal: annualWithdrawal / 12,
       expenses: avgMonthlyExpenses,
+      vpwRate,
     });
-    balance = (balance - balance / remaining) * (1 + realReturn / 100);
+
+    balance = (balance - annualWithdrawal) * (1 + realReturn);
+    if (balance < 0) balance = 0;
   }
   return points;
 };
@@ -125,7 +154,9 @@ const ChartTooltipContent = ({
         backgroundColor: getColor(Colors.neutral600),
       }}
     >
-      <p style={{ color: getColor(Colors.neutral300) }}>Idade: {data.age}</p>
+      <p style={{ color: getColor(Colors.neutral300) }}>
+        Idade: {data.age} (VPW: {data.vpwRate.toFixed(1)}%)
+      </p>
       <p style={{ color: getColor(Colors.brand400) }}>
         Retirada: {hideValues ? "***" : formatCurrency(data.withdrawal)}/mês
       </p>
@@ -140,58 +171,72 @@ const ChartTooltipContent = ({
 };
 
 const numberTickFormatter = (value: number) => {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
   return value.toFixed(0);
 };
 
-const OneOverNIndicator = ({
+const VPWIndicator = ({
   patrimonyTotal,
   avgExpenses,
   isLoading,
   dateOfBirth,
-  targetDepletionAge,
-  onTargetDepletionAgeChange,
-  realReturn,
-  onRealReturnChange,
+  fixedIncomeTotal,
+  variableIncomeTotal,
+  targetAge,
+  onTargetAgeChange,
+  stockReturn,
+  onStockReturnChange,
+  bondReturn,
+  onBondReturnChange,
   compact = false,
 }: {
   patrimonyTotal: number;
   avgExpenses: number;
   isLoading: boolean;
   dateOfBirth: string | null;
-  targetDepletionAge: number;
-  onTargetDepletionAgeChange: (value: number) => void;
-  realReturn: number;
-  onRealReturnChange: (value: number) => void;
+  fixedIncomeTotal: number;
+  variableIncomeTotal: number;
+  targetAge: number;
+  onTargetAgeChange: (value: number) => void;
+  stockReturn: number;
+  onStockReturnChange: (value: number) => void;
+  bondReturn: number;
+  onBondReturnChange: (value: number) => void;
   compact?: boolean;
 }) => {
   const { hideValues } = useHideValues();
   const [simulatedPatrimony, setSimulatedPatrimony] = useState<number | null>(null);
 
   const effectivePatrimony = simulatedPatrimony ?? patrimonyTotal;
-
   const currentAge = dateOfBirth ? computeAge(dateOfBirth) : null;
-  const yearsRemaining =
-    currentAge !== null ? targetDepletionAge - currentAge : null;
+
+  const investmentTotal = fixedIncomeTotal + variableIncomeTotal;
+  const stockPct = investmentTotal > 0 ? (variableIncomeTotal / investmentTotal) * 100 : 60;
+  const bondPct = 100 - stockPct;
+
+  const yearsRemaining = currentAge !== null ? targetAge - currentAge : null;
+  const vpwRate = yearsRemaining !== null && yearsRemaining > 0
+    ? computeVPWRate(stockPct, bondPct, yearsRemaining, stockReturn, bondReturn)
+    : 0;
+
+  const annualWithdrawal = effectivePatrimony * (vpwRate / 100);
+  const monthlyWithdrawal = annualWithdrawal / 12;
+  const coverage = avgExpenses > 0 ? (monthlyWithdrawal / avgExpenses) * 100 : 0;
 
   const projection = useMemo(() => {
-    if (currentAge === null || yearsRemaining === null || yearsRemaining <= 0)
-      return [];
+    if (currentAge === null || yearsRemaining === null || yearsRemaining <= 0) return [];
     return computeProjection(
       effectivePatrimony,
       avgExpenses,
       currentAge,
-      targetDepletionAge,
-      realReturn,
+      targetAge,
+      stockPct,
+      bondPct,
+      stockReturn,
+      bondReturn,
     );
-  }, [
-    effectivePatrimony,
-    avgExpenses,
-    currentAge,
-    targetDepletionAge,
-    realReturn,
-    yearsRemaining,
-  ]);
+  }, [effectivePatrimony, avgExpenses, currentAge, targetAge, stockPct, bondPct, stockReturn, bondReturn, yearsRemaining]);
 
   if (isLoading) {
     return <Skeleton height={48} sx={{ borderRadius: "10px" }} />;
@@ -213,7 +258,7 @@ const OneOverNIndicator = ({
           size={FontSizes.SEMI_SMALL}
           weight={FontWeights.MEDIUM}
         >
-          Retirada 1/N — configure sua data de nascimento no perfil
+          VPW — configure sua data de nascimento no perfil
         </Text>
       </Stack>
     );
@@ -235,27 +280,18 @@ const OneOverNIndicator = ({
           size={FontSizes.SEMI_SMALL}
           weight={FontWeights.MEDIUM}
         >
-          Retirada 1/N — idade alvo deve ser maior que sua idade atual (
-          {currentAge})
+          VPW — idade alvo deve ser maior que sua idade atual ({currentAge})
         </Text>
       </Stack>
     );
   }
 
-  const withdrawalPct = (1 / yearsRemaining) * 100;
-  const annualWithdrawal = effectivePatrimony / yearsRemaining;
-  const monthlyWithdrawal = annualWithdrawal / 12;
-  const coverage =
-    avgExpenses > 0 ? (monthlyWithdrawal / avgExpenses) * 100 : 0;
-
-  const monthlyFormatted = hideValues
-    ? "***"
-    : formatCurrency(monthlyWithdrawal);
+  const monthlyFormatted = hideValues ? "***" : formatCurrency(monthlyWithdrawal);
   const tooltipTitle =
-    `Retirada 1/N: divida o patrimônio pelos anos restantes. ` +
-    `Idade: ${currentAge}, meta: ${targetDepletionAge}, anos restantes: ${yearsRemaining}. ` +
-    `Retirada: ${withdrawalPct.toFixed(1)}% a.a. (${monthlyFormatted}/mês). ` +
-    `O patrimônio será totalmente consumido até a idade alvo.`;
+    `VPW: a % de saque aumenta a cada ano conforme você envelhece. ` +
+    `Idade: ${currentAge}, meta: ${targetAge}, anos restantes: ${yearsRemaining}. ` +
+    `Alocação: ${stockPct.toFixed(0)}% RV / ${bondPct.toFixed(0)}% RF. ` +
+    `Saque atual: ${vpwRate.toFixed(1)}% a.a. (${monthlyFormatted}/mês).`;
 
   const patrimonyStep = 50000;
   const patrimonyMax = Math.max(patrimonyTotal * 5, 1000000);
@@ -287,7 +323,7 @@ const OneOverNIndicator = ({
               weight={FontWeights.MEDIUM}
               size={FontSizes.SEMI_SMALL}
             >
-              Retirada 1/N
+              VPW (Saque % Variável)
             </Text>
             {hideValues ? (
               <Skeleton
@@ -311,18 +347,17 @@ const OneOverNIndicator = ({
       </Tooltip>
       <Stack direction="row" alignItems="center" gap={2}>
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          N = {targetDepletionAge} − {currentAge} = {yearsRemaining} anos · 1/
-          {yearsRemaining} = {withdrawalPct.toFixed(1)}% ·{" "}
-          {hideValues ? "***" : formatCurrency(monthlyWithdrawal)}/mês
+          Saque: {vpwRate.toFixed(1)}% a.a. · {hideValues ? "***" : formatCurrency(monthlyWithdrawal)}/mês
+          {" · "}RV: {stockPct.toFixed(0)}% / RF: {bondPct.toFixed(0)}%
         </Text>
       </Stack>
       <Stack direction="row" alignItems="center" gap={2}>
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Idade alvo: {targetDepletionAge}
+          Idade alvo: {targetAge}
         </Text>
         <Slider
-          value={targetDepletionAge}
-          onChange={(_, value) => onTargetDepletionAgeChange(value as number)}
+          value={targetAge}
+          onChange={(_, value) => onTargetAgeChange(value as number)}
           min={70}
           max={105}
           step={1}
@@ -332,115 +367,129 @@ const OneOverNIndicator = ({
         {!compact && (
           <>
             <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-              Retorno real: {realReturn.toFixed(1)}%
+              Retorno RV: {stockReturn}%
             </Text>
             <Slider
-              value={realReturn}
-              onChange={(_, value) => onRealReturnChange(value as number)}
+              value={stockReturn}
+              onChange={(_, value) => onStockReturnChange(value as number)}
+              min={3}
+              max={15}
+              step={0.5}
+              size="medium"
+              sx={sliderSx}
+            />
+            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+              Retorno RF: {bondReturn}%
+            </Text>
+            <Slider
+              value={bondReturn}
+              onChange={(_, value) => onBondReturnChange(value as number)}
               min={1}
               max={8}
               step={0.5}
               size="medium"
               sx={sliderSx}
             />
-            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-              Patrimônio:
-            </Text>
-            <TextField
-              value={effectivePatrimony}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                if (!isNaN(v) && v >= 0) setSimulatedPatrimony(v);
-              }}
-              size="small"
-              slotProps={{
-                input: {
-                  inputComponent: NumberFormat,
-                  inputProps: { prefix: "R$ ", decimalScale: 2 },
-                } as any,
-              }}
-              sx={{
-                width: 180,
-                "& .MuiInputBase-input": {
-                  color: getColor(Colors.neutral0),
-                  fontSize: 12,
-                  py: 0.5,
-                },
-                "& .MuiOutlinedInput-root": {
-                  "& fieldset": { borderColor: getColor(Colors.neutral600) },
-                },
-              }}
-            />
-            <Slider
-              value={effectivePatrimony}
-              onChange={(_, value) => setSimulatedPatrimony(value as number)}
-              min={0}
-              max={patrimonyMax}
-              step={patrimonyStep}
-              size="medium"
-              sx={{ ...sliderSx, width: 200 }}
-            />
-            {simulatedPatrimony !== null && (
-              <Button
-                variant="brand-text"
-                size="small"
-                onClick={() => setSimulatedPatrimony(null)}
-              >
-                Resetar
-              </Button>
-            )}
           </>
         )}
       </Stack>
-      {!compact && projection.length > 0 && (
-        <>
-          <ResponsiveContainer width="100%" height={200}>
-            <ComposedChart
-              data={projection}
-              margin={{ top: 10, right: 5, left: 5, bottom: 0 }}
+      {!compact && (
+        <Stack direction="row" alignItems="center" gap={2}>
+          <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+            Patrimônio:
+          </Text>
+          <TextField
+            value={effectivePatrimony}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (!isNaN(v) && v >= 0) setSimulatedPatrimony(v);
+            }}
+            size="small"
+            slotProps={{
+              input: {
+                inputComponent: NumberFormat,
+                inputProps: { prefix: "R$ ", decimalScale: 2 },
+              } as any,
+            }}
+            sx={{
+              width: 180,
+              "& .MuiInputBase-input": {
+                color: getColor(Colors.neutral0),
+                fontSize: 12,
+                py: 0.5,
+              },
+              "& .MuiOutlinedInput-root": {
+                "& fieldset": { borderColor: getColor(Colors.neutral600) },
+              },
+            }}
+          />
+          <Slider
+            value={effectivePatrimony}
+            onChange={(_, value) => setSimulatedPatrimony(value as number)}
+            min={0}
+            max={patrimonyMax}
+            step={patrimonyStep}
+            size="medium"
+            sx={{ ...sliderSx, width: 200 }}
+          />
+          {simulatedPatrimony !== null && (
+            <Button
+              variant="brand-text"
+              size="small"
+              onClick={() => setSimulatedPatrimony(null)}
             >
-              <CartesianGrid strokeDasharray="5" vertical={false} />
-              <XAxis
-                dataKey="age"
-                stroke={getColor(Colors.neutral0)}
-                tickLine={false}
-                tickFormatter={(v) => `${v}`}
-              />
-              <YAxis
-                stroke={getColor(Colors.neutral0)}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={numberTickFormatter}
-                tickCount={hideValues ? 0 : undefined}
-              />
-              <RechartsTooltip
-                cursor={false}
-                content={<ChartTooltipContent hideValues={hideValues} />}
-              />
-              <Area
-                type="monotone"
-                dataKey="withdrawal"
-                stroke={getColor(Colors.brand400)}
-                fill={getColor(Colors.brand400)}
-                fillOpacity={0.15}
-                strokeWidth={2}
-                name="Retirada"
-              />
-              <Line
-                type="monotone"
-                dataKey="expenses"
-                stroke={getColor(Colors.danger200)}
-                strokeWidth={2}
-                strokeDasharray="5 5"
-                dot={false}
-                name="Despesas"
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </>
+              Resetar
+            </Button>
+          )}
+        </Stack>
+      )}
+      {!compact && projection.length > 0 && (
+        <ResponsiveContainer width="100%" height={200}>
+          <ComposedChart
+            data={projection}
+            margin={{ top: 10, right: 5, left: 5, bottom: 0 }}
+          >
+            <CartesianGrid strokeDasharray="5" vertical={false} />
+            <XAxis
+              dataKey="age"
+              stroke={getColor(Colors.neutral0)}
+              tickLine={false}
+              tickFormatter={(v) => `${v}`}
+            />
+            <YAxis
+              stroke={getColor(Colors.neutral0)}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={numberTickFormatter}
+              tickCount={hideValues ? 0 : undefined}
+            />
+            <RechartsTooltip
+              cursor={false}
+              content={<ChartTooltipContent hideValues={hideValues} />}
+            />
+            <Area
+              type="monotone"
+              dataKey="withdrawal"
+              stroke={getColor(Colors.brand400)}
+              fill={getColor(Colors.brand400)}
+              fillOpacity={0.15}
+              strokeWidth={2}
+              name="Retirada"
+            />
+            <Line
+              type="monotone"
+              dataKey="expenses"
+              stroke={getColor(Colors.danger200)}
+              strokeWidth={2}
+              strokeDasharray="5 5"
+              dot={false}
+              name="Despesas"
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
       )}
     </Stack>
   );
 };
 
-export default OneOverNIndicator;
+export default VPWIndicator;

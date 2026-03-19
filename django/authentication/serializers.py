@@ -113,6 +113,7 @@ class PlanningPreferencesSerializer(serializers.Serializer):
             "dividends_only",
             "constant_withdrawal",
             "one_over_n",
+            "vpw",
         ],
         required=False,
     )
@@ -231,11 +232,12 @@ class UserSerializer(serializers.ModelSerializer):
                 "fire",
                 "constant_withdrawal",
                 "one_over_n",
+                "vpw",
             ):
                 raise serializers.ValidationError(
                     {
                         "planning_preferences": {
-                            "show_galeno": "Galeno só pode ser ativado com FIRE, Retirada constante ou Retirada 1/N."
+                            "show_galeno": "Galeno só pode ser ativado com FIRE, Retirada constante, Retirada 1/N ou VPW."
                         }
                     }
                 )
