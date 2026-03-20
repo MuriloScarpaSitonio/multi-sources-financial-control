@@ -3,7 +3,10 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from django.utils import timezone
+
 import django_filters
+from dateutil.relativedelta import relativedelta
 from rest_framework.filters import OrderingFilter
 
 from shared.filters_utils import PeriodFilter
@@ -157,6 +160,33 @@ class ExpenseHistoricV2FilterSet(django_filters.FilterSet):
         if self.is_valid():
             return super().qs
         raise django_filters.utils.translate_validation(error_dict=self.errors)
+
+
+class OptionalDateRangeFilterSet(django_filters.FilterSet):
+    """Date range filter that defaults to the last 12 months when not provided."""
+
+    start_date = django_filters.DateFilter(
+        field_name="created_at",
+        lookup_expr="gte",
+        required=False,
+        input_formats=["%d/%m/%Y", "%Y-%m-%d"],
+    )
+    end_date = django_filters.DateFilter(
+        field_name="created_at",
+        lookup_expr="lte",
+        required=False,
+        input_formats=["%d/%m/%Y", "%Y-%m-%d"],
+    )
+
+    @property
+    def qs(self):
+        if not self.is_valid():
+            raise django_filters.utils.translate_validation(error_dict=self.errors)
+
+        qs = super().qs
+        if not self.form.cleaned_data.get("start_date"):
+            qs = qs.filter(created_at__gte=timezone.localdate() - relativedelta(years=1))
+        return qs
 
 
 class DateRangeFilterSet(django_filters.FilterSet):

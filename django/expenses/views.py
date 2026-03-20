@@ -5,7 +5,7 @@ from statistics import fmean
 from typing import TYPE_CHECKING, ClassVar, Literal
 from uuid import uuid4
 
-from django.db.models import F, Max
+from django.db.models import F
 from django.db.transaction import atomic
 
 from djchoices.choices import ChoiceItem
@@ -123,7 +123,7 @@ class _PersonalFinanceViewSet(
     @action(methods=("GET",), detail=False)
     def higher_value(self, request: Request) -> Response:
         filterset = filters.DateRangeFilterSet(data=request.GET, queryset=self.get_queryset())
-        entity = filterset.qs.annotate(max_value=Max("value")).order_by("-max_value").first()
+        entity = filterset.qs.order_by("-value").first()
         return Response(self.serializer_class(entity).data, status=HTTP_200_OK)
 
 
@@ -453,9 +453,12 @@ class _ExpenseRelatedEntityViewSet(
                 )
 
     @action(methods=("GET",), detail=False)
-    def most_common(self, _: Request) -> Response:
+    def most_common(self, request: Request) -> Response:
+        filterset = filters.OptionalDateRangeFilterSet(
+            data=request.GET, queryset=self.get_related_queryset()
+        )
         entity = (
-            self.get_related_queryset()
+            filterset.qs
             .most_common(self.expense_field)
             .as_related_entities(self.expense_field)
             .first()
@@ -515,8 +518,11 @@ class RevenueCategoryViewSet(
                 )
 
     @action(methods=("GET",), detail=False)
-    def most_common(self, _: Request) -> Response:
-        entity = self.get_related_queryset().most_common().as_related_entities().first()
+    def most_common(self, request: Request) -> Response:
+        filterset = filters.OptionalDateRangeFilterSet(
+            data=request.GET, queryset=self.get_related_queryset()
+        )
+        entity = filterset.qs.most_common().as_related_entities().first()
         return Response(self.serializer_class(entity).data, status=HTTP_200_OK)
 
     def perform_destroy(self, instance: RevenueCategory) -> None:
