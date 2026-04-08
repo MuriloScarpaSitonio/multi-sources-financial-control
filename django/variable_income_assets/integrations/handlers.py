@@ -72,6 +72,9 @@ async def update_prices() -> Exception | None:
         )
         for data in result:
             for code, price in data["prices"].items():
+                if price is None:
+                    print(f"Skipping {code}: price is None")
+                    continue
                 asset_metadata = assets_metadata_map[
                     "-".join((code, data["type"], data["currency"]))
                 ]
