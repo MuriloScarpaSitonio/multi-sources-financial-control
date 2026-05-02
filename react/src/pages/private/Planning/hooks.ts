@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getPlanningPreferences,
   updatePlanningPreferences,
+  type ActiveMethodKey,
   type WithdrawalMethodKey,
 } from "./api";
 
@@ -14,16 +15,16 @@ export const usePlanningPreferences = () =>
     queryFn: getPlanningPreferences,
   });
 
-const VALID_METHODS: WithdrawalMethodKey[] = ["fire", "dividends_only", "constant_withdrawal", "one_over_n", "vpw"];
+const VALID_METHODS: ActiveMethodKey[] = ["fire", "dividends_only", "one_over_n", "vpw"];
 
 export const useSelectedMethod = (): {
-  selectedMethod: WithdrawalMethodKey;
+  selectedMethod: ActiveMethodKey;
   isLoading: boolean;
 } => {
   const { data, isPending } = usePlanningPreferences();
   const saved = data?.preferences.selected_method;
-  const selectedMethod = saved && VALID_METHODS.includes(saved as WithdrawalMethodKey)
-    ? (saved as WithdrawalMethodKey)
+  const selectedMethod = saved && VALID_METHODS.includes(saved as ActiveMethodKey)
+    ? (saved as ActiveMethodKey)
     : "fire";
   return { selectedMethod, isLoading: isPending };
 };

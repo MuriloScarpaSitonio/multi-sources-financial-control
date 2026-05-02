@@ -1,3 +1,6 @@
 .idea/
 
 .vscode/
+
+.claude/settings.local.json
+django/db_dump.sql

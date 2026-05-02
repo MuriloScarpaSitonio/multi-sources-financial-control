@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 import contextlib
+import csv
+import io
+import json
 import locale
+import urllib.request
+from collections import defaultdict
+from datetime import datetime
 from decimal import Decimal
 from operator import mul, truediv
 from typing import TYPE_CHECKING, Literal
@@ -13,7 +19,7 @@ from django.utils import timezone
 
 from .adapters.key_value_store import get_dollar_conversion_rate
 from .choices import AssetTypes, Currencies, PassiveIncomeTypes, TransactionActions
-from .models import Asset, AssetClosedOperation, Transaction
+from .models import Asset, AssetClosedOperation, AssetMetaData, Transaction
 from .service_layer.tasks import upsert_asset_read_model
 
 if TYPE_CHECKING:
@@ -581,3 +587,156 @@ def group_or_split_asset_transactions(
     )
 
     upsert_asset_read_model(asset_id=asset.pk, is_aggregate_upsert=True)
+
+
+def update_asset_metadata_current_price(code: str, price: Decimal) -> None:
+    return AssetMetaData.objects.filter(code=code).update(
+        current_price=price,
+        current_price_updated_at=timezone.now(),
+    )
+
+
+def generate_fire_returns_ts(
+    output_path: str = "../react/src/pages/private/Home/fireReturns.ts",
+    start_year: int = 2001,
+    end_year: int | None = None,
+) -> None:  # pragma: no cover
+    """
+    Download NEFIN factor data (Brazilian market + risk-free) and BCB IPCA,
+    compute real annual returns, and emit a TypeScript module with two const
+    arrays for the FIRE bootstrap simulation.
+
+    Output (when output_path is provided): a .ts file with EQUITY_REAL_RETURNS
+    and FIXED_INCOME_REAL_RETURNS. Otherwise prints to stdout.
+
+    Usage:
+        from variable_income_assets.scripts import generate_fire_returns_ts
+        generate_fire_returns_ts()
+    """
+
+    NEFIN_URL = "https://nefin.com.br/resources/risk_factors/nefin_factors.csv"
+    BCB_IPCA_URL = (
+        "https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados"
+        f"?formato=json&dataInicial=01/01/{start_year}&dataFinal=31/12/{{end}}"
+    )
+
+    if end_year is None:
+        end_year = timezone.localtime().year - 1
+
+    def compound(daily: list[float]) -> float:
+        result = 1.0
+        for r in daily:
+            result *= 1.0 + r
+        return result - 1.0
+
+    print(f"Downloading NEFIN factors from {NEFIN_URL} ...")
+    with urllib.request.urlopen(NEFIN_URL) as resp:
+        raw = resp.read().decode("utf-8")
+
+    daily_rm: dict[int, list[float]] = defaultdict(list)
+    daily_rf: dict[int, list[float]] = defaultdict(list)
+    for row in csv.DictReader(io.StringIO(raw)):
+        try:
+            d = datetime.strptime(row["Date"], "%Y-%m-%d")
+        except (ValueError, KeyError):
+            continue
+        if not (start_year <= d.year <= end_year):
+            continue
+        rm_minus_rf = float(row["Rm_minus_Rf"])
+        rf = float(row["Risk_Free"])
+        daily_rm[d.year].append(rm_minus_rf + rf)
+        daily_rf[d.year].append(rf)
+
+    if not daily_rm:
+        raise RuntimeError("No NEFIN data parsed — check URL/format.")
+
+    annual_rm = {y: compound(v) for y, v in daily_rm.items()}
+    annual_rf = {y: compound(v) for y, v in daily_rf.items()}
+
+    ipca_url = BCB_IPCA_URL.format(end=end_year)
+    print(f"Downloading BCB IPCA from {ipca_url} ...")
+    with urllib.request.urlopen(ipca_url) as resp:
+        ipca_raw = json.loads(resp.read().decode("utf-8"))
+
+    ipca_monthly: dict[int, list[float]] = defaultdict(list)
+    for row in ipca_raw:
+        d = datetime.strptime(row["data"], "%d/%m/%Y")
+        if start_year <= d.year <= end_year:
+            ipca_monthly[d.year].append(float(row["valor"]) / 100.0)
+
+    annual_ipca = {y: compound(v) for y, v in ipca_monthly.items()}
+
+    # Keep only years with a mostly-complete trading year (≥200 days) and full IPCA.
+    common_years = sorted(
+        y
+        for y in set(annual_rm) & set(annual_rf) & set(annual_ipca)
+        if len(daily_rm[y]) >= 200 and len(ipca_monthly[y]) == 12
+    )
+    if not common_years:
+        raise RuntimeError("No overlapping complete years between NEFIN and IPCA.")
+
+    real_rm = [(1 + annual_rm[y]) / (1 + annual_ipca[y]) - 1 for y in common_years]
+    real_rf = [(1 + annual_rf[y]) / (1 + annual_ipca[y]) - 1 for y in common_years]
+
+    # IFIX nominal yearly variation (BRL, %), from B3 "Yearly variation (R$/US$)".
+    # Source: https://www.b3.com.br/en_us/market-data-and-indices/indices/indices-de-segmentos-e-setoriais/real-estate-fund-index-ifix-historic-statistics.htm
+    # Base: 30/12/2010 = 1000. Partial years (YTD) must be excluded — only include fully-closed years.
+    ifix_nominal_pct: dict[int, float] = {
+        2011: 16.51,
+        2012: 35.04,
+        2013: -12.63,
+        2014: -2.76,
+        2015: 5.41,
+        2016: 32.33,
+        2017: 19.41,
+        2018: 5.62,
+        2019: 35.98,
+        2020: -10.24,
+        2021: -2.28,
+        2022: 2.22,
+        2023: 15.50,
+        2024: -5.89,
+        2025: 21.15,
+    }
+    ifix_years = sorted(
+        y
+        for y in ifix_nominal_pct
+        if y in annual_ipca and len(ipca_monthly[y]) == 12 and y <= end_year
+    )
+    real_ifix = [
+        (1 + ifix_nominal_pct[y] / 100.0) / (1 + annual_ipca[y]) - 1 for y in ifix_years
+    ]
+
+    rm_values = ", ".join(f"{v:.6f}" for v in real_rm)
+    rf_values = ", ".join(f"{v:.6f}" for v in real_rf)
+    ifix_values = ", ".join(f"{v:.6f}" for v in real_ifix)
+    years_str = ", ".join(str(y) for y in common_years)
+    ifix_years_str = ", ".join(str(y) for y in ifix_years)
+
+    ts_content = (
+        "// Auto-generated by "
+        "django/variable_income_assets/scripts.py::generate_fire_returns_ts\n"
+        "// Source: NEFIN Risk Factors + B3 IFIX yearly variation + BCB SGS 433 (IPCA).\n"
+        f"// NEFIN period: {common_years[0]}–{common_years[-1]} "
+        f"({len(common_years)} complete years).\n"
+        f"// IFIX period: {ifix_years[0]}–{ifix_years[-1]} "
+        f"({len(ifix_years)} complete years).\n"
+        "// Real annual returns = (1 + nominal) / (1 + IPCA) - 1.\n\n"
+        f"export const FIRE_RETURNS_YEARS: readonly number[] = [{years_str}];\n\n"
+        "// Brazilian market portfolio (value-weighted) — real annual returns.\n"
+        f"export const EQUITY_REAL_RETURNS: readonly number[] = [{rm_values}];\n\n"
+        "// Risk-free (SELIC-based) — real annual returns.\n"
+        f"export const FIXED_INCOME_REAL_RETURNS: readonly number[] = [{rf_values}];\n\n"
+        f"export const IFIX_YEARS: readonly number[] = [{ifix_years_str}];\n\n"
+        "// IFIX (Brazilian REIT index, total return) — real annual returns.\n"
+        f"export const IFIX_REAL_RETURNS: readonly number[] = [{ifix_values}];\n"
+    )
+
+    if output_path is None:
+        print(ts_content)
+    else:
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(ts_content)
+        print(
+            f"Wrote {len(common_years)} years ({common_years[0]}–{common_years[-1]}) to {output_path}"
+        )

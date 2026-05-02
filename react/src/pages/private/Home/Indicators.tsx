@@ -28,7 +28,6 @@ import { GroupBy, Kinds } from "../Assets/Reports/types";
 import type { ReportAggregatedByTypeDataItem } from "../Assets/Reports/types";
 import { usePlanningPreferences, useSelectedMethod } from "../Planning/hooks";
 import type { WithdrawalMethodKey } from "../Planning/api";
-import FIREProgressBar from "./FIREProgressBar";
 import DividendsOnlyIndicator from "./DividendsOnlyIndicator";
 import ConstantDollarIndicator from "./ConstantDollarIndicator";
 import GalenoIndicator from "./GalenoIndicator";
@@ -46,20 +45,19 @@ const Indicators = () => {
   const [galenoTargetBufferYears, setGalenoTargetBufferYears] = useState(7);
   const [targetDepletionAge, setTargetDepletionAge] = useState(90);
   const [ageInBondsWithdrawalRate, setAgeInBondsWithdrawalRate] = useState(4);
-  const [ageInBondsStockReturn, setAgeInBondsStockReturn] = useState(8);
+  const [ageInBondsStockReturn, setAgeInBondsStockReturn] = useState(5);
   const [ageInBondsBondReturn, setAgeInBondsBondReturn] = useState(3);
-  const [cdAibInflation, setCdAibInflation] = useState(4.5);
-  const [cdAibStockReturn, setCdAibStockReturn] = useState(8);
-  const [cdAibBondReturn, setCdAibBondReturn] = useState(3);
-  const [cdAibTargetYears, setCdAibTargetYears] = useState(30);
-  const [vpwTargetAge, setVpwTargetAge] = useState(100);
+  const [vpwTargetAge, setVpwTargetAge] = useState(99);
   const [vpwStockReturn, setVpwStockReturn] = useState(5);
-  const [vpwBondReturn, setVpwBondReturn] = useState(1.8);
+  const [vpwBondReturn, setVpwBondReturn] = useState(4);
   const { selectedMethod } = useSelectedMethod();
   const { data: planningData } = usePlanningPreferences();
   const preferences = planningData?.preferences;
   const dateOfBirth = planningData?.dateOfBirth ?? null;
-  const showGaleno = (preferences?.show_galeno ?? false) && selectedMethod !== "dividends_only";
+  // Galeno parked while we redesign it as a standalone strategy — see
+  // docs/superpowers/plans/2026-04-26-galeno-strategy.md. Re-enable by
+  // restoring the previous expression.
+  const showGaleno = false;
   const showAgeInBonds = preferences?.show_age_in_bonds ?? false;
   const { startDate, endDate } = useMemo(() => {
     const now = new Date();
@@ -107,13 +105,19 @@ const Indicators = () => {
     percentage: false,
   });
 
-  const { fixedIncomeTotal, variableIncomeTotal } = useMemo(() => {
+  const { fixedIncomeTotal, variableIncomeTotal, equityTotal, ifixTotal } = useMemo(() => {
     const data = (assetsReportData ?? []) as ReportAggregatedByTypeDataItem[];
     const fixed = data.find((d) => d.type === "Renda fixa BR")?.total ?? 0;
-    const variable = data
-      .filter((d) => ["Ação BR", "Ação EUA", "Cripto", "FII"].includes(d.type))
+    const ifix = data.find((d) => d.type === "FII")?.total ?? 0;
+    const equity = data
+      .filter((d) => ["Ação BR", "Ação EUA", "Cripto"].includes(d.type))
       .reduce((sum, d) => sum + d.total, 0);
-    return { fixedIncomeTotal: fixed, variableIncomeTotal: variable };
+    return {
+      fixedIncomeTotal: fixed,
+      variableIncomeTotal: equity + ifix,
+      equityTotal: equity,
+      ifixTotal: ifix,
+    };
   }, [assetsReportData]);
 
   const percentage = useMemo(() => {
@@ -127,6 +131,13 @@ const Indicators = () => {
 
   const isLoading = isAssetsIndicatorsLoading || isBankAccountLoading;
   const isError = isAssetsIndicatorsError || isBankAccountError;
+
+  // Monthly savings = avg(revenues) − avg(expenses) over the trailing 12
+  // months. Drives the time-to-target accumulation forecast on FIRE
+  // indicators. Negative values mean the user is in deficit; the indicator
+  // surfaces a hint instead of a bogus projection.
+  const monthlySavings =
+    (revenuesIndicators?.avg ?? 0) - (expensesIndicators?.avg ?? 0);
 
   return (
     <Grid container spacing={4}>
@@ -186,28 +197,35 @@ const Indicators = () => {
             fire: (
               <>
                 {showAgeInBonds ? (
-                  <AgeInBondsIndicator
+                  <ConstantDollarAgeInBondsIndicator
                     patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
                     avgExpenses={expensesIndicators?.fire_avg ?? 0}
                     isLoading={isLoading || isExpensesIndicatorsLoading || isReportsLoading}
                     dateOfBirth={dateOfBirth}
+                    withdrawalRate={fireWithdrawalRate}
+                    onWithdrawalRateChange={setFireWithdrawalRate}
+                    targetYears={targetYears}
+                    onTargetYearsChange={setTargetYears}
                     fixedIncomeTotal={fixedIncomeTotal}
                     variableIncomeTotal={variableIncomeTotal}
-                    withdrawalRate={ageInBondsWithdrawalRate}
-                    onWithdrawalRateChange={setAgeInBondsWithdrawalRate}
-                    stockReturn={ageInBondsStockReturn}
-                    onStockReturnChange={setAgeInBondsStockReturn}
-                    bondReturn={ageInBondsBondReturn}
-                    onBondReturnChange={setAgeInBondsBondReturn}
+                    equityTotal={equityTotal}
+                    ifixTotal={ifixTotal}
+                    monthlySavings={monthlySavings}
                     compact
                   />
                 ) : (
-                  <FIREProgressBar
+                  <ConstantDollarIndicator
                     patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
                     avgExpenses={expensesIndicators?.fire_avg ?? 0}
-                    isLoading={isLoading || isExpensesIndicatorsLoading}
+                    isLoading={isLoading || isExpensesIndicatorsLoading || isReportsLoading}
                     withdrawalRate={fireWithdrawalRate}
                     onWithdrawalRateChange={setFireWithdrawalRate}
+                    targetYears={targetYears}
+                    onTargetYearsChange={setTargetYears}
+                    equityTotal={equityTotal}
+                    ifixTotal={ifixTotal}
+                    fixedIncomeTotal={fixedIncomeTotal + bankAmount}
+                    monthlySavings={monthlySavings}
                     compact
                   />
                 )}
@@ -234,58 +252,20 @@ const Indicators = () => {
                 compact
               />
             ),
-            constant_withdrawal: (
-              <>
-                {showAgeInBonds ? (
-                  <ConstantDollarAgeInBondsIndicator
-                    patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
-                    avgExpenses={expensesIndicators?.fire_avg ?? 0}
-                    isLoading={isLoading || isExpensesIndicatorsLoading || isReportsLoading}
-                    dateOfBirth={dateOfBirth}
-                    fixedIncomeTotal={fixedIncomeTotal}
-                    variableIncomeTotal={variableIncomeTotal}
-                    inflation={cdAibInflation}
-                    onInflationChange={setCdAibInflation}
-                    stockReturn={cdAibStockReturn}
-                    onStockReturnChange={setCdAibStockReturn}
-                    bondReturn={cdAibBondReturn}
-                    onBondReturnChange={setCdAibBondReturn}
-                    targetYears={cdAibTargetYears}
-                    onTargetYearsChange={setCdAibTargetYears}
-                    compact
-                  />
-                ) : (
-                  <ConstantDollarIndicator
-                    patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
-                    avgExpenses={expensesIndicators?.fire_avg ?? 0}
-                    isLoading={isLoading || isExpensesIndicatorsLoading}
-                    realReturn={realReturn}
-                    onRealReturnChange={setRealReturn}
-                    targetYears={targetYears}
-                    onTargetYearsChange={setTargetYears}
-                    compact
-                  />
-                )}
-                {!showAgeInBonds && showGaleno && (
-                  <GalenoIndicator
-                    reportData={(assetsReportData ?? []) as ReportAggregatedByTypeDataItem[]}
-                    bankAmount={bankAmount}
-                    avgExpenses={expensesIndicators?.fire_avg ?? 0}
-                    isLoading={isLoading || isExpensesIndicatorsLoading || isReportsLoading}
-                    transferRate={galenoTransferRate}
-                    onTransferRateChange={setGalenoTransferRate}
-                    targetBufferYears={galenoTargetBufferYears}
-                    onTargetBufferYearsChange={setGalenoTargetBufferYears}
-                  />
-                )}
-              </>
-            ),
             one_over_n: (
               <>
                 <OneOverNIndicator
                   patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
                   avgExpenses={expensesIndicators?.fire_avg ?? 0}
-                  isLoading={isLoading || isExpensesIndicatorsLoading}
+                  avgMonthlySavings={
+                    (revenuesIndicators?.avg ?? 0) -
+                    (expensesIndicators?.avg ?? 0)
+                  }
+                  isLoading={
+                    isLoading ||
+                    isExpensesIndicatorsLoading ||
+                    isRevenuesIndicatorsLoading
+                  }
                   dateOfBirth={dateOfBirth}
                   targetDepletionAge={targetDepletionAge}
                   onTargetDepletionAgeChange={setTargetDepletionAge}
@@ -310,12 +290,13 @@ const Indicators = () => {
             vpw: (
               <>
                 <VPWIndicator
-                  patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
+                  equityTotal={equityTotal}
+                  ifixTotal={ifixTotal}
+                  fixedIncomeTotal={fixedIncomeTotal}
                   avgExpenses={expensesIndicators?.fire_avg ?? 0}
+                  avgMonthlySavings={monthlySavings}
                   isLoading={isLoading || isExpensesIndicatorsLoading || isReportsLoading}
                   dateOfBirth={dateOfBirth}
-                  fixedIncomeTotal={fixedIncomeTotal}
-                  variableIncomeTotal={variableIncomeTotal}
                   targetAge={vpwTargetAge}
                   onTargetAgeChange={setVpwTargetAge}
                   stockReturn={vpwStockReturn}
@@ -338,7 +319,7 @@ const Indicators = () => {
                 )}
               </>
             ),
-          }[selectedMethod] satisfies Record<WithdrawalMethodKey, React.ReactNode>[WithdrawalMethodKey]}
+          }[selectedMethod]}
         </Stack>
       </Grid>
       <Grid item xs={6}>

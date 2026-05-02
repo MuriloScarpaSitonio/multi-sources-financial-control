@@ -70,6 +70,7 @@ async def update_prices() -> Exception | None:
         assets_metadata_map, result = await _fetch_prices(
             qs=DjangoSQLAssetMetaDataRepository.filter_assets_eligible_for_update()
         )
+        print("update_prices result: ", result)
         for data in result:
             for code, price in data["prices"].items():
                 if price is None:

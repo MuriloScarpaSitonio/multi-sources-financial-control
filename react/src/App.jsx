@@ -22,6 +22,7 @@ import {
   Home,
   Incomes,
   Planning,
+  StrategyDetailPage,
   Transactions,
   User as UserV2,
   Wrapper as WrapperV2,
@@ -256,6 +257,14 @@ export default function App() {
             element={
               <PrivateRoute path="/planning" v2>
                 <Planning />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/planning/:method"
+            element={
+              <PrivateRoute path="/planning/:method" v2>
+                <StrategyDetailPage />
               </PrivateRoute>
             }
           />
