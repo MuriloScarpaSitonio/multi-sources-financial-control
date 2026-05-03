@@ -1,21 +1,20 @@
 import { useMemo, useState } from "react";
 
-import Button from "@mui/material/Button";
 import Skeleton from "@mui/material/Skeleton";
 import Slider from "@mui/material/Slider";
 import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import LinearProgress, { linearProgressClasses } from "@mui/material/LinearProgress";
 import { styled } from "@mui/material/styles";
 
 import {
   ComposedChart,
-  Area,
+  Bar,
   Line,
   XAxis,
   YAxis,
   CartesianGrid,
+  ReferenceLine,
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from "recharts";
@@ -25,11 +24,14 @@ import {
   FontSizes,
   FontWeights,
   getColor,
-  NumberFormat,
   Text,
 } from "../../../design-system";
 import { useHideValues } from "../../../hooks/useHideValues";
 import { formatCurrency } from "../utils";
+import { sliderSx } from "./consts";
+import ExpensesSimulator from "./ExpensesSimulator";
+import PatrimonySimulator from "./PatrimonySimulator";
+import SavingsSimulator from "./SavingsSimulator";
 
 const ProgressBar = styled(LinearProgress)(({ value }) => ({
   height: 24,
@@ -44,25 +46,6 @@ const ProgressBar = styled(LinearProgress)(({ value }) => ({
   },
 }));
 
-const sliderSx = {
-  width: 100,
-  "& .MuiSlider-thumb": {
-    width: 14,
-    height: 14,
-    backgroundColor: getColor(Colors.brand500),
-    "&:hover, &.Mui-focusVisible": {
-      boxShadow: `0 0 0 8px ${getColor(Colors.brand500)}33`,
-    },
-  },
-  "& .MuiSlider-track": {
-    backgroundColor: getColor(Colors.brand500),
-    border: "none",
-  },
-  "& .MuiSlider-rail": {
-    backgroundColor: getColor(Colors.brand500),
-  },
-};
-
 const computeAge = (dateOfBirth: string): number => {
   const birth = new Date(dateOfBirth + "T00:00:00");
   const today = new Date();
@@ -74,47 +57,122 @@ const computeAge = (dateOfBirth: string): number => {
   return age;
 };
 
-type ProjectionPoint = {
+type AccumulationPoint = {
+  year: number;
   age: number;
-  withdrawal: number;
-  expenses: number;
+  gap: number;
+  patrimony: number;
 };
 
-const computeProjection = (
-  portfolio: number,
-  avgMonthlyExpenses: number,
-  currentAge: number,
-  targetAge: number,
-  realReturn: number,
-): ProjectionPoint[] => {
-  const points: ProjectionPoint[] = [];
-  let balance = portfolio;
+type DrawdownPoint = {
+  year: number;
+  age: number;
+  monthlyWithdrawal: number;
+  remainingPatrimony: number;
+};
 
-  for (let age = currentAge; age < targetAge; age++) {
-    const remaining = targetAge - age;
-    const monthlyWithdrawal = balance / remaining / 12;
-    points.push({
-      age,
-      withdrawal: monthlyWithdrawal,
-      expenses: avgMonthlyExpenses,
-    });
-    balance = (balance - balance / remaining) * (1 + realReturn / 100);
+const MAX_ACCUM_YEARS = 80;
+
+const computeProjection = ({
+  patrimony,
+  monthlyExpenses,
+  monthlySavings,
+  realReturn,
+  yearsRetirement,
+  currentAge,
+}: {
+  patrimony: number;
+  monthlyExpenses: number;
+  monthlySavings: number;
+  realReturn: number;
+  yearsRetirement: number;
+  currentAge: number;
+}): {
+  accumulation: AccumulationPoint[];
+  drawdown: DrawdownPoint[];
+  crossoverYear: number | null;
+  initialGap: number;
+  totalSpent: number;
+  target: number;
+} => {
+  const target = yearsRetirement * 12 * monthlyExpenses;
+  const initialGap = Math.max(0, target - patrimony);
+  const r = realReturn / 100;
+
+  // Phase 1: accumulation. balance grows with savings + return; gap = max(0, target - balance).
+  const accumulation: AccumulationPoint[] = [];
+  let balance = patrimony;
+  let crossoverYear: number | null = balance >= target ? 0 : null;
+  accumulation.push({
+    year: 0,
+    age: currentAge,
+    gap: Math.max(0, target - balance),
+    patrimony: balance,
+  });
+  if (crossoverYear === null) {
+    for (let y = 1; y <= MAX_ACCUM_YEARS; y++) {
+      balance = balance * (1 + r) + monthlySavings * 12;
+      accumulation.push({
+        year: y,
+        age: currentAge + y,
+        gap: Math.max(0, target - balance),
+        patrimony: balance,
+      });
+      if (balance >= target) {
+        crossoverYear = y;
+        break;
+      }
+    }
   }
-  return points;
+
+  // Phase 2: drawdown — per-year monthly withdrawal + remaining patrimony declining.
+  const drawdown: DrawdownPoint[] = [];
+  let totalSpent = 0;
+  if (crossoverYear !== null) {
+    let dBal = balance;
+    drawdown.push({
+      year: 0,
+      age: currentAge + crossoverYear,
+      monthlyWithdrawal: 0,
+      remainingPatrimony: dBal,
+    });
+    for (let t = 0; t < yearsRetirement; t++) {
+      const yearsLeft = yearsRetirement - t;
+      const annualWithdrawal = dBal / yearsLeft;
+      totalSpent += annualWithdrawal;
+      dBal = (dBal - annualWithdrawal) * (1 + r);
+      if (dBal < 0) dBal = 0;
+      drawdown.push({
+        year: t + 1,
+        age: currentAge + crossoverYear + t + 1,
+        monthlyWithdrawal: annualWithdrawal / 12,
+        remainingPatrimony: dBal,
+      });
+      if (dBal === 0) break;
+    }
+  }
+
+  return {
+    accumulation,
+    drawdown,
+    crossoverYear,
+    initialGap,
+    totalSpent,
+    target,
+  };
 };
 
-const ChartTooltipContent = ({
+const AccumulationTooltip = ({
   active,
   payload,
   hideValues,
 }: {
   active?: boolean;
-  payload?: { payload: ProjectionPoint }[];
+  payload?: { payload: AccumulationPoint }[];
   hideValues?: boolean;
 }) => {
   if (!active || !payload?.length) return null;
   const data = payload[0].payload;
-  const gap = data.withdrawal - data.expenses;
   return (
     <Stack
       spacing={0.5}
@@ -125,21 +183,57 @@ const ChartTooltipContent = ({
         backgroundColor: getColor(Colors.neutral600),
       }}
     >
-      <p style={{ color: getColor(Colors.neutral300) }}>Idade: {data.age}</p>
+      <p style={{ color: getColor(Colors.neutral300) }}>
+        Ano {data.year} (idade {data.age})
+      </p>
       <p style={{ color: getColor(Colors.brand400) }}>
-        Retirada: {hideValues ? "***" : formatCurrency(data.withdrawal)}/mês
+        Patrimônio: {hideValues ? "***" : formatCurrency(data.patrimony)}
       </p>
       <p style={{ color: getColor(Colors.danger200) }}>
-        Despesas: {hideValues ? "***" : formatCurrency(data.expenses)}/mês
+        Falta juntar: {hideValues ? "***" : formatCurrency(data.gap)}
       </p>
-      <p style={{ color: gap >= 0 ? getColor(Colors.brand) : getColor(Colors.danger200) }}>
-        {gap >= 0 ? "Sobra" : "Falta"}: {hideValues ? "***" : formatCurrency(Math.abs(gap))}/mês
+    </Stack>
+  );
+};
+
+const DrawdownTooltip = ({
+  active,
+  payload,
+  hideValues,
+}: {
+  active?: boolean;
+  payload?: { payload: DrawdownPoint }[];
+  hideValues?: boolean;
+}) => {
+  if (!active || !payload?.length) return null;
+  const data = payload[0].payload;
+  return (
+    <Stack
+      spacing={0.5}
+      sx={{
+        border: "1px solid",
+        p: 1,
+        borderColor: getColor(Colors.brand400),
+        backgroundColor: getColor(Colors.neutral600),
+      }}
+    >
+      <p style={{ color: getColor(Colors.neutral300) }}>
+        Ano {data.year} de aposentadoria (idade {data.age})
+      </p>
+      <p style={{ color: getColor(Colors.brand400) }}>
+        Retirada:{" "}
+        {hideValues ? "***" : formatCurrency(data.monthlyWithdrawal)}/mês
+      </p>
+      <p style={{ color: "#60a5fa" }}>
+        Patrimônio restante:{" "}
+        {hideValues ? "***" : formatCurrency(data.remainingPatrimony)}
       </p>
     </Stack>
   );
 };
 
 const numberTickFormatter = (value: number) => {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
   return value.toFixed(0);
 };
@@ -147,6 +241,7 @@ const numberTickFormatter = (value: number) => {
 const OneOverNIndicator = ({
   patrimonyTotal,
   avgExpenses,
+  avgMonthlySavings,
   isLoading,
   dateOfBirth,
   targetDepletionAge,
@@ -154,9 +249,11 @@ const OneOverNIndicator = ({
   realReturn,
   onRealReturnChange,
   compact = false,
+  hideLabel = false,
 }: {
   patrimonyTotal: number;
   avgExpenses: number;
+  avgMonthlySavings: number;
   isLoading: boolean;
   dateOfBirth: string | null;
   targetDepletionAge: number;
@@ -164,33 +261,40 @@ const OneOverNIndicator = ({
   realReturn: number;
   onRealReturnChange: (value: number) => void;
   compact?: boolean;
+  hideLabel?: boolean;
 }) => {
   const { hideValues } = useHideValues();
   const [simulatedPatrimony, setSimulatedPatrimony] = useState<number | null>(null);
+  const [simulatedSavings, setSimulatedSavings] = useState<number | null>(null);
+  const [simulatedExpenses, setSimulatedExpenses] = useState<number | null>(null);
 
   const effectivePatrimony = simulatedPatrimony ?? patrimonyTotal;
+  const effectiveSavings = simulatedSavings ?? Math.max(0, avgMonthlySavings);
+  const effectiveExpenses = simulatedExpenses ?? avgExpenses;
 
   const currentAge = dateOfBirth ? computeAge(dateOfBirth) : null;
   const yearsRemaining =
     currentAge !== null ? targetDepletionAge - currentAge : null;
 
   const projection = useMemo(() => {
-    if (currentAge === null || yearsRemaining === null || yearsRemaining <= 0)
-      return [];
-    return computeProjection(
-      effectivePatrimony,
-      avgExpenses,
-      currentAge,
-      targetDepletionAge,
+    if (currentAge === null || yearsRemaining === null || yearsRemaining <= 0) {
+      return null;
+    }
+    return computeProjection({
+      patrimony: effectivePatrimony,
+      monthlyExpenses: effectiveExpenses,
+      monthlySavings: effectiveSavings,
       realReturn,
-    );
+      yearsRetirement: yearsRemaining,
+      currentAge,
+    });
   }, [
     effectivePatrimony,
-    avgExpenses,
-    currentAge,
-    targetDepletionAge,
+    effectiveExpenses,
+    effectiveSavings,
     realReturn,
     yearsRemaining,
+    currentAge,
   ]);
 
   if (isLoading) {
@@ -246,7 +350,9 @@ const OneOverNIndicator = ({
   const annualWithdrawal = effectivePatrimony / yearsRemaining;
   const monthlyWithdrawal = annualWithdrawal / 12;
   const coverage =
-    avgExpenses > 0 ? (monthlyWithdrawal / avgExpenses) * 100 : 0;
+    effectiveExpenses > 0
+      ? (monthlyWithdrawal / effectiveExpenses) * 100
+      : 0;
 
   const monthlyFormatted = hideValues
     ? "***"
@@ -257,8 +363,33 @@ const OneOverNIndicator = ({
     `Retirada: ${withdrawalPct.toFixed(1)}% a.a. (${monthlyFormatted}/mês). ` +
     `O patrimônio será totalmente consumido até a idade alvo.`;
 
-  const patrimonyStep = 50000;
-  const patrimonyMax = Math.max(patrimonyTotal * 5, 1000000);
+  const crossoverYear = projection?.crossoverYear ?? null;
+  const initialGap = projection?.initialGap ?? 0;
+  const target = projection?.target ?? 0;
+
+  let gapLabel: string;
+  let timeLabel: string;
+  let gapIsBad = false;
+  let timeIsBad = false;
+  if (initialGap === 0) {
+    gapLabel = "Já cobre o alvo 1/N";
+    timeLabel = `Pode aposentar hoje aos ${currentAge} anos`;
+  } else if (crossoverYear !== null) {
+    gapLabel = `Falta juntar ${
+      hideValues ? "***" : formatCurrency(initialGap)
+    } para começar 1/N hoje`;
+    timeLabel = `Em ${crossoverYear} ${
+      crossoverYear === 1 ? "ano" : "anos"
+    } no seu ritmo (aposenta aos ${currentAge + crossoverYear})`;
+    gapIsBad = true;
+  } else {
+    gapLabel = `Falta juntar ${
+      hideValues ? "***" : formatCurrency(initialGap)
+    } para começar 1/N hoje`;
+    timeLabel = `Mais de ${MAX_ACCUM_YEARS} anos no seu ritmo — aumente poupança ou retorno`;
+    gapIsBad = true;
+    timeIsBad = true;
+  }
 
   return (
     <Stack gap={0.5}>
@@ -282,13 +413,15 @@ const OneOverNIndicator = ({
               textShadow: "0 1px 2px rgba(0, 0, 0, 0.6)",
             }}
           >
-            <Text
-              color={Colors.neutral0}
-              weight={FontWeights.MEDIUM}
-              size={FontSizes.SEMI_SMALL}
-            >
-              Retirada 1/N
-            </Text>
+            {!hideLabel && (
+              <Text
+                color={Colors.neutral0}
+                weight={FontWeights.MEDIUM}
+                size={FontSizes.SEMI_SMALL}
+              >
+                Retirada 1/N
+              </Text>
+            )}
             {hideValues ? (
               <Skeleton
                 sx={{
@@ -309,14 +442,32 @@ const OneOverNIndicator = ({
           </Stack>
         </div>
       </Tooltip>
-      <Stack direction="row" alignItems="center" gap={2}>
+      <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
           N = {targetDepletionAge} − {currentAge} = {yearsRemaining} anos · 1/
           {yearsRemaining} = {withdrawalPct.toFixed(1)}% ·{" "}
           {hideValues ? "***" : formatCurrency(monthlyWithdrawal)}/mês
         </Text>
+        {!compact && (
+          <>
+            <Text
+              size={FontSizes.EXTRA_SMALL}
+              color={gapIsBad ? Colors.danger200 : Colors.brand}
+              weight={FontWeights.MEDIUM}
+            >
+              {gapLabel}
+            </Text>
+            <Text
+              size={FontSizes.EXTRA_SMALL}
+              color={timeIsBad ? Colors.danger200 : Colors.neutral200}
+              weight={FontWeights.MEDIUM}
+            >
+              {timeLabel}
+            </Text>
+          </>
+        )}
       </Stack>
-      <Stack direction="row" alignItems="center" gap={2}>
+      <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
           Idade alvo: {targetDepletionAge}
         </Text>
@@ -326,6 +477,10 @@ const OneOverNIndicator = ({
           min={70}
           max={105}
           step={1}
+          marks={Array.from({ length: 36 }, (_, i) => ({
+            value: 70 + i,
+            label: "",
+          }))}
           size="medium"
           sx={sliderSx}
         />
@@ -340,71 +495,57 @@ const OneOverNIndicator = ({
               min={1}
               max={8}
               step={0.5}
+              marks={Array.from({ length: 15 }, (_, i) => ({
+                value: 1 + i * 0.5,
+                label: "",
+              }))}
               size="medium"
               sx={sliderSx}
             />
-            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-              Patrimônio:
-            </Text>
-            <TextField
+            <PatrimonySimulator
               value={effectivePatrimony}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                if (!isNaN(v) && v >= 0) setSimulatedPatrimony(v);
-              }}
-              size="small"
-              slotProps={{
-                input: {
-                  inputComponent: NumberFormat,
-                  inputProps: { prefix: "R$ ", decimalScale: 2 },
-                } as any,
-              }}
-              sx={{
-                width: 180,
-                "& .MuiInputBase-input": {
-                  color: getColor(Colors.neutral0),
-                  fontSize: 12,
-                  py: 0.5,
-                },
-                "& .MuiOutlinedInput-root": {
-                  "& fieldset": { borderColor: getColor(Colors.neutral600) },
-                },
-              }}
+              onChange={setSimulatedPatrimony}
+              onReset={() => setSimulatedPatrimony(null)}
+              patrimonyTotal={patrimonyTotal}
+              showReset={simulatedPatrimony !== null}
             />
-            <Slider
-              value={effectivePatrimony}
-              onChange={(_, value) => setSimulatedPatrimony(value as number)}
-              min={0}
-              max={patrimonyMax}
-              step={patrimonyStep}
-              size="medium"
-              sx={{ ...sliderSx, width: 200 }}
+            <SavingsSimulator
+              value={effectiveSavings}
+              onChange={setSimulatedSavings}
+              onReset={() => setSimulatedSavings(null)}
+              avgMonthlySavings={Math.max(0, avgMonthlySavings)}
+              showReset={simulatedSavings !== null}
             />
-            {simulatedPatrimony !== null && (
-              <Button
-                variant="brand-text"
-                size="small"
-                onClick={() => setSimulatedPatrimony(null)}
-              >
-                Resetar
-              </Button>
-            )}
+            <ExpensesSimulator
+              value={effectiveExpenses}
+              onChange={setSimulatedExpenses}
+              onReset={() => setSimulatedExpenses(null)}
+              avgExpenses={avgExpenses}
+              showReset={simulatedExpenses !== null}
+            />
           </>
         )}
       </Stack>
-      {!compact && projection.length > 0 && (
-        <>
+      {!compact && projection && projection.accumulation.length > 1 && (
+        <Stack gap={1}>
+          <Text
+            size={FontSizes.EXTRA_SMALL}
+            color={Colors.neutral400}
+            weight={FontWeights.MEDIUM}
+          >
+            Acumulação — quanto falta e em quanto tempo
+          </Text>
           <ResponsiveContainer width="100%" height={200}>
             <ComposedChart
-              data={projection}
-              margin={{ top: 10, right: 5, left: 5, bottom: 0 }}
+              data={projection.accumulation}
+              margin={{ top: 18, right: 90, left: 8, bottom: 0 }}
             >
               <CartesianGrid strokeDasharray="5" vertical={false} />
               <XAxis
-                dataKey="age"
+                dataKey="year"
                 stroke={getColor(Colors.neutral0)}
                 tickLine={false}
-                tickFormatter={(v) => `${v}`}
+                tickFormatter={(v) => `${v}a`}
               />
               <YAxis
                 stroke={getColor(Colors.neutral0)}
@@ -415,29 +556,104 @@ const OneOverNIndicator = ({
               />
               <RechartsTooltip
                 cursor={false}
-                content={<ChartTooltipContent hideValues={hideValues} />}
-              />
-              <Area
-                type="monotone"
-                dataKey="withdrawal"
-                stroke={getColor(Colors.brand400)}
-                fill={getColor(Colors.brand400)}
-                fillOpacity={0.15}
-                strokeWidth={2}
-                name="Retirada"
+                content={<AccumulationTooltip hideValues={hideValues} />}
               />
               <Line
                 type="monotone"
-                dataKey="expenses"
-                stroke={getColor(Colors.danger200)}
-                strokeWidth={2}
-                strokeDasharray="5 5"
+                dataKey="patrimony"
+                stroke={getColor(Colors.brand400)}
+                strokeWidth={2.5}
                 dot={false}
-                name="Despesas"
+                name="Patrimônio"
+              />
+              <Line
+                type="monotone"
+                dataKey="gap"
+                stroke={getColor(Colors.danger200)}
+                strokeWidth={2.5}
+                dot={false}
+                name="Falta juntar"
+              />
+              {crossoverYear !== null && crossoverYear > 0 && (
+                <ReferenceLine
+                  x={crossoverYear}
+                  stroke={getColor(Colors.brand)}
+                  strokeDasharray="3 3"
+                  label={{
+                    value: `aposenta aos ${currentAge + crossoverYear} anos`,
+                    position: "top",
+                    fill: getColor(Colors.brand),
+                    fontSize: 12,
+                  }}
+                />
+              )}
+            </ComposedChart>
+          </ResponsiveContainer>
+        </Stack>
+      )}
+      {!compact && projection && projection.drawdown.length > 1 && (
+        <Stack gap={1}>
+          <Text
+            size={FontSizes.EXTRA_SMALL}
+            color={Colors.neutral400}
+            weight={FontWeights.MEDIUM}
+          >
+            Aposentadoria — após atingir o alvo, como 1/N se comporta
+          </Text>
+          <ResponsiveContainer width="100%" height={200}>
+            <ComposedChart
+              data={projection.drawdown}
+              margin={{ top: 18, right: 8, left: 8, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="5" vertical={false} />
+              <XAxis
+                dataKey="year"
+                stroke={getColor(Colors.neutral0)}
+                tickLine={false}
+                tickFormatter={(v) => `${v}a`}
+              />
+              <YAxis
+                yAxisId="left"
+                stroke={getColor(Colors.brand400)}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={numberTickFormatter}
+                tickCount={hideValues ? 0 : undefined}
+              />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                stroke="#60a5fa"
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={numberTickFormatter}
+                tickCount={hideValues ? 0 : undefined}
+              />
+              <RechartsTooltip
+                cursor={false}
+                content={<DrawdownTooltip hideValues={hideValues} />}
+              />
+              <Bar
+                yAxisId="left"
+                dataKey="monthlyWithdrawal"
+                fill={getColor(Colors.brand400)}
+                fillOpacity={0.55}
+                stroke={getColor(Colors.brand)}
+                strokeWidth={1}
+                name="Retirada/mês"
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="remainingPatrimony"
+                stroke="#60a5fa"
+                strokeWidth={2.5}
+                dot={false}
+                name="Patrimônio restante"
               />
             </ComposedChart>
           </ResponsiveContainer>
-        </>
+        </Stack>
       )}
     </Stack>
   );

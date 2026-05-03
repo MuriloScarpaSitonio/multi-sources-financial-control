@@ -8,6 +8,7 @@ import {
   CartesianGrid,
   Legend,
   ReferenceLine,
+  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -166,12 +167,14 @@ const BarChartCreditedAndProvisionedWithAvgToolTipContent = ({
   active,
   payload,
   aggregatePeriod,
+  hideProvisioned = false,
 }: {
   active?: boolean;
   payload?: {
     payload: HistoricReportResponse["historic"][number];
   }[];
   aggregatePeriod: "month" | "year";
+  hideProvisioned?: boolean;
 }) => {
   if (active && payload?.length) {
     const { payload: data } = payload[0];
@@ -193,9 +196,11 @@ const BarChartCreditedAndProvisionedWithAvgToolTipContent = ({
         <p style={{ color: getColor(Colors.brand200) }}>
           {`Total creditado: R$ ${data.credited.toLocaleString("pt-br", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
         </p>
-        <p style={{ color: getColor(Colors.brand100) }}>
-          {`Total provisionado: R$ ${data.provisioned.toLocaleString("pt-br", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-        </p>
+        {!hideProvisioned && (
+          <p style={{ color: getColor(Colors.brand100) }}>
+            {`Total provisionado: R$ ${data.provisioned.toLocaleString("pt-br", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          </p>
+        )}
       </Stack>
     );
   }
@@ -206,11 +211,27 @@ export const BarChartCreditedAndProvisionedWithAvg = ({
   avg,
   aggregatePeriod,
   chartType,
+  responsive = false,
+  height = CHART_HEIGHT,
+  referenceLabel = "Média",
+  referenceStroke,
+  showLegend = true,
+  creditedFill,
+  provisionedFill,
+  hideProvisioned = false,
 }: {
   data: HistoricReportResponse["historic"];
   avg: number;
   aggregatePeriod: "month" | "year";
   chartType: ChartType;
+  responsive?: boolean;
+  height?: number;
+  referenceLabel?: string;
+  referenceStroke?: string;
+  showLegend?: boolean;
+  creditedFill?: string;
+  provisionedFill?: string;
+  hideProvisioned?: boolean;
 }) => {
   const secondDayOfCurrentMonth = new Date();
   secondDayOfCurrentMonth.setDate(2);
@@ -220,12 +241,25 @@ export const BarChartCreditedAndProvisionedWithAvg = ({
   const tickFormatter =
     aggregatePeriod === "month" ? monthTickerFormatter : yearTickerFormatter;
 
-  const commonProps = {
-    width: CHART_WIDTH * 1.15,
-    height: CHART_HEIGHT,
-    data,
-    margin: { left: 25 },
-  };
+  const refStroke = referenceStroke ?? getColor(Colors.brand200);
+  const creditedFillColor = creditedFill ?? getColor(Colors.brand200);
+  const provisionedFillColor = provisionedFill ?? getColor(Colors.neutral900);
+  // When a solid provisioned fill is supplied, drop the dashed outline treatment.
+  const provisionedExtra = provisionedFill
+    ? {}
+    : {
+        stroke: getColor(Colors.brand100),
+        strokeWidth: 1,
+        strokeDasharray: "3 3",
+      };
+  const commonProps = responsive
+    ? { data, margin: { left: 5, right: 5 } }
+    : {
+        width: CHART_WIDTH * 1.15,
+        height: CHART_HEIGHT,
+        data,
+        margin: { left: 25 },
+      };
 
   const xAxisProps = {
     dataKey,
@@ -242,8 +276,8 @@ export const BarChartCreditedAndProvisionedWithAvg = ({
     tickCount: hideValues ? 0 : undefined,
   };
 
-  if (chartType === "line") {
-    return (
+  const inner =
+    chartType === "line" ? (
       <LineChart {...commonProps}>
         <XAxis {...xAxisProps} />
         <YAxis {...yAxisProps} />
@@ -252,75 +286,89 @@ export const BarChartCreditedAndProvisionedWithAvg = ({
           content={
             <BarChartCreditedAndProvisionedWithAvgToolTipContent
               aggregatePeriod={aggregatePeriod}
+              hideProvisioned={hideProvisioned}
             />
           }
         />
-        <Legend verticalAlign="top" content={<LegendContent />} />
+        {showLegend && (
+          <Legend verticalAlign="top" content={<LegendContent />} />
+        )}
         <Line
           type="monotone"
           dataKey="credited"
-          stroke={getColor(Colors.brand200)}
+          stroke={creditedFillColor}
           strokeWidth={2}
           dot={false}
           name="Creditado"
         />
-        <Line
-          type="monotone"
-          dataKey="provisioned"
-          stroke={getColor(Colors.brand100)}
-          strokeWidth={2}
-          strokeDasharray="5 5"
-          dot={false}
-          name="Provisionado"
-        />
+        {!hideProvisioned && (
+          <Line
+            type="monotone"
+            dataKey="provisioned"
+            stroke={provisionedFill ?? getColor(Colors.brand100)}
+            strokeWidth={2}
+            strokeDasharray={provisionedFill ? undefined : "5 5"}
+            dot={false}
+            name="Provisionado"
+          />
+        )}
         <ReferenceLine
           y={avg}
-          label="Média"
-          stroke={getColor(Colors.brand200)}
+          label={referenceLabel}
+          stroke={refStroke}
           strokeWidth={1}
           strokeDasharray="3 3"
         />
       </LineChart>
+    ) : (
+      <BarChart {...commonProps}>
+        <XAxis {...xAxisProps} />
+        <YAxis {...yAxisProps} />
+        <Tooltip
+          cursor={false}
+          content={
+            <BarChartCreditedAndProvisionedWithAvgToolTipContent
+              aggregatePeriod={aggregatePeriod}
+              hideProvisioned={hideProvisioned}
+            />
+          }
+        />
+        {showLegend && (
+          <Legend verticalAlign="top" content={<LegendContent />} />
+        )}
+        <Bar
+          dataKey="credited"
+          stackId="a"
+          radius={[5, 5, 0, 0]}
+          fill={creditedFillColor}
+          name="Creditado"
+        />
+        {!hideProvisioned && (
+          <Bar
+            dataKey="provisioned"
+            stackId="a"
+            radius={[5, 5, 0, 0]}
+            fill={provisionedFillColor}
+            {...provisionedExtra}
+            name="Provisionado"
+          />
+        )}
+        <ReferenceLine
+          y={avg}
+          label={referenceLabel}
+          stroke={refStroke}
+          strokeWidth={1}
+          strokeDasharray="3 3"
+        />
+      </BarChart>
+    );
+
+  if (responsive) {
+    return (
+      <ResponsiveContainer width="100%" height={height}>
+        {inner}
+      </ResponsiveContainer>
     );
   }
-
-  return (
-    <BarChart {...commonProps}>
-      <XAxis {...xAxisProps} />
-      <YAxis {...yAxisProps} />
-      <Tooltip
-        cursor={false}
-        content={
-          <BarChartCreditedAndProvisionedWithAvgToolTipContent
-            aggregatePeriod={aggregatePeriod}
-          />
-        }
-      />
-      <Legend verticalAlign="top" content={<LegendContent />} />
-      <Bar
-        dataKey="credited"
-        stackId="a"
-        radius={[5, 5, 0, 0]}
-        fill={getColor(Colors.brand200)}
-        name="Creditado"
-      />
-      <Bar
-        dataKey="provisioned"
-        stackId="a"
-        radius={[5, 5, 0, 0]}
-        fill={getColor(Colors.neutral900)}
-        stroke={getColor(Colors.brand100)}
-        strokeWidth={1}
-        strokeDasharray="3 3"
-        name="Provisionado"
-      />
-      <ReferenceLine
-        y={avg}
-        label="Média"
-        stroke={getColor(Colors.brand200)}
-        strokeWidth={1}
-        strokeDasharray="3 3"
-      />
-    </BarChart>
-  );
+  return inner;
 };

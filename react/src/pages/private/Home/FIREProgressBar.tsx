@@ -1,10 +1,8 @@
 import { useMemo, useState } from "react";
 
-import Button from "@mui/material/Button";
 import Skeleton from "@mui/material/Skeleton";
 import Slider from "@mui/material/Slider";
 import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import LinearProgress, { linearProgressClasses } from "@mui/material/LinearProgress";
 import { styled } from "@mui/material/styles";
@@ -25,11 +23,12 @@ import {
   FontSizes,
   FontWeights,
   getColor,
-  NumberFormat,
   Text,
 } from "../../../design-system";
 import { useHideValues } from "../../../hooks/useHideValues";
 import { formatCurrency } from "../utils";
+import { sliderSx } from "./consts";
+import PatrimonySimulator from "./PatrimonySimulator";
 
 const FIRELinearProgress = styled(LinearProgress)(({ value }) => ({
   height: 24,
@@ -43,25 +42,6 @@ const FIRELinearProgress = styled(LinearProgress)(({ value }) => ({
       value && value >= 100 ? getColor(Colors.brand) : getColor(Colors.danger200),
   },
 }));
-
-const sliderSx = {
-  width: 100,
-  "& .MuiSlider-thumb": {
-    width: 14,
-    height: 14,
-    backgroundColor: getColor(Colors.brand500),
-    "&:hover, &.Mui-focusVisible": {
-      boxShadow: `0 0 0 8px ${getColor(Colors.brand500)}33`,
-    },
-  },
-  "& .MuiSlider-track": {
-    backgroundColor: getColor(Colors.brand500),
-    border: "none",
-  },
-  "& .MuiSlider-rail": {
-    backgroundColor: getColor(Colors.brand500),
-  },
-};
 
 type ProjectionPoint = {
   year: number;
@@ -180,9 +160,6 @@ const FIREProgressBar = ({
   const monthlyWithdrawalFormatted = hideValues ? "***" : formatCurrency(monthlyWithdrawal);
   const tooltipTitle = `Regra dos ${withdrawalRate}%: retire ${withdrawalRate}% do patrimônio por ano (${multiplier.toFixed(0)}x despesas anuais). Despesas anuais: ${annualExpensesFormatted}. Retirada mensal: ${monthlyWithdrawalFormatted}`;
 
-  const patrimonyStep = 50000;
-  const patrimonyMax = Math.max(patrimonyTotal * 5, 1000000);
-
   return (
     <Stack gap={0.5}>
       <Tooltip title={tooltipTitle} arrow placement="top">
@@ -292,54 +269,13 @@ const FIREProgressBar = ({
         )}
       </Stack>
       {!compact && (
-        <Stack direction="row" alignItems="center" gap={2}>
-          <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-            Patrimônio:
-          </Text>
-          <TextField
-            value={effectivePatrimony}
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              if (!isNaN(v) && v >= 0) setSimulatedPatrimony(v);
-            }}
-            size="small"
-            slotProps={{
-              input: {
-                inputComponent: NumberFormat,
-                inputProps: { prefix: "R$ ", decimalScale: 2 },
-              } as any,
-            }}
-            sx={{
-              width: 180,
-              "& .MuiInputBase-input": {
-                color: getColor(Colors.neutral0),
-                fontSize: 12,
-                py: 0.5,
-              },
-              "& .MuiOutlinedInput-root": {
-                "& fieldset": { borderColor: getColor(Colors.neutral600) },
-              },
-            }}
-          />
-          <Slider
-            value={effectivePatrimony}
-            onChange={(_, value) => setSimulatedPatrimony(value as number)}
-            min={0}
-            max={patrimonyMax}
-            step={patrimonyStep}
-            size="medium"
-            sx={{ ...sliderSx, width: 200 }}
-          />
-          {simulatedPatrimony !== null && (
-            <Button
-              variant="brand-text"
-              size="small"
-              onClick={() => setSimulatedPatrimony(null)}
-            >
-              Resetar
-            </Button>
-          )}
-        </Stack>
+        <PatrimonySimulator
+          value={effectivePatrimony}
+          onChange={setSimulatedPatrimony}
+          onReset={() => setSimulatedPatrimony(null)}
+          patrimonyTotal={patrimonyTotal}
+          showReset={simulatedPatrimony !== null}
+        />
       )}
       {!compact && projection.length > 1 && (
         <ResponsiveContainer width="100%" height={200}>
