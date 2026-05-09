@@ -333,7 +333,8 @@ const ConstantDollarIndicator = ({
   // Bootstrap-derived horizon- and allocation-adjusted SWR. Used as the
   // honesty reference (warning chip + tooltip) and as the input to
   // horizonFactor below. The progress bar is driven by patrimony /
-  // fireTarget, not by bootstrap success.
+  // fireTarget, not by bootstrap success — see
+  // .claude/skills/fire-bootstrap-methodology/SKILL.md.
   const safeRate = useMemo(
     () => findSafeWithdrawalRate(targetYears, weights),
     [targetYears, weights],
