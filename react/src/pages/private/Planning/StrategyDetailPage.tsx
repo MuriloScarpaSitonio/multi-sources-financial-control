@@ -36,6 +36,7 @@ import AgeInBondsIndicator from "../Home/AgeInBondsIndicator";
 import ConstantDollarAgeInBondsIndicator from "../Home/ConstantDollarAgeInBondsIndicator";
 import VPWIndicator from "../Home/VPWIndicator";
 import AgeInBondsExplainer from "./AgeInBondsExplainer";
+import FireMethodologyWalkthrough from "./FireMethodologyWalkthrough";
 import {
   usePlanningPreferences,
   useSelectedMethod,
@@ -88,6 +89,15 @@ const StrategyDetail = ({ method }: { method: ActiveMethodKey }) => {
   const [localGaleno, setLocalGaleno] = useState(false);
   const [localAgeInBonds, setLocalAgeInBonds] = useState(false);
   const [defaultsExpanded, setDefaultsExpanded] = useState(false);
+
+  // Lifted what-if state so the FIRE indicator and its result sections stay
+  // synchronized when the user edits patrimony or expenses.
+  const [simulatedPatrimony, setSimulatedPatrimony] = useState<number | null>(
+    null,
+  );
+  const [simulatedExpenses, setSimulatedExpenses] = useState<number | null>(
+    null,
+  );
 
   // Data hooks
   const { selectedMethod } = useSelectedMethod();
@@ -258,6 +268,10 @@ const StrategyDetail = ({ method }: { method: ActiveMethodKey }) => {
             onMonthlySavingsReset={() => setMonthlySavingsOverride(null)}
             isMonthlySavingsOverridden={monthlySavingsOverride !== null}
             dateOfBirth={dateOfBirth}
+            simulatedPatrimony={simulatedPatrimony}
+            onSimulatedPatrimonyChange={setSimulatedPatrimony}
+            simulatedExpenses={simulatedExpenses}
+            onSimulatedExpensesChange={setSimulatedExpenses}
           />
         );
       case "dividends_only":
@@ -350,33 +364,85 @@ const StrategyDetail = ({ method }: { method: ActiveMethodKey }) => {
       {/* Full indicator */}
       <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
         {indicator}
-        {content.defaultsExplained.length > 0 && (
-          <>
-            <Button
-              size="small"
-              onClick={() => setDefaultsExpanded(!defaultsExpanded)}
-              endIcon={defaultsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-              sx={{ alignSelf: "flex-start", textTransform: "none", mt: 2 }}
-            >
-              Entenda esses valores
-            </Button>
-            <Collapse in={defaultsExpanded}>
-              <Stack gap={2} mt={1}>
-                {content.defaultsExplained.map((item) => (
-                  <Stack key={item.label} gap={0.5}>
-                    <Text size={FontSizes.SMALL} weight={FontWeights.MEDIUM}>
-                      {item.label}
-                    </Text>
-                    <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-                      {item.explanation}
-                    </Text>
-                  </Stack>
-                ))}
-              </Stack>
-            </Collapse>
-          </>
-        )}
       </Paper>
+
+      {method !== "fire" && content.defaultsExplained.length > 0 && (
+        <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
+          <Button
+            size="small"
+            onClick={() => setDefaultsExpanded(!defaultsExpanded)}
+            endIcon={defaultsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            sx={{ alignSelf: "flex-start", textTransform: "none" }}
+          >
+            Entenda esses valores
+          </Button>
+          <Collapse in={defaultsExpanded}>
+            <Stack gap={2} mt={1}>
+              {content.defaultsExplained.map((item) => (
+                <Stack key={item.label} gap={0.5}>
+                  <Text size={FontSizes.SMALL} weight={FontWeights.MEDIUM}>
+                    {item.label}
+                  </Text>
+                  <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+                    {item.explanation}
+                  </Text>
+                </Stack>
+              ))}
+              {method === "vpw" && (
+                <Stack
+                  mt={2}
+                  sx={{
+                    pt: 2,
+                    borderTop: "1px solid",
+                    borderColor: getColor(Colors.neutral400),
+                  }}
+                >
+                  <FireMethodologyWalkthrough />
+                </Stack>
+              )}
+            </Stack>
+          </Collapse>
+        </Paper>
+      )}
+
+      {/* Fire age-in-bonds keeps the legacy panel for now because its
+          glide-path dynamics have a separate explanation path. */}
+      {method === "fire" && showAgeInBonds && content.defaultsExplained.length > 0 && (
+        <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
+          <Button
+            size="small"
+            onClick={() => setDefaultsExpanded(!defaultsExpanded)}
+            endIcon={defaultsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            sx={{ alignSelf: "flex-start", textTransform: "none" }}
+          >
+            Entenda esses valores
+          </Button>
+          <Collapse in={defaultsExpanded}>
+            <Stack gap={2} mt={1}>
+              {content.defaultsExplained.map((item) => (
+                <Stack key={item.label} gap={0.5}>
+                  <Text size={FontSizes.SMALL} weight={FontWeights.MEDIUM}>
+                    {item.label}
+                  </Text>
+                  <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+                    {item.explanation}
+                  </Text>
+                </Stack>
+              ))}
+              <Stack
+                mt={2}
+                sx={{
+                  pt: 2,
+                  borderTop: "1px solid",
+                  borderColor: getColor(Colors.neutral400),
+                }}
+              >
+                <FireMethodologyWalkthrough />
+              </Stack>
+            </Stack>
+          </Collapse>
+        </Paper>
+      )}
 
       {/* Toggles */}
       {(hasAgeInBondsToggle || hasGalenoToggle) && (

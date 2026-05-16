@@ -11,7 +11,7 @@ export type DefaultExplained = {
 };
 
 export type StrategyContent = {
-  title: string;
+  title: ReactNode;
   subtitle: string;
   rationale: ReactNode;
   defaultsExplained: DefaultExplained[];
@@ -76,24 +76,35 @@ export const STRATEGY_CONTENT: Record<ActiveMethodKey, StrategyContent> = {
       {
         label: "O que significa a porcentagem na barra de progresso",
         explanation:
-          "A barra mostra quanto do patrimônio FIRE você já acumulou. " +
-          "A meta FIRE é: despesas anuais × (100 ÷ taxa). A 4%, " +
-          "você precisa de 25× suas despesas anuais. Se o patrimônio " +
-          "é 57% dessa meta, a barra mostra 57%. Ao atingir 100%, " +
-          "sua retirada (patrimônio × taxa) cobre suas despesas.",
+          "A barra mostra patrimônio ÷ meta FIRE. A meta FIRE é: " +
+          "despesas anuais × (100 ÷ taxa) × ajuste de horizonte. O " +
+          "ajuste de horizonte estica a meta para horizontes longos " +
+          "(em 30 anos = 1×, em 60 anos ≈ 1,4×, refletindo o risco " +
+          "de sequência de retornos), e tem piso em 1× para horizontes " +
+          "curtos. A 4% e 30 anos, você precisa de 25× suas despesas " +
+          "anuais; em 60 anos, ~35×. Se o patrimônio é 57% dessa meta, " +
+          "a barra mostra 57%. Ao atingir 100%, sua retirada " +
+          "(patrimônio × taxa) cobre suas despesas.",
       },
       {
-        label: "O que o gráfico mostra",
+        label: "O que os gráficos mostram",
         explanation:
-          "O gráfico simula: 'se eu me aposentasse hoje e retirasse " +
-          "minhas despesas atuais todo mês, quanto tempo o " +
-          "patrimônio duraria?' São 3 cenários de retorno real: " +
-          "pessimista (retorno −1,5pp), esperado (retorno selecionado " +
-          "no slider) e otimista (retorno +1,5pp). A linha 'Duração' " +
-          "resume em quantos anos cada cenário se esgota. " +
-          "Importante: a taxa de saque NÃO afeta o gráfico — ele " +
-          "sempre usa suas despesas reais como retirada. A taxa " +
-          "afeta apenas a barra de progresso (meta FIRE).",
+          "Os gráficos simulam 2000 amostras levando em consideração " +
+          "a composição do seu patrimônio atual e retornos históricos " +
+          "de pelo menos 25 anos (2001–2025; com exceção de FIIs: " +
+          "2011–2025). De cada conjunto de 2000 simulações você vê " +
+          "três cenários: otimista, mediano e pessimista. " +
+          "Antes de atingir 100% da meta, mostramos dois gráficos. " +
+          "O primeiro mostra quanto ainda falta para você bater a meta FIRE ao longo " +
+          "do tempo, com linhas verticais marcando quando cada " +
+          "cenário cruza essa meta. O segundo gráfico mostra o que " +
+          "aconteceria depois que você se aposentar, começando a consumir seu patrimônio " +
+          "por meio de retiradas mensais. " +
+          "Depois que você passa dos 100% da meta, só o gráfico de " +
+          "aposentadoria fica visível, partindo do seu patrimônio " +
+          "atual. Mexer no slider de 'Taxa' muda a meta FIRE, o " +
+          "que muda quanto ainda falta acumular e o ponto de partida " +
+          "da fase de aposentadoria.",
       },
       {
         label: "O que significa 'Retirada'",
@@ -109,16 +120,21 @@ export const STRATEGY_CONTENT: Record<ActiveMethodKey, StrategyContent> = {
         explanation:
           "A taxa é o percentual do patrimônio que você pretende " +
           "retirar por ano na aposentadoria. A meta FIRE é o " +
-          "inverso: despesas anuais × (100 ÷ taxa). Ou seja, " +
-          "quanto maior a taxa, menor o patrimônio-alvo — e, " +
-          "portanto, maior o progresso da barra. A 4%, você " +
-          "precisa de 25× suas despesas anuais; a 5%, de 20×; " +
-          "a 6%, de ~16,7×. Atenção: aumentar a taxa não " +
-          "significa que você acumulou mais — significa que você " +
-          "está disposto a sacar mais agressivamente, assumindo " +
-          "maior risco de esgotar o patrimônio (sequence-of-returns " +
-          "risk). O Trinity Study sugere 4% como equilíbrio " +
-          "histórico entre renda e sustentabilidade em 30 anos.",
+          "inverso da taxa, ajustado pelo horizonte: despesas anuais " +
+          "× (100 ÷ taxa) × ajuste de horizonte. Para um horizonte " +
+          "de 30 anos o ajuste é 1×, então quanto maior a taxa, " +
+          "menor o patrimônio-alvo — e maior o progresso da barra. A " +
+          "4% e 30 anos, você precisa de 25× suas despesas anuais; " +
+          "a 5%, de 20×; a 6%, de ~16,7×. Para horizontes mais " +
+          "longos (ex.: 60 anos), o ajuste fica > 1× (≈1,4×), " +
+          "estendendo a meta para refletir o risco de retornos " +
+          "ruins logo no início da aposentadoria. Atenção: aumentar " +
+          "a taxa não significa que você acumulou mais — significa " +
+          "que você está disposto a sacar mais agressivamente, " +
+          "assumindo maior risco de esgotar o patrimônio " +
+          "(sequence-of-returns risk). O Trinity Study sugere 4% " +
+          "como equilíbrio histórico entre renda e sustentabilidade " +
+          "em 30 anos.",
       },
       {
         label: "Meta de 25× despesas anuais (regra dos 4%)",
@@ -133,11 +149,15 @@ export const STRATEGY_CONTENT: Record<ActiveMethodKey, StrategyContent> = {
               Trinity Study
             </Link>
             {" "}(estudo americano) mostrou que retirar 4% do portfólio
-            inicial e ajustar pela inflação sustentou portfólios por 30+
-            anos com mais de 90% de sucesso. 4% = 1/25, então você precisa
-            de 25× suas despesas anuais. O indicador mostra quantas vezes
-            suas despesas anuais você já acumulou e qual seria sua taxa de
-            retirada atual.
+            inicial e ajustar pela inflação sustentou portfólios por 30
+            anos com mais de 90% de sucesso. 4% = 1/25, então 25× é a
+            referência base — válida para um horizonte de 30 anos. Aqui,
+            multiplicamos esse 25× por um <em>ajuste de horizonte</em>{" "}
+            derivado da simulação histórica: em 30 anos o ajuste é 1×
+            (mantém os 25×); em horizontes mais longos o ajuste cresce
+            (em 60 anos ≈ 1,4×, exigindo ~35× das despesas) para
+            refletir o maior risco de sequência de retornos. O multiplicador
+            efetivo aparece no tooltip da barra como “Z× despesas anuais”.
           </>,
       },
       {
@@ -507,7 +527,11 @@ export const STRATEGY_CONTENT: Record<ActiveMethodKey, StrategyContent> = {
     ],
   },
   vpw: {
-    title: "VPW (Saque % Variável)",
+    title: (
+      <>
+        VPW <em>Variable Percentage Withdrawal</em> · retirada percentual variável
+      </>
+    ),
     subtitle:
       "A porcentagem de saque aumenta a cada ano conforme você " +
       "envelhece, consumindo o patrimônio até a idade alvo.",

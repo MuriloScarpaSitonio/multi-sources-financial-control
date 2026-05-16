@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react";
 
 import Button from "@mui/material/Button";
-import Checkbox from "@mui/material/Checkbox";
-import FormControlLabel from "@mui/material/FormControlLabel";
 import Skeleton from "@mui/material/Skeleton";
 import Slider from "@mui/material/Slider";
 import Stack from "@mui/material/Stack";
@@ -34,6 +32,9 @@ import { sliderSx } from "./consts";
 import PatrimonySimulator from "./PatrimonySimulator";
 import SavingsSimulator from "./SavingsSimulator";
 import ExpenseSimulator from "./ExpenseSimulator";
+import VPWSimulationResults, {
+  type VPWProjectionPoint,
+} from "./VPWSimulationResults";
 import {
   runBootstrapWithVaryingWithdrawal,
   runAccumulationBootstrapVarying,
@@ -85,17 +86,6 @@ const computeVPWRate = (
   return -pmt(realReturn, yearsRemaining) * 100;
 };
 
-type ChartPoint = {
-  age: number;
-  withdrawalP10: number;
-  withdrawalP50: number;
-  withdrawalP90: number;
-  balanceP10: number;
-  balanceP50: number;
-  balanceP90: number;
-  expenses: number;
-};
-
 const MAX_ACCUM_YEARS = 80;
 
 type AccumulationPoint = {
@@ -113,54 +103,6 @@ type AccumulationResult = {
   crossoverYearP90: number | null; // worst decile (slowest)
   initialGap: number;
   target0: number;
-};
-
-const ChartTooltipContent = ({
-  active,
-  payload,
-  hideValues,
-  showPessimista,
-  showMediana,
-  showOtimista,
-}: {
-  active?: boolean;
-  payload?: { payload: ChartPoint }[];
-  hideValues?: boolean;
-  showPessimista?: boolean;
-  showMediana?: boolean;
-  showOtimista?: boolean;
-}) => {
-  if (!active || !payload?.length) return null;
-  const data = payload[0].payload;
-  const fmt = (v: number) => (hideValues ? "***" : formatCurrency(v));
-  return (
-    <Stack
-      spacing={0.5}
-      sx={{
-        border: "1px solid",
-        p: 1,
-        borderColor: getColor(Colors.brand400),
-        backgroundColor: getColor(Colors.neutral600),
-      }}
-    >
-      <p style={{ color: getColor(Colors.neutral300) }}>Idade: {data.age}</p>
-      {showPessimista && (
-        <p style={{ color: getColor(Colors.danger200) }}>
-          Pessimista (p10): {fmt(data.balanceP10)} · {fmt(data.withdrawalP10)}/mês
-        </p>
-      )}
-      {showMediana && (
-        <p style={{ color: getColor(Colors.brand200) }}>
-          Mediana (p50): {fmt(data.balanceP50)} · {fmt(data.withdrawalP50)}/mês
-        </p>
-      )}
-      {showOtimista && (
-        <p style={{ color: getColor(Colors.brand) }}>
-          Otimista (p90): {fmt(data.balanceP90)} · {fmt(data.withdrawalP90)}/mês
-        </p>
-      )}
-    </Stack>
-  );
 };
 
 const AccumulationTooltipContent = ({
@@ -263,6 +205,14 @@ const VPWIndicator = ({
   const showOtimista = visibleScenarios.includes("otimista");
   const showMediana = visibleScenarios.includes("mediana");
   const showPessimista = visibleScenarios.includes("pessimista");
+  const toggleScenario = (
+    scenario: "otimista" | "mediana" | "pessimista",
+    checked: boolean,
+  ) => {
+    setVisibleScenarios((prev) =>
+      checked ? [...prev, scenario] : prev.filter((v) => v !== scenario),
+    );
+  };
   const effectiveSavings = simulatedSavings ?? Math.max(0, avgMonthlySavings);
   const effectiveMonthlyExpenses = simulatedExpenses ?? avgExpenses;
 
@@ -286,6 +236,9 @@ const VPWIndicator = ({
   const annualWithdrawal = effectiveInvestment * (vpwRate / 100);
   const monthlyWithdrawal = annualWithdrawal / 12;
   const coverage = effectiveMonthlyExpenses > 0 ? (monthlyWithdrawal / effectiveMonthlyExpenses) * 100 : 0;
+  const targetPatrimonyToday =
+    vpwRate > 0 ? (effectiveMonthlyExpenses * 1200) / vpwRate : 0;
+  const allocationLabel = `${effectiveStockPct.toFixed(0)}% RV / ${effectiveBondPct.toFixed(0)}% RF`;
 
   const accumulation = useMemo<AccumulationResult | null>(() => {
     if (currentAge === null || yearsRemaining === null || yearsRemaining <= 0) {
@@ -317,8 +270,11 @@ const VPWIndicator = ({
     };
 
     const cap = Math.min(MAX_ACCUM_YEARS, yearsRemaining - 1);
+    // Retirement timing starts from the real current investment total. The
+    // patrimony simulator is a what-if input for the retire-today VPW scenario,
+    // and must not move the "Quando posso me aposentar com VPW?" forecast.
     const result: BootstrapAccumulationResult = runAccumulationBootstrapVarying({
-      startingBalance: effectiveInvestment,
+      startingBalance: investmentTotal,
       annualContribution: effectiveSavings * 12,
       targetAt,
       weights,
@@ -327,7 +283,7 @@ const VPWIndicator = ({
     });
 
     const target0 = targetAt(0);
-    const initialGap = Math.max(0, target0 - effectiveInvestment);
+    const initialGap = Math.max(0, target0 - investmentTotal);
 
     // Trim the chart to a few years past p90 so the post-crossover flat zeros
     // don't dominate the X-range.
@@ -355,7 +311,7 @@ const VPWIndicator = ({
       target0,
     };
   }, [
-    effectiveInvestment,
+    investmentTotal,
     effectiveSavings,
     effectiveMonthlyExpenses,
     effectiveStockPct,
@@ -368,39 +324,16 @@ const VPWIndicator = ({
     ifixTotal,
   ]);
 
-  // Anchor the bootstrap chart at the projected retirement age (currentAge +
-  // crossoverYear), starting from the patrimony at crossover. Models the rest
-  // of life from there. When the user can already retire today, crossoverYear
-  // is 0 and this collapses to the "retire today" view. When accumulation
-  // never reaches the target, projection is empty and the chart hides.
-  const projection = useMemo<ChartPoint[]>(() => {
+  // Scenario bootstrap: start VPW today with the patrimony used in the current
+  // scenario and recalculate the withdrawal each year until the target age.
+  const projection = useMemo<VPWProjectionPoint[]>(() => {
     if (
       currentAge === null ||
       yearsRemaining === null ||
-      yearsRemaining <= 0 ||
-      !accumulation ||
-      accumulation.crossoverYearP50 === null
+      yearsRemaining <= 0
     ) {
       return [];
     }
-
-    const crossoverYear = accumulation.crossoverYearP50;
-    const retirementAge = currentAge + crossoverYear;
-    // After crossover the balance equals the (year-specific) target by
-    // construction — that's what "atingir a meta" means. Seed the drawdown
-    // bootstrap from the target at the median crossover year so chart 2
-    // starts at exactly "atingiu a meta" regardless of return draws.
-    const yearsAtRetirement = yearsRemaining - crossoverYear;
-    const rateAtRetirement = computeVPWRate(
-      effectiveStockPct,
-      effectiveBondPct,
-      yearsAtRetirement,
-      stockReturn,
-      bondReturn,
-    );
-    const retirementBalance = (effectiveMonthlyExpenses * 1200) / rateAtRetirement;
-    const retirementYears = yearsAtRetirement;
-    if (retirementYears <= 0) return [];
 
     // Bootstrap weights: rebalance to the user's effective allocation, preserving
     // the actual equity:ifix split inside the RV bucket. If the user has no RV
@@ -416,7 +349,7 @@ const VPWIndicator = ({
     };
 
     const withdrawalAt: WithdrawalAtFn = (yearIndex, balance) => {
-      const yearsLeft = retirementYears - yearIndex;
+      const yearsLeft = yearsRemaining - yearIndex;
       if (yearsLeft <= 0) return balance; // final-year sweep
       const rate = computeVPWRate(
         effectiveStockPct,
@@ -429,17 +362,17 @@ const VPWIndicator = ({
     };
 
     const result = runBootstrapWithVaryingWithdrawal(
-      retirementBalance,
+      effectiveInvestment,
       weights,
-      retirementYears,
+      yearsRemaining,
       withdrawalAt,
       1500,
     );
 
-    const chartPoints: ChartPoint[] = result.withdrawalBands.map((wBand, i) => {
+    const chartPoints: VPWProjectionPoint[] = result.withdrawalBands.map((wBand, i) => {
       const balanceBand = result.balanceBands[i];
       return {
-        age: retirementAge + i,
+        age: currentAge + i,
         withdrawalP10: wBand.p10 / 12,
         withdrawalP50: wBand.p50 / 12,
         withdrawalP90: wBand.p90 / 12,
@@ -453,10 +386,10 @@ const VPWIndicator = ({
     // Append the post-sweep point at target age so the balance trace visibly
     // reaches zero (without it, the chart's right edge shows the start-of-year
     // balance of the last simulated year, not the depleted endpoint).
-    const finalBalance = result.balanceBands[retirementYears];
+    const finalBalance = result.balanceBands[yearsRemaining];
     if (finalBalance) {
       chartPoints.push({
-        age: retirementAge + retirementYears,
+        age: currentAge + yearsRemaining,
         withdrawalP10: 0,
         withdrawalP50: 0,
         withdrawalP90: 0,
@@ -469,7 +402,7 @@ const VPWIndicator = ({
 
     return chartPoints;
   }, [
-    accumulation,
+    effectiveInvestment,
     effectiveMonthlyExpenses,
     currentAge,
     yearsRemaining,
@@ -569,7 +502,8 @@ const VPWIndicator = ({
   const isSimulating = simulatedPatrimony !== null || overrideStockPct !== null;
   const baseLabel = isSimulating ? "Saque simulado" : "Saque atual";
   const tooltipTitle =
-    `VPW: 100% = saque cobre despesas hoje. O saque cresce conforme você ` +
+    `VPW: Variable Percentage Withdrawal, em português retirada percentual variável. ` +
+    `100% = saque cobre despesas hoje. O saque cresce conforme você ` +
     `envelhece — veja o gráfico para a trajetória completa. ` +
     `Idade: ${currentAge}, meta: ${targetAge}, anos restantes: ${yearsRemaining}. ` +
     `Alocação efetiva: ${effectiveStockPct.toFixed(0)}% RV / ${effectiveBondPct.toFixed(0)}% RF` +
@@ -604,7 +538,7 @@ const VPWIndicator = ({
                 weight={FontWeights.MEDIUM}
                 size={FontSizes.SEMI_SMALL}
               >
-                VPW (Saque % Variável)
+                VPW
               </Text>
             )}
             {hideValues ? (
@@ -753,61 +687,39 @@ const VPWIndicator = ({
           />
         </Stack>
       )}
-      {!compact && (accumulation?.points.length ?? 0) > 1 && (() => {
-        const toggleScenario = (
-          scenario: "otimista" | "mediana" | "pessimista",
-          checked: boolean,
-        ) => {
-          setVisibleScenarios((prev) =>
-            checked
-              ? [...prev, scenario]
-              : prev.filter((v) => v !== scenario),
-          );
-        };
-        const onlyOne = visibleScenarios.length === 1;
-        return (
-          <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2 }}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={showOtimista}
-                  onChange={(_, checked) => toggleScenario("otimista", checked)}
-                  disabled={onlyOne && showOtimista}
-                />
-              }
-              label="Otimista"
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={showMediana}
-                  onChange={(_, checked) => toggleScenario("mediana", checked)}
-                  disabled={onlyOne && showMediana}
-                />
-              }
-              label="Mediana"
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={showPessimista}
-                  onChange={(_, checked) => toggleScenario("pessimista", checked)}
-                  disabled={onlyOne && showPessimista}
-                />
-              }
-              label="Pessimista"
-            />
-          </Stack>
-        );
-      })()}
+      {!compact && (
+        <VPWSimulationResults
+          patrimony={effectiveInvestment}
+          monthlyExpenses={effectiveMonthlyExpenses}
+          monthlySavings={effectiveSavings}
+          monthlyWithdrawal={monthlyWithdrawal}
+          vpwRate={vpwRate}
+          coverage={coverage}
+          targetPatrimony={targetPatrimonyToday}
+          yearsRemaining={yearsRemaining}
+          targetAge={targetAge}
+          allocationLabel={allocationLabel}
+          retirementTimingLabel={accumulationLabels?.timeText}
+          projection={projection}
+          showOtimista={showOtimista}
+          showMediana={showMediana}
+          showPessimista={showPessimista}
+          onScenarioVisibilityChange={toggleScenario}
+          hideValues={hideValues}
+        />
+      )}
       {!compact && accumulation && accumulation.points.length > 1 && (
         <>
           <Text
-            size={FontSizes.EXTRA_SMALL}
-            weight={FontWeights.MEDIUM}
+            size={FontSizes.SMALL}
+            weight={FontWeights.SEMI_BOLD}
             color={Colors.neutral200}
           >
-            Acumulação · quanto falta para a meta
+            Quando posso me aposentar com VPW?
+          </Text>
+          <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+            O grafico mostra quanto ainda falta para a retirada VPW cobrir seus
+            gastos em cada idade.
           </Text>
           <SavingsSimulator
             value={effectiveSavings}
@@ -911,71 +823,6 @@ const VPWIndicator = ({
               )}
             </ComposedChart>
           </ResponsiveContainer>
-        </>
-      )}
-      {!compact && projection.length > 0 && (
-        <>
-          <Text
-            size={FontSizes.EXTRA_SMALL}
-            weight={FontWeights.MEDIUM}
-            color={Colors.neutral200}
-            sx={{ mt: 2 }}
-          >
-            Aposentadoria · trajetória do patrimônio depois de atingir a meta
-          </Text>
-          <ResponsiveContainer width="100%" height={240}>
-              <ComposedChart
-                data={projection}
-                margin={{ top: 10, right: 10, left: 5, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="5" vertical={false} />
-                <XAxis
-                  dataKey="age"
-                  stroke={getColor(Colors.neutral0)}
-                  tickLine={false}
-                  tickFormatter={(v) => `${v}`}
-                />
-                <YAxis
-                  stroke={getColor(Colors.brand400)}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={numberTickFormatter}
-                  tickCount={hideValues ? 0 : undefined}
-                />
-                <RechartsTooltip
-                  cursor={false}
-                  content={
-                    <ChartTooltipContent
-                      hideValues={hideValues}
-                      showPessimista={showPessimista}
-                      showMediana={showMediana}
-                      showOtimista={showOtimista}
-                    />
-                  }
-                />
-                {showPessimista && (
-                  <Line
-                    type="monotone" dataKey="balanceP10"
-                    stroke={getColor(Colors.danger200)} strokeWidth={1.5} strokeDasharray="4 3"
-                    dot={false} name="p10 (pessimista)"
-                  />
-                )}
-                {showMediana && (
-                  <Line
-                    type="monotone" dataKey="balanceP50"
-                    stroke={getColor(Colors.brand200)} strokeWidth={2}
-                    dot={false} name="Mediana"
-                  />
-                )}
-                {showOtimista && (
-                  <Line
-                    type="monotone" dataKey="balanceP90"
-                    stroke={getColor(Colors.brand)} strokeWidth={1.5} strokeDasharray="4 3"
-                    dot={false} name="p90 (otimista)"
-                  />
-                )}
-              </ComposedChart>
-            </ResponsiveContainer>
         </>
       )}
     </Stack>
