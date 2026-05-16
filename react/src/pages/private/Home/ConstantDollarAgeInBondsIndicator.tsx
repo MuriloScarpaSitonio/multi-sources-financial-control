@@ -82,6 +82,7 @@ const ChartTooltipContent = ({
   showOtimista = true,
   showMediana = true,
   showPessimista = true,
+  invertLabels = false,
 }: {
   active?: boolean;
   payload?: { payload: BootstrapBand }[];
@@ -90,9 +91,16 @@ const ChartTooltipContent = ({
   showOtimista?: boolean;
   showMediana?: boolean;
   showPessimista?: boolean;
+  invertLabels?: boolean;
 }) => {
   if (!active || !payload?.length) return null;
   const data = payload[0].payload;
+  // For balance-based bands (drawdown), p10 = small balance = pessimista.
+  // For gap-based bands (accumulation), p10 = small gap = otimista — invert.
+  const otimistaValue = invertLabels ? data.p10 : data.p90;
+  const pessimistaValue = invertLabels ? data.p90 : data.p10;
+  const otimistaPercentile = invertLabels ? "p10" : "p90";
+  const pessimistaPercentile = invertLabels ? "p90" : "p10";
   return (
     <Stack
       spacing={0.5}
@@ -106,7 +114,7 @@ const ChartTooltipContent = ({
       <p style={{ color: getColor(Colors.neutral300) }}>Ano {data.year}</p>
       {showPessimista && (
         <p style={{ color: getColor(Colors.danger200) }}>
-          Pessimista (p10): {hideValues ? "***" : valueFormatter(data.p10)}
+          Pessimista ({pessimistaPercentile}): {hideValues ? "***" : valueFormatter(pessimistaValue)}
         </p>
       )}
       {showMediana && (
@@ -116,7 +124,7 @@ const ChartTooltipContent = ({
       )}
       {showOtimista && (
         <p style={{ color: getColor(Colors.brand) }}>
-          Otimista (p90): {hideValues ? "***" : valueFormatter(data.p90)}
+          Otimista ({otimistaPercentile}): {hideValues ? "***" : valueFormatter(otimistaValue)}
         </p>
       )}
     </Stack>
@@ -384,11 +392,11 @@ const ConstantDollarAgeInBondsIndicator = ({
 
   const monthlyWithdrawalFormatted = hideValues ? "***" : formatCurrency(monthlyWithdrawal);
   const monthlyExpensesFormatted = hideValues ? "***" : formatCurrency(effectiveMonthlyExpenses);
-  const isAggressiveRate = rateBootstrap.successRate < 0.9;
+  const isAggressiveRate = rateBootstrap.successRate < 0.85;
   const tooltipTitle =
     `Probabilidade histórica do patrimônio sustentar suas despesas (${monthlyExpensesFormatted}/mês, ` +
     `ajustadas por inflação) por ${targetYears} anos com alocação Idade em RF (RF% = idade). ` +
-    `Limite seguro p/ ${targetYears} anos: ${safeRate.toFixed(2)}% (95% sucesso). ` +
+    `Limite seguro p/ ${targetYears} anos: ${safeRate.toFixed(2)}% (90% sucesso). ` +
     `Meta de FIRE pela regra ${withdrawalRate}%: ${targetMultiplier.toFixed(1)}× despesas anuais.`;
 
   const lifestyleSuccess = bootstrap.successRate;
@@ -544,8 +552,8 @@ const ConstantDollarAgeInBondsIndicator = ({
             weight={isAggressiveRate ? FontWeights.MEDIUM : undefined}
           >
             {isAggressiveRate
-              ? `⚠ Taxa de ${withdrawalRate}% tem apenas ${(rateBootstrap.successRate * 100).toFixed(0)}% de sucesso histórico em ${targetYears} anos. Limite seguro: ${safeRate.toFixed(2)}% (95% sucesso).`
-              : `Limite seguro p/ ${targetYears} anos: ${safeRate.toFixed(2)}% a.a. (95% sucesso histórico).`}
+              ? `⚠ Taxa de ${withdrawalRate}% tem apenas ${(rateBootstrap.successRate * 100).toFixed(0)}% de sucesso histórico em ${targetYears} anos. Limite seguro: ${safeRate.toFixed(2)}% (90% sucesso).`
+              : `Limite seguro p/ ${targetYears} anos: ${safeRate.toFixed(2)}% a.a. (90% sucesso histórico).`}
           </Text>
         </Stack>
       )}
@@ -655,7 +663,7 @@ const ConstantDollarAgeInBondsIndicator = ({
               weight={FontWeights.MEDIUM}
               color={Colors.neutral200}
             >
-              Acumulação · quanto falta para a meta
+              Acumulação · quantos reais ainda preciso acumular para atingir minha meta de FIRE em cada idade
             </Text>
             {onMonthlySavingsChange && onMonthlySavingsReset && (
               <SavingsSimulator
@@ -693,6 +701,7 @@ const ConstantDollarAgeInBondsIndicator = ({
                       showOtimista={showOtimista}
                       showMediana={showMediana}
                       showPessimista={showPessimista}
+                      invertLabels
                     />
                   }
                 />

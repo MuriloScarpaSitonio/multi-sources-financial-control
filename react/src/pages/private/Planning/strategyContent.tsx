@@ -11,7 +11,7 @@ export type DefaultExplained = {
 };
 
 export type StrategyContent = {
-  title: string;
+  title: ReactNode;
   subtitle: string;
   rationale: ReactNode;
   defaultsExplained: DefaultExplained[];
@@ -83,17 +83,24 @@ export const STRATEGY_CONTENT: Record<ActiveMethodKey, StrategyContent> = {
           "sua retirada (patrimônio × taxa) cobre suas despesas.",
       },
       {
-        label: "O que o gráfico mostra",
+        label: "O que os gráficos mostram",
         explanation:
-          "O gráfico simula: 'se eu me aposentasse hoje e retirasse " +
-          "minhas despesas atuais todo mês, quanto tempo o " +
-          "patrimônio duraria?' São 3 cenários de retorno real: " +
-          "pessimista (retorno −1,5pp), esperado (retorno selecionado " +
-          "no slider) e otimista (retorno +1,5pp). A linha 'Duração' " +
-          "resume em quantos anos cada cenário se esgota. " +
-          "Importante: a taxa de saque NÃO afeta o gráfico — ele " +
-          "sempre usa suas despesas reais como retirada. A taxa " +
-          "afeta apenas a barra de progresso (meta FIRE).",
+          "Os gráficos simulam 2000 amostras levando em consideração " +
+          "a composição do seu patrimônio atual e retornos históricos " +
+          "de pelo menos 25 anos (2001–2025; com exceção de FIIs: " +
+          "2011–2025). De cada conjunto de 2000 simulações você vê " +
+          "três cenários: otimista, mediano e pessimista. " +
+          "Antes de atingir 100% da meta, mostramos dois gráficos. " +
+          "O primeiro mostra quanto ainda falta para você bater a meta FIRE ao longo " +
+          "do tempo, com linhas verticais marcando quando cada " +
+          "cenário cruza essa meta. O segundo gráfico mostra o que " +
+          "aconteceria depois que você se aposentar, começando a consumir seu patrimônio " +
+          "por meio de retiradas mensais. " +
+          "Depois que você passa dos 100% da meta, só o gráfico de " +
+          "aposentadoria fica visível, partindo do seu patrimônio " +
+          "atual. Mexer no slider de 'Taxa' muda a meta FIRE, o " +
+          "que muda quanto ainda falta acumular e o ponto de partida " +
+          "da fase de aposentadoria.",
       },
       {
         label: "O que significa 'Retirada'",
@@ -507,7 +514,11 @@ export const STRATEGY_CONTENT: Record<ActiveMethodKey, StrategyContent> = {
     ],
   },
   vpw: {
-    title: "VPW (Saque % Variável)",
+    title: (
+      <>
+        VPW <em>Variable Percentage Withdrawal</em> · retirada percentual variável
+      </>
+    ),
     subtitle:
       "A porcentagem de saque aumenta a cada ano conforme você " +
       "envelhece, consumindo o patrimônio até a idade alvo.",

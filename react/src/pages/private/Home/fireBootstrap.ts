@@ -178,7 +178,7 @@ export const computeWeights = (
 export const findSafeWithdrawalRate = (
   horizon: number,
   weights: AllocationWeights,
-  targetSuccess: number = 0.95,
+  targetSuccess: number = 0.9,
   numTrials: number = 1000,
 ): number => {
   if (horizon <= 0) return 0;
@@ -318,7 +318,7 @@ export const runBootstrapWithVaryingWeights = (
 export const findSafeWithdrawalRateWithVaryingWeights = (
   horizon: number,
   weightsAt: WeightsAtFn,
-  targetSuccess: number = 0.95,
+  targetSuccess: number = 0.9,
   numTrials: number = 1000,
 ): number => {
   if (horizon <= 0) return 0;
