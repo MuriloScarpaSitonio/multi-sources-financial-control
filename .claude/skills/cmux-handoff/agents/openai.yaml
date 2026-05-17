@@ -1,0 +1,4 @@
+interface:
+  display_name: "cmux handoff"
+  short_description: "Low-level cmux surface transport helper"
+  default_prompt: "Use cmux-handoff to inspect, create, read, and send to cmux surfaces safely."

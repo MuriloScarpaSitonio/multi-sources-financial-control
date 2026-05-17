@@ -389,7 +389,7 @@ const FireSimulationResults = ({
       </Stack>
 
       {scenarioRows.length > 0 && (
-        <Stack gap={1}>
+        <Stack gap={1.75}>
           <Stack
             direction="row"
             alignItems="center"
@@ -484,31 +484,33 @@ const FireSimulationResults = ({
               ))}
             </tbody>
           </Box>
-          <Text
-            size={FontSizes.EXTRA_SMALL}
-            weight={FontWeights.MEDIUM}
-            color={Colors.neutral200}
-          >
-            Aposentadoria · trajetória do patrimônio no cenário atual
-          </Text>
-          <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-            Sucesso em {targetYears}a:{" "}
-            <strong>{(bootstrap.successRate * 100).toFixed(0)}%</strong>
-            {" · "}
-            Depleção mediana:{" "}
-            <strong>
-              {bootstrap.medianDepletionYear !== null
-                ? `${bootstrap.medianDepletionYear} anos`
-                : "nunca"}
-            </strong>
-            {" · "}
-            Depleção pessimista (p10):{" "}
-            <strong>
-              {bootstrap.p10DepletionYear !== null
-                ? `${bootstrap.p10DepletionYear} anos`
-                : "nunca"}
-            </strong>
-          </Text>
+          <Stack gap={0.5} sx={{ mt: 1 }}>
+            <Text
+              size={FontSizes.SMALL}
+              weight={FontWeights.SEMI_BOLD}
+              color={Colors.neutral200}
+            >
+              Aposentadoria · trajetória do patrimônio no cenário atual
+            </Text>
+            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+              Sucesso em {targetYears}a:{" "}
+              <strong>{(bootstrap.successRate * 100).toFixed(0)}%</strong>
+              {" · "}
+              Depleção mediana:{" "}
+              <strong>
+                {bootstrap.medianDepletionYear !== null
+                  ? `${bootstrap.medianDepletionYear} anos`
+                  : "nunca"}
+              </strong>
+              {" · "}
+              Depleção pessimista (p10):{" "}
+              <strong>
+                {bootstrap.p10DepletionYear !== null
+                  ? `${bootstrap.p10DepletionYear} anos`
+                  : "nunca"}
+              </strong>
+            </Text>
+          </Stack>
           <ResponsiveContainer width="100%" height={220}>
             <ComposedChart
               data={retirementChartData}

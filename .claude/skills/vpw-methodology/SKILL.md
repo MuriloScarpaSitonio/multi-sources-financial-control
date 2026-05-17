@@ -244,7 +244,7 @@ For VPW: target = `effectiveMonthlyExpenses × 1200 / vpwRate(yearsRemaining)` a
 
 14. **Match FIRE's chart header styling exactly:** `size={FontSizes.EXTRA_SMALL}` + `weight={FontWeights.MEDIUM}` + `color={Colors.neutral200}`. `mt: 2` on the second header to give breathing room from the chart above.
 
-15. **Don't switch the sampler back to per-asset independent draws.** Aligned-year sampling preserves cross-asset correlation in stressed regimes (2008-style joint stress hits all assets together); the old IID variant biased success rates upward by under-counting joint stress. Don't relax the strict `weights.ifix > 0` cliff to a `MIN_WEIGHT_FOR_RETURN_SERIES` threshold without first confirming real rounding artifacts in practice — the decision was deferred deliberately.
+15. **Don't switch the sampler back to per-asset independent draws.** Aligned-year sampling preserves cross-asset correlation in stressed regimes (2008-style joint stress hits all assets together); the old IID variant biased success rates upward by under-counting joint stress. Keep the `MIN_WEIGHT_FOR_RETURN_SERIES` threshold so tiny IFIX dust does not cliff the sample window from the full IBOV/CDI/IPCA range to the shorter IFIX range.
 
 ## Call sites
 
