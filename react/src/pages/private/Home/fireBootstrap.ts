@@ -1,9 +1,9 @@
 import {
-  EQUITY_REAL_RETURNS,
-  FIRE_RETURNS_YEARS,
-  FIXED_INCOME_REAL_RETURNS,
-  IFIX_REAL_RETURNS,
-  IFIX_YEARS,
+  EQUITY_MONTHLY_REAL_RETURNS,
+  FIRE_RETURNS_MONTHS,
+  FIXED_INCOME_MONTHLY_REAL_RETURNS,
+  IFIX_MONTHLY_REAL_RETURNS,
+  IFIX_MONTHS,
 } from "./fireReturns";
 
 export type AllocationWeights = {
@@ -37,7 +37,7 @@ export type BootstrapResult = {
 
 // Mulberry32 PRNG — fast, seedable. Used so the same inputs produce the same
 // success rate / percentiles across page reloads (instead of jittering with
-// Math.random's per-mount entropy).
+// Math.random's per-run entropy).
 const mulberry32 = (seed: number) => () => {
   let t = (seed = (seed + 0x6d2b79f5) | 0);
   t = Math.imul(t ^ (t >>> 15), t | 1);
@@ -46,22 +46,23 @@ const mulberry32 = (seed: number) => () => {
 };
 
 const FIXED_SEED = 42;
+const MONTHS_PER_YEAR = 12;
 
-// IFIX return for each year in FIRE_RETURNS_YEARS, or null when the IFIX
-// series doesn't cover that year (years before 2011). Built once at module
+// IFIX return for each month in FIRE_RETURNS_MONTHS, or null when the IFIX
+// series doesn't cover that month (months before 2011). Built once at module
 // load so the bootstrap inner loop only does index math.
-const IFIX_BY_FIRE_INDEX: readonly (number | null)[] = FIRE_RETURNS_YEARS.map(
-  (year) => {
-    const ifixIdx = IFIX_YEARS.indexOf(year);
-    return ifixIdx === -1 ? null : IFIX_REAL_RETURNS[ifixIdx];
-  },
+const IFIX_MONTHLY_BY_MONTH = new Map(
+  IFIX_MONTHS.map((month, i) => [month, IFIX_MONTHLY_REAL_RETURNS[i]]),
+);
+const IFIX_BY_FIRE_MONTH_INDEX: readonly (number | null)[] = FIRE_RETURNS_MONTHS.map(
+  (month) => IFIX_MONTHLY_BY_MONTH.get(month) ?? null,
 );
 
-const ALL_FIRE_YEAR_INDICES: readonly number[] = FIRE_RETURNS_YEARS.map(
+const ALL_FIRE_MONTH_INDICES: readonly number[] = FIRE_RETURNS_MONTHS.map(
   (_, i) => i,
 );
-const IFIX_AVAILABLE_FIRE_INDICES: readonly number[] = ALL_FIRE_YEAR_INDICES
-  .filter((i) => IFIX_BY_FIRE_INDEX[i] !== null);
+const IFIX_AVAILABLE_FIRE_MONTH_INDICES: readonly number[] = ALL_FIRE_MONTH_INDICES
+  .filter((i) => IFIX_BY_FIRE_MONTH_INDEX[i] !== null);
 
 // Materiality threshold for forcing the IFIX-aligned (2011–2025) sample
 // window. A user holding even a single share of any FII produces a tiny
@@ -78,15 +79,15 @@ const IFIX_AVAILABLE_FIRE_INDICES: readonly number[] = ALL_FIRE_YEAR_INDICES
 // cost of pretending they hold material IFIX.
 export const MIN_WEIGHT_FOR_RETURN_SERIES = 0.005;
 
-// Indices into FIRE_RETURNS_YEARS available for sampling under given weights.
+// Indices into FIRE_RETURNS_MONTHS available for sampling under given weights.
 // Material IFIX exposure (≥ MIN_WEIGHT_FOR_RETURN_SERIES) restricts the
-// sample to IFIX-available years (2011–2025); below threshold we use the
+// sample to IFIX-available months (2011–2025); below threshold we use the
 // full IBOV/CDI/IPCA range (1995–2025), keeping the larger sample for users whose
 // IFIX exposure is dust or zero.
-const availableYearIndices = (w: AllocationWeights): readonly number[] =>
+const availableMonthIndices = (w: AllocationWeights): readonly number[] =>
   w.ifix >= MIN_WEIGHT_FOR_RETURN_SERIES
-    ? IFIX_AVAILABLE_FIRE_INDICES
-    : ALL_FIRE_YEAR_INDICES;
+    ? IFIX_AVAILABLE_FIRE_MONTH_INDICES
+    : ALL_FIRE_MONTH_INDICES;
 
 // True if the IFIX-restricted sample window applies to the given weights.
 // Used by indicator UI to disclose when SWR / drawdown numbers are based on
@@ -114,28 +115,26 @@ export const isIfixRestrictedSampleForVaryingWeights = (
   return false;
 };
 
-// Draw one calendar-year-aligned blended return: pick a historical year
-// uniformly from `availableIndices` and combine that year's per-asset returns
-// with the weights. All asset classes draw from the same calendar year, so
+// Draw one calendar-month-aligned blended return: pick a historical month
+// uniformly from `availableIndices` and combine that month's per-asset returns
+// with the weights. All asset classes draw from the same calendar month, so
 // cross-asset correlation (e.g. 2008's correlated stress across equity, IFIX,
-// fixed income) is preserved — unlike independent per-asset sampling, which
-// would pair 2008 equity with random other years' bonds. Year-to-year
-// autocorrelation is still dropped (size-1 blocks); see the skill's
-// "Methodology limits" section.
-const drawAlignedYearReturn = (
+// fixed income) is preserved. Month-to-month autocorrelation is still dropped
+// (size-1 blocks).
+const drawAlignedMonthReturn = (
   w: AllocationWeights,
   availableIndices: readonly number[],
   rng: () => number,
 ): number => {
   const idx = availableIndices[Math.floor(rng() * availableIndices.length)];
   // ifixR is non-null whenever w.ifix > 0 (availableIndices is restricted to
-  // IFIX-available years in that case). When w.ifix === 0 the term is killed
+  // IFIX-available months in that case). When w.ifix === 0 the term is killed
   // by multiplication; `?? 0` is defensive against floating-point edge cases.
-  const ifixR = IFIX_BY_FIRE_INDEX[idx];
+  const ifixR = IFIX_BY_FIRE_MONTH_INDEX[idx];
   return (
-    w.equity * EQUITY_REAL_RETURNS[idx] +
+    w.equity * EQUITY_MONTHLY_REAL_RETURNS[idx] +
     w.ifix * (ifixR ?? 0) +
-    w.fixedIncome * FIXED_INCOME_REAL_RETURNS[idx]
+    w.fixedIncome * FIXED_INCOME_MONTHLY_REAL_RETURNS[idx]
   );
 };
 
@@ -154,25 +153,27 @@ const runTrial = (
   rng: () => number,
 ): Trial => {
   const balances = [startingBalance];
-  const withdrawals: number[] = [];
+  const withdrawals: number[] = Array.from({ length: horizon }, () => 0);
   let balance = startingBalance;
   let depletionYear: number | null = null;
-  for (let y = 1; y <= horizon; y++) {
+  const monthlyWithdrawal = annualWithdrawal / MONTHS_PER_YEAR;
+  const horizonMonths = horizon * MONTHS_PER_YEAR;
+  for (let m = 0; m < horizonMonths; m++) {
+    const yearIndex = Math.floor(m / MONTHS_PER_YEAR);
     if (balance <= 0) {
-      balances.push(0);
-      withdrawals.push(0);
+      if ((m + 1) % MONTHS_PER_YEAR === 0) balances.push(0);
       continue;
     }
     const grown =
-      balance * (1 + drawAlignedYearReturn(weights, availableIndices, rng));
-    const actualWithdrawal = Math.min(annualWithdrawal, Math.max(0, grown));
+      balance * (1 + drawAlignedMonthReturn(weights, availableIndices, rng));
+    const actualWithdrawal = Math.min(monthlyWithdrawal, Math.max(0, grown));
     balance = grown - actualWithdrawal;
+    withdrawals[yearIndex] += actualWithdrawal;
     if (balance <= 0 && depletionYear === null) {
-      depletionYear = y;
+      depletionYear = yearIndex + 1;
       balance = 0;
     }
-    balances.push(balance);
-    withdrawals.push(actualWithdrawal);
+    if ((m + 1) % MONTHS_PER_YEAR === 0) balances.push(balance);
   }
   return { depletionYear, balances, withdrawals };
 };
@@ -195,7 +196,7 @@ export const runBootstrap = (
   }
 
   const rng = mulberry32(FIXED_SEED);
-  const availableIndices = availableYearIndices(weights);
+  const availableIndices = availableMonthIndices(weights);
   const trials = Array.from({ length: numTrials }, () =>
     runTrial(
       startingBalance,
@@ -279,7 +280,7 @@ export const findSafeWithdrawalRate = (
 ): number => {
   if (horizon <= 0) return 0;
   // Bootstrap success is scale-invariant: doubling both balance and withdrawal
-  // produces an identical trajectory year-by-year, so success rate depends only
+  // produces an identical trajectory, so success rate depends only
   // on the rate (their ratio), not the absolute amounts. Any positive value
   // works here — 1M is just a convenient placeholder; the user's actual
   // patrimony is irrelevant to "what's the safe withdrawal rate?".
@@ -317,32 +318,33 @@ const runTrialVaryingWeights = (
   rng: () => number,
 ): Trial => {
   const balances = [startingBalance];
-  const withdrawals: number[] = [];
+  const withdrawals: number[] = Array.from({ length: horizon }, () => 0);
   let balance = startingBalance;
   let depletionYear: number | null = null;
-  for (let y = 1; y <= horizon; y++) {
+  const monthlyWithdrawal = annualWithdrawal / MONTHS_PER_YEAR;
+  const horizonMonths = horizon * MONTHS_PER_YEAR;
+  for (let m = 0; m < horizonMonths; m++) {
+    const yearIndex = Math.floor(m / MONTHS_PER_YEAR);
     if (balance <= 0) {
-      balances.push(0);
-      withdrawals.push(0);
+      if ((m + 1) % MONTHS_PER_YEAR === 0) balances.push(0);
       continue;
     }
-    // index y-1 = weights applied during the year that ends at index y
     const grown =
       balance *
       (1 +
-        drawAlignedYearReturn(
-          weightsByYear[y - 1],
-          availableByYear[y - 1],
+        drawAlignedMonthReturn(
+          weightsByYear[yearIndex],
+          availableByYear[yearIndex],
           rng,
         ));
-    const actualWithdrawal = Math.min(annualWithdrawal, Math.max(0, grown));
+    const actualWithdrawal = Math.min(monthlyWithdrawal, Math.max(0, grown));
     balance = grown - actualWithdrawal;
+    withdrawals[yearIndex] += actualWithdrawal;
     if (balance <= 0 && depletionYear === null) {
-      depletionYear = y;
+      depletionYear = yearIndex + 1;
       balance = 0;
     }
-    balances.push(balance);
-    withdrawals.push(actualWithdrawal);
+    if ((m + 1) % MONTHS_PER_YEAR === 0) balances.push(balance);
   }
   return { depletionYear, balances, withdrawals };
 };
@@ -365,15 +367,15 @@ export const runBootstrapWithVaryingWeights = (
   }
 
   const rng = mulberry32(FIXED_SEED);
-  // Materialize weights and per-year available-year indices once. `weightsAt`
+  // Materialize weights and per-year available-month indices once. `weightsAt`
   // is deterministic, so this is a strict win — the inner loop avoids both
-  // the function call and the `availableYearIndices` rebuild per trial-year.
+  // the function call and the `availableMonthIndices` rebuild per trial-year.
   const weightsByYear: AllocationWeights[] = Array.from(
     { length: horizon },
     (_, i) => weightsAt(i),
   );
   const availableByYear: (readonly number[])[] = weightsByYear.map(
-    availableYearIndices,
+    availableMonthIndices,
   );
   const trials = Array.from({ length: numTrials }, () =>
     runTrialVaryingWeights(
@@ -500,23 +502,33 @@ const runTrialVaryingWithdrawal = (
   rng: () => number,
 ): VaryingWithdrawalTrial => {
   const balances: number[] = [startingBalance];
-  const withdrawals: number[] = [];
+  const withdrawals: number[] = Array.from({ length: horizon }, () => 0);
   let balance = startingBalance;
   for (let y = 0; y < horizon; y++) {
     if (balance <= 0) {
-      withdrawals.push(0);
       balances.push(0);
       continue;
     }
-    const w = Math.max(0, Math.min(withdrawalAt(y, balance), balance));
-    // Withdraw before growth (start-of-year): VPW computes the rate against the
-    // pre-return balance via PMT, so the cash must come out before that year's
-    // return is realized. This differs from `runTrial`'s grow-then-withdraw.
-    balance =
-      (balance - w) *
-      (1 + drawAlignedYearReturn(weights, availableIndices, rng));
-    if (balance < 0) balance = 0;
-    withdrawals.push(w);
+    const annualWithdrawal = Math.max(0, withdrawalAt(y, balance));
+    if (annualWithdrawal >= balance) {
+      withdrawals[y] = balance;
+      balance = 0;
+      balances.push(0);
+      continue;
+    }
+
+    const monthlyWithdrawal = annualWithdrawal / MONTHS_PER_YEAR;
+    for (let month = 0; month < MONTHS_PER_YEAR; month++) {
+      if (balance <= 0) break;
+      const w = Math.min(monthlyWithdrawal, balance);
+      // Withdraw before growth: VPW computes the rate against the pre-return
+      // balance via PMT, so the cash comes out before that month's return.
+      balance =
+        (balance - w) *
+        (1 + drawAlignedMonthReturn(weights, availableIndices, rng));
+      if (balance < 0) balance = 0;
+      withdrawals[y] += w;
+    }
     balances.push(balance);
   }
   return { withdrawals, balances };
@@ -539,7 +551,7 @@ export const runBootstrapWithVaryingWithdrawal = (
   }
 
   const rng = mulberry32(FIXED_SEED);
-  const availableIndices = availableYearIndices(weights);
+  const availableIndices = availableMonthIndices(weights);
   const trials = Array.from({ length: numTrials }, () =>
     runTrialVaryingWithdrawal(
       startingBalance,
@@ -577,7 +589,7 @@ export const runBootstrapWithVaryingWithdrawal = (
 };
 
 // Forward-running variant: accumulation phase. Starting from `startingBalance`,
-// add `annualContribution` each year, sample one historical real return at the
+// add monthly slices of `annualContribution`, sample historical real monthly returns at the
 // portfolio's `weights`, and stop when the running balance crosses `target`.
 // Used for the "how many years until I reach my FIRE target?" forecast on the
 // FIRE / Idade-em-RF indicators.
@@ -625,6 +637,7 @@ const runAccumulationTrial = (
   const balances = [starting];
   let balance = starting;
   let yearReached: number | null = balance >= target ? 0 : null;
+  const monthlyContribution = contribution / MONTHS_PER_YEAR;
   for (let y = 1; y <= maxYears; y++) {
     if (yearReached !== null) {
       // Crossed already — accumulation phase is done. Pin balance at target
@@ -635,9 +648,11 @@ const runAccumulationTrial = (
       balances.push(target);
       continue;
     }
-    balance =
-      (balance + contribution) *
-      (1 + drawAlignedYearReturn(weights, availableIndices, rng));
+    for (let month = 0; month < MONTHS_PER_YEAR; month++) {
+      balance =
+        (balance + monthlyContribution) *
+        (1 + drawAlignedMonthReturn(weights, availableIndices, rng));
+    }
     if (balance >= target) yearReached = y;
     balances.push(balance);
   }
@@ -661,7 +676,7 @@ export const runAccumulationBootstrap = (
   }
 
   const rng = mulberry32(FIXED_SEED);
-  const availableIndices = availableYearIndices(params.weights);
+  const availableIndices = availableMonthIndices(params.weights);
   const trials = Array.from({ length: numTrials }, () =>
     runAccumulationTrial(
       params.startingBalance,
@@ -733,14 +748,17 @@ const runVaryingAccumulationTrial = (
   const balances = [starting];
   let balance = starting;
   let yearReached: number | null = balance >= targetAt(0) ? 0 : null;
+  const monthlyContribution = contribution / MONTHS_PER_YEAR;
   for (let y = 1; y <= maxYears; y++) {
     if (yearReached !== null) {
       balances.push(balance);
       continue;
     }
-    balance =
-      (balance + contribution) *
-      (1 + drawAlignedYearReturn(weights, availableIndices, rng));
+    for (let month = 0; month < MONTHS_PER_YEAR; month++) {
+      balance =
+        (balance + monthlyContribution) *
+        (1 + drawAlignedMonthReturn(weights, availableIndices, rng));
+    }
     if (balance >= targetAt(y)) yearReached = y;
     balances.push(balance);
   }
@@ -762,7 +780,7 @@ export const runAccumulationBootstrapVarying = (
   if (params.startingBalance < 0) return empty;
 
   const rng = mulberry32(FIXED_SEED);
-  const availableIndices = availableYearIndices(params.weights);
+  const availableIndices = availableMonthIndices(params.weights);
   const trials = Array.from({ length: numTrials }, () =>
     runVaryingAccumulationTrial(
       params.startingBalance,

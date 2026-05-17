@@ -605,15 +605,16 @@ def generate_fire_returns_ts(
     end_year: int | None = None,
 ) -> None:
     """
-    Download B3 IBOV/IFIX and BCB CDI/IPCA data, compute real annual returns,
-    and emit a TypeScript module with const arrays for the FIRE bootstrap.
+    Download B3 IBOV/IFIX, BCB CDI, and BCB IPCA data, compute real annual and
+    monthly returns, and emit a TypeScript module with const arrays for the FIRE
+    bootstrap.
 
     start_year must stay >= 1995. Earlier IBOV history has additional display
     redenominations that this generator does not normalize.
 
     Output (when output_path is provided): a .ts file with FIRE_RETURNS_YEARS,
     EQUITY_REAL_RETURNS, FIXED_INCOME_REAL_RETURNS, IFIX_YEARS, and
-    IFIX_REAL_RETURNS. Otherwise prints to stdout.
+    IFIX_REAL_RETURNS, plus their monthly equivalents. Otherwise prints to stdout.
 
     Usage:
         from variable_income_assets.scripts import generate_fire_returns_ts
@@ -670,6 +671,26 @@ def generate_fire_returns_ts(
         if index == "IBOV":
             return normalize_ibov_value(refdate, value)
         return value
+
+    def month_key(refdate: date) -> tuple[int, int]:
+        return (refdate.year, refdate.month)
+
+    def month_key_str(month: tuple[int, int]) -> str:
+        year, month_number = month
+        return f"{year}-{month_number:02d}"
+
+    def previous_month(month: tuple[int, int]) -> tuple[int, int]:
+        year, month_number = month
+        if month_number == 1:
+            return (year - 1, 12)
+        return (year, month_number - 1)
+
+    def iter_months(first_year: int, last_year: int) -> list[tuple[int, int]]:
+        return [
+            (year, month)
+            for year in range(first_year, last_year + 1)
+            for month in range(1, 13)
+        ]
 
     def b3_index_url(index: str, year: int) -> str:
         payload = json.dumps(
@@ -732,6 +753,30 @@ def generate_fire_returns_ts(
 
         return annual_returns, days_by_year
 
+    def compute_monthly_index_returns(
+        points: dict[date, float],
+        first_year: int,
+        last_year: int,
+    ) -> tuple[dict[tuple[int, int], float], dict[tuple[int, int], int]]:
+        monthly_returns: dict[tuple[int, int], float] = {}
+        days_by_month: dict[tuple[int, int], int] = defaultdict(int)
+        month_close_dates: dict[tuple[int, int], date] = {}
+
+        for d in sorted(points):
+            key = month_key(d)
+            days_by_month[key] += 1
+            if key not in month_close_dates or d > month_close_dates[key]:
+                month_close_dates[key] = d
+
+        month_closes = {key: points[d] for key, d in month_close_dates.items()}
+        for key in iter_months(first_year, last_year):
+            previous_key = previous_month(key)
+            if key not in month_closes or previous_key not in month_closes:
+                continue
+            monthly_returns[key] = month_closes[key] / month_closes[previous_key] - 1.0
+
+        return monthly_returns, days_by_month
+
     print(f"Downloading B3 IBOV from {B3_INDEX_URL} ...")
     ibov_daily: dict[date, float] = {}
     for year in range(start_year - 1, end_year + 1):
@@ -750,16 +795,24 @@ def generate_fire_returns_ts(
             "IBOV 1997 return is outside the expected range. Check whether B3 changed "
             "historical IBOV scaling before changing normalize_ibov_value()."
         )
+    monthly_ibov, ibov_days_by_month = compute_monthly_index_returns(
+        ibov_daily,
+        start_year,
+        end_year,
+    )
 
     cdi_url = BCB_CDI_URL.format(end=end_year)
     print(f"Downloading BCB CDI from {cdi_url} ...")
     cdi_raw = fetch_json(cdi_url)
 
     cdi_monthly: dict[int, list[float]] = defaultdict(list)
+    cdi_by_month: dict[tuple[int, int], float] = {}
     for row in cdi_raw:
         d = datetime.strptime(row["data"], "%d/%m/%Y")
         if start_year <= d.year <= end_year:
-            cdi_monthly[d.year].append(float(row["valor"]) / 100.0)
+            value = float(row["valor"]) / 100.0
+            cdi_monthly[d.year].append(value)
+            cdi_by_month[month_key(d.date())] = value
 
     annual_cdi = {y: compound(v) for y, v in cdi_monthly.items()}
 
@@ -768,10 +821,13 @@ def generate_fire_returns_ts(
     ipca_raw = fetch_json(ipca_url)
 
     ipca_monthly: dict[int, list[float]] = defaultdict(list)
+    ipca_by_month: dict[tuple[int, int], float] = {}
     for row in ipca_raw:
         d = datetime.strptime(row["data"], "%d/%m/%Y")
         if start_year <= d.year <= end_year:
-            ipca_monthly[d.year].append(float(row["valor"]) / 100.0)
+            value = float(row["valor"]) / 100.0
+            ipca_monthly[d.year].append(value)
+            ipca_by_month[month_key(d.date())] = value
 
     annual_ipca = {y: compound(v) for y, v in ipca_monthly.items()}
 
@@ -791,6 +847,20 @@ def generate_fire_returns_ts(
 
     real_rm = [(1 + annual_ibov[y]) / (1 + annual_ipca[y]) - 1 for y in common_years]
     real_rf = [(1 + annual_cdi[y]) / (1 + annual_ipca[y]) - 1 for y in common_years]
+    common_months = sorted(
+        m
+        for m in set(monthly_ibov) & set(cdi_by_month) & set(ipca_by_month)
+        if ibov_days_by_month[m] > 0
+    )
+    if not common_months:
+        raise RuntimeError("No overlapping complete months between IBOV, CDI, and IPCA.")
+
+    real_rm_monthly = [
+        (1 + monthly_ibov[m]) / (1 + ipca_by_month[m]) - 1 for m in common_months
+    ]
+    real_rf_monthly = [
+        (1 + cdi_by_month[m]) / (1 + ipca_by_month[m]) - 1 for m in common_months
+    ]
 
     print(f"Downloading B3 IFIX from {B3_INDEX_URL} ...")
     ifix_start_year = 2011
@@ -802,6 +872,11 @@ def generate_fire_returns_ts(
         raise RuntimeError("No B3 IFIX data parsed — check URL/format.")
 
     annual_ifix, ifix_days_by_year = compute_annual_index_returns(
+        ifix_daily,
+        ifix_start_year,
+        end_year,
+    )
+    monthly_ifix, ifix_days_by_month = compute_monthly_index_returns(
         ifix_daily,
         ifix_start_year,
         end_year,
@@ -823,22 +898,35 @@ def generate_fire_returns_ts(
             f"Latest complete IFIX/IPCA year is {ifix_years[-1]}, expected {end_year}."
         )
     real_ifix = [(1 + annual_ifix[y]) / (1 + annual_ipca[y]) - 1 for y in ifix_years]
+    ifix_months = sorted(
+        m
+        for m in set(monthly_ifix) & set(ipca_by_month)
+        if ifix_days_by_month[m] > 0
+    )
+    real_ifix_monthly = [
+        (1 + monthly_ifix[m]) / (1 + ipca_by_month[m]) - 1 for m in ifix_months
+    ]
 
     rm_values = ", ".join(f"{v:.6f}" for v in real_rm)
     rf_values = ", ".join(f"{v:.6f}" for v in real_rf)
     ifix_values = ", ".join(f"{v:.6f}" for v in real_ifix)
     years_str = ", ".join(str(y) for y in common_years)
     ifix_years_str = ", ".join(str(y) for y in ifix_years)
+    months_str = ", ".join(f'"{month_key_str(m)}"' for m in common_months)
+    ifix_months_str = ", ".join(f'"{month_key_str(m)}"' for m in ifix_months)
+    rm_monthly_values = ", ".join(f"{v:.6f}" for v in real_rm_monthly)
+    rf_monthly_values = ", ".join(f"{v:.6f}" for v in real_rf_monthly)
+    ifix_monthly_values = ", ".join(f"{v:.6f}" for v in real_ifix_monthly)
 
     ts_content = (
         "// Auto-generated by "
         "django/variable_income_assets/scripts.py::generate_fire_returns_ts\n"
         "// Source: B3 IBOV + B3 IFIX + BCB SGS 4391 (CDI) + BCB SGS 433 (IPCA).\n"
         f"// IBOV/CDI/IPCA period: {common_years[0]}–{common_years[-1]} "
-        f"({len(common_years)} complete years).\n"
+        f"({len(common_years)} complete years, {len(common_months)} months).\n"
         f"// IFIX period: {ifix_years[0]}–{ifix_years[-1]} "
-        f"({len(ifix_years)} complete years).\n"
-        "// Real annual returns = (1 + nominal) / (1 + IPCA) - 1.\n\n"
+        f"({len(ifix_years)} complete years, {len(ifix_months)} months).\n"
+        "// Real returns = (1 + nominal) / (1 + IPCA) - 1.\n\n"
         f"export const FIRE_RETURNS_YEARS: readonly number[] = [{years_str}];\n\n"
         "// IBOV (Ibovespa total return, BRL) — real annual returns.\n"
         f"export const EQUITY_REAL_RETURNS: readonly number[] = [{rm_values}];\n\n"
@@ -846,7 +934,16 @@ def generate_fire_returns_ts(
         f"export const FIXED_INCOME_REAL_RETURNS: readonly number[] = [{rf_values}];\n\n"
         f"export const IFIX_YEARS: readonly number[] = [{ifix_years_str}];\n\n"
         "// IFIX (Brazilian REIT index, total return) — real annual returns.\n"
-        f"export const IFIX_REAL_RETURNS: readonly number[] = [{ifix_values}];\n"
+        f"export const IFIX_REAL_RETURNS: readonly number[] = [{ifix_values}];\n\n"
+        f"export const FIRE_RETURNS_MONTHS: readonly string[] = [{months_str}];\n\n"
+        "// IBOV (Ibovespa total return, BRL) — real monthly returns.\n"
+        f"export const EQUITY_MONTHLY_REAL_RETURNS: readonly number[] = [{rm_monthly_values}];\n\n"
+        "// CDI (BCB SGS 4391) — real monthly returns.\n"
+        "export const FIXED_INCOME_MONTHLY_REAL_RETURNS: readonly number[] = "
+        f"[{rf_monthly_values}];\n\n"
+        f"export const IFIX_MONTHS: readonly string[] = [{ifix_months_str}];\n\n"
+        "// IFIX (Brazilian REIT index, total return) — real monthly returns.\n"
+        f"export const IFIX_MONTHLY_REAL_RETURNS: readonly number[] = [{ifix_monthly_values}];\n"
     )
 
     if output_path is None:
@@ -855,6 +952,6 @@ def generate_fire_returns_ts(
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(ts_content)
         print(
-            f"Wrote {len(common_years)} years "
+            f"Wrote {len(common_years)} years / {len(common_months)} months "
             f"({common_years[0]}–{common_years[-1]}) to {output_path}"
         )
