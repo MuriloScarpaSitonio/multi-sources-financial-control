@@ -21,7 +21,7 @@ For a user with `patrimonyTotal`, `avgPassiveIncome` (trailing-12m credited divi
 
 ## Why backward-looking diagnostics, not forward Monte Carlo
 
-FIRE / 1-N / VPW all run a Monte Carlo bootstrap on historical NEFIN equity / IFIX yearly variation / NEFIN risk-free / BCB IPCA series, then surface percentile bands and success rates. Dividends-only deliberately does **not** do this, for one specific reason:
+FIRE / 1-N / VPW all run a Monte Carlo bootstrap on historical IBOV / IFIX / CDI / BCB IPCA series, then surface percentile bands and success rates. Dividends-only deliberately does **not** do this, for one specific reason:
 
 **We don't have an aggregate dividend-yield time series for dividend-focused portfolios.** B3 publishes IFIX and IDIV as **total-return** indices — index value bakes distributions into the price level; aggregate DY is not a published metric. NEFIN does publish weekly market-wide DY (2001–2023, Sept-stale), but its median is ~2.5% — far below what dividend-focused investors actually earn. Bootstrapping on it would systematically understate yields and produce simulation output that *looks* rigorous and *is* misleading.
 

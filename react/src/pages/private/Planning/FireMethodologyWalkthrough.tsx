@@ -301,13 +301,13 @@ const SingleTrialStep = ({
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
           Ações BR:{" "}
           <Link
-            href="https://nefin.com.br/"
+            href="https://www.b3.com.br/pt_br/market-data-e-indices/indices/indices-amplos/ibovespa.htm"
             target="_blank"
             rel="noopener noreferrer"
           >
-            NEFIN
+            IBOV
           </Link>
-          , 2001–2025. Ações EUA e Cripto entram nesse mesmo balde por
+          , 1995–2025. Ações EUA e Cripto entram nesse mesmo balde por
           simplificação.
         </Text>
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
@@ -324,13 +324,13 @@ const SingleTrialStep = ({
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
           Renda fixa BR:{" "}
           <Link
-            href="https://nefin.com.br/"
+            href="https://www3.bcb.gov.br/sgspub/consultarvalores/consultarValoresSeries.do?hdOidSeriesSelecionadas=4391&method=consultarGraficoPorId"
             target="_blank"
             rel="noopener noreferrer"
           >
-            NEFIN livre-de-risco
+            CDI acumulado no mês
           </Link>{" "}
-          (baseado na SELIC), 2001–2025.
+          (BCB SGS 4391), 1995–2025.
         </Text>
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
           Inflação para deflacionar tudo a valores reais:{" "}

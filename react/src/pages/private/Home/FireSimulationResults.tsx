@@ -578,7 +578,7 @@ const FireSimulationResults = ({
       )}
 
       <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-        Dados: NEFIN/SELIC/IPCA 2001-2025; IFIX 2011-2025 quando ha exposicao
+        Dados: IBOV/CDI/IPCA 1995-2025; IFIX 2011-2025 quando ha exposicao
         material a FII. Resultados sao historicos/simulados, nao promessa de
         retorno.
       </Text>

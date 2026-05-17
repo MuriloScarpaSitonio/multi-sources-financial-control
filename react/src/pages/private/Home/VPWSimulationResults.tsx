@@ -384,7 +384,7 @@ const VPWSimulationResults = ({
       </Stack>
 
       {incomeRows.length > 0 && (
-        <Stack gap={1}>
+        <Stack gap={1.75}>
           <Stack
             direction="row"
             alignItems="center"
@@ -494,17 +494,20 @@ const VPWSimulationResults = ({
 
       {projection.length > 0 && (
         <Stack gap={1}>
-          <Text
-            size={FontSizes.EXTRA_SMALL}
-            weight={FontWeights.MEDIUM}
-            color={Colors.neutral200}
-          >
-            Aposentadoria · renda e patrimonio no cenario atual
-          </Text>
-          <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-            O grafico mostra a trajetoria se o VPW comecasse hoje. O tooltip
-            mostra a retirada mensal recalculada em cada idade.
-          </Text>
+          <Stack gap={0.5} sx={{ mt: 1 }}>
+            <Text
+              size={FontSizes.SMALL}
+              weight={FontWeights.SEMI_BOLD}
+              color={Colors.neutral200}
+            >
+              Aposentadoria · renda e patrimônio no cenário simulado
+            </Text>
+            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+              O grafico mostra a trajetoria se o VPW comecasse hoje usando os
+              valores selecionados. O tooltip mostra a retirada mensal
+              recalculada em cada idade.
+            </Text>
+          </Stack>
           <ResponsiveContainer width="100%" height={240}>
             <ComposedChart
               data={projection}

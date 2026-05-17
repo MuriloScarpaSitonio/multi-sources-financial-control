@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import contextlib
-import csv
-import io
+import base64
 import json
 import locale
 import urllib.request
 from collections import defaultdict
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from operator import mul, truediv
 from typing import TYPE_CHECKING, Literal
@@ -23,8 +22,6 @@ from .models import Asset, AssetClosedOperation, AssetMetaData, Transaction
 from .service_layer.tasks import upsert_asset_read_model
 
 if TYPE_CHECKING:
-    from datetime import date
-
     from .models.managers import AssetQuerySet
 
 UserModel = get_user_model()
@@ -51,13 +48,19 @@ def _print_assets_portfolio(qs: AssetQuerySet[Asset], year: int) -> None:
     for i, asset in enumerate(
         qs.annotate_irpf_infos(year=year)
         .filter(transactions_balance__gt=0)
-        .values("code", "currency", "transactions_balance", "avg_price", "total_invested"),
+        .values(
+            "code", "currency", "transactions_balance", "avg_price", "total_invested", "description"
+        ),
         start=1,
     ):
         # Preço médio sempre na moeda original e total em reais
         # TODO: adicionar dolar médio
         currency_symbol = Currencies.get_choice(asset["currency"]).symbol
-        results.append(f"{i}. {asset['code']}")
+        results.append(
+            f"{i}. {asset['code']} - {asset['description']}"
+            if asset["description"]
+            else f"{i}. {asset['code']}"
+        )
         results.append(f"\tQuantidade: {asset['transactions_balance']:n}")
         results.append(f"\tPreço médio: {currency_symbol} {asset['avg_price']:n}")
         results.append(f"\tTotal: R$ {asset['total_invested']:n}\n")
@@ -598,13 +601,12 @@ def update_asset_metadata_current_price(code: str, price: Decimal) -> None:
 
 def generate_fire_returns_ts(
     output_path: str = "../react/src/pages/private/Home/fireReturns.ts",
-    start_year: int = 2001,
+    start_year: int = 1995,
     end_year: int | None = None,
 ) -> None:  # pragma: no cover
     """
-    Download NEFIN factor data (Brazilian market + risk-free) and BCB IPCA,
-    compute real annual returns, and emit a TypeScript module with two const
-    arrays for the FIRE bootstrap simulation.
+    Download B3 IBOV, BCB CDI, and BCB IPCA data, compute real annual returns,
+    and emit a TypeScript module with const arrays for the FIRE bootstrap simulation.
 
     Output (when output_path is provided): a .ts file with EQUITY_REAL_RETURNS
     and FIXED_INCOME_REAL_RETURNS. Otherwise prints to stdout.
@@ -614,7 +616,11 @@ def generate_fire_returns_ts(
         generate_fire_returns_ts()
     """
 
-    NEFIN_URL = "https://nefin.com.br/resources/risk_factors/nefin_factors.csv"
+    B3_INDEX_URL = "https://sistemaswebb3-listados.b3.com.br/indexStatisticsProxy/IndexCall/GetPortfolioDay"
+    BCB_CDI_URL = (
+        "https://api.bcb.gov.br/dados/serie/bcdata.sgs.4391/dados"
+        f"?formato=json&dataInicial=01/01/{start_year}&dataFinal=31/12/{{end}}"
+    )
     BCB_IPCA_URL = (
         "https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados"
         f"?formato=json&dataInicial=01/01/{start_year}&dataFinal=31/12/{{end}}"
@@ -623,35 +629,108 @@ def generate_fire_returns_ts(
     if end_year is None:
         end_year = timezone.localtime().year - 1
 
-    def compound(daily: list[float]) -> float:
+    def compound(periodic: list[float]) -> float:
         result = 1.0
-        for r in daily:
+        for r in periodic:
             result *= 1.0 + r
         return result - 1.0
 
-    print(f"Downloading NEFIN factors from {NEFIN_URL} ...")
-    with urllib.request.urlopen(NEFIN_URL) as resp:
-        raw = resp.read().decode("utf-8")
+    def parse_b3_number(value: str) -> float:
+        return float(value.replace(",", ""))
 
-    daily_rm: dict[int, list[float]] = defaultdict(list)
-    daily_rf: dict[int, list[float]] = defaultdict(list)
-    for row in csv.DictReader(io.StringIO(raw)):
-        try:
-            d = datetime.strptime(row["Date"], "%Y-%m-%d")
-        except (ValueError, KeyError):
-            continue
-        if not (start_year <= d.year <= end_year):
-            continue
-        rm_minus_rf = float(row["Rm_minus_Rf"])
-        rf = float(row["Risk_Free"])
-        daily_rm[d.year].append(rm_minus_rf + rf)
-        daily_rf[d.year].append(rf)
+    def normalize_ibov_value(refdate: date, value: float) -> float:
+        # B3's raw historical table spans the 10:1 Ibovespa display split from
+        # 1997-03-03. Normalize older point values to the post-split scale so
+        # annual returns do not treat the display change as a market loss.
+        if refdate < date(1997, 3, 3):
+            return value / 10.0
+        return value
 
-    if not daily_rm:
-        raise RuntimeError("No NEFIN data parsed — check URL/format.")
+    def normalize_b3_index_value(index: str, refdate: date, value: float) -> float:
+        if index == "IBOV":
+            return normalize_ibov_value(refdate, value)
+        return value
 
-    annual_rm = {y: compound(v) for y, v in daily_rm.items()}
-    annual_rf = {y: compound(v) for y, v in daily_rf.items()}
+    def b3_index_url(index: str, year: int) -> str:
+        payload = json.dumps(
+            {"language": "en-us", "index": index, "year": year},
+            separators=(",", ":"),
+        ).encode()
+        return f"{B3_INDEX_URL}/{base64.b64encode(payload).decode()}"
+
+    def download_b3_index_year(index: str, year: int) -> dict[date, float]:
+        url = b3_index_url(index, year)
+        with urllib.request.urlopen(url) as resp:
+            raw = json.loads(resp.read().decode("utf-8"))
+
+        points: dict[date, float] = {}
+        if not isinstance(raw, dict):
+            return points
+        for row in raw.get("results") or []:
+            day = int(row["day"])
+            for month in range(1, 13):
+                value = row.get(f"rateValue{month}")
+                if value is None:
+                    continue
+                try:
+                    refdate = date(year, month, day)
+                    points[refdate] = normalize_b3_index_value(
+                        index,
+                        refdate,
+                        parse_b3_number(value),
+                    )
+                except ValueError:
+                    continue
+        return points
+
+    def compute_annual_index_returns(
+        points: dict[date, float],
+        first_year: int,
+        last_year: int,
+    ) -> tuple[dict[int, float], dict[int, int]]:
+        annual_returns: dict[int, float] = {}
+        days_by_year: dict[int, int] = defaultdict(int)
+        sorted_dates = sorted(points)
+        for d in sorted_dates:
+            days_by_year[d.year] += 1
+
+        for year in range(first_year, last_year + 1):
+            previous_dates = [d for d in sorted_dates if d.year < year]
+            current_dates = [d for d in sorted_dates if d.year == year]
+            if not previous_dates or not current_dates:
+                continue
+            previous_close = points[max(previous_dates)]
+            current_close = points[max(current_dates)]
+            annual_returns[year] = current_close / previous_close - 1.0
+
+        return annual_returns, days_by_year
+
+    print(f"Downloading B3 IBOV from {B3_INDEX_URL} ...")
+    ibov_daily: dict[date, float] = {}
+    for year in range(start_year - 1, end_year + 1):
+        ibov_daily.update(download_b3_index_year("IBOV", year))
+
+    if not ibov_daily:
+        raise RuntimeError("No B3 IBOV data parsed — check URL/format.")
+
+    annual_ibov, ibov_days_by_year = compute_annual_index_returns(
+        ibov_daily,
+        start_year,
+        end_year,
+    )
+
+    cdi_url = BCB_CDI_URL.format(end=end_year)
+    print(f"Downloading BCB CDI from {cdi_url} ...")
+    with urllib.request.urlopen(cdi_url) as resp:
+        cdi_raw = json.loads(resp.read().decode("utf-8"))
+
+    cdi_monthly: dict[int, list[float]] = defaultdict(list)
+    for row in cdi_raw:
+        d = datetime.strptime(row["data"], "%d/%m/%Y")
+        if start_year <= d.year <= end_year:
+            cdi_monthly[d.year].append(float(row["valor"]) / 100.0)
+
+    annual_cdi = {y: compound(v) for y, v in cdi_monthly.items()}
 
     ipca_url = BCB_IPCA_URL.format(end=end_year)
     print(f"Downloading BCB IPCA from {ipca_url} ...")
@@ -666,46 +745,38 @@ def generate_fire_returns_ts(
 
     annual_ipca = {y: compound(v) for y, v in ipca_monthly.items()}
 
-    # Keep only years with a mostly-complete trading year (≥200 days) and full IPCA.
+    # Keep only years with a mostly-complete trading year (≥200 days) and full CDI/IPCA.
     common_years = sorted(
         y
-        for y in set(annual_rm) & set(annual_rf) & set(annual_ipca)
-        if len(daily_rm[y]) >= 200 and len(ipca_monthly[y]) == 12
+        for y in set(annual_ibov) & set(annual_cdi) & set(annual_ipca)
+        if ibov_days_by_year[y] >= 200 and len(cdi_monthly[y]) == 12 and len(ipca_monthly[y]) == 12
     )
     if not common_years:
-        raise RuntimeError("No overlapping complete years between NEFIN and IPCA.")
+        raise RuntimeError("No overlapping complete years between IBOV, CDI, and IPCA.")
 
-    real_rm = [(1 + annual_rm[y]) / (1 + annual_ipca[y]) - 1 for y in common_years]
-    real_rf = [(1 + annual_rf[y]) / (1 + annual_ipca[y]) - 1 for y in common_years]
+    real_rm = [(1 + annual_ibov[y]) / (1 + annual_ipca[y]) - 1 for y in common_years]
+    real_rf = [(1 + annual_cdi[y]) / (1 + annual_ipca[y]) - 1 for y in common_years]
 
-    # IFIX nominal yearly variation (BRL, %), from B3 "Yearly variation (R$/US$)".
-    # Source: https://www.b3.com.br/en_us/market-data-and-indices/indices/indices-de-segmentos-e-setoriais/real-estate-fund-index-ifix-historic-statistics.htm
-    # Base: 30/12/2010 = 1000. Partial years (YTD) must be excluded — only include fully-closed years.
-    ifix_nominal_pct: dict[int, float] = {
-        2011: 16.51,
-        2012: 35.04,
-        2013: -12.63,
-        2014: -2.76,
-        2015: 5.41,
-        2016: 32.33,
-        2017: 19.41,
-        2018: 5.62,
-        2019: 35.98,
-        2020: -10.24,
-        2021: -2.28,
-        2022: 2.22,
-        2023: 15.50,
-        2024: -5.89,
-        2025: 21.15,
-    }
+    print(f"Downloading B3 IFIX from {B3_INDEX_URL} ...")
+    ifix_start_year = 2011
+    ifix_daily: dict[date, float] = {}
+    for year in range(ifix_start_year - 1, end_year + 1):
+        ifix_daily.update(download_b3_index_year("IFIX", year))
+
+    if not ifix_daily:
+        raise RuntimeError("No B3 IFIX data parsed — check URL/format.")
+
+    annual_ifix, ifix_days_by_year = compute_annual_index_returns(
+        ifix_daily,
+        ifix_start_year,
+        end_year,
+    )
     ifix_years = sorted(
         y
-        for y in ifix_nominal_pct
-        if y in annual_ipca and len(ipca_monthly[y]) == 12 and y <= end_year
+        for y in set(annual_ifix) & set(annual_ipca)
+        if ifix_days_by_year[y] >= 200 and len(ipca_monthly[y]) == 12
     )
-    real_ifix = [
-        (1 + ifix_nominal_pct[y] / 100.0) / (1 + annual_ipca[y]) - 1 for y in ifix_years
-    ]
+    real_ifix = [(1 + annual_ifix[y]) / (1 + annual_ipca[y]) - 1 for y in ifix_years]
 
     rm_values = ", ".join(f"{v:.6f}" for v in real_rm)
     rf_values = ", ".join(f"{v:.6f}" for v in real_rf)
@@ -716,16 +787,16 @@ def generate_fire_returns_ts(
     ts_content = (
         "// Auto-generated by "
         "django/variable_income_assets/scripts.py::generate_fire_returns_ts\n"
-        "// Source: NEFIN Risk Factors + B3 IFIX yearly variation + BCB SGS 433 (IPCA).\n"
-        f"// NEFIN period: {common_years[0]}–{common_years[-1]} "
+        "// Source: B3 IBOV + B3 IFIX + BCB SGS 4391 (CDI) + BCB SGS 433 (IPCA).\n"
+        f"// IBOV/CDI/IPCA period: {common_years[0]}–{common_years[-1]} "
         f"({len(common_years)} complete years).\n"
         f"// IFIX period: {ifix_years[0]}–{ifix_years[-1]} "
         f"({len(ifix_years)} complete years).\n"
         "// Real annual returns = (1 + nominal) / (1 + IPCA) - 1.\n\n"
         f"export const FIRE_RETURNS_YEARS: readonly number[] = [{years_str}];\n\n"
-        "// Brazilian market portfolio (value-weighted) — real annual returns.\n"
+        "// IBOV (Ibovespa total return, BRL) — real annual returns.\n"
         f"export const EQUITY_REAL_RETURNS: readonly number[] = [{rm_values}];\n\n"
-        "// Risk-free (SELIC-based) — real annual returns.\n"
+        "// CDI accumulated monthly — real annual returns.\n"
         f"export const FIXED_INCOME_REAL_RETURNS: readonly number[] = [{rf_values}];\n\n"
         f"export const IFIX_YEARS: readonly number[] = [{ifix_years_str}];\n\n"
         "// IFIX (Brazilian REIT index, total return) — real annual returns.\n"

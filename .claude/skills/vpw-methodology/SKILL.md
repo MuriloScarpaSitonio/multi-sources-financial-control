@@ -32,7 +32,7 @@ For each of N (default 1500) trials, simulate `horizon` years of retirement:
 1. Start with `startingBalance` (the patrimony at the moment of retirement — see "Anchoring chart 2" below).
 2. Each year `y`:
    - `w = clamp(withdrawalAt(y, balance), 0, balance)` — VPW can't overdraw.
-   - `balance = (balance − w) × (1 + drawBlendedReturn(weights))` — withdrawal **before** growth.
+   - `balance = (balance − w) × (1 + drawAlignedYearReturn(weights, availableIndices, rng))` — withdrawal **before** growth.
 3. Output `withdrawalBands` (length `horizon`) and `balanceBands` (length `horizon + 1`) of p10/p50/p90.
 
 `VaryingWithdrawalResult` has no `successRate` field because withdrawals are bounded by balance — depletion at horizon end is structural, not a failure mode.
@@ -47,11 +47,19 @@ Counterpart to FIRE's `runAccumulationBootstrap`, but takes a `targetAt: (year) 
 
 1. Start with `startingBalance`.
 2. Each year `y` (until crossing or `maxYears`):
-   - `balance = (balance + annualContribution) × (1 + drawBlendedReturn(weights))` — contribution **before** growth (matching FIRE).
+   - `balance = (balance + annualContribution) × (1 + drawAlignedYearReturn(weights, availableIndices, rng))` — contribution **before** growth (matching FIRE).
    - If `balance >= targetAt(y)`, mark `yearReached = y` and freeze balance for the remaining years.
 3. Output `gapBands` (length `maxYears + 1`) of `max(0, targetAt(y) − balance_y)`, plus `p10/p50/p90 yearsToTarget` (best/median/worst decile crossing year) and `successRate` (fraction of trials that crossed within `maxYears`).
 
 `AccumulationResult` is reused across FIRE and VPW — VPW's variant just has a different per-year target.
+
+### Sampling: availability-aware aligned-year, size-1 blocks
+
+Both VPW bootstraps call `drawAlignedYearReturn(weights, availableIndices, rng)` from `fireBootstrap.ts`. For each simulated year, one historical calendar year is drawn uniformly from `availableIndices`, and that year's per-asset returns are combined with the weights — equity, IFIX, and fixed income all come from the same calendar year, preserving cross-asset correlation in stressed regimes (e.g. 2008 hits all assets jointly). Year-to-year autocorrelation is still dropped (size-1 blocks).
+
+`availableYearIndices(w)` uses `MIN_WEIGHT_FOR_RETURN_SERIES = 0.005`: material IFIX exposure restricts the sample window to IFIX-available years (2011–2025, 15 years); zero/dust IFIX uses the full IBOV/CDI/IPCA range (1995–2025, 31 years). This avoids cliffing the window from 31 → 15 years because of a tiny IFIX rounding artifact.
+
+The full discussion (data sources, methodology limits, prior IID variant) lives in the `fire-bootstrap-methodology` skill — don't duplicate it here.
 
 ## Chart layout — pure FIRE clone
 
@@ -235,6 +243,8 @@ For VPW: target = `effectiveMonthlyExpenses × 1200 / vpwRate(yearsRemaining)` a
 13. **The `(simulado)` italic indicator** must appear next to "Alocação RV: X% / RF: Y%" when `overrideStockPct !== null`. The bar tooltip's *(override)* annotation is the second surface.
 
 14. **Match FIRE's chart header styling exactly:** `size={FontSizes.EXTRA_SMALL}` + `weight={FontWeights.MEDIUM}` + `color={Colors.neutral200}`. `mt: 2` on the second header to give breathing room from the chart above.
+
+15. **Don't switch the sampler back to per-asset independent draws.** Aligned-year sampling preserves cross-asset correlation in stressed regimes (2008-style joint stress hits all assets together); the old IID variant biased success rates upward by under-counting joint stress. Don't relax the strict `weights.ifix > 0` cliff to a `MIN_WEIGHT_FOR_RETURN_SERIES` threshold without first confirming real rounding artifacts in practice — the decision was deferred deliberately.
 
 ## Call sites
 
