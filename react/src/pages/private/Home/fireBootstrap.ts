@@ -66,12 +66,11 @@ const IFIX_AVAILABLE_FIRE_INDICES: readonly number[] = ALL_FIRE_YEAR_INDICES
 // Materiality threshold for forcing the IFIX-aligned (2011–2025) sample
 // window. A user holding even a single share of any FII produces a tiny
 // nonzero `weights.ifix` (e.g. R$1k of FII in a R$1M portfolio → 0.001).
-// Strict `> 0` would drop the user from a 25-year sample to a 15-year one
-// for that — losing 2003 (+61.5%), 2006 (+28.9%), 2007 (+36.5%), and 2009
-// (+66.9%) equity returns. That collapses geometric equity from ~6.35% to
-// ~1.94% and roughly halves the safe-withdrawal-rate output. Above the
-// threshold we accept that the user has material IFIX exposure and the
-// 2011-onwards sample is the honest one to use.
+// Strict `> 0` would drop the user from the full 1995-onwards sample to the
+// shorter IFIX-aligned sample for that, losing years like 1999 (+131% real
+// equity), 2003 (+81%), and 2009 (+75%). Above the threshold we accept that
+// the user has material IFIX exposure and the 2011-onwards sample is the
+// honest one to use.
 //
 // 0.005 (0.5%) is the chosen default: below it the FII line item barely
 // shows up on the user's allocation pie chart, so the cost of pretending
@@ -82,7 +81,7 @@ export const MIN_WEIGHT_FOR_RETURN_SERIES = 0.005;
 // Indices into FIRE_RETURNS_YEARS available for sampling under given weights.
 // Material IFIX exposure (≥ MIN_WEIGHT_FOR_RETURN_SERIES) restricts the
 // sample to IFIX-available years (2011–2025); below threshold we use the
-// full NEFIN range (2001–2025), keeping the larger sample for users whose
+// full IBOV/CDI/IPCA range (1995–2025), keeping the larger sample for users whose
 // IFIX exposure is dust or zero.
 const availableYearIndices = (w: AllocationWeights): readonly number[] =>
   w.ifix >= MIN_WEIGHT_FOR_RETURN_SERIES

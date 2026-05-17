@@ -85,10 +85,11 @@ const DeckStep = ({ horizon }: { horizon: number }) => {
     <Stack gap={1.5}>
       <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
         Imagine um baralho com {FIRE_RETURNS_YEARS.length} cartas, uma para
-        cada ano histórico de 2001 a 2025. Para simular {horizon} anos de
-        aposentadoria, sorteamos {horizon} cartas com reposição (a mesma
-        carta pode sair várias vezes, outras podem nem sair). É o que
-        chamamos de bootstrap.
+        cada ano histórico de {FIRE_RETURNS_YEARS[0]} a{" "}
+        {FIRE_RETURNS_YEARS[FIRE_RETURNS_YEARS.length - 1]}. Para simular{" "}
+        {horizon} anos de aposentadoria, sorteamos {horizon} cartas com
+        reposição (a mesma carta pode sair várias vezes, outras podem nem
+        sair). É o que chamamos de bootstrap.
       </Text>
       <Stack direction="row" gap={0.5} flexWrap="wrap">
         {FIRE_RETURNS_YEARS.map((year, idx) => {
@@ -301,13 +302,13 @@ const SingleTrialStep = ({
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
           Ações BR:{" "}
           <Link
-            href="https://nefin.com.br/"
+            href="https://www.b3.com.br/pt_br/market-data-e-indices/indices/indices-amplos/ibovespa.htm"
             target="_blank"
             rel="noopener noreferrer"
           >
-            NEFIN
+            IBOV
           </Link>
-          , 2001–2025. Ações EUA e Cripto entram nesse mesmo balde por
+          , 1995–2025. Ações EUA e Cripto entram nesse mesmo balde por
           simplificação.
         </Text>
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
@@ -324,13 +325,13 @@ const SingleTrialStep = ({
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
           Renda fixa BR:{" "}
           <Link
-            href="https://nefin.com.br/"
+            href="https://www3.bcb.gov.br/sgspub/consultarvalores/consultarValoresSeries.do?hdOidSeriesSelecionadas=4391&method=consultarGraficoPorId"
             target="_blank"
             rel="noopener noreferrer"
           >
-            NEFIN livre-de-risco
+            CDI acumulado no mês
           </Link>{" "}
-          (baseado na SELIC), 2001–2025.
+          (BCB SGS 4391), 1995–2025.
         </Text>
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
           Inflação para deflacionar tudo a valores reais:{" "}

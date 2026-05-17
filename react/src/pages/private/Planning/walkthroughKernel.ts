@@ -1,7 +1,7 @@
 // Shared primitives for the FIRE-strategy interactive walkthroughs
 // (`BootstrapWalkthrough` for the SWR finder, `FireTargetWalkthrough` for
 // the FIRE goal calculation). Both demos use the same fixed example
-// portfolio (70% equity / 30% fixed income, no IFIX → full 25-year NEFIN
+// portfolio (70% equity / 30% fixed income, no IFIX → full 31-year IBOV/CDI
 // sample) so their numbers are directly comparable to Trinity-style
 // references. The kernel keeps the demo math in one place: simulation
 // rules can change without two files drifting apart.
@@ -32,7 +32,7 @@ export const mulberry32 = (seed: number) => () => {
 // One historical calendar year's blended real return at the example weights.
 // Aligned-year sampling — same calendar year used across asset classes,
 // matching `drawAlignedYearReturn` in `fireBootstrap.ts`. The example
-// portfolio has zero IFIX so the full 25-year NEFIN window is available.
+// portfolio has zero IFIX so the full 31-year IBOV/CDI window is available.
 export const drawYearReturn = (yearIdx: number) =>
   EXAMPLE_EQUITY_WEIGHT * EQUITY_REAL_RETURNS[yearIdx] +
   EXAMPLE_FI_WEIGHT * FIXED_INCOME_REAL_RETURNS[yearIdx];
