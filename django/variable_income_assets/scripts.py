@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import contextlib
 import base64
+import contextlib
 import json
 import locale
 import urllib.request
@@ -603,19 +603,33 @@ def generate_fire_returns_ts(
     output_path: str = "../react/src/pages/private/Home/fireReturns.ts",
     start_year: int = 1995,
     end_year: int | None = None,
-) -> None:  # pragma: no cover
+) -> None:
     """
-    Download B3 IBOV, BCB CDI, and BCB IPCA data, compute real annual returns,
-    and emit a TypeScript module with const arrays for the FIRE bootstrap simulation.
+    Download B3 IBOV/IFIX and BCB CDI/IPCA data, compute real annual returns,
+    and emit a TypeScript module with const arrays for the FIRE bootstrap.
 
-    Output (when output_path is provided): a .ts file with EQUITY_REAL_RETURNS
-    and FIXED_INCOME_REAL_RETURNS. Otherwise prints to stdout.
+    start_year must stay >= 1995. Earlier IBOV history has additional display
+    redenominations that this generator does not normalize.
+
+    Output (when output_path is provided): a .ts file with FIRE_RETURNS_YEARS,
+    EQUITY_REAL_RETURNS, FIXED_INCOME_REAL_RETURNS, IFIX_YEARS, and
+    IFIX_REAL_RETURNS. Otherwise prints to stdout.
 
     Usage:
         from variable_income_assets.scripts import generate_fire_returns_ts
         generate_fire_returns_ts()
     """
 
+    if end_year is None:
+        end_year = timezone.localtime().year - 1
+
+    if start_year < 1995:
+        raise ValueError("generate_fire_returns_ts only supports start_year >= 1995")
+    if end_year < start_year:
+        raise ValueError("end_year must be greater than or equal to start_year")
+
+    # Reverse-engineered from B3's index statistics pages; this is not a stable
+    # public API, so keep the generated TS checked in and rerun intentionally.
     B3_INDEX_URL = "https://sistemaswebb3-listados.b3.com.br/indexStatisticsProxy/IndexCall/GetPortfolioDay"
     BCB_CDI_URL = (
         "https://api.bcb.gov.br/dados/serie/bcdata.sgs.4391/dados"
@@ -625,9 +639,7 @@ def generate_fire_returns_ts(
         "https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados"
         f"?formato=json&dataInicial=01/01/{start_year}&dataFinal=31/12/{{end}}"
     )
-
-    if end_year is None:
-        end_year = timezone.localtime().year - 1
+    HTTP_TIMEOUT_SECONDS = 30
 
     def compound(periodic: list[float]) -> float:
         result = 1.0
@@ -637,6 +649,14 @@ def generate_fire_returns_ts(
 
     def parse_b3_number(value: str) -> float:
         return float(value.replace(",", ""))
+
+    def fetch_json(url: str):
+        request = urllib.request.Request(
+            url,
+            headers={"User-Agent": "multi-sources-financial-control/1.0"},
+        )
+        with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as resp:
+            return json.loads(resp.read().decode("utf-8"))
 
     def normalize_ibov_value(refdate: date, value: float) -> float:
         # B3's raw historical table spans the 10:1 Ibovespa display split from
@@ -660,14 +680,18 @@ def generate_fire_returns_ts(
 
     def download_b3_index_year(index: str, year: int) -> dict[date, float]:
         url = b3_index_url(index, year)
-        with urllib.request.urlopen(url) as resp:
-            raw = json.loads(resp.read().decode("utf-8"))
+        raw = fetch_json(url)
 
         points: dict[date, float] = {}
         if not isinstance(raw, dict):
             return points
         for row in raw.get("results") or []:
-            day = int(row["day"])
+            try:
+                day = int(row["day"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise RuntimeError(
+                    f"Malformed B3 {index} row for {year}: missing/invalid day"
+                ) from exc
             for month in range(1, 13):
                 value = row.get(f"rateValue{month}")
                 if value is None:
@@ -679,8 +703,11 @@ def generate_fire_returns_ts(
                         refdate,
                         parse_b3_number(value),
                     )
-                except ValueError:
-                    continue
+                except ValueError as exc:
+                    raise RuntimeError(
+                        f"Malformed B3 {index} row for {year}: value present for invalid date "
+                        f"{year}-{month:02d}-{day:02d}"
+                    ) from exc
         return points
 
     def compute_annual_index_returns(
@@ -718,11 +745,15 @@ def generate_fire_returns_ts(
         start_year,
         end_year,
     )
+    if 1997 in annual_ibov and not -0.8 <= annual_ibov[1997] <= 2.0:
+        raise RuntimeError(
+            "IBOV 1997 return is outside the expected range. Check whether B3 changed "
+            "historical IBOV scaling before changing normalize_ibov_value()."
+        )
 
     cdi_url = BCB_CDI_URL.format(end=end_year)
     print(f"Downloading BCB CDI from {cdi_url} ...")
-    with urllib.request.urlopen(cdi_url) as resp:
-        cdi_raw = json.loads(resp.read().decode("utf-8"))
+    cdi_raw = fetch_json(cdi_url)
 
     cdi_monthly: dict[int, list[float]] = defaultdict(list)
     for row in cdi_raw:
@@ -734,8 +765,7 @@ def generate_fire_returns_ts(
 
     ipca_url = BCB_IPCA_URL.format(end=end_year)
     print(f"Downloading BCB IPCA from {ipca_url} ...")
-    with urllib.request.urlopen(ipca_url) as resp:
-        ipca_raw = json.loads(resp.read().decode("utf-8"))
+    ipca_raw = fetch_json(ipca_url)
 
     ipca_monthly: dict[int, list[float]] = defaultdict(list)
     for row in ipca_raw:
@@ -753,6 +783,11 @@ def generate_fire_returns_ts(
     )
     if not common_years:
         raise RuntimeError("No overlapping complete years between IBOV, CDI, and IPCA.")
+    if common_years[-1] != end_year:
+        raise RuntimeError(
+            f"Latest complete IBOV/CDI/IPCA year is {common_years[-1]}, expected {end_year}. "
+            "Check whether B3/BCB data for the requested year is complete before regenerating."
+        )
 
     real_rm = [(1 + annual_ibov[y]) / (1 + annual_ipca[y]) - 1 for y in common_years]
     real_rf = [(1 + annual_cdi[y]) / (1 + annual_ipca[y]) - 1 for y in common_years]
@@ -776,6 +811,17 @@ def generate_fire_returns_ts(
         for y in set(annual_ifix) & set(annual_ipca)
         if ifix_days_by_year[y] >= 200 and len(ipca_monthly[y]) == 12
     )
+    if not ifix_years:
+        raise RuntimeError("No overlapping complete years between IFIX and IPCA.")
+    if ifix_years[0] != ifix_start_year:
+        raise RuntimeError(
+            f"First complete IFIX year is {ifix_years[0]}, expected {ifix_start_year}. "
+            "Check whether B3 returned the IFIX base point for 2010."
+        )
+    if ifix_years[-1] != end_year:
+        raise RuntimeError(
+            f"Latest complete IFIX/IPCA year is {ifix_years[-1]}, expected {end_year}."
+        )
     real_ifix = [(1 + annual_ifix[y]) / (1 + annual_ipca[y]) - 1 for y in ifix_years]
 
     rm_values = ", ".join(f"{v:.6f}" for v in real_rm)
@@ -796,7 +842,7 @@ def generate_fire_returns_ts(
         f"export const FIRE_RETURNS_YEARS: readonly number[] = [{years_str}];\n\n"
         "// IBOV (Ibovespa total return, BRL) — real annual returns.\n"
         f"export const EQUITY_REAL_RETURNS: readonly number[] = [{rm_values}];\n\n"
-        "// CDI accumulated monthly — real annual returns.\n"
+        "// CDI (BCB SGS 4391, monthly aggregated to annual) — real annual returns.\n"
         f"export const FIXED_INCOME_REAL_RETURNS: readonly number[] = [{rf_values}];\n\n"
         f"export const IFIX_YEARS: readonly number[] = [{ifix_years_str}];\n\n"
         "// IFIX (Brazilian REIT index, total return) — real annual returns.\n"
@@ -809,5 +855,6 @@ def generate_fire_returns_ts(
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(ts_content)
         print(
-            f"Wrote {len(common_years)} years ({common_years[0]}–{common_years[-1]}) to {output_path}"
+            f"Wrote {len(common_years)} years "
+            f"({common_years[0]}–{common_years[-1]}) to {output_path}"
         )

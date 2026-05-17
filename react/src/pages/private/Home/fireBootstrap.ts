@@ -67,9 +67,10 @@ const IFIX_AVAILABLE_FIRE_INDICES: readonly number[] = ALL_FIRE_YEAR_INDICES
 // window. A user holding even a single share of any FII produces a tiny
 // nonzero `weights.ifix` (e.g. R$1k of FII in a R$1M portfolio → 0.001).
 // Strict `> 0` would drop the user from the full 1995-onwards sample to the
-// shorter IFIX-aligned sample for that. Above the threshold we accept that the
-// user has material IFIX exposure and the 2011-onwards sample is the honest one
-// to use.
+// shorter IFIX-aligned sample for that, losing years like 1999 (+131% real
+// equity), 2003 (+81%), and 2009 (+75%). Above the threshold we accept that
+// the user has material IFIX exposure and the 2011-onwards sample is the
+// honest one to use.
 //
 // 0.005 (0.5%) is the chosen default: below it the FII line item barely
 // shows up on the user's allocation pie chart, so the cost of pretending

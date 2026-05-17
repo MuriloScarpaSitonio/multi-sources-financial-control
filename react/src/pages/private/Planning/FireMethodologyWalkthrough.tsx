@@ -85,10 +85,11 @@ const DeckStep = ({ horizon }: { horizon: number }) => {
     <Stack gap={1.5}>
       <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
         Imagine um baralho com {FIRE_RETURNS_YEARS.length} cartas, uma para
-        cada ano histórico de 2001 a 2025. Para simular {horizon} anos de
-        aposentadoria, sorteamos {horizon} cartas com reposição (a mesma
-        carta pode sair várias vezes, outras podem nem sair). É o que
-        chamamos de bootstrap.
+        cada ano histórico de {FIRE_RETURNS_YEARS[0]} a{" "}
+        {FIRE_RETURNS_YEARS[FIRE_RETURNS_YEARS.length - 1]}. Para simular{" "}
+        {horizon} anos de aposentadoria, sorteamos {horizon} cartas com
+        reposição (a mesma carta pode sair várias vezes, outras podem nem
+        sair). É o que chamamos de bootstrap.
       </Text>
       <Stack direction="row" gap={0.5} flexWrap="wrap">
         {FIRE_RETURNS_YEARS.map((year, idx) => {
