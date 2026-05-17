@@ -579,8 +579,8 @@ const ConstantDollarIndicator = ({
           <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
             <em>
               {excludeIfixFromSim
-                ? "FII excluído da simulação (modelado como caixa, 0% real). Amostra: 1995–2025 (31 anos)."
-                : "Amostra histórica: 2011–2025 (15 anos) — sua exposição a FII restringe a janela. Não compare diretamente com SWRs Trinity baseados em séries longas (US 1926+)."}
+                ? "FII excluído da simulação (modelado como caixa, 0% real). Amostra mensal: 1995–2025 (372 meses)."
+                : "Amostra histórica mensal: 2011–2025 (180 meses) — sua exposição a FII restringe a janela. Não compare diretamente com SWRs Trinity baseados em séries longas (US 1926+)."}
             </em>
           </Text>
           <FormControlLabel
