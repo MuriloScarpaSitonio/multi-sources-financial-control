@@ -710,17 +710,19 @@ const VPWIndicator = ({
       )}
       {!compact && accumulation && accumulation.points.length > 1 && (
         <>
-          <Text
-            size={FontSizes.SMALL}
-            weight={FontWeights.SEMI_BOLD}
-            color={Colors.neutral200}
-          >
-            Quando posso me aposentar com VPW?
-          </Text>
-          <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-            O grafico mostra quanto ainda falta para a retirada VPW cobrir seus
-            gastos em cada idade.
-          </Text>
+          <Stack gap={0.5} sx={{ mt: 2 }}>
+            <Text
+              size={FontSizes.SMALL}
+              weight={FontWeights.SEMI_BOLD}
+              color={Colors.neutral200}
+            >
+              Quando posso me aposentar com VPW?
+            </Text>
+            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+              O grafico mostra quanto ainda falta para a retirada VPW cobrir seus
+              gastos em cada idade.
+            </Text>
+          </Stack>
           <SavingsSimulator
             value={effectiveSavings}
             onChange={setSimulatedSavings}

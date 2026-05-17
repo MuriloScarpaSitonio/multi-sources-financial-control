@@ -527,11 +527,11 @@ const OneOverNIndicator = ({
         )}
       </Stack>
       {!compact && projection && projection.accumulation.length > 1 && (
-        <Stack gap={1}>
+        <Stack gap={1} sx={{ mt: 2 }}>
           <Text
-            size={FontSizes.EXTRA_SMALL}
-            color={Colors.neutral400}
-            weight={FontWeights.MEDIUM}
+            size={FontSizes.SMALL}
+            weight={FontWeights.SEMI_BOLD}
+            color={Colors.neutral200}
           >
             Acumulação — quanto falta e em quanto tempo
           </Text>
@@ -592,11 +592,11 @@ const OneOverNIndicator = ({
         </Stack>
       )}
       {!compact && projection && projection.drawdown.length > 1 && (
-        <Stack gap={1}>
+        <Stack gap={1} sx={{ mt: 2 }}>
           <Text
-            size={FontSizes.EXTRA_SMALL}
-            color={Colors.neutral400}
-            weight={FontWeights.MEDIUM}
+            size={FontSizes.SMALL}
+            weight={FontWeights.SEMI_BOLD}
+            color={Colors.neutral200}
           >
             Aposentadoria — após atingir o alvo, como 1/N se comporta
           </Text>

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Peer"
+  short_description: "Run peer-agent cmux review/fix loops"
+  default_prompt: "/peer review"

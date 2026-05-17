@@ -681,7 +681,7 @@ const ConstantDollarIndicator = ({
           useAgeAxis ? (currentAge as number) + years : years;
         return (
           <>
-            <Stack gap={0.5}>
+            <Stack gap={0.5} sx={{ mt: 2 }}>
               <Text
                 size={FontSizes.SMALL}
                 weight={FontWeights.SEMI_BOLD}
