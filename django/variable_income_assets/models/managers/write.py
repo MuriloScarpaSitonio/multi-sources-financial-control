@@ -8,7 +8,7 @@ from django.db.models.functions import Coalesce, Concat, Greatest, TruncMonth, T
 
 from shared.managers_utils import GenericDateFilters
 
-from ...choices import AssetTypes, PassiveIncomeEventTypes
+from ...choices import AssetTypes, PassiveIncomeEventTypes, PassiveIncomeTypes
 from .expressions import GenericQuerySetExpressions
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -208,7 +208,13 @@ class AssetQuerySet(QuerySet):
         ).annotate(
             transactions_balance=self.expressions.get_quantity_balance(extra_filters),
             avg_price=self.expressions.get_avg_price(extra_filters),
-            total_invested=F("normalized_avg_price") * F("transactions_balance"),
+            normalized_total_invested=F("normalized_avg_price") * F("transactions_balance"),
+            total_invested=F("avg_price") * F("transactions_balance"),
+            avg_current_currency_conversion_rate=Coalesce(
+                self.expressions.get_normalized_total_bought(extra_filters)
+                / Greatest(self.expressions.get_total_bought(extra_filters), Value(Decimal("1.0"))),
+                Decimal(),
+            ),
         )
 
     def filter_opened_after(self, operation_date: date) -> Self:
@@ -220,7 +226,7 @@ class AssetQuerySet(QuerySet):
         )
 
     def annotate_credited_incomes_at_given_year(
-        self, year: int, incomes_type: PassiveIncomeEventTypes
+        self, year: int, incomes_type: PassiveIncomeTypes
     ) -> Self:
         return self.annotate(
             normalized_credited_incomes_total=Coalesce(

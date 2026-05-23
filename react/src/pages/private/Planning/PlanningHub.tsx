@@ -28,7 +28,7 @@ import OneOverNIndicator from "../Home/OneOverNIndicator";
 import VPWIndicator from "../Home/VPWIndicator";
 import { usePlanningPreferences } from "./hooks";
 import { useSelectedMethod } from "./hooks";
-import type { ActiveMethodKey } from "./api";
+import { getFirePlanningPreferences, type ActiveMethodKey } from "./api";
 import { STRATEGY_CONTENT } from "./strategyContent";
 
 const STRATEGY_ORDER: ActiveMethodKey[] = [
@@ -41,6 +41,7 @@ const STRATEGY_ORDER: ActiveMethodKey[] = [
 const PlanningHub = () => {
   const { selectedMethod } = useSelectedMethod();
   const { data: planningData } = usePlanningPreferences();
+  const firePreferences = getFirePlanningPreferences(planningData?.preferences);
   const dateOfBirth = planningData?.dateOfBirth ?? null;
 
   const {
@@ -101,13 +102,15 @@ const PlanningHub = () => {
         patrimonyTotal={patrimonyTotal}
         avgExpenses={avgExpenses}
         isLoading={isDataLoading || isReportsLoading}
-        withdrawalRate={4}
+        withdrawalRate={firePreferences.withdrawal_rate}
         onWithdrawalRateChange={() => {}}
-        targetYears={30}
+        targetYears={firePreferences.target_years}
         onTargetYearsChange={() => {}}
         equityTotal={equityTotal}
         ifixTotal={ifixTotal}
         fixedIncomeTotal={fixedIncomeTotal + bankAmount}
+        simulatedExpenses={firePreferences.monthly_expenses_override}
+        excludeIfixFromSim={firePreferences.exclude_ifix_from_sim}
         compact
         hideLabel
       />

@@ -49,48 +49,113 @@ def _print_assets_portfolio(qs: AssetQuerySet[Asset], year: int) -> None:
         qs.annotate_irpf_infos(year=year)
         .filter(transactions_balance__gt=0)
         .values(
-            "code", "currency", "transactions_balance", "avg_price", "total_invested", "description"
+            "code",
+            "currency",
+            "transactions_balance",
+            "avg_price",
+            "total_invested",
+            "description",
+            "normalized_total_invested",
+            "avg_current_currency_conversion_rate",
         ),
         start=1,
     ):
-        # Preço médio sempre na moeda original e total em reais
-        # TODO: adicionar dolar médio
-        currency_symbol = Currencies.get_choice(asset["currency"]).symbol
+        # Examplo de descrição na receita pra dolar:
+        # 91,166711130 ACOES (EWBC) // EAST WEST BANCORP, INC. //
+        # COM CUSTO DE AQUISICAO DE US$ 3.962,24, SENDO O DOLAR MEDIO DE 4,9728,
+        # CUSTODIADOS PELA CORRETORA VEST
+        currency = Currencies.get_choice(asset["currency"])
         results.append(
             f"{i}. {asset['code']} - {asset['description']}"
             if asset["description"]
             else f"{i}. {asset['code']}"
         )
         results.append(f"\tQuantidade: {asset['transactions_balance']:n}")
-        results.append(f"\tPreço médio: {currency_symbol} {asset['avg_price']:n}")
-        results.append(f"\tTotal: R$ {asset['total_invested']:n}\n")
+        results.append(f"\tPreço médio: {currency.symbol} {asset['avg_price']:n}")
+        results.append(
+            f"\tTotal: R$ {asset['normalized_total_invested']:n}\n"
+            if currency.value == Currencies.real
+            else (
+                f"\tTotal: R$ {asset['normalized_total_invested']:n} "
+                f"| {currency.symbol} {asset['total_invested']:n}\n"
+            )
+        )
+        if currency.value == Currencies.dollar:
+            results.append(f"\tDólar médio: R$ {asset['avg_current_currency_conversion_rate']:n}\n")
 
     if results:
         print("------------ ATIVOS (seção 'Bens e direitos') ------------\n\n")
         print(*results, sep="\n")
 
 
-def _print_credited_incomes(qs: AssetQuerySet[Asset], year: int) -> None:
-    mapping = {
-        PassiveIncomeTypes.dividend: (
-            "'Rendimentos isentos e não tributáveis', opção '09 - Lucros e dividendos recebidos'"
-        ),
-        PassiveIncomeTypes.income: "?",
-    }
-    for value, label in PassiveIncomeTypes:
-        if value == PassiveIncomeTypes.jcp:
-            continue
-        results = []
-        for i, a in enumerate(
-            qs.annotate_credited_incomes_at_given_year(year=year, incomes_type=value)
-            .filter(normalized_credited_incomes_total__gt=0)
-            .values("code", "normalized_credited_incomes_total"),
-            start=1,
-        ):
-            results.append(f"{i}. {a['code']} -> R$ {a['normalized_credited_incomes_total']:n}")
-        if results:
-            print(f"\n\n------------ {label.upper()} (seção {mapping[value]}) ------------\n\n")
-            print(*results, sep="\n")
+def _print_credited_incomes(qs: AssetQuerySet[Asset], year: int, debug: int = 1) -> None:
+    dividend_section = (
+        "'Rendimentos isentos e não tributáveis', opção '09 - Lucros e dividendos recebidos'"
+    )
+    results = []
+    for i, a in enumerate(
+        qs.annotate_credited_incomes_at_given_year(
+            year=year, incomes_type=PassiveIncomeTypes.dividend
+        )
+        .filter(normalized_credited_incomes_total__gt=0)
+        .values("code", "normalized_credited_incomes_total"),
+        start=1,
+    ):
+        results.append(f"{i}. {a['code']} -> R$ {a['normalized_credited_incomes_total']:n}")
+    if results:
+        print(f"\n\n------------ DIVIDENDO (seção {dividend_section}) ------------\n\n")
+        print(*results, sep="\n")
+
+    _print_credited_reimbursements(qs=qs, year=year, debug=debug)
+    _print_credited_incomes_per_stock(qs=qs, year=year)
+
+
+def _print_credited_reimbursements(
+    qs: AssetQuerySet[Asset], year: int, debug: int
+) -> None:
+    B3_CNPJ = "09.346.601/0001-25"
+    section = "'Outros rendimentos isentos'"
+
+    reimbursement_by_code: dict[str, Decimal] = {}
+    for a in (
+        qs.annotate_credited_incomes_at_given_year(
+            year=year, incomes_type=PassiveIncomeTypes.reimbursement
+        )
+        .filter(normalized_credited_incomes_total__gt=0)
+        .values("code", "normalized_credited_incomes_total")
+    ):
+        reimbursement_by_code[a["code"]] = a["normalized_credited_incomes_total"]
+
+    if not reimbursement_by_code:
+        return
+
+    reimbursement_total = sum(reimbursement_by_code.values())
+    print(f"\n\n------------ REEMBOLSO (seção {section}) ------------\n\n")
+    print(f"1. B3 -> R$ {reimbursement_total:n}")
+    print(f"   CNPJ: {B3_CNPJ}")
+    if debug > 1:
+        print("\n\n")
+        for code in sorted(reimbursement_by_code):
+            print(f"   {code}: R$ {reimbursement_by_code[code]:n}")
+
+
+def _print_credited_incomes_per_stock(qs: AssetQuerySet[Asset], year: int) -> None:
+    section = "'Outros rendimentos isentos'"
+
+    results = []
+    for i, a in enumerate(
+        qs.annotate_credited_incomes_at_given_year(
+            year=year, incomes_type=PassiveIncomeTypes.income
+        )
+        .filter(normalized_credited_incomes_total__gt=0)
+        .values("code", "normalized_credited_incomes_total"),
+        start=1,
+    ):
+        results.append(f"{i}. {a['code']} -> R$ {a['normalized_credited_incomes_total']:n}")
+
+    if results:
+        print(f"\n\n------------ RENDIMENTO (seção {section}) ------------\n\n")
+        print(*results, sep="\n")
 
 
 def _print_credited_jcps(qs: AssetQuerySet[Asset], year: int) -> None:
@@ -320,6 +385,8 @@ def _print_stocks_not_elegible_for_taxation(user_pk: int, year: int, debug: bool
                     )
             else:
                 asset_losses += roi
+                if debug > 1:
+                    results.append(f"\t\t\t{t.asset_code} -> roi = R$ {roi:n}")
 
         if debug > 1:
             results.append("")
@@ -494,7 +561,7 @@ def print_irpf_infos(
 
     year = year if year is not None else timezone.localtime().year - 1
     _print_assets_portfolio(qs=qs, year=year)
-    _print_credited_incomes(qs=qs, year=year)
+    _print_credited_incomes(qs=qs, year=year, debug=debug)
 
     print("\n\n------------ RENDIMENTOS SUJEITOS A TRIBUTAÇÃO ------------\n")
     _print_credited_jcps(qs=qs, year=year)
@@ -631,7 +698,9 @@ def generate_fire_returns_ts(
 
     # Reverse-engineered from B3's index statistics pages; this is not a stable
     # public API, so keep the generated TS checked in and rerun intentionally.
-    B3_INDEX_URL = "https://sistemaswebb3-listados.b3.com.br/indexStatisticsProxy/IndexCall/GetPortfolioDay"
+    B3_INDEX_URL = (
+        "https://sistemaswebb3-listados.b3.com.br/indexStatisticsProxy/IndexCall/GetPortfolioDay"
+    )
     BCB_CDI_URL = (
         "https://api.bcb.gov.br/dados/serie/bcdata.sgs.4391/dados"
         f"?formato=json&dataInicial=01/01/{start_year}&dataFinal=31/12/{{end}}"
@@ -687,9 +756,7 @@ def generate_fire_returns_ts(
 
     def iter_months(first_year: int, last_year: int) -> list[tuple[int, int]]:
         return [
-            (year, month)
-            for year in range(first_year, last_year + 1)
-            for month in range(1, 13)
+            (year, month) for year in range(first_year, last_year + 1) for month in range(1, 13)
         ]
 
     def b3_index_url(index: str, year: int) -> str:
@@ -855,12 +922,8 @@ def generate_fire_returns_ts(
     if not common_months:
         raise RuntimeError("No overlapping complete months between IBOV, CDI, and IPCA.")
 
-    real_rm_monthly = [
-        (1 + monthly_ibov[m]) / (1 + ipca_by_month[m]) - 1 for m in common_months
-    ]
-    real_rf_monthly = [
-        (1 + cdi_by_month[m]) / (1 + ipca_by_month[m]) - 1 for m in common_months
-    ]
+    real_rm_monthly = [(1 + monthly_ibov[m]) / (1 + ipca_by_month[m]) - 1 for m in common_months]
+    real_rf_monthly = [(1 + cdi_by_month[m]) / (1 + ipca_by_month[m]) - 1 for m in common_months]
 
     print(f"Downloading B3 IFIX from {B3_INDEX_URL} ...")
     ifix_start_year = 2011
@@ -899,13 +962,9 @@ def generate_fire_returns_ts(
         )
     real_ifix = [(1 + annual_ifix[y]) / (1 + annual_ipca[y]) - 1 for y in ifix_years]
     ifix_months = sorted(
-        m
-        for m in set(monthly_ifix) & set(ipca_by_month)
-        if ifix_days_by_month[m] > 0
+        m for m in set(monthly_ifix) & set(ipca_by_month) if ifix_days_by_month[m] > 0
     )
-    real_ifix_monthly = [
-        (1 + monthly_ifix[m]) / (1 + ipca_by_month[m]) - 1 for m in ifix_months
-    ]
+    real_ifix_monthly = [(1 + monthly_ifix[m]) / (1 + ipca_by_month[m]) - 1 for m in ifix_months]
 
     rm_values = ", ".join(f"{v:.6f}" for v in real_rm)
     rf_values = ", ".join(f"{v:.6f}" for v in real_rf)

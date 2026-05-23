@@ -118,7 +118,27 @@ class PlanningPreferencesSerializer(serializers.Serializer):
         required=False,
     )
     show_galeno = serializers.BooleanField(required=False, default=False)
-    show_age_in_bonds = serializers.BooleanField(required=False, default=False)
+    show_age_in_bonds = serializers.BooleanField(required=False)
+
+    class FirePreferencesSerializer(serializers.Serializer):
+        withdrawal_rate = serializers.FloatField(
+            required=False,
+            min_value=2,
+            max_value=6,
+        )
+        target_years = serializers.IntegerField(
+            required=False,
+            min_value=20,
+            max_value=80,
+        )
+        monthly_expenses_override = serializers.FloatField(
+            required=False,
+            allow_null=True,
+            min_value=0,
+        )
+        exclude_ifix_from_sim = serializers.BooleanField(required=False)
+
+    fire = FirePreferencesSerializer(required=False)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -224,10 +244,20 @@ class UserSerializer(serializers.ModelSerializer):
             )
 
         if "planning_preferences" in validated_data:
+            incoming_preferences = validated_data["planning_preferences"]
+            current_preferences = instance.planning_preferences or {}
             merged = {
-                **(instance.planning_preferences or {}),
-                **validated_data["planning_preferences"],
+                **current_preferences,
+                **incoming_preferences,
             }
+            if "fire" in incoming_preferences:
+                current_fire = current_preferences.get("fire") or {}
+                if not isinstance(current_fire, dict):
+                    current_fire = {}
+                merged["fire"] = {
+                    **current_fire,
+                    **incoming_preferences["fire"],
+                }
             if merged.get("show_galeno") and merged.get("selected_method") not in (
                 "fire",
                 "constant_withdrawal",
@@ -237,7 +267,10 @@ class UserSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {
                         "planning_preferences": {
-                            "show_galeno": "Galeno só pode ser ativado com FIRE, Retirada constante, Retirada 1/N ou VPW."
+                            "show_galeno": (
+                                "Galeno só pode ser ativado com FIRE, Retirada constante, "
+                                "Retirada 1/N ou VPW."
+                            )
                         }
                     }
                 )
@@ -256,7 +289,10 @@ class UserSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {
                         "planning_preferences": {
-                            "show_age_in_bonds": "Idade em RF só pode ser ativado com Regra dos X% ou Retirada constante."
+                            "show_age_in_bonds": (
+                                "Idade em RF só pode ser ativado com Regra dos X% ou "
+                                "Retirada constante."
+                            )
                         }
                     }
                 )
@@ -264,7 +300,9 @@ class UserSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {
                         "planning_preferences": {
-                            "show_age_in_bonds": "Idade em RF e Galeno não podem ser ativados ao mesmo tempo."
+                            "show_age_in_bonds": (
+                                "Idade em RF e Galeno não podem ser ativados ao mesmo tempo."
+                            )
                         }
                     }
                 )
