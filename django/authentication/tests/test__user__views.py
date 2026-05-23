@@ -597,6 +597,71 @@ def test__partial_update__planning_preferences__one_over_n_with_galeno(client, u
     assert user.planning_preferences["show_galeno"] is True
 
 
+def test__partial_update__planning_preferences__fire_inputs(client, user):
+    # GIVEN
+    data = {
+        "planning_preferences": {
+            "fire": {
+                "withdrawal_rate": 3.5,
+                "target_years": 45,
+                "monthly_expenses_override": 12500,
+                "exclude_ifix_from_sim": True,
+            }
+        }
+    }
+
+    # WHEN
+    response = client.patch(f"{URL}/{user.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    user.refresh_from_db()
+    assert user.planning_preferences["fire"] == {
+        "withdrawal_rate": 3.5,
+        "target_years": 45,
+        "monthly_expenses_override": 12500.0,
+        "exclude_ifix_from_sim": True,
+    }
+
+
+def test__partial_update__planning_preferences__merges_fire_inputs(client, user):
+    # GIVEN
+    user.planning_preferences = {
+        "selected_method": "fire",
+        "fire": {
+            "withdrawal_rate": 3.5,
+            "target_years": 45,
+            "monthly_expenses_override": 12500,
+            "exclude_ifix_from_sim": False,
+        },
+    }
+    user.save()
+    data = {
+        "planning_preferences": {
+            "fire": {
+                "monthly_expenses_override": None,
+                "exclude_ifix_from_sim": True,
+            }
+        }
+    }
+
+    # WHEN
+    response = client.patch(f"{URL}/{user.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    user.refresh_from_db()
+    assert user.planning_preferences == {
+        "selected_method": "fire",
+        "fire": {
+            "withdrawal_rate": 3.5,
+            "target_years": 45,
+            "monthly_expenses_override": None,
+            "exclude_ifix_from_sim": True,
+        },
+    }
+
+
 def test__partial_update__date_of_birth(client, user):
     # GIVEN
     data = {"date_of_birth": "15/06/1990"}

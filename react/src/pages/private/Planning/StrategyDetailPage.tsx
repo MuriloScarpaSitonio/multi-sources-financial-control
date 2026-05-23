@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -42,7 +42,11 @@ import {
   useSelectedMethod,
   useUpdatePlanningPreferences,
 } from "./hooks";
-import type { ActiveMethodKey } from "./api";
+import {
+  getFirePlanningPreferences,
+  type ActiveMethodKey,
+  type FirePlanningPreferences,
+} from "./api";
 import {
   STRATEGY_CONTENT,
   GALENO_RATIONALE,
@@ -98,14 +102,28 @@ const StrategyDetail = ({ method }: { method: ActiveMethodKey }) => {
   const [simulatedExpenses, setSimulatedExpenses] = useState<number | null>(
     null,
   );
+  const [excludeIfixFromSim, setExcludeIfixFromSim] = useState(false);
 
   // Data hooks
   const { selectedMethod } = useSelectedMethod();
   const { data: planningData } = usePlanningPreferences();
   const preferences = planningData?.preferences;
+  const firePreferences = getFirePlanningPreferences(preferences);
   const dateOfBirth = planningData?.dateOfBirth ?? null;
   const { mutate: updatePreferences, isPending: isUpdating } =
     useUpdatePlanningPreferences();
+
+  useEffect(() => {
+    setFireWithdrawalRate(firePreferences.withdrawal_rate);
+    setTargetYears(firePreferences.target_years);
+    setSimulatedExpenses(firePreferences.monthly_expenses_override);
+    setExcludeIfixFromSim(firePreferences.exclude_ifix_from_sim);
+  }, [
+    firePreferences.exclude_ifix_from_sim,
+    firePreferences.monthly_expenses_override,
+    firePreferences.target_years,
+    firePreferences.withdrawal_rate,
+  ]);
 
   const {
     data: assetsIndicators,
@@ -195,6 +213,30 @@ const StrategyDetail = ({ method }: { method: ActiveMethodKey }) => {
     }
   };
 
+  const updateFirePreferences = (fire: FirePlanningPreferences) => {
+    updatePreferences({ fire });
+  };
+
+  const handleFireWithdrawalRateChange = (value: number) => {
+    setFireWithdrawalRate(value);
+    updateFirePreferences({ withdrawal_rate: value });
+  };
+
+  const handleFireTargetYearsChange = (value: number) => {
+    setTargetYears(value);
+    updateFirePreferences({ target_years: value });
+  };
+
+  const handleFireSimulatedExpensesChange = (value: number | null) => {
+    setSimulatedExpenses(value);
+    updateFirePreferences({ monthly_expenses_override: value });
+  };
+
+  const handleFireExcludeIfixChange = (value: boolean) => {
+    setExcludeIfixFromSim(value);
+    updateFirePreferences({ exclude_ifix_from_sim: value });
+  };
+
   const content = STRATEGY_CONTENT[method];
   const displayTitle = showAgeInBonds
     ? (AGE_IN_BONDS_TITLES[method]?.title ?? content.title)
@@ -237,9 +279,9 @@ const StrategyDetail = ({ method }: { method: ActiveMethodKey }) => {
             isLoading={isDataLoading || isReportsLoading}
             dateOfBirth={dateOfBirth}
             withdrawalRate={fireWithdrawalRate}
-            onWithdrawalRateChange={setFireWithdrawalRate}
+            onWithdrawalRateChange={handleFireWithdrawalRateChange}
             targetYears={targetYears}
-            onTargetYearsChange={setTargetYears}
+            onTargetYearsChange={handleFireTargetYearsChange}
             fixedIncomeTotal={fixedIncomeTotal}
             variableIncomeTotal={variableIncomeTotal}
             equityTotal={equityTotal}
@@ -249,6 +291,10 @@ const StrategyDetail = ({ method }: { method: ActiveMethodKey }) => {
             onMonthlySavingsChange={setMonthlySavingsOverride}
             onMonthlySavingsReset={() => setMonthlySavingsOverride(null)}
             isMonthlySavingsOverridden={monthlySavingsOverride !== null}
+            simulatedExpenses={simulatedExpenses}
+            onSimulatedExpensesChange={handleFireSimulatedExpensesChange}
+            excludeIfixFromSim={excludeIfixFromSim}
+            onExcludeIfixFromSimChange={handleFireExcludeIfixChange}
           />
         ) : (
           <ConstantDollarIndicator
@@ -256,9 +302,9 @@ const StrategyDetail = ({ method }: { method: ActiveMethodKey }) => {
             avgExpenses={avgExpenses}
             isLoading={isDataLoading || isReportsLoading}
             withdrawalRate={fireWithdrawalRate}
-            onWithdrawalRateChange={setFireWithdrawalRate}
+            onWithdrawalRateChange={handleFireWithdrawalRateChange}
             targetYears={targetYears}
-            onTargetYearsChange={setTargetYears}
+            onTargetYearsChange={handleFireTargetYearsChange}
             equityTotal={equityTotal}
             ifixTotal={ifixTotal}
             fixedIncomeTotal={fixedIncomeTotal + bankAmount}
@@ -271,7 +317,9 @@ const StrategyDetail = ({ method }: { method: ActiveMethodKey }) => {
             simulatedPatrimony={simulatedPatrimony}
             onSimulatedPatrimonyChange={setSimulatedPatrimony}
             simulatedExpenses={simulatedExpenses}
-            onSimulatedExpensesChange={setSimulatedExpenses}
+            onSimulatedExpensesChange={handleFireSimulatedExpensesChange}
+            excludeIfixFromSim={excludeIfixFromSim}
+            onExcludeIfixFromSimChange={handleFireExcludeIfixChange}
           />
         );
       case "dividends_only":

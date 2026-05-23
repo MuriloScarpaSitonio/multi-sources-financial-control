@@ -45,7 +45,7 @@ def test__asset__irp_infos(stock_usa_asset):
             normalize=True,
             extra_filters=Q(operation_date__year__lte=year),
         )
-    ) == convert_and_quantitize(asset["total_invested"])
+    ) == convert_and_quantitize(asset["normalized_total_invested"])
 
 
 @pytest.mark.usefixtures("irpf_assets_data")
@@ -100,8 +100,8 @@ def test__asset__using_dollar_as(stock_usa_asset):
 
     # THEN
     assert convert_and_quantitize(asset["avg_price"]) == convert_and_quantitize(asset2["avg_price"])
-    assert convert_and_quantitize(asset["total_invested"] * 2) == convert_and_quantitize(
-        asset2["total_invested"]
+    assert convert_and_quantitize(asset["normalized_total_invested"] * 2) == convert_and_quantitize(
+        asset2["normalized_total_invested"]
     )
 
 

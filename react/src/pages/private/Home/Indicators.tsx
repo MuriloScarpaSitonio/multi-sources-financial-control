@@ -4,6 +4,7 @@ import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
 import MonetizationOnOutlinedIcon from "@mui/icons-material/MonetizationOnOutlined";
 import SvgIcon from "@mui/material/SvgIcon";
+import { useNavigate } from "react-router-dom";
 
 import { startOfMonth } from "date-fns";
 
@@ -27,7 +28,7 @@ import { useAssetsReports } from "../Assets/Reports/AssetAggregationReports/hook
 import { GroupBy, Kinds } from "../Assets/Reports/types";
 import type { ReportAggregatedByTypeDataItem } from "../Assets/Reports/types";
 import { usePlanningPreferences, useSelectedMethod } from "../Planning/hooks";
-import type { WithdrawalMethodKey } from "../Planning/api";
+import { getFirePlanningPreferences } from "../Planning/api";
 import DividendsOnlyIndicator from "./DividendsOnlyIndicator";
 import ConstantDollarIndicator from "./ConstantDollarIndicator";
 import GalenoIndicator from "./GalenoIndicator";
@@ -38,9 +39,8 @@ import VPWIndicator from "./VPWIndicator";
 
 const Indicators = () => {
   const { hideValues } = useHideValues();
-  const [fireWithdrawalRate, setFireWithdrawalRate] = useState(4);
+  const navigate = useNavigate();
   const [realReturn, setRealReturn] = useState(5);
-  const [targetYears, setTargetYears] = useState(30);
   const [galenoTransferRate, setGalenoTransferRate] = useState(6);
   const [galenoTargetBufferYears, setGalenoTargetBufferYears] = useState(7);
   const [targetDepletionAge, setTargetDepletionAge] = useState(90);
@@ -53,6 +53,7 @@ const Indicators = () => {
   const { selectedMethod } = useSelectedMethod();
   const { data: planningData } = usePlanningPreferences();
   const preferences = planningData?.preferences;
+  const firePreferences = getFirePlanningPreferences(preferences);
   const dateOfBirth = planningData?.dateOfBirth ?? null;
   // Galeno parked while we redesign it as a standalone strategy — see
   // docs/superpowers/plans/2026-04-26-galeno-strategy.md. Re-enable by
@@ -138,6 +139,7 @@ const Indicators = () => {
   // surfaces a hint instead of a bogus projection.
   const monthlySavings =
     (revenuesIndicators?.avg ?? 0) - (expensesIndicators?.avg ?? 0);
+  const openFireStrategy = () => navigate("/planning/fire");
 
   return (
     <Grid container spacing={4}>
@@ -202,15 +204,18 @@ const Indicators = () => {
                     avgExpenses={expensesIndicators?.fire_avg ?? 0}
                     isLoading={isLoading || isExpensesIndicatorsLoading || isReportsLoading}
                     dateOfBirth={dateOfBirth}
-                    withdrawalRate={fireWithdrawalRate}
-                    onWithdrawalRateChange={setFireWithdrawalRate}
-                    targetYears={targetYears}
-                    onTargetYearsChange={setTargetYears}
+                    withdrawalRate={firePreferences.withdrawal_rate}
+                    onWithdrawalRateChange={() => {}}
+                    targetYears={firePreferences.target_years}
+                    onTargetYearsChange={() => {}}
                     fixedIncomeTotal={fixedIncomeTotal}
                     variableIncomeTotal={variableIncomeTotal}
                     equityTotal={equityTotal}
                     ifixTotal={ifixTotal}
                     monthlySavings={monthlySavings}
+                    simulatedExpenses={firePreferences.monthly_expenses_override}
+                    excludeIfixFromSim={firePreferences.exclude_ifix_from_sim}
+                    onProgressClick={openFireStrategy}
                     compact
                   />
                 ) : (
@@ -218,14 +223,17 @@ const Indicators = () => {
                     patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
                     avgExpenses={expensesIndicators?.fire_avg ?? 0}
                     isLoading={isLoading || isExpensesIndicatorsLoading || isReportsLoading}
-                    withdrawalRate={fireWithdrawalRate}
-                    onWithdrawalRateChange={setFireWithdrawalRate}
-                    targetYears={targetYears}
-                    onTargetYearsChange={setTargetYears}
+                    withdrawalRate={firePreferences.withdrawal_rate}
+                    onWithdrawalRateChange={() => {}}
+                    targetYears={firePreferences.target_years}
+                    onTargetYearsChange={() => {}}
                     equityTotal={equityTotal}
                     ifixTotal={ifixTotal}
                     fixedIncomeTotal={fixedIncomeTotal + bankAmount}
                     monthlySavings={monthlySavings}
+                    simulatedExpenses={firePreferences.monthly_expenses_override}
+                    excludeIfixFromSim={firePreferences.exclude_ifix_from_sim}
+                    onProgressClick={openFireStrategy}
                     compact
                   />
                 )}

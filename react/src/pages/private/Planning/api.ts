@@ -7,7 +7,29 @@ export type PlanningPreferences = {
   selected_method?: WithdrawalMethodKey;
   show_galeno?: boolean;
   show_age_in_bonds?: boolean;
+  fire?: FirePlanningPreferences;
 };
+
+export type FirePlanningPreferences = {
+  withdrawal_rate?: number;
+  target_years?: number;
+  monthly_expenses_override?: number | null;
+  exclude_ifix_from_sim?: boolean;
+};
+
+export const DEFAULT_FIRE_PREFERENCES = {
+  withdrawal_rate: 4,
+  target_years: 30,
+  monthly_expenses_override: null,
+  exclude_ifix_from_sim: false,
+} satisfies Required<FirePlanningPreferences>;
+
+export const getFirePlanningPreferences = (
+  preferences?: PlanningPreferences,
+): Required<FirePlanningPreferences> => ({
+  ...DEFAULT_FIRE_PREFERENCES,
+  ...(preferences?.fire ?? {}),
+});
 
 export type PlanningData = {
   preferences: PlanningPreferences;

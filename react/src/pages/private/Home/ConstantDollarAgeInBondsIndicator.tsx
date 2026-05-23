@@ -546,6 +546,11 @@ const ConstantDollarAgeInBondsIndicator = ({
   onMonthlySavingsChange,
   onMonthlySavingsReset,
   isMonthlySavingsOverridden = false,
+  simulatedExpenses: simulatedExpensesProp,
+  onSimulatedExpensesChange,
+  excludeIfixFromSim: excludeIfixFromSimProp,
+  onExcludeIfixFromSimChange,
+  onProgressClick,
   compact = false,
   hideLabel = false,
 }: {
@@ -566,6 +571,11 @@ const ConstantDollarAgeInBondsIndicator = ({
   onMonthlySavingsChange?: (value: number) => void;
   onMonthlySavingsReset?: () => void;
   isMonthlySavingsOverridden?: boolean;
+  simulatedExpenses?: number | null;
+  onSimulatedExpensesChange?: (value: number | null) => void;
+  excludeIfixFromSim?: boolean;
+  onExcludeIfixFromSimChange?: (value: boolean) => void;
+  onProgressClick?: () => void;
   compact?: boolean;
   hideLabel?: boolean;
 }) => {
@@ -574,7 +584,17 @@ const ConstantDollarAgeInBondsIndicator = ({
   const [visibleScenarios, setVisibleScenarios] = useState<
     ("otimista" | "mediana" | "pessimista")[]
   >(["otimista", "mediana", "pessimista"]);
-  const [simulatedExpenses, setSimulatedExpenses] = useState<number | null>(null);
+  const [localSimulatedExpenses, setLocalSimulatedExpenses] = useState<
+    number | null
+  >(null);
+  const simulatedExpenses =
+    simulatedExpensesProp !== undefined
+      ? simulatedExpensesProp
+      : localSimulatedExpenses;
+  const setSimulatedExpenses = (value: number | null) => {
+    if (onSimulatedExpensesChange) onSimulatedExpensesChange(value);
+    else setLocalSimulatedExpenses(value);
+  };
   const effectiveMonthlyExpenses = simulatedExpenses ?? avgExpenses;
   const showOtimista = visibleScenarios.includes("otimista");
   const showMediana = visibleScenarios.includes("mediana");
@@ -587,7 +607,13 @@ const ConstantDollarAgeInBondsIndicator = ({
   // the buildAgeInBondsWeightsAt comment above for how it propagates through
   // the glide path (per-year `weights.ifix = 0` without redistributing to
   // equity, weights sum to <1, missing fraction earns 0% real).
-  const [excludeIfixFromSim, setExcludeIfixFromSim] = useState(false);
+  const [localExcludeIfixFromSim, setLocalExcludeIfixFromSim] = useState(false);
+  const excludeIfixFromSim =
+    excludeIfixFromSimProp ?? localExcludeIfixFromSim;
+  const setExcludeIfixFromSim = (value: boolean) => {
+    if (onExcludeIfixFromSimChange) onExcludeIfixFromSimChange(value);
+    else setLocalExcludeIfixFromSim(value);
+  };
 
   const annualExpenses = effectiveMonthlyExpenses * 12;
   const annualWithdrawal = effectivePatrimony * (withdrawalRate / 100);
@@ -742,7 +768,22 @@ const ConstantDollarAgeInBondsIndicator = ({
   return (
     <Stack gap={0.5}>
       <Tooltip title={tooltipTitle} arrow placement="top">
-        <div style={{ position: "relative" }}>
+        <div
+          role={onProgressClick ? "link" : undefined}
+          tabIndex={onProgressClick ? 0 : undefined}
+          onClick={onProgressClick}
+          onKeyDown={(event) => {
+            if (!onProgressClick) return;
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onProgressClick();
+            }
+          }}
+          style={{
+            position: "relative",
+            cursor: onProgressClick ? "pointer" : undefined,
+          }}
+        >
           <ProgressBar
             variant="determinate"
             value={Math.min(fireProgress, 100)}
@@ -793,6 +834,15 @@ const ConstantDollarAgeInBondsIndicator = ({
       <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
           {(() => {
+            const compactTargetTail =
+              fireProgress < 100 &&
+              annualSavings > 0 &&
+              accumulation.medianYearsToTarget !== null
+                ? ` (~${accumulation.medianYearsToTarget}a no ritmo atual)`
+                : "";
+            if (compact) {
+              return `Meta: ${hideValues ? "***" : formatCurrency(fireTarget)}${compactTargetTail}`;
+            }
             const gap = monthlyWithdrawal - effectiveMonthlyExpenses;
             const gapFormatted = hideValues ? "***" : formatCurrency(Math.abs(gap));
             const sign = gap >= 0 ? "sobram" : "faltam";
@@ -827,52 +877,50 @@ const ConstantDollarAgeInBondsIndicator = ({
           )}
         </Text>
       </Stack>
-      <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Taxa: {withdrawalRate}% a.a.
-        </Text>
-        <Slider
-          value={withdrawalRate}
-          onChange={(_, value) => onWithdrawalRateChange(value as number)}
-          min={2}
-          max={6}
-          step={0.5}
-          marks
-          size="medium"
-          sx={sliderSx}
-        />
-        {!compact && (
-          <>
-            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-              Horizonte: {targetYears} anos
-            </Text>
-            <Slider
-              value={targetYears}
-              onChange={(_, value) => onTargetYearsChange(value as number)}
-              min={20}
-              max={80}
-              step={5}
-              marks
-              size="medium"
-              sx={sliderSx}
-            />
-            <PatrimonySimulator
-              value={effectivePatrimony}
-              onChange={setSimulatedPatrimony}
-              onReset={() => setSimulatedPatrimony(null)}
-              patrimonyTotal={patrimonyTotal}
-              showReset={simulatedPatrimony !== null}
-            />
-            <ExpenseSimulator
-              value={effectiveMonthlyExpenses}
-              onChange={setSimulatedExpenses}
-              onReset={() => setSimulatedExpenses(null)}
-              avgMonthlyExpenses={avgExpenses}
-              showReset={simulatedExpenses !== null}
-            />
-          </>
-        )}
-      </Stack>
+      {!compact && (
+        <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
+          <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+            Taxa: {withdrawalRate}% a.a.
+          </Text>
+          <Slider
+            value={withdrawalRate}
+            onChange={(_, value) => onWithdrawalRateChange(value as number)}
+            min={2}
+            max={6}
+            step={0.5}
+            marks
+            size="medium"
+            sx={sliderSx}
+          />
+          <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+            Horizonte: {targetYears} anos
+          </Text>
+          <Slider
+            value={targetYears}
+            onChange={(_, value) => onTargetYearsChange(value as number)}
+            min={20}
+            max={80}
+            step={5}
+            marks
+            size="medium"
+            sx={sliderSx}
+          />
+          <PatrimonySimulator
+            value={effectivePatrimony}
+            onChange={setSimulatedPatrimony}
+            onReset={() => setSimulatedPatrimony(null)}
+            patrimonyTotal={patrimonyTotal}
+            showReset={simulatedPatrimony !== null}
+          />
+          <ExpenseSimulator
+            value={effectiveMonthlyExpenses}
+            onChange={setSimulatedExpenses}
+            onReset={() => setSimulatedExpenses(null)}
+            avgMonthlyExpenses={avgExpenses}
+            showReset={simulatedExpenses !== null}
+          />
+        </Stack>
+      )}
       {!compact && (
         <Stack direction="row" alignItems="center" gap={2}>
           <Text
