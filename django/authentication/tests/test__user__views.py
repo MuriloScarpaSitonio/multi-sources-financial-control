@@ -601,6 +601,7 @@ def test__partial_update__planning_preferences__fire_inputs(client, user):
     # GIVEN
     data = {
         "planning_preferences": {
+            "selected_method": "fire",
             "fire": {
                 "withdrawal_rate": 3.5,
                 "target_years": 45,
@@ -616,6 +617,7 @@ def test__partial_update__planning_preferences__fire_inputs(client, user):
     # THEN
     assert response.status_code == HTTP_200_OK
     user.refresh_from_db()
+    assert user.planning_preferences["selected_method"] == "fire"
     assert user.planning_preferences["fire"] == {
         "withdrawal_rate": 3.5,
         "target_years": 45,
@@ -660,6 +662,204 @@ def test__partial_update__planning_preferences__merges_fire_inputs(client, user)
             "exclude_ifix_from_sim": True,
         },
     }
+
+
+@pytest.mark.parametrize(
+    ("selected_method", "preferences", "expected"),
+    (
+        (
+            "dividends_only",
+            {
+                "yield_override": 7.5,
+                "monthly_savings_override": 12_000,
+                "monthly_expenses_override": 18_000,
+            },
+            {
+                "yield_override": 7.5,
+                "monthly_savings_override": 12_000.0,
+                "monthly_expenses_override": 18_000.0,
+            },
+        ),
+        (
+            "one_over_n",
+            {
+                "target_depletion_age": 92,
+                "real_return": 4.5,
+                "monthly_savings_override": 10_000,
+                "monthly_expenses_override": 17_000,
+            },
+            {
+                "target_depletion_age": 92,
+                "real_return": 4.5,
+                "monthly_savings_override": 10_000.0,
+                "monthly_expenses_override": 17_000.0,
+            },
+        ),
+        (
+            "vpw",
+            {
+                "target_age": 98,
+                "stock_return": 6.5,
+                "bond_return": 3.5,
+                "stock_allocation_override": 65,
+                "monthly_savings_override": 9_000,
+                "monthly_expenses_override": 16_000,
+            },
+            {
+                "target_age": 98,
+                "stock_return": 6.5,
+                "bond_return": 3.5,
+                "stock_allocation_override": 65.0,
+                "monthly_savings_override": 9_000.0,
+                "monthly_expenses_override": 16_000.0,
+            },
+        ),
+    ),
+)
+def test__partial_update__planning_preferences__remaining_strategy_inputs(
+    client, user, selected_method, preferences, expected
+):
+    # GIVEN
+    data = {
+        "planning_preferences": {
+            "selected_method": selected_method,
+            selected_method: preferences,
+        }
+    }
+
+    # WHEN
+    response = client.patch(f"{URL}/{user.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    user.refresh_from_db()
+    assert user.planning_preferences["selected_method"] == selected_method
+    assert user.planning_preferences[selected_method] == expected
+
+
+@pytest.mark.parametrize(
+    ("selected_method", "current", "patch", "expected"),
+    (
+        (
+            "dividends_only",
+            {
+                "yield_override": 7.5,
+                "monthly_savings_override": 12_000,
+                "monthly_expenses_override": 18_000,
+            },
+            {
+                "yield_override": None,
+                "monthly_expenses_override": 20_000,
+            },
+            {
+                "yield_override": None,
+                "monthly_savings_override": 12_000,
+                "monthly_expenses_override": 20_000.0,
+            },
+        ),
+        (
+            "one_over_n",
+            {
+                "target_depletion_age": 92,
+                "real_return": 4.5,
+                "monthly_savings_override": 10_000,
+                "monthly_expenses_override": 17_000,
+            },
+            {
+                "target_depletion_age": 95,
+            },
+            {
+                "target_depletion_age": 95,
+                "real_return": 4.5,
+                "monthly_savings_override": 10_000,
+                "monthly_expenses_override": 17_000,
+            },
+        ),
+        (
+            "vpw",
+            {
+                "target_age": 98,
+                "stock_return": 6.5,
+                "bond_return": 3.5,
+                "stock_allocation_override": 65,
+                "monthly_savings_override": 9_000,
+                "monthly_expenses_override": 16_000,
+            },
+            {
+                "stock_allocation_override": None,
+                "bond_return": 4,
+            },
+            {
+                "target_age": 98,
+                "stock_return": 6.5,
+                "bond_return": 4.0,
+                "stock_allocation_override": None,
+                "monthly_savings_override": 9_000,
+                "monthly_expenses_override": 16_000,
+            },
+        ),
+    ),
+)
+def test__partial_update__planning_preferences__merges_remaining_strategy_inputs(
+    client, user, selected_method, current, patch, expected
+):
+    # GIVEN
+    user.planning_preferences = {
+        "selected_method": selected_method,
+        selected_method: current,
+    }
+    user.save()
+    data = {
+        "planning_preferences": {
+            selected_method: patch,
+        }
+    }
+
+    # WHEN
+    response = client.patch(f"{URL}/{user.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    user.refresh_from_db()
+    assert user.planning_preferences == {
+        "selected_method": selected_method,
+        selected_method: expected,
+    }
+
+
+def test__partial_update__planning_preferences__rejects_unselected_strategy_inputs(client, user):
+    # GIVEN
+    user.planning_preferences = {"selected_method": "fire"}
+    user.save()
+    data = {"planning_preferences": {"vpw": {"target_age": 98}}}
+
+    # WHEN
+    response = client.patch(f"{URL}/{user.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    user.refresh_from_db()
+    assert user.planning_preferences == {"selected_method": "fire"}
+
+
+def test__partial_update__planning_preferences__rejects_inputs_for_previous_strategy(client, user):
+    # GIVEN
+    user.planning_preferences = {"selected_method": "fire"}
+    user.save()
+    data = {
+        "planning_preferences": {
+            "selected_method": "vpw",
+            "fire": {"withdrawal_rate": 3.5},
+        }
+    }
+
+    # WHEN
+    response = client.patch(f"{URL}/{user.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    user.refresh_from_db()
+    assert user.planning_preferences == {"selected_method": "fire"}
 
 
 def test__partial_update__date_of_birth(client, user):
