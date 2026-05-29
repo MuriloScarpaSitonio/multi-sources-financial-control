@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Literal, Self
 
 from django.db.models import Case, CharField, Count, F, OuterRef, Q, QuerySet, Subquery, Sum, Value
 from django.db.models.functions import Coalesce, Concat, Greatest, TruncMonth, TruncYear
+from django.utils import timezone
 
 from shared.managers_utils import GenericDateFilters
 
-from ...choices import AssetTypes, PassiveIncomeEventTypes, PassiveIncomeTypes
+from ...choices import AssetTypes, PassiveIncomeEventTypes, PassiveIncomeTypes, TransactionActions
 from .expressions import GenericQuerySetExpressions
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -188,9 +190,7 @@ class AssetQuerySet(QuerySet):
         )
 
     def annotate_irpf_infos(self, year: int) -> Self:
-        from datetime import date
-
-        from ..write import AssetClosedOperation
+        from ..write import AssetClosedOperation  # avoid circular ImportError
 
         extra_filters = Q(
             transactions__operation_date__year__lte=year,
@@ -337,6 +337,55 @@ class TransactionQuerySet(QuerySet):
             total_bought=self.expressions.get_total_bought(),
             quantity_bought=self.expressions.get_quantity_bought(),
         )
+
+    def get_partial_sell_roi(self, asset_id: int, month: int, year: int) -> Decimal:
+        """Compute ROI for partial sells (no AssetClosedOperation) in a given month."""
+        from ..write import AssetClosedOperation  # avoid circular ImportError
+
+        last_closed_datetime = (
+            AssetClosedOperation.objects.filter(asset_id=asset_id)
+            .order_by("-operation_datetime")
+            .values_list("operation_datetime", flat=True)
+            .first()
+        )
+
+        next_month_start = date(year + (month // 12), (month % 12) + 1, 1)
+
+        buy_qs = self.filter(asset_id=asset_id, action=TransactionActions.buy)
+        if last_closed_datetime:
+            buy_qs = buy_qs.filter(operation_date__gt=timezone.localdate(last_closed_datetime))
+        buy_qs = buy_qs.filter(operation_date__lt=next_month_start)
+
+        buys = buy_qs.aggregate(
+            total_normalized=Sum(
+                self.expressions.normalized_total_raw_expression,
+                default=Decimal(),
+            ),
+            total_quantity=Sum(F("quantity"), default=Decimal()),
+        )
+
+        if not buys["total_quantity"]:
+            return Decimal()
+
+        normalized_avg_price = buys["total_normalized"] / buys["total_quantity"]
+
+        sells = self.filter(
+            asset_id=asset_id,
+            action=TransactionActions.sell,
+            operation_date__month=month,
+            operation_date__year=year,
+        ).aggregate(
+            total_sold_normalized=Sum(
+                self.expressions.normalized_total_raw_expression,
+                default=Decimal(),
+            ),
+            total_quantity=Sum(F("quantity"), default=Decimal()),
+        )
+
+        if not sells["total_quantity"]:
+            return Decimal()
+
+        return sells["total_sold_normalized"] - (normalized_avg_price * sells["total_quantity"])
 
     def filter_bought_and_group_by_asset_type(self) -> Self:
         return (
