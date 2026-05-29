@@ -140,6 +140,85 @@ class PlanningPreferencesSerializer(serializers.Serializer):
 
     fire = FirePreferencesSerializer(required=False)
 
+    class DividendsOnlyPreferencesSerializer(serializers.Serializer):
+        yield_override = serializers.FloatField(
+            required=False,
+            allow_null=True,
+            min_value=1,
+            max_value=15,
+        )
+        monthly_savings_override = serializers.FloatField(
+            required=False,
+            allow_null=True,
+            min_value=0,
+        )
+        monthly_expenses_override = serializers.FloatField(
+            required=False,
+            allow_null=True,
+            min_value=0,
+        )
+
+    dividends_only = DividendsOnlyPreferencesSerializer(required=False)
+
+    class OneOverNPreferencesSerializer(serializers.Serializer):
+        target_depletion_age = serializers.IntegerField(
+            required=False,
+            min_value=70,
+            max_value=105,
+        )
+        real_return = serializers.FloatField(
+            required=False,
+            min_value=1,
+            max_value=8,
+        )
+        monthly_savings_override = serializers.FloatField(
+            required=False,
+            allow_null=True,
+            min_value=0,
+        )
+        monthly_expenses_override = serializers.FloatField(
+            required=False,
+            allow_null=True,
+            min_value=0,
+        )
+
+    one_over_n = OneOverNPreferencesSerializer(required=False)
+
+    class VPWPreferencesSerializer(serializers.Serializer):
+        target_age = serializers.IntegerField(
+            required=False,
+            min_value=70,
+            max_value=105,
+        )
+        stock_return = serializers.FloatField(
+            required=False,
+            min_value=3,
+            max_value=15,
+        )
+        bond_return = serializers.FloatField(
+            required=False,
+            min_value=1,
+            max_value=8,
+        )
+        stock_allocation_override = serializers.FloatField(
+            required=False,
+            allow_null=True,
+            min_value=0,
+            max_value=100,
+        )
+        monthly_savings_override = serializers.FloatField(
+            required=False,
+            allow_null=True,
+            min_value=0,
+        )
+        monthly_expenses_override = serializers.FloatField(
+            required=False,
+            allow_null=True,
+            min_value=0,
+        )
+
+    vpw = VPWPreferencesSerializer(required=False)
+
 
 class UserSerializer(serializers.ModelSerializer):
     secrets = IntegrationSecretSerializer(required=False, write_only=True)
@@ -250,14 +329,34 @@ class UserSerializer(serializers.ModelSerializer):
                 **current_preferences,
                 **incoming_preferences,
             }
-            if "fire" in incoming_preferences:
-                current_fire = current_preferences.get("fire") or {}
-                if not isinstance(current_fire, dict):
-                    current_fire = {}
-                merged["fire"] = {
-                    **current_fire,
-                    **incoming_preferences["fire"],
-                }
+            strategy_preference_keys = ("fire", "dividends_only", "one_over_n", "vpw")
+            for key in strategy_preference_keys:
+                if key in incoming_preferences:
+                    current_nested = current_preferences.get(key) or {}
+                    if not isinstance(current_nested, dict):
+                        current_nested = {}
+                    merged[key] = {
+                        **current_nested,
+                        **incoming_preferences[key],
+                    }
+            invalid_strategy_keys = [
+                key
+                for key in strategy_preference_keys
+                if key in incoming_preferences and key != merged.get("selected_method")
+            ]
+            if invalid_strategy_keys:
+                message = (
+                    "Parâmetros de simulação só podem ser salvos para a "
+                    "estratégia selecionada."
+                )
+                raise serializers.ValidationError(
+                    {
+                        "planning_preferences": dict.fromkeys(
+                            invalid_strategy_keys,
+                            message,
+                        )
+                    }
+                )
             if merged.get("show_galeno") and merged.get("selected_method") not in (
                 "fire",
                 "constant_withdrawal",
