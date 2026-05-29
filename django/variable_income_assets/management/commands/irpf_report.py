@@ -15,6 +15,7 @@ if TYPE_CHECKING:  # pragma: no cover
 class Command(BaseCommand):  # pragma: no cover
     def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument("--user-id", type=int, required=True)
+        parser.add_argument("--year", type=int, required=False)
 
     def handle(self, **options):
-        print_irpf_infos(options["user_id"], debug=options["verbosity"])
+        print_irpf_infos(options["user_id"], debug=options["verbosity"], year=options.get("year"))

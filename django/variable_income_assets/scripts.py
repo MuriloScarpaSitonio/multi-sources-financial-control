@@ -40,7 +40,11 @@ def _get_closed_roi(month: int, year: int, asset_id: int) -> Decimal:
             .get()
         )["roi"]
     except AssetClosedOperation.DoesNotExist:
-        return Decimal()
+        return _get_partial_sell_roi(month=month, year=year, asset_id=asset_id)
+
+
+def _get_partial_sell_roi(month: int, year: int, asset_id: int) -> Decimal:
+    return Transaction.objects.get_partial_sell_roi(asset_id=asset_id, month=month, year=year)
 
 
 def _print_assets_portfolio(qs: AssetQuerySet[Asset], year: int) -> None:
@@ -110,9 +114,7 @@ def _print_credited_incomes(qs: AssetQuerySet[Asset], year: int, debug: int = 1)
     _print_credited_incomes_per_stock(qs=qs, year=year)
 
 
-def _print_credited_reimbursements(
-    qs: AssetQuerySet[Asset], year: int, debug: int
-) -> None:
+def _print_credited_reimbursements(qs: AssetQuerySet[Asset], year: int, debug: int) -> None:
     B3_CNPJ = "09.346.601/0001-25"
     section = "'Outros rendimentos isentos'"
 
@@ -377,13 +379,7 @@ def _print_stocks_not_elegible_for_taxation(user_pk: int, year: int, debug: bool
                 profits += roi
                 if debug > 1:
                     results.append(f"\t\t\t{t.asset_code} -> roi = R$ {roi:n}")
-            elif roi == 0:
-                if debug > 1:
-                    results.append(
-                        f"\t\t\t{t.asset_code}: Nao encontramos uma operação de fechamento "
-                        "para o ativo. Por favor, verifique!"
-                    )
-            else:
+            elif roi < 0:
                 asset_losses += roi
                 if debug > 1:
                     results.append(f"\t\t\t{t.asset_code} -> roi = R$ {roi:n}")
@@ -440,20 +436,14 @@ def _print_stocks_usa_not_elegible_for_taxation(
         ):
             currency_symbol = "R$" if normalize else "$"
             roi = _get_closed_roi(asset_id=t.asset_id, month=month, year=year)
-            if debug > 1:
-                results.append(f"\t\t\t{t.asset_code} -> roi = {currency_symbol} {roi:n}")
             if roi > 0:
                 profits += roi
                 if debug > 1:
                     results.append(f"\t\t\t{t.asset_code} -> roi = {currency_symbol} {roi:n}")
-            elif roi == 0:
-                if debug > 1:
-                    results.append(
-                        f"\t\t\t{t.asset_code}: Nao encontramos uma operação de fechamento "
-                        "para o ativo. Por favor, verifique!"
-                    )
-            else:
+            elif roi < 0:
                 asset_losses += roi
+                if debug > 1:
+                    results.append(f"\t\t\t{t.asset_code} -> roi = {currency_symbol} {roi:n}")
 
         if debug > 1:
             results.append("")
@@ -514,14 +504,10 @@ def _print_cryptos_not_elegible_for_taxation(
                 profits += roi
                 if debug > 1:
                     results.append(f"\t\t\t{t.asset_code} -> roi = {currency_symbol} {roi:n}")
-            elif roi == 0:
-                if debug > 1:
-                    results.append(
-                        f"\t\t\t{t.asset_code}: Nao encontramos uma operação de fechamento "
-                        "para o ativo. Por favor, verifique!"
-                    )
-            else:
+            elif roi < 0:
                 asset_losses += roi
+                if debug > 1:
+                    results.append(f"\t\t\t{t.asset_code} -> roi = {currency_symbol} {roi:n}")
 
         if debug > 1:
             results.append("")
