@@ -6,13 +6,18 @@ const NumberFormat = (props: InputBaseComponentProps) => {
 
   return (
     <NumericFormat
-      onValueChange={(values) =>
+      onValueChange={(values, sourceInfo) => {
+        // Only propagate user-driven edits. `react-number-format` also fires
+        // onValueChange when the `value` prop changes programmatically (it
+        // reformats), which would otherwise loop back through the parent and
+        // overwrite a just-reset value.
+        if (sourceInfo.source !== "event") return;
         (onChange as (...event: any[]) => void)({
           target: {
             value: values.floatValue,
           },
-        })
-      }
+        });
+      }}
       thousandSeparator="."
       decimalSeparator=","
       decimalScale={8}

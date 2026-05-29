@@ -28,7 +28,13 @@ import OneOverNIndicator from "../Home/OneOverNIndicator";
 import VPWIndicator from "../Home/VPWIndicator";
 import { usePlanningPreferences } from "./hooks";
 import { useSelectedMethod } from "./hooks";
-import { getFirePlanningPreferences, type ActiveMethodKey } from "./api";
+import {
+  getDividendsOnlyPlanningPreferences,
+  getFirePlanningPreferences,
+  getOneOverNPlanningPreferences,
+  getVPWPlanningPreferences,
+  type ActiveMethodKey,
+} from "./api";
 import { STRATEGY_CONTENT } from "./strategyContent";
 
 const STRATEGY_ORDER: ActiveMethodKey[] = [
@@ -41,7 +47,11 @@ const STRATEGY_ORDER: ActiveMethodKey[] = [
 const PlanningHub = () => {
   const { selectedMethod } = useSelectedMethod();
   const { data: planningData } = usePlanningPreferences();
-  const firePreferences = getFirePlanningPreferences(planningData?.preferences);
+  const preferences = planningData?.preferences;
+  const firePreferences = getFirePlanningPreferences(preferences);
+  const dividendsOnlyPreferences = getDividendsOnlyPlanningPreferences(preferences);
+  const oneOverNPreferences = getOneOverNPlanningPreferences(preferences);
+  const vpwPreferences = getVPWPlanningPreferences(preferences);
   const dateOfBirth = planningData?.dateOfBirth ?? null;
 
   const {
@@ -121,6 +131,9 @@ const PlanningHub = () => {
         avgExpenses={avgExpenses}
         patrimonyTotal={patrimonyTotal}
         isLoading={isDataLoading || isIncomesLoading}
+        simulatedYield={dividendsOnlyPreferences.yield_override}
+        simulatedSavings={dividendsOnlyPreferences.monthly_savings_override}
+        simulatedExpenses={dividendsOnlyPreferences.monthly_expenses_override}
         compact
         hideLabel
       />
@@ -132,10 +145,12 @@ const PlanningHub = () => {
         avgMonthlySavings={avgMonthlySavings}
         isLoading={isDataLoading}
         dateOfBirth={dateOfBirth}
-        targetDepletionAge={90}
+        targetDepletionAge={oneOverNPreferences.target_depletion_age}
         onTargetDepletionAgeChange={() => {}}
-        realReturn={5}
+        realReturn={oneOverNPreferences.real_return}
         onRealReturnChange={() => {}}
+        simulatedSavings={oneOverNPreferences.monthly_savings_override}
+        simulatedExpenses={oneOverNPreferences.monthly_expenses_override}
         compact
         hideLabel
       />
@@ -149,12 +164,15 @@ const PlanningHub = () => {
         avgMonthlySavings={avgMonthlySavings}
         isLoading={isDataLoading || isReportsLoading}
         dateOfBirth={dateOfBirth}
-        targetAge={99}
+        targetAge={vpwPreferences.target_age}
         onTargetAgeChange={() => {}}
-        stockReturn={5}
+        stockReturn={vpwPreferences.stock_return}
         onStockReturnChange={() => {}}
-        bondReturn={3}
+        bondReturn={vpwPreferences.bond_return}
         onBondReturnChange={() => {}}
+        stockAllocationOverride={vpwPreferences.stock_allocation_override}
+        simulatedSavings={vpwPreferences.monthly_savings_override}
+        simulatedExpenses={vpwPreferences.monthly_expenses_override}
         compact
         hideLabel
       />

@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react";
 
-import Button from "@mui/material/Button";
 import Skeleton from "@mui/material/Skeleton";
-import Slider from "@mui/material/Slider";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import LinearProgress, { linearProgressClasses } from "@mui/material/LinearProgress";
@@ -28,10 +26,10 @@ import {
 } from "../../../design-system";
 import { useHideValues } from "../../../hooks/useHideValues";
 import { formatCurrency } from "../utils";
-import { sliderSx } from "./consts";
 import PatrimonySimulator from "./PatrimonySimulator";
 import SavingsSimulator from "./SavingsSimulator";
 import ExpenseSimulator from "./ExpenseSimulator";
+import PersistedSlider from "./PersistedSlider";
 import VPWSimulationResults, {
   type VPWProjectionPoint,
 } from "./VPWSimulationResults";
@@ -161,6 +159,37 @@ const numberTickFormatter = (value: number) => {
   return value.toFixed(0);
 };
 
+const formatYearsAsCompactDuration = (years: number): string => {
+  if (years <= 0) return "agora";
+  return `~${years}a`;
+};
+
+type VPWIndicatorProps = {
+  equityTotal: number;
+  ifixTotal: number;
+  fixedIncomeTotal: number;
+  avgExpenses: number;
+  avgMonthlySavings: number;
+  isLoading: boolean;
+  dateOfBirth: string | null;
+  targetAge: number;
+  onTargetAgeChange: (value: number) => void;
+  stockReturn: number;
+  onStockReturnChange: (value: number) => void;
+  bondReturn: number;
+  onBondReturnChange: (value: number) => void;
+  compact?: boolean;
+  hideLabel?: boolean;
+  persistEnabled?: boolean;
+  isPersisting?: boolean;
+  stockAllocationOverride?: number | null;
+  onStockAllocationOverrideChange?: (value: number | null) => void;
+  simulatedSavings?: number | null;
+  onSimulatedSavingsChange?: (value: number | null) => void;
+  simulatedExpenses?: number | null;
+  onSimulatedExpensesChange?: (value: number | null) => void;
+};
+
 const VPWIndicator = ({
   equityTotal,
   ifixTotal,
@@ -177,31 +206,47 @@ const VPWIndicator = ({
   onBondReturnChange,
   compact = false,
   hideLabel = false,
-}: {
-  equityTotal: number;
-  ifixTotal: number;
-  fixedIncomeTotal: number;
-  avgExpenses: number;
-  avgMonthlySavings: number;
-  isLoading: boolean;
-  dateOfBirth: string | null;
-  targetAge: number;
-  onTargetAgeChange: (value: number) => void;
-  stockReturn: number;
-  onStockReturnChange: (value: number) => void;
-  bondReturn: number;
-  onBondReturnChange: (value: number) => void;
-  compact?: boolean;
-  hideLabel?: boolean;
-}) => {
+  persistEnabled = false,
+  isPersisting = false,
+  stockAllocationOverride: controlledStockAllocationOverride,
+  onStockAllocationOverrideChange,
+  simulatedSavings: controlledSimulatedSavings,
+  onSimulatedSavingsChange,
+  simulatedExpenses: controlledSimulatedExpenses,
+  onSimulatedExpensesChange,
+}: VPWIndicatorProps) => {
   const { hideValues } = useHideValues();
   const [simulatedPatrimony, setSimulatedPatrimony] = useState<number | null>(null);
-  const [overrideStockPct, setOverrideStockPct] = useState<number | null>(null);
-  const [simulatedSavings, setSimulatedSavings] = useState<number | null>(null);
-  const [simulatedExpenses, setSimulatedExpenses] = useState<number | null>(null);
+  const [localOverrideStockPct, setLocalOverrideStockPct] = useState<number | null>(null);
+  const [localSimulatedSavings, setLocalSimulatedSavings] = useState<number | null>(null);
+  const [localSimulatedExpenses, setLocalSimulatedExpenses] = useState<number | null>(null);
   const [visibleScenarios, setVisibleScenarios] = useState<
     ("otimista" | "mediana" | "pessimista")[]
   >(["otimista", "mediana", "pessimista"]);
+  const overrideStockPct =
+    controlledStockAllocationOverride !== undefined
+      ? controlledStockAllocationOverride
+      : localOverrideStockPct;
+  const simulatedSavings =
+    controlledSimulatedSavings !== undefined
+      ? controlledSimulatedSavings
+      : localSimulatedSavings;
+  const simulatedExpenses =
+    controlledSimulatedExpenses !== undefined
+      ? controlledSimulatedExpenses
+      : localSimulatedExpenses;
+  const setOverrideStockPct = (value: number | null) => {
+    if (onStockAllocationOverrideChange) onStockAllocationOverrideChange(value);
+    else setLocalOverrideStockPct(value);
+  };
+  const setSimulatedSavings = (value: number | null) => {
+    if (onSimulatedSavingsChange) onSimulatedSavingsChange(value);
+    else setLocalSimulatedSavings(value);
+  };
+  const setSimulatedExpenses = (value: number | null) => {
+    if (onSimulatedExpensesChange) onSimulatedExpensesChange(value);
+    else setLocalSimulatedExpenses(value);
+  };
   const showOtimista = visibleScenarios.includes("otimista");
   const showMediana = visibleScenarios.includes("mediana");
   const showPessimista = visibleScenarios.includes("pessimista");
@@ -563,7 +608,17 @@ const VPWIndicator = ({
       </Tooltip>
       <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Saque: {vpwRate.toFixed(1)}% a.a. · {hideValues ? "***" : formatCurrency(monthlyWithdrawal)}/mês
+          {compact
+            ? `Meta: ${hideValues ? "***" : formatCurrency(targetPatrimonyToday)}${
+                accumulation &&
+                accumulation.initialGap > 0 &&
+                accumulation.crossoverYearP50 !== null
+                  ? ` (${formatYearsAsCompactDuration(accumulation.crossoverYearP50)} no ritmo atual)`
+                  : ""
+              }`
+            : `Saque: ${vpwRate.toFixed(1)}% a.a. · ${
+                hideValues ? "***" : formatCurrency(monthlyWithdrawal)
+              }/mês`}
         </Text>
         {!compact && accumulationLabels && (
           <>
@@ -584,62 +639,63 @@ const VPWIndicator = ({
           </>
         )}
       </Stack>
-      <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Idade alvo: {targetAge}
-        </Text>
-        <Slider
-          value={targetAge}
-          onChange={(_, value) => onTargetAgeChange(value as number)}
-          min={70}
-          max={105}
-          step={1}
-          marks={Array.from({ length: 36 }, (_, i) => ({ value: 70 + i, label: "" }))}
-          size="medium"
-          sx={sliderSx}
-        />
-        {!compact && (
-          <>
-            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-              {overrideStockPct !== null && <span style={{ fontStyle: "italic" }}>(simulado) </span>}
-              Alocação RV: {effectiveStockPct.toFixed(0)}% / RF: {effectiveBondPct.toFixed(0)}%
-            </Text>
-            <Slider
+      {!compact && (
+        <>
+          <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
+            <PersistedSlider
+              value={targetAge}
+              onChange={onTargetAgeChange}
+              renderLabel={(v) => (
+                <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+                  Idade alvo: {v}
+                </Text>
+              )}
+              enabled={persistEnabled}
+              isPersisting={isPersisting}
+              min={70}
+              max={105}
+              step={1}
+              marks={Array.from({ length: 36 }, (_, i) => ({ value: 70 + i, label: "" }))}
+            />
+            <PersistedSlider
               value={effectiveStockPct}
-              onChange={(_, value) => setOverrideStockPct(value as number)}
+              onChange={(v) => setOverrideStockPct(v)}
+              renderLabel={(v) => (
+                <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+                  {overrideStockPct !== null && (
+                    <span style={{ fontStyle: "italic" }}>(simulado) </span>
+                  )}
+                  Alocação RV: {v.toFixed(0)}% / RF: {(100 - v).toFixed(0)}%
+                </Text>
+              )}
+              enabled={persistEnabled}
+              isPersisting={isPersisting}
               min={0}
               max={100}
               step={5}
-              size="medium"
-              sx={sliderSx}
+              showReset={overrideStockPct !== null}
+              onReset={() => setOverrideStockPct(null)}
             />
-            {overrideStockPct !== null && (
-              <Button
-                variant="brand-text"
-                size="small"
-                onClick={() => setOverrideStockPct(null)}
-              >
-                Resetar
-              </Button>
-            )}
             <Tooltip
               title={stockReturnInert ? "Sem efeito: alocação RV é 0%" : ""}
               arrow
               placement="top"
             >
               <Stack direction="row" alignItems="center" gap={1} sx={{ opacity: stockReturnInert ? 0.4 : 1 }}>
-                <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-                  Retorno RV: {stockReturn}%
-                </Text>
-                <Slider
+                <PersistedSlider
                   value={stockReturn}
-                  onChange={(_, value) => onStockReturnChange(value as number)}
+                  onChange={onStockReturnChange}
+                  renderLabel={(v) => (
+                    <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+                      Retorno RV: {v}%
+                    </Text>
+                  )}
+                  enabled={persistEnabled}
+                  isPersisting={isPersisting}
                   min={3}
                   max={15}
                   step={0.5}
                   marks={Array.from({ length: 25 }, (_, i) => ({ value: 3 + i * 0.5, label: "" }))}
-                  size="medium"
-                  sx={sliderSx}
                   disabled={stockReturnInert}
                 />
               </Stack>
@@ -650,42 +706,54 @@ const VPWIndicator = ({
               placement="top"
             >
               <Stack direction="row" alignItems="center" gap={1} sx={{ opacity: bondReturnInert ? 0.4 : 1 }}>
-                <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-                  Retorno RF: {bondReturn}%
-                </Text>
-                <Slider
+                <PersistedSlider
                   value={bondReturn}
-                  onChange={(_, value) => onBondReturnChange(value as number)}
+                  onChange={onBondReturnChange}
+                  renderLabel={(v) => (
+                    <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+                      Retorno RF: {v}%
+                    </Text>
+                  )}
+                  enabled={persistEnabled}
+                  isPersisting={isPersisting}
                   min={1}
                   max={8}
                   step={0.5}
                   marks={Array.from({ length: 15 }, (_, i) => ({ value: 1 + i * 0.5, label: "" }))}
-                  size="medium"
-                  sx={sliderSx}
                   disabled={bondReturnInert}
                 />
               </Stack>
             </Tooltip>
-          </>
-        )}
-      </Stack>
-      {!compact && (
-        <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
-          <PatrimonySimulator
-            value={effectiveInvestment}
-            onChange={setSimulatedPatrimony}
-            onReset={() => setSimulatedPatrimony(null)}
-            patrimonyTotal={investmentTotal}
-            showReset={simulatedPatrimony !== null}
+          </Stack>
+          <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
+            <PatrimonySimulator
+              value={effectiveInvestment}
+              onChange={setSimulatedPatrimony}
+              onReset={() => setSimulatedPatrimony(null)}
+              patrimonyTotal={investmentTotal}
+              showReset={simulatedPatrimony !== null}
+              isPersisting={isPersisting}
+            />
+            <ExpenseSimulator
+              value={effectiveMonthlyExpenses}
+              onChange={setSimulatedExpenses}
+              onReset={() => setSimulatedExpenses(null)}
+              avgMonthlyExpenses={avgExpenses}
+              showReset={simulatedExpenses !== null}
+              enabled={persistEnabled}
+              isPersisting={isPersisting}
+            />
+          </Stack>
+          <SavingsSimulator
+            value={effectiveSavings}
+            onChange={setSimulatedSavings}
+            onReset={() => setSimulatedSavings(null)}
+            avgMonthlySavings={Math.max(0, avgMonthlySavings)}
+            showReset={simulatedSavings !== null}
+            enabled={persistEnabled}
+            isPersisting={isPersisting}
           />
-          <ExpenseSimulator
-            value={effectiveMonthlyExpenses}
-            onChange={setSimulatedExpenses}
-            onReset={() => setSimulatedExpenses(null)}
-            avgMonthlyExpenses={avgExpenses}
-            showReset={simulatedExpenses !== null}
-          />
-        </Stack>
+        </>
       )}
       {!compact && (
         <VPWSimulationResults
@@ -723,13 +791,6 @@ const VPWIndicator = ({
               gastos em cada idade.
             </Text>
           </Stack>
-          <SavingsSimulator
-            value={effectiveSavings}
-            onChange={setSimulatedSavings}
-            onReset={() => setSimulatedSavings(null)}
-            avgMonthlySavings={Math.max(0, avgMonthlySavings)}
-            showReset={simulatedSavings !== null}
-          />
           <ResponsiveContainer width="100%" height={240}>
             <ComposedChart
               data={accumulation.points}

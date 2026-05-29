@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 
 import Skeleton from "@mui/material/Skeleton";
-import Slider from "@mui/material/Slider";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import LinearProgress, { linearProgressClasses } from "@mui/material/LinearProgress";
@@ -20,12 +19,12 @@ import { BarChartCreditedAndProvisionedWithAvg } from "../Incomes/Reports/charts
 import { useIncomesHistoric } from "../Incomes/Reports/hooks";
 import { useHomeRevenuesIndicators } from "../Revenues/hooks/useRevenuesIndicators";
 import {
-  sliderSx,
   TYPICAL_DIVIDEND_YIELD,
   TYPICAL_TRAILING_IPCA_PCT,
 } from "./consts";
 import ExpenseSimulator from "./ExpenseSimulator";
 import PatrimonySimulator from "./PatrimonySimulator";
+import PersistedSlider from "./PersistedSlider";
 import SavingsSimulator from "./SavingsSimulator";
 
 // Format months as "~Xa Ym" or "~Xa" or "~Ym".
@@ -42,6 +41,19 @@ const formatMonthsAsDuration = (months: number): string => {
   return `~${years}a ${rem}m`;
 };
 
+const formatMonthsAsCompactDuration = (months: number): string => {
+  if (!isFinite(months)) return "nunca";
+  if (months <= 0) return "agora";
+  if (months < 12) {
+    const m = Math.max(1, Math.ceil(months));
+    return `~${m}m`;
+  }
+  const years = Math.floor(months / 12);
+  const rem = Math.round(months - years * 12);
+  if (rem === 0) return `~${years}a`;
+  return `~${years}a ${rem}m`;
+};
+
 const ProgressBar = styled(LinearProgress)(({ value }) => ({
   height: 24,
   borderRadius: 10,
@@ -55,6 +67,22 @@ const ProgressBar = styled(LinearProgress)(({ value }) => ({
   },
 }));
 
+type DividendsOnlyIndicatorProps = {
+  avgPassiveIncome: number;
+  avgExpenses: number;
+  patrimonyTotal: number;
+  isLoading: boolean;
+  compact?: boolean;
+  hideLabel?: boolean;
+  persistEnabled?: boolean;
+  isPersisting?: boolean;
+  simulatedYield?: number | null;
+  onSimulatedYieldChange?: (value: number | null) => void;
+  simulatedSavings?: number | null;
+  onSimulatedSavingsChange?: (value: number | null) => void;
+  simulatedExpenses?: number | null;
+  onSimulatedExpensesChange?: (value: number | null) => void;
+};
 
 const DividendsOnlyIndicator = ({
   avgPassiveIncome,
@@ -63,21 +91,46 @@ const DividendsOnlyIndicator = ({
   isLoading,
   compact = false,
   hideLabel = false,
-}: {
-  avgPassiveIncome: number;
-  avgExpenses: number;
-  patrimonyTotal: number;
-  isLoading: boolean;
-  compact?: boolean;
-  hideLabel?: boolean;
-}) => {
+  persistEnabled = false,
+  isPersisting = false,
+  simulatedYield: controlledSimulatedYield,
+  onSimulatedYieldChange,
+  simulatedSavings: controlledSimulatedSavings,
+  onSimulatedSavingsChange,
+  simulatedExpenses: controlledSimulatedExpenses,
+  onSimulatedExpensesChange,
+}: DividendsOnlyIndicatorProps) => {
   const { hideValues } = useHideValues();
   const currentYield = patrimonyTotal > 0 ? (avgPassiveIncome * 12 / patrimonyTotal) * 100 : 6;
-  const [simulatedYield, setSimulatedYield] = useState<number | null>(null);
+  const [localSimulatedYield, setLocalSimulatedYield] = useState<number | null>(null);
   const [simulatedPatrimony, setSimulatedPatrimony] = useState<number | null>(null);
-  const [simulatedSavings, setSimulatedSavings] = useState<number | null>(null);
-  const [simulatedExpenses, setSimulatedExpenses] = useState<number | null>(null);
+  const [localSimulatedSavings, setLocalSimulatedSavings] = useState<number | null>(null);
+  const [localSimulatedExpenses, setLocalSimulatedExpenses] = useState<number | null>(null);
   const [windowYears, setWindowYears] = useState(3);
+  const simulatedYield =
+    controlledSimulatedYield !== undefined
+      ? controlledSimulatedYield
+      : localSimulatedYield;
+  const simulatedSavings =
+    controlledSimulatedSavings !== undefined
+      ? controlledSimulatedSavings
+      : localSimulatedSavings;
+  const simulatedExpenses =
+    controlledSimulatedExpenses !== undefined
+      ? controlledSimulatedExpenses
+      : localSimulatedExpenses;
+  const setSimulatedYield = (value: number | null) => {
+    if (onSimulatedYieldChange) onSimulatedYieldChange(value);
+    else setLocalSimulatedYield(value);
+  };
+  const setSimulatedSavings = (value: number | null) => {
+    if (onSimulatedSavingsChange) onSimulatedSavingsChange(value);
+    else setLocalSimulatedSavings(value);
+  };
+  const setSimulatedExpenses = (value: number | null) => {
+    if (onSimulatedExpensesChange) onSimulatedExpensesChange(value);
+    else setLocalSimulatedExpenses(value);
+  };
   const effectiveYield = simulatedYield ?? currentYield;
   const effectivePatrimony = simulatedPatrimony ?? patrimonyTotal;
   // Forward-looking only: coverage %, required patrimony, time-to-goal use this.
@@ -274,10 +327,17 @@ const DividendsOnlyIndicator = ({
       </Tooltip>
       <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Proventos: {hideValues ? "***" : formatCurrency(displayIncome)}/mês
-          {" · "}Despesas: {hideValues ? "***" : formatCurrency(avgExpenses)}/mês
+          {compact
+            ? `Meta: ${hideValues ? "***" : formatCurrency(requiredPatrimony)}${
+                coveragePercentage < 100 && monthlySavings > 0
+                  ? ` (${formatMonthsAsCompactDuration(monthsToGoal)} no ritmo atual)`
+                  : ""
+              }`
+            : `Proventos: ${hideValues ? "***" : formatCurrency(displayIncome)}/mês · Despesas: ${
+                hideValues ? "***" : formatCurrency(avgExpenses)
+              }/mês`}
         </Text>
-        {effectiveYield > 0 && avgExpenses > 0 && (
+        {!compact && effectiveYield > 0 && avgExpenses > 0 && (
           <Text
             size={FontSizes.EXTRA_SMALL}
             color={coveragePercentage >= 100 ? Colors.brand : Colors.danger200}
@@ -297,37 +357,32 @@ const DividendsOnlyIndicator = ({
           </Text>
         )}
       </Stack>
-      <Stack direction="row" alignItems="center" gap={2}>
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Yield: {effectiveYield.toFixed(1)}% a.a.
-        </Text>
-        <Slider
-          value={effectiveYield}
-          onChange={(_, value) => setSimulatedYield(value as number)}
-          min={1}
-          max={15}
-          step={0.5}
-          size="medium"
-          sx={sliderSx}
-        />
-        {!compact && (
-          <>
+      {!compact && (
+        <>
+          <Stack direction="row" alignItems="center" gap={2}>
+            <PersistedSlider
+              value={effectiveYield}
+              onChange={(v) => setSimulatedYield(v)}
+              renderLabel={(v) => (
+                <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+                  Yield: {v.toFixed(1)}% a.a.
+                </Text>
+              )}
+              enabled={persistEnabled}
+              isPersisting={isPersisting}
+              min={1}
+              max={15}
+              step={0.5}
+              showReset={simulatedYield !== null}
+              onReset={() => setSimulatedYield(null)}
+            />
             <PatrimonySimulator
               value={effectivePatrimony}
               onChange={setSimulatedPatrimony}
-              onReset={() => {
-                setSimulatedPatrimony(null);
-                setSimulatedYield(null);
-                setSimulatedSavings(null);
-                setSimulatedExpenses(null);
-              }}
+              onReset={() => setSimulatedPatrimony(null)}
               patrimonyTotal={patrimonyTotal}
-              showReset={
-                simulatedPatrimony !== null ||
-                simulatedYield !== null ||
-                simulatedSavings !== null ||
-                simulatedExpenses !== null
-              }
+              showReset={simulatedPatrimony !== null}
+              isPersisting={isPersisting}
             />
             <ExpenseSimulator
               value={effectiveExpenses}
@@ -335,24 +390,28 @@ const DividendsOnlyIndicator = ({
               onReset={() => setSimulatedExpenses(null)}
               avgMonthlyExpenses={avgExpenses}
               showReset={simulatedExpenses !== null}
+              enabled={persistEnabled}
+              isPersisting={isPersisting}
             />
-          </>
-        )}
-      </Stack>
-      {!compact && (
-        <SavingsSimulator
-          value={monthlySavings}
-          onChange={setSimulatedSavings}
-          onReset={() => setSimulatedSavings(null)}
-          avgMonthlySavings={defaultSavings}
-          showReset={simulatedSavings !== null}
-        />
+          </Stack>
+          <SavingsSimulator
+            value={monthlySavings}
+            onChange={setSimulatedSavings}
+            onReset={() => setSimulatedSavings(null)}
+            avgMonthlySavings={defaultSavings}
+            showReset={simulatedSavings !== null}
+            enabled={persistEnabled}
+            isPersisting={isPersisting}
+          />
+        </>
       )}
-      <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-        Faixa típica para carteiras focadas em dividendos:{" "}
-        {TYPICAL_DIVIDEND_YIELD.rangeMin}%–{TYPICAL_DIVIDEND_YIELD.rangeMax}%
-        {" "}(IDIV ~{TYPICAL_DIVIDEND_YIELD.idiv}%, IFIX ~{TYPICAL_DIVIDEND_YIELD.ifix}%)
-      </Text>
+      {!compact && (
+        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+          Faixa típica para carteiras focadas em dividendos:{" "}
+          {TYPICAL_DIVIDEND_YIELD.rangeMin}%–{TYPICAL_DIVIDEND_YIELD.rangeMax}%
+          {" "}(IDIV ~{TYPICAL_DIVIDEND_YIELD.idiv}%, IFIX ~{TYPICAL_DIVIDEND_YIELD.ifix}%)
+        </Text>
+      )}
       {!compact && (
         <Stack gap={0.5} mt={1}>
           {history.length > 0 && avgExpenses > 0 && (
@@ -469,18 +528,19 @@ const DividendsOnlyIndicator = ({
                 </>
               )}
               <Stack direction="row" alignItems="center" gap={1}>
-                <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-                  Janela: {windowYears}a
-                </Text>
-                <Slider
+                <PersistedSlider
                   value={windowYears}
-                  onChange={(_, value) => setWindowYears(value as number)}
+                  onChange={(v) => setWindowYears(v)}
+                  renderLabel={(v) => (
+                    <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+                      Janela: {v}a
+                    </Text>
+                  )}
+                  isPersisting={isPersisting}
                   min={1}
                   max={10}
                   step={1}
                   marks
-                  size="medium"
-                  sx={sliderSx}
                 />
               </Stack>
             </Stack>

@@ -27,8 +27,16 @@ import { useIncomesAvg } from "../Incomes/Indicators/hooks";
 import { useAssetsReports } from "../Assets/Reports/AssetAggregationReports/hooks";
 import { GroupBy, Kinds } from "../Assets/Reports/types";
 import type { ReportAggregatedByTypeDataItem } from "../Assets/Reports/types";
-import { usePlanningPreferences, useSelectedMethod } from "../Planning/hooks";
-import { getFirePlanningPreferences } from "../Planning/api";
+import {
+  usePlanningPreferences,
+  useSelectedMethod,
+} from "../Planning/hooks";
+import {
+  getDividendsOnlyPlanningPreferences,
+  getFirePlanningPreferences,
+  getOneOverNPlanningPreferences,
+  getVPWPlanningPreferences,
+} from "../Planning/api";
 import DividendsOnlyIndicator from "./DividendsOnlyIndicator";
 import ConstantDollarIndicator from "./ConstantDollarIndicator";
 import GalenoIndicator from "./GalenoIndicator";
@@ -40,20 +48,18 @@ import VPWIndicator from "./VPWIndicator";
 const Indicators = () => {
   const { hideValues } = useHideValues();
   const navigate = useNavigate();
-  const [realReturn, setRealReturn] = useState(5);
   const [galenoTransferRate, setGalenoTransferRate] = useState(6);
   const [galenoTargetBufferYears, setGalenoTargetBufferYears] = useState(7);
-  const [targetDepletionAge, setTargetDepletionAge] = useState(90);
   const [ageInBondsWithdrawalRate, setAgeInBondsWithdrawalRate] = useState(4);
   const [ageInBondsStockReturn, setAgeInBondsStockReturn] = useState(5);
   const [ageInBondsBondReturn, setAgeInBondsBondReturn] = useState(3);
-  const [vpwTargetAge, setVpwTargetAge] = useState(99);
-  const [vpwStockReturn, setVpwStockReturn] = useState(5);
-  const [vpwBondReturn, setVpwBondReturn] = useState(4);
   const { selectedMethod } = useSelectedMethod();
   const { data: planningData } = usePlanningPreferences();
   const preferences = planningData?.preferences;
   const firePreferences = getFirePlanningPreferences(preferences);
+  const dividendsOnlyPreferences = getDividendsOnlyPlanningPreferences(preferences);
+  const oneOverNPreferences = getOneOverNPlanningPreferences(preferences);
+  const vpwPreferences = getVPWPlanningPreferences(preferences);
   const dateOfBirth = planningData?.dateOfBirth ?? null;
   // Galeno parked while we redesign it as a standalone strategy — see
   // docs/superpowers/plans/2026-04-26-galeno-strategy.md. Re-enable by
@@ -257,6 +263,9 @@ const Indicators = () => {
                 avgExpenses={expensesIndicators?.fire_avg ?? 0}
                 patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
                 isLoading={isLoading || isExpensesIndicatorsLoading || isIncomesAvgLoading}
+                simulatedYield={dividendsOnlyPreferences.yield_override}
+                simulatedSavings={dividendsOnlyPreferences.monthly_savings_override}
+                simulatedExpenses={dividendsOnlyPreferences.monthly_expenses_override}
                 compact
               />
             ),
@@ -275,10 +284,12 @@ const Indicators = () => {
                     isRevenuesIndicatorsLoading
                   }
                   dateOfBirth={dateOfBirth}
-                  targetDepletionAge={targetDepletionAge}
-                  onTargetDepletionAgeChange={setTargetDepletionAge}
-                  realReturn={realReturn}
-                  onRealReturnChange={setRealReturn}
+                  targetDepletionAge={oneOverNPreferences.target_depletion_age}
+                  onTargetDepletionAgeChange={() => {}}
+                  realReturn={oneOverNPreferences.real_return}
+                  onRealReturnChange={() => {}}
+                  simulatedSavings={oneOverNPreferences.monthly_savings_override}
+                  simulatedExpenses={oneOverNPreferences.monthly_expenses_override}
                   compact
                 />
                 {showGaleno && (
@@ -305,12 +316,15 @@ const Indicators = () => {
                   avgMonthlySavings={monthlySavings}
                   isLoading={isLoading || isExpensesIndicatorsLoading || isReportsLoading}
                   dateOfBirth={dateOfBirth}
-                  targetAge={vpwTargetAge}
-                  onTargetAgeChange={setVpwTargetAge}
-                  stockReturn={vpwStockReturn}
-                  onStockReturnChange={setVpwStockReturn}
-                  bondReturn={vpwBondReturn}
-                  onBondReturnChange={setVpwBondReturn}
+                  targetAge={vpwPreferences.target_age}
+                  onTargetAgeChange={() => {}}
+                  stockReturn={vpwPreferences.stock_return}
+                  onStockReturnChange={() => {}}
+                  bondReturn={vpwPreferences.bond_return}
+                  onBondReturnChange={() => {}}
+                  stockAllocationOverride={vpwPreferences.stock_allocation_override}
+                  simulatedSavings={vpwPreferences.monthly_savings_override}
+                  simulatedExpenses={vpwPreferences.monthly_expenses_override}
                   compact
                 />
                 {showGaleno && (

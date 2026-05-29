@@ -1,4 +1,5 @@
 import Button from "@mui/material/Button";
+import Skeleton from "@mui/material/Skeleton";
 import Slider from "@mui/material/Slider";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -11,6 +12,7 @@ import {
   Text,
 } from "../../../design-system";
 import { sliderSx } from "./consts";
+import { usePersistedValue } from "./usePersistedValue";
 
 const PatrimonySimulator = ({
   value,
@@ -18,15 +20,26 @@ const PatrimonySimulator = ({
   onReset,
   patrimonyTotal,
   showReset,
+  isPersisting = false,
 }: {
   value: number;
   onChange: (value: number) => void;
   onReset: () => void;
   patrimonyTotal: number;
   showReset: boolean;
+  isPersisting?: boolean;
 }) => {
   const patrimonyStep = 50000;
   const patrimonyMax = Math.max(patrimonyTotal * 5, 1000000);
+  // Local what-if: never debounced (enabled stays false), but still skeletons
+  // with the rest of the panel while a sibling save is in flight.
+  const { raw, commit, cancel, showSkeleton } = usePersistedValue(value, onChange, {
+    isPersisting,
+  });
+
+  if (showSkeleton) {
+    return <Skeleton variant="rounded" width={480} height={28} />;
+  }
 
   return (
     <Stack direction="row" alignItems="center" gap={2}>
@@ -34,10 +47,10 @@ const PatrimonySimulator = ({
         Patrimônio:
       </Text>
       <TextField
-        value={value}
+        value={raw}
         onChange={(e) => {
           const v = Number(e.target.value);
-          if (!isNaN(v) && v >= 0) onChange(v);
+          if (!isNaN(v) && v >= 0) commit(v);
         }}
         size="small"
         slotProps={{
@@ -59,8 +72,8 @@ const PatrimonySimulator = ({
         }}
       />
       <Slider
-        value={value}
-        onChange={(_, v) => onChange(v as number)}
+        value={raw}
+        onChange={(_, v) => commit(v as number)}
         min={0}
         max={patrimonyMax}
         step={patrimonyStep}
@@ -71,7 +84,10 @@ const PatrimonySimulator = ({
         <Button
           variant="brand-text"
           size="small"
-          onClick={onReset}
+          onClick={() => {
+            cancel();
+            onReset();
+          }}
         >
           Resetar
         </Button>
