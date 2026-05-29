@@ -1,4 +1,5 @@
 import Button from "@mui/material/Button";
+import Skeleton from "@mui/material/Skeleton";
 import Slider from "@mui/material/Slider";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -11,6 +12,7 @@ import {
   getColor,
 } from "../../../design-system";
 import { sliderSx } from "./consts";
+import { usePersistedValue } from "./usePersistedValue";
 
 const ExpensesSimulator = ({
   value,
@@ -18,25 +20,38 @@ const ExpensesSimulator = ({
   onReset,
   avgExpenses,
   showReset,
+  enabled = false,
+  isPersisting = false,
 }: {
   value: number;
   onChange: (value: number) => void;
   onReset: () => void;
   avgExpenses: number;
   showReset: boolean;
+  enabled?: boolean;
+  isPersisting?: boolean;
 }) => {
   const step = 100;
   const max = Math.max(avgExpenses * 3, 10000);
+  const { raw, commit, cancel, showSkeleton } = usePersistedValue(value, onChange, {
+    enabled,
+    isPersisting,
+  });
+
+  if (showSkeleton) {
+    return <Skeleton variant="rounded" width={420} height={28} />;
+  }
+
   return (
     <Stack direction="row" alignItems="center" gap={2}>
       <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
         Despesas mensais:
       </Text>
       <TextField
-        value={value}
+        value={raw}
         onChange={(e) => {
           const v = Number(e.target.value);
-          if (!isNaN(v) && v >= 0) onChange(v);
+          if (!isNaN(v) && v >= 0) commit(v);
         }}
         size="small"
         slotProps={{
@@ -58,8 +73,8 @@ const ExpensesSimulator = ({
         }}
       />
       <Slider
-        value={value}
-        onChange={(_, v) => onChange(v as number)}
+        value={raw}
+        onChange={(_, v) => commit(v as number)}
         min={0}
         max={max}
         step={step}
@@ -67,7 +82,14 @@ const ExpensesSimulator = ({
         sx={{ ...sliderSx, width: 160 }}
       />
       {showReset && (
-        <Button variant="brand-text" size="small" onClick={onReset}>
+        <Button
+          variant="brand-text"
+          size="small"
+          onClick={() => {
+            cancel();
+            onReset();
+          }}
+        >
           Resetar
         </Button>
       )}

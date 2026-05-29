@@ -8,6 +8,9 @@ export type PlanningPreferences = {
   show_galeno?: boolean;
   show_age_in_bonds?: boolean;
   fire?: FirePlanningPreferences;
+  dividends_only?: DividendsOnlyPlanningPreferences;
+  one_over_n?: OneOverNPlanningPreferences;
+  vpw?: VPWPlanningPreferences;
 };
 
 export type FirePlanningPreferences = {
@@ -29,6 +32,71 @@ export const getFirePlanningPreferences = (
 ): Required<FirePlanningPreferences> => ({
   ...DEFAULT_FIRE_PREFERENCES,
   ...(preferences?.fire ?? {}),
+});
+
+export type DividendsOnlyPlanningPreferences = {
+  yield_override?: number | null;
+  monthly_savings_override?: number | null;
+  monthly_expenses_override?: number | null;
+};
+
+export const DEFAULT_DIVIDENDS_ONLY_PREFERENCES = {
+  yield_override: null,
+  monthly_savings_override: null,
+  monthly_expenses_override: null,
+} satisfies Required<DividendsOnlyPlanningPreferences>;
+
+export const getDividendsOnlyPlanningPreferences = (
+  preferences?: PlanningPreferences,
+): Required<DividendsOnlyPlanningPreferences> => ({
+  ...DEFAULT_DIVIDENDS_ONLY_PREFERENCES,
+  ...(preferences?.dividends_only ?? {}),
+});
+
+export type OneOverNPlanningPreferences = {
+  target_depletion_age?: number;
+  real_return?: number;
+  monthly_savings_override?: number | null;
+  monthly_expenses_override?: number | null;
+};
+
+export const DEFAULT_ONE_OVER_N_PREFERENCES = {
+  target_depletion_age: 90,
+  real_return: 5,
+  monthly_savings_override: null,
+  monthly_expenses_override: null,
+} satisfies Required<OneOverNPlanningPreferences>;
+
+export const getOneOverNPlanningPreferences = (
+  preferences?: PlanningPreferences,
+): Required<OneOverNPlanningPreferences> => ({
+  ...DEFAULT_ONE_OVER_N_PREFERENCES,
+  ...(preferences?.one_over_n ?? {}),
+});
+
+export type VPWPlanningPreferences = {
+  target_age?: number;
+  stock_return?: number;
+  bond_return?: number;
+  stock_allocation_override?: number | null;
+  monthly_savings_override?: number | null;
+  monthly_expenses_override?: number | null;
+};
+
+export const DEFAULT_VPW_PREFERENCES = {
+  target_age: 99,
+  stock_return: 5,
+  bond_return: 4,
+  stock_allocation_override: null,
+  monthly_savings_override: null,
+  monthly_expenses_override: null,
+} satisfies Required<VPWPlanningPreferences>;
+
+export const getVPWPlanningPreferences = (
+  preferences?: PlanningPreferences,
+): Required<VPWPlanningPreferences> => ({
+  ...DEFAULT_VPW_PREFERENCES,
+  ...(preferences?.vpw ?? {}),
 });
 
 export type PlanningData = {

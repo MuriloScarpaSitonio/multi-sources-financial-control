@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 
 import Skeleton from "@mui/material/Skeleton";
-import Slider from "@mui/material/Slider";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import LinearProgress, { linearProgressClasses } from "@mui/material/LinearProgress";
@@ -28,9 +27,9 @@ import {
 } from "../../../design-system";
 import { useHideValues } from "../../../hooks/useHideValues";
 import { formatCurrency } from "../utils";
-import { sliderSx } from "./consts";
 import ExpensesSimulator from "./ExpensesSimulator";
 import PatrimonySimulator from "./PatrimonySimulator";
+import PersistedSlider from "./PersistedSlider";
 import SavingsSimulator from "./SavingsSimulator";
 
 const ProgressBar = styled(LinearProgress)(({ value }) => ({
@@ -238,6 +237,31 @@ const numberTickFormatter = (value: number) => {
   return value.toFixed(0);
 };
 
+const formatYearsAsCompactDuration = (years: number): string => {
+  if (years <= 0) return "agora";
+  return `~${years}a`;
+};
+
+type OneOverNIndicatorProps = {
+  patrimonyTotal: number;
+  avgExpenses: number;
+  avgMonthlySavings: number;
+  isLoading: boolean;
+  dateOfBirth: string | null;
+  targetDepletionAge: number;
+  onTargetDepletionAgeChange: (value: number) => void;
+  realReturn: number;
+  onRealReturnChange: (value: number) => void;
+  compact?: boolean;
+  hideLabel?: boolean;
+  persistEnabled?: boolean;
+  isPersisting?: boolean;
+  simulatedSavings?: number | null;
+  onSimulatedSavingsChange?: (value: number | null) => void;
+  simulatedExpenses?: number | null;
+  onSimulatedExpensesChange?: (value: number | null) => void;
+};
+
 const OneOverNIndicator = ({
   patrimonyTotal,
   avgExpenses,
@@ -250,23 +274,33 @@ const OneOverNIndicator = ({
   onRealReturnChange,
   compact = false,
   hideLabel = false,
-}: {
-  patrimonyTotal: number;
-  avgExpenses: number;
-  avgMonthlySavings: number;
-  isLoading: boolean;
-  dateOfBirth: string | null;
-  targetDepletionAge: number;
-  onTargetDepletionAgeChange: (value: number) => void;
-  realReturn: number;
-  onRealReturnChange: (value: number) => void;
-  compact?: boolean;
-  hideLabel?: boolean;
-}) => {
+  persistEnabled = false,
+  isPersisting = false,
+  simulatedSavings: controlledSimulatedSavings,
+  onSimulatedSavingsChange,
+  simulatedExpenses: controlledSimulatedExpenses,
+  onSimulatedExpensesChange,
+}: OneOverNIndicatorProps) => {
   const { hideValues } = useHideValues();
   const [simulatedPatrimony, setSimulatedPatrimony] = useState<number | null>(null);
-  const [simulatedSavings, setSimulatedSavings] = useState<number | null>(null);
-  const [simulatedExpenses, setSimulatedExpenses] = useState<number | null>(null);
+  const [localSimulatedSavings, setLocalSimulatedSavings] = useState<number | null>(null);
+  const [localSimulatedExpenses, setLocalSimulatedExpenses] = useState<number | null>(null);
+  const simulatedSavings =
+    controlledSimulatedSavings !== undefined
+      ? controlledSimulatedSavings
+      : localSimulatedSavings;
+  const simulatedExpenses =
+    controlledSimulatedExpenses !== undefined
+      ? controlledSimulatedExpenses
+      : localSimulatedExpenses;
+  const setSimulatedSavings = (value: number | null) => {
+    if (onSimulatedSavingsChange) onSimulatedSavingsChange(value);
+    else setLocalSimulatedSavings(value);
+  };
+  const setSimulatedExpenses = (value: number | null) => {
+    if (onSimulatedExpensesChange) onSimulatedExpensesChange(value);
+    else setLocalSimulatedExpenses(value);
+  };
 
   const effectivePatrimony = simulatedPatrimony ?? patrimonyTotal;
   const effectiveSavings = simulatedSavings ?? Math.max(0, avgMonthlySavings);
@@ -444,9 +478,15 @@ const OneOverNIndicator = ({
       </Tooltip>
       <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          N = {targetDepletionAge} − {currentAge} = {yearsRemaining} anos · 1/
-          {yearsRemaining} = {withdrawalPct.toFixed(1)}% ·{" "}
-          {hideValues ? "***" : formatCurrency(monthlyWithdrawal)}/mês
+          {compact
+            ? `Meta: ${hideValues ? "***" : formatCurrency(target)}${
+                initialGap > 0 && crossoverYear !== null
+                  ? ` (${formatYearsAsCompactDuration(crossoverYear)} no ritmo atual)`
+                  : ""
+              }`
+            : `N = ${targetDepletionAge} − ${currentAge} = ${yearsRemaining} anos · 1/${yearsRemaining} = ${withdrawalPct.toFixed(1)}% · ${
+                hideValues ? "***" : formatCurrency(monthlyWithdrawal)
+              }/mês`}
         </Text>
         {!compact && (
           <>
@@ -467,65 +507,72 @@ const OneOverNIndicator = ({
           </>
         )}
       </Stack>
-      <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Idade alvo: {targetDepletionAge}
-        </Text>
-        <Slider
-          value={targetDepletionAge}
-          onChange={(_, value) => onTargetDepletionAgeChange(value as number)}
-          min={70}
-          max={105}
-          step={1}
-          marks={Array.from({ length: 36 }, (_, i) => ({
-            value: 70 + i,
-            label: "",
-          }))}
-          size="medium"
-          sx={sliderSx}
-        />
-        {!compact && (
-          <>
-            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-              Retorno real: {realReturn.toFixed(1)}%
-            </Text>
-            <Slider
-              value={realReturn}
-              onChange={(_, value) => onRealReturnChange(value as number)}
-              min={1}
-              max={8}
-              step={0.5}
-              marks={Array.from({ length: 15 }, (_, i) => ({
-                value: 1 + i * 0.5,
-                label: "",
-              }))}
-              size="medium"
-              sx={sliderSx}
-            />
-            <PatrimonySimulator
-              value={effectivePatrimony}
-              onChange={setSimulatedPatrimony}
-              onReset={() => setSimulatedPatrimony(null)}
-              patrimonyTotal={patrimonyTotal}
-              showReset={simulatedPatrimony !== null}
-            />
-            <SavingsSimulator
-              value={effectiveSavings}
-              onChange={setSimulatedSavings}
-              onReset={() => setSimulatedSavings(null)}
-              avgMonthlySavings={Math.max(0, avgMonthlySavings)}
-              showReset={simulatedSavings !== null}
-            />
-            <ExpensesSimulator
-              value={effectiveExpenses}
-              onChange={setSimulatedExpenses}
-              onReset={() => setSimulatedExpenses(null)}
-              avgExpenses={avgExpenses}
-              showReset={simulatedExpenses !== null}
-            />
-          </>
-        )}
-      </Stack>
+      {!compact && (
+        <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
+          <PersistedSlider
+            value={targetDepletionAge}
+            onChange={onTargetDepletionAgeChange}
+            renderLabel={(v) => (
+              <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+                Idade alvo: {v}
+              </Text>
+            )}
+            enabled={persistEnabled}
+            isPersisting={isPersisting}
+            min={70}
+            max={105}
+            step={1}
+            marks={Array.from({ length: 36 }, (_, i) => ({
+              value: 70 + i,
+              label: "",
+            }))}
+          />
+          <PersistedSlider
+            value={realReturn}
+            onChange={onRealReturnChange}
+            renderLabel={(v) => (
+              <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+                Retorno real: {v.toFixed(1)}%
+              </Text>
+            )}
+            enabled={persistEnabled}
+            isPersisting={isPersisting}
+            min={1}
+            max={8}
+            step={0.5}
+            marks={Array.from({ length: 15 }, (_, i) => ({
+              value: 1 + i * 0.5,
+              label: "",
+            }))}
+          />
+          <PatrimonySimulator
+            value={effectivePatrimony}
+            onChange={setSimulatedPatrimony}
+            onReset={() => setSimulatedPatrimony(null)}
+            patrimonyTotal={patrimonyTotal}
+            showReset={simulatedPatrimony !== null}
+            isPersisting={isPersisting}
+          />
+          <SavingsSimulator
+            value={effectiveSavings}
+            onChange={setSimulatedSavings}
+            onReset={() => setSimulatedSavings(null)}
+            avgMonthlySavings={Math.max(0, avgMonthlySavings)}
+            showReset={simulatedSavings !== null}
+            enabled={persistEnabled}
+            isPersisting={isPersisting}
+          />
+          <ExpensesSimulator
+            value={effectiveExpenses}
+            onChange={setSimulatedExpenses}
+            onReset={() => setSimulatedExpenses(null)}
+            avgExpenses={avgExpenses}
+            showReset={simulatedExpenses !== null}
+            enabled={persistEnabled}
+            isPersisting={isPersisting}
+          />
+        </Stack>
+      )}
       {!compact && projection && projection.accumulation.length > 1 && (
         <Stack gap={1} sx={{ mt: 2 }}>
           <Text

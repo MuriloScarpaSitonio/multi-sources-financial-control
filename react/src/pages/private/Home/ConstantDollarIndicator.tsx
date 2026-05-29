@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Skeleton from "@mui/material/Skeleton";
-import Slider from "@mui/material/Slider";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import LinearProgress, { linearProgressClasses } from "@mui/material/LinearProgress";
@@ -29,11 +28,11 @@ import {
 } from "../../../design-system";
 import { useHideValues } from "../../../hooks/useHideValues";
 import { formatCurrency } from "../utils";
-import { sliderSx } from "./consts";
 import ExpenseSimulator from "./ExpenseSimulator";
 import FireSimulationResults from "./FireSimulationResults";
 import { buildFirePatrimonyInputs } from "./fireResultPresentation";
 import PatrimonySimulator from "./PatrimonySimulator";
+import PersistedSlider from "./PersistedSlider";
 import SavingsSimulator from "./SavingsSimulator";
 import {
   computeWeights,
@@ -205,6 +204,8 @@ const ConstantDollarIndicator = ({
   dateOfBirth = null,
   compact = false,
   hideLabel = false,
+  persistEnabled = false,
+  isPersisting = false,
   simulatedPatrimony: simulatedPatrimonyProp,
   onSimulatedPatrimonyChange,
   simulatedExpenses: simulatedExpensesProp,
@@ -231,6 +232,8 @@ const ConstantDollarIndicator = ({
   dateOfBirth?: string | null;
   compact?: boolean;
   hideLabel?: boolean;
+  persistEnabled?: boolean;
+  isPersisting?: boolean;
   // Optional lifted state. When both prop + setter are provided, the
   // PatrimonySimulator/ExpenseSimulator become controlled and the indicator
   // shares state with the page. Falls back to local state otherwise.
@@ -553,31 +556,35 @@ const ConstantDollarIndicator = ({
       </Stack>
       {!compact && (
         <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
-          <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-            Taxa: {withdrawalRate}% a.a.
-          </Text>
-          <Slider
+          <PersistedSlider
             value={withdrawalRate}
-            onChange={(_, value) => onWithdrawalRateChange(value as number)}
+            onChange={onWithdrawalRateChange}
+            renderLabel={(v) => (
+              <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+                Taxa: {v}% a.a.
+              </Text>
+            )}
+            enabled={persistEnabled}
+            isPersisting={isPersisting}
             min={2}
             max={6}
             step={0.5}
             marks
-            size="medium"
-            sx={sliderSx}
           />
-          <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-            Horizonte: {targetYears} anos
-          </Text>
-          <Slider
+          <PersistedSlider
             value={targetYears}
-            onChange={(_, value) => onTargetYearsChange(value as number)}
+            onChange={onTargetYearsChange}
+            renderLabel={(v) => (
+              <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+                Horizonte: {v} anos
+              </Text>
+            )}
+            enabled={persistEnabled}
+            isPersisting={isPersisting}
             min={20}
             max={80}
             step={5}
             marks
-            size="medium"
-            sx={sliderSx}
           />
           <PatrimonySimulator
             value={effectivePatrimony}
@@ -585,6 +592,7 @@ const ConstantDollarIndicator = ({
             onReset={() => setSimulatedPatrimony(null)}
             patrimonyTotal={patrimonyTotal}
             showReset={simulatedPatrimony !== null}
+            isPersisting={isPersisting}
           />
           <ExpenseSimulator
             value={effectiveMonthlyExpenses}
@@ -592,6 +600,8 @@ const ConstantDollarIndicator = ({
             onReset={() => setSimulatedExpenses(null)}
             avgMonthlyExpenses={avgExpenses}
             showReset={simulatedExpenses !== null}
+            enabled={persistEnabled}
+            isPersisting={isPersisting}
           />
         </Stack>
       )}
@@ -736,6 +746,7 @@ const ConstantDollarIndicator = ({
                 onReset={onMonthlySavingsReset}
                 avgMonthlySavings={Math.max(0, defaultMonthlySavings)}
                 showReset={isMonthlySavingsOverridden}
+                isPersisting={isPersisting}
               />
             )}
             <ResponsiveContainer width="100%" height={240}>
