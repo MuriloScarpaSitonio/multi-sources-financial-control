@@ -347,8 +347,15 @@ class TransactionQuerySet(QuerySet):
             quantity_bought=self.expressions.get_quantity_bought(),
         )
 
-    def get_partial_sell_roi(self, asset_id: int, month: int, year: int) -> Decimal:
-        """Compute ROI for partial sells (no AssetClosedOperation) in a given month."""
+    def get_partial_sell_roi(
+        self, asset_id: int, month: int, year: int, for_irpf: bool = False
+    ) -> Decimal:
+        """Compute ROI for partial sells (no AssetClosedOperation) in a given month.
+
+        When ``for_irpf`` is True the cost basis includes BONIFICACAO rows
+        (priced at their declared ``irpf_price``) so Receita-reported gain is
+        not overstated.
+        """
         from ..write import AssetClosedOperation  # avoid circular ImportError
 
         last_closed_datetime = (
@@ -360,14 +367,23 @@ class TransactionQuerySet(QuerySet):
 
         next_month_start = date(year + (month // 12), (month % 12) + 1, 1)
 
-        buy_qs = self.filter(asset_id=asset_id, action=TransactionActions.buy)
+        if for_irpf:
+            acquisition_filter = Q(
+                action__in=(TransactionActions.buy, TransactionActions.bonificacao)
+            )
+            price_field = "irpf_price"
+        else:
+            acquisition_filter = Q(action=TransactionActions.buy)
+            price_field = "price"
+
+        buy_qs = self.filter(acquisition_filter, asset_id=asset_id)
         if last_closed_datetime:
             buy_qs = buy_qs.filter(operation_date__gt=timezone.localdate(last_closed_datetime))
         buy_qs = buy_qs.filter(operation_date__lt=next_month_start)
 
         buys = buy_qs.aggregate(
             total_normalized=Sum(
-                self.expressions.normalized_total_raw_expression,
+                F(price_field) * F("quantity") * F("current_currency_conversion_rate"),
                 default=Decimal(),
             ),
             total_quantity=Sum(F("quantity"), default=Decimal()),
@@ -627,3 +643,11 @@ class PassiveIncomeQuerySet(QuerySet):
 class AssetClosedOperationQuerySet(QuerySet):
     def annotate_roi(self) -> Self:
         return self.annotate(roi=F("normalized_total_sold") - F("normalized_total_bought"))
+
+    def annotate_irpf_roi(self) -> Self:
+        # IRPF ROI uses the declared cost basis (irpf_normalized_total_bought),
+        # which includes BONIFICACAO at the company-declared unit price. Avoids
+        # overstating profit reported to Receita when bonificações precede a sell.
+        return self.annotate(
+            roi=F("normalized_total_sold") - F("irpf_normalized_total_bought")
+        )

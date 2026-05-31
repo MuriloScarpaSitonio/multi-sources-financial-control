@@ -473,7 +473,14 @@ class AssetTransactionViewSet(GenericViewSet, ListModelMixin):
             context={"current_currency_conversion_rate": current_currency_conversion_rate},
         ).data
         with djtransaction.atomic():
-            Transaction.objects.create(asset=asset, action=choices.TransactionActions.buy, **kwargs)
+            # Simulate-only BUY (rolled back below); mirror price -> irpf_price
+            # to keep IRPF aggregates consistent with the BUY-path invariant.
+            Transaction.objects.create(
+                asset=asset,
+                action=choices.TransactionActions.buy,
+                irpf_price=kwargs["price"],
+                **kwargs,
+            )
             new = serializers.AssetSimulateSerializer(
                 instance=request.user.assets.annotate_for_simulation().get(pk=pk),
                 context={"current_currency_conversion_rate": current_currency_conversion_rate},

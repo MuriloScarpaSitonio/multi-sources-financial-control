@@ -123,6 +123,7 @@ const EditTransactionForm = ({
     ...rest
   } = initialData ?? {};
 
+  const isBonificacao = action === "Bonificação";
   const defaultValues = useMemo(
     () => ({
       ...rest,
@@ -132,12 +133,13 @@ const EditTransactionForm = ({
         currency: asset?.currency,
         is_held_in_self_custody: asset?.is_held_in_self_custody,
       },
-      action:
-        action === "Compra"
-          ? "BUY"
-          : action === "Bonificação"
-            ? "BONIFICACAO"
-            : "SELL",
+      action: action === "Compra" ? "BUY" : isBonificacao ? "BONIFICACAO" : "SELL",
+      // For bonificações the user enters/edits the company-declared value, which
+      // the backend persists as `irpf_price`. The real `price` column is always
+      // 0 for bonifica rows and would block the form's positive-price rule.
+      ...(isBonificacao && rest.irpf_price !== undefined
+        ? { price: rest.irpf_price }
+        : {}),
       operation_date: new Date(operation_date + "T00:00"),
     }),
     [
@@ -146,6 +148,7 @@ const EditTransactionForm = ({
       asset?.currency,
       asset?.id,
       asset?.is_held_in_self_custody,
+      isBonificacao,
       operation_date,
       rest,
     ],

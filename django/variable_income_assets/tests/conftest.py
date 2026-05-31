@@ -7,6 +7,7 @@ from time import time
 from django.template.defaultfilters import slugify
 from django.utils import timezone
 
+import factory
 import pytest
 from dateutil.relativedelta import relativedelta
 from factory.django import DjangoModelFactory
@@ -76,6 +77,10 @@ class AssetReadModelFactory(DjangoModelFactory):
 class TransactionFactory(DjangoModelFactory):
     operation_date = timezone.localdate() - timedelta(days=2)
     current_currency_conversion_rate = 1
+    # Mirror price into irpf_price by default so factory-created BUY/SELL rows
+    # contribute correctly to IRPF aggregates. Tests that exercise BONIFICACAO
+    # must set both fields explicitly (price=0, irpf_price=declared).
+    irpf_price = factory.LazyAttribute(lambda o: o.price)
 
     class Meta:
         model = Transaction

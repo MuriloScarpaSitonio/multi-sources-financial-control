@@ -34,17 +34,23 @@ const DeleteTransactionDialog = ({
   });
 
   if (!transaction) return;
+  // Bonifica rows store real cost (price=0) separately from the company-declared
+  // IRPF value (irpf_price). Show the declared value in the confirmation copy.
+  const displayPrice =
+    transaction.action === "Bonificação" && transaction.irpf_price !== undefined
+      ? transaction.irpf_price
+      : transaction.price;
   const transactionText = transaction.quantity
     ? `${transaction.quantity.toLocaleString(
         "pt-br",
-      )} ativos de ${transaction.asset.code} por ${AssetCurrencyMap[transaction.asset.currency].symbol} ${transaction.price.toLocaleString(
+      )} ativos de ${transaction.asset.code} por ${AssetCurrencyMap[transaction.asset.currency].symbol} ${displayPrice.toLocaleString(
         "pt-br",
         {
           minimumFractionDigits: 2,
           maximumFractionDigits: 4,
         },
       )}`
-    : `${AssetCurrencyMap[transaction.asset.currency].symbol} ${transaction.price.toLocaleString(
+    : `${AssetCurrencyMap[transaction.asset.currency].symbol} ${displayPrice.toLocaleString(
         "pt-br",
         {
           minimumFractionDigits: 2,

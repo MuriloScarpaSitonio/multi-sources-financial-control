@@ -59,6 +59,7 @@ class TransactionSerializer(serializers.ModelSerializer):
             "id",
             "action",
             "price",
+            "irpf_price",
             "quantity",
             "operation_date",
             "user",
@@ -67,6 +68,10 @@ class TransactionSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "operation_date": {"required": True},
             "current_currency_conversion_rate": {"allow_null": False, "min_value": 1},
+            # irpf_price is derived from the submitted `price` (split server-side
+            # for BONIFICACAO); clients only read it to display the declared value
+            # on bonificação rows.
+            "irpf_price": {"read_only": True},
         }
 
 

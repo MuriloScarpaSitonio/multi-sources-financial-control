@@ -140,7 +140,14 @@ const Table = ({ externalFilters }: TableProps) => {
         enableSorting: false,
         size: 100,
         Cell: ({ row: { original } }) => {
-          const price = original.price.toLocaleString("pt-br", {
+          // Bonifica rows store real cost (price=0) and the company-declared
+          // value separately in irpf_price — display the declared value so the
+          // table doesn't show "R$ 0,00" for bonifica entries.
+          const displayPrice =
+            original.action === "Bonificação" && original.irpf_price !== undefined
+              ? original.irpf_price
+              : original.price;
+          const price = displayPrice.toLocaleString("pt-br", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 4,
           });
