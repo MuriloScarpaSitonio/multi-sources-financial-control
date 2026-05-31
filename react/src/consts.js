@@ -31,6 +31,7 @@ const AssetsTypesMapping = [
 const TransactionsActionsMapping = [
   { label: "Venda", value: "SELL" },
   { label: "Compra", value: "BUY" },
+  { label: "Bonificação", value: "BONIFICACAO" },
 ];
 
 const CurrenciesMapping = [

@@ -53,6 +53,7 @@ def _print_assets_portfolio(qs: AssetQuerySet[Asset], year: int) -> None:
         qs.annotate_irpf_infos(year=year)
         .filter(transactions_balance__gt=0)
         .values(
+            "id",
             "code",
             "currency",
             "transactions_balance",
@@ -77,15 +78,17 @@ def _print_assets_portfolio(qs: AssetQuerySet[Asset], year: int) -> None:
         results.append(f"\tQuantidade: {asset['transactions_balance']:n}")
         results.append(f"\tPreço médio: {currency.symbol} {asset['avg_price']:n}")
         results.append(
-            f"\tTotal: R$ {asset['normalized_total_invested']:n}\n"
+            f"\tTotal: R$ {asset['normalized_total_invested']:n}"
             if currency.value == Currencies.real
             else (
                 f"\tTotal: R$ {asset['normalized_total_invested']:n} "
-                f"| {currency.symbol} {asset['total_invested']:n}\n"
+                f"| {currency.symbol} {asset['total_invested']:n}"
             )
         )
         if currency.value == Currencies.dollar:
-            results.append(f"\tDólar médio: R$ {asset['avg_current_currency_conversion_rate']:n}\n")
+            results.append(f"\tDólar médio: R$ {asset['avg_current_currency_conversion_rate']:n}")
+
+        results.append("")
 
     if results:
         print("------------ ATIVOS (seção 'Bens e direitos') ------------\n\n")

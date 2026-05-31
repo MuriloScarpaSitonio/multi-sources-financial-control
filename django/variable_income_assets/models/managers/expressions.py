@@ -25,7 +25,18 @@ class _GenericQueryHelperIntializer:
 class GenericQuerySetFilters(_GenericQueryHelperIntializer):
     @property
     def bought(self) -> Q:
-        return Q(**{f"{self.prefix}action": TransactionActions.buy})
+        # Includes BONIFICACAO — both BUY and BONIFICACAO add to share holdings.
+        # Real cost basis stays correct because BONIFICACAO rows have price=0,
+        # so they contribute zero to SUM(price * quantity) while still adding
+        # to the quantity denominator.
+        return Q(
+            **{
+                f"{self.prefix}action__in": (
+                    TransactionActions.buy,
+                    TransactionActions.bonificacao,
+                )
+            }
+        )
 
     @property
     def sold(self) -> Q:
@@ -66,6 +77,14 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
         )
 
     @property
+    def closed_operations_irpf_total_bought(self) -> Sum:
+        return self.sum(
+            F(f"{self._inverse_prefix}closed_operations__irpf_total_bought"),
+            distinct=True,
+            cast=False,
+        )
+
+    @property
     def closed_operations_quantity_bought(self) -> Sum:
         return self.sum(
             F(f"{self._inverse_prefix}closed_operations__quantity_bought"),
@@ -100,27 +119,38 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
     def get_quantity(self) -> Combinable:
         return Coalesce(F(f"{self.prefix}quantity"), Value(Decimal("1.0")))
 
-    def get_closed_operations_normalized_total_bought(self, extra_filters: Q | None = None) -> Sum:
+    def get_closed_operations_normalized_total_bought(
+        self, extra_filters: Q | None = None, for_irpf: bool = False
+    ) -> Sum:
         extra_filters = extra_filters if extra_filters is not None else Q()
+        field = (
+            "closed_operations__irpf_normalized_total_bought"
+            if for_irpf
+            else "closed_operations__normalized_total_bought"
+        )
         return self.sum(
-            F(f"{self._inverse_prefix}closed_operations__normalized_total_bought"),
+            F(f"{self._inverse_prefix}{field}"),
             distinct=True,
             cast=False,
             filter=extra_filters,
         )
 
-    def get_total_bought(self, extra_filters: Q | None = None) -> CombinedExpression:
+    def get_total_bought(
+        self, extra_filters: Q | None = None, price_field: str = "price"
+    ) -> CombinedExpression:
         extra_filters = extra_filters if extra_filters is not None else Q()
         return self.sum(
-            F(f"{self.prefix}price") * self.get_quantity(),
+            F(f"{self.prefix}{price_field}") * self.get_quantity(),
             filter=Q(self.filters.bought, extra_filters),
         )
 
-    def get_normalized_total_bought(self, extra_filters: Q | None = None) -> CombinedExpression:
+    def get_normalized_total_bought(
+        self, extra_filters: Q | None = None, price_field: str = "price"
+    ) -> CombinedExpression:
         extra_filters = extra_filters if extra_filters is not None else Q()
         return self.sum(
             (
-                F(f"{self.prefix}price")
+                F(f"{self.prefix}{price_field}")
                 * self.get_quantity()
                 * Coalesce(
                     F(f"{self.prefix}current_currency_conversion_rate"),
@@ -143,17 +173,21 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
             self.get_quantity(), filter=Q(self.filters.sold, extra_filters)
         )
 
-    def get_avg_price(self, extra_filters: Q | None = None) -> Coalesce:
+    def get_avg_price(
+        self, extra_filters: Q | None = None, price_field: str = "price"
+    ) -> Coalesce:
         extra_filters = extra_filters if extra_filters is not None else Q()
         return Coalesce(
-            self.get_total_bought(extra_filters=extra_filters)
+            self.get_total_bought(extra_filters=extra_filters, price_field=price_field)
             / Greatest(
                 self.get_quantity_bought(extra_filters=extra_filters), Value(Decimal("1.0"))
             ),
             Decimal(),
         )
 
-    def get_current_normalized_avg_price(self, extra_filters: Q | None = None) -> Coalesce:
+    def get_current_normalized_avg_price(
+        self, extra_filters: Q | None = None, price_field: str = "price"
+    ) -> Coalesce:
         _extra_filters = extra_filters if extra_filters is not None else Q()
         quantity = (
             (self.get_quantity_bought(_extra_filters) - self.closed_operations_quantity_bought)
@@ -170,19 +204,20 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
         )
         return Coalesce(
             # Pass original extra_filters (not _extra_filters) to preserve None check
-            self.get_normalized_current_total_bought(extra_filters)
+            self.get_normalized_current_total_bought(extra_filters, price_field=price_field)
             / Greatest(quantity, Value(Decimal("1.0"))),
             Decimal(),
         )
 
     def get_normalized_current_total_bought(
-        self, extra_filters: Q | None = None
+        self, extra_filters: Q | None = None, price_field: str = "price"
     ) -> CombinedExpression:
         _extra_filters = extra_filters if extra_filters is not None else Q()
+        for_irpf = price_field != "price"
         return (
             (
-                self.get_normalized_total_bought(_extra_filters)
-                - self.get_closed_operations_normalized_total_bought()
+                self.get_normalized_total_bought(_extra_filters, price_field=price_field)
+                - self.get_closed_operations_normalized_total_bought(for_irpf=for_irpf)
             )
             if extra_filters is None
             # sem filtros extras devemos com certeza diminuir as operações finalizadas,
@@ -193,17 +228,24 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
             # assume-se, então, que se passarmos filtros, cuidaremos para incluir ou
             # nao as transações desejadas.
             # EXEMPLO: cáclulo do IRPF
-            else self.get_normalized_total_bought(_extra_filters)
+            else self.get_normalized_total_bought(_extra_filters, price_field=price_field)
         )
 
-    def get_current_avg_price(self, extra_filters: Q | None = None) -> Coalesce:
+    def get_current_avg_price(
+        self, extra_filters: Q | None = None, price_field: str = "price"
+    ) -> Coalesce:
         extra_filters = extra_filters if extra_filters is not None else Q()
         denominator = (
             self.get_quantity_bought(extra_filters=extra_filters)
             - self.closed_operations_quantity_bought
         )
+        closed_ops_bought = (
+            self.closed_operations_irpf_total_bought
+            if price_field != "price"
+            else self.closed_operations_total_bought
+        )
         return Coalesce(
-            (self.get_total_bought(extra_filters) - self.closed_operations_total_bought)
+            (self.get_total_bought(extra_filters, price_field=price_field) - closed_ops_bought)
             / Greatest(denominator, Value(Decimal("1.0"))),
             Decimal(),
         )

@@ -204,15 +204,20 @@ class AssetQuerySet(QuerySet):
         )
         return self.alias(
             newest_closed_operation=Coalesce(Subquery(subquery[:1]), Value(date.min)),
-            normalized_avg_price=self.expressions.get_current_normalized_avg_price(extra_filters),
+            normalized_avg_price=self.expressions.get_current_normalized_avg_price(
+                extra_filters, price_field="irpf_price"
+            ),
         ).annotate(
             transactions_balance=self.expressions.get_quantity_balance(extra_filters),
-            avg_price=self.expressions.get_avg_price(extra_filters),
+            avg_price=self.expressions.get_avg_price(extra_filters, price_field="irpf_price"),
             normalized_total_invested=F("normalized_avg_price") * F("transactions_balance"),
             total_invested=F("avg_price") * F("transactions_balance"),
             avg_current_currency_conversion_rate=Coalesce(
-                self.expressions.get_normalized_total_bought(extra_filters)
-                / Greatest(self.expressions.get_total_bought(extra_filters), Value(Decimal("1.0"))),
+                self.expressions.get_normalized_total_bought(extra_filters, price_field="irpf_price")
+                / Greatest(
+                    self.expressions.get_total_bought(extra_filters, price_field="irpf_price"),
+                    Value(Decimal("1.0")),
+                ),
                 Decimal(),
             ),
         )
@@ -334,7 +339,11 @@ class TransactionQuerySet(QuerySet):
         return self.aggregate(
             normalized_total_sold=self.expressions.get_normalized_total_sold(),
             normalized_total_bought=self.expressions.get_normalized_total_bought(),
+            irpf_normalized_total_bought=self.expressions.get_normalized_total_bought(
+                price_field="irpf_price"
+            ),
             total_bought=self.expressions.get_total_bought(),
+            irpf_total_bought=self.expressions.get_total_bought(price_field="irpf_price"),
             quantity_bought=self.expressions.get_quantity_bought(),
         )
 

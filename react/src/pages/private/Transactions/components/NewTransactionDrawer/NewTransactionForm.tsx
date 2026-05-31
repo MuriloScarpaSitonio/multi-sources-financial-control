@@ -466,6 +466,11 @@ const NewTransactionForm = ({
                 control={<Radio />}
                 label="Venda"
               />
+              <FormControlLabel
+                value="BONIFICACAO"
+                control={<Radio />}
+                label="Bonificação"
+              />
             </RadioGroup>
           )}
         />

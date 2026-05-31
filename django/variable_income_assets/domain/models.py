@@ -44,6 +44,14 @@ class TransactionDTO:
     quantity: Decimal | None = None
     current_currency_conversion_rate: Decimal | None = None
     external_id: str = ""
+    # For BONIFICACAO, `price` is 0 (real cost) and `irpf_price` carries the
+    # company-declared unit value used for IRPF cost basis. For BUY/SELL,
+    # `irpf_price` mirrors `price`.
+    irpf_price: Decimal | None = None
+
+    def __post_init__(self) -> None:
+        if self.irpf_price is None:
+            self.irpf_price = self.price
 
     @property
     def is_sale(self) -> bool:

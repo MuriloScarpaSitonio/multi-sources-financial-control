@@ -6,6 +6,7 @@ from djchoices import ChoiceItem, DjangoChoices
 class TransactionActions(DjangoChoices):
     buy = ChoiceItem("BUY", label="Compra")
     sell = ChoiceItem("SELL", label="Venda")
+    bonificacao = ChoiceItem("BONIFICACAO", label="Bonificação")
 
 
 class Currencies(DjangoChoices):
