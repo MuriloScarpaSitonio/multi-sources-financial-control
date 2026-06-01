@@ -239,6 +239,19 @@ def another_stock_usa_asset(user):
 
 
 @pytest.fixture
+def two_buy_transactions(stock_asset):
+    # Used by test__update__buy_to_bonificacao_splits_price: gives the asset
+    # two BUY rows so we can "correct" one of them into a bonificacao while the
+    # other remains as real BUY shares.
+    TransactionFactory(
+        action=TransactionActions.buy, price=Decimal("10"), quantity=50, asset=stock_asset
+    )
+    return TransactionFactory(
+        action=TransactionActions.buy, price=Decimal("10"), quantity=50, asset=stock_asset
+    )
+
+
+@pytest.fixture
 def assets_w_incomes(user):
     for i in range(10):
         asset = AssetFactory(

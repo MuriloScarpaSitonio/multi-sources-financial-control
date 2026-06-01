@@ -1135,3 +1135,96 @@ def test__unauthorized__inactive(client, user):
 
     # THEN
     assert response.status_code == HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.usefixtures("stock_asset_metadata")
+def test__create__bonificacao(client, buy_transaction, sync_assets_read_model):
+    # GIVEN
+    # buy_transaction provides the prior position the bonificacao rewards.
+    # Order matters: sync_assets_read_model must run AFTER buy_transaction so
+    # the read model reflects the pre-existing BUY (pytest resolves fixtures
+    # left-to-right when no dep overrides).
+
+    asset_id = buy_transaction.asset_id
+    read = AssetReadModel.objects.get(write_model_pk=asset_id)
+    pre_quantity = read.quantity_balance
+    pre_normalized_total_bought = read.normalized_total_bought
+
+    declared_price = Decimal("12.34")
+    bonificacao_qty = Decimal("25")
+    data = {
+        "action": TransactionActions.bonificacao,
+        "price": str(declared_price),
+        "quantity": str(bonificacao_qty),
+        "asset_pk": asset_id,
+        "operation_date": "12/12/2022",
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+
+    assert Transaction.objects.filter(
+        asset_id=asset_id,
+        action=TransactionActions.bonificacao,
+        price=Decimal(), # Real cost is zero; declared value lives in irpf_price.
+        irpf_price=declared_price,
+        quantity=bonificacao_qty,
+    ).count() == 1
+    assert Transaction.objects.filter(
+        asset_id=asset_id
+    ).count() == 2
+
+    # Deltas: bonus shares add to quantity_balance; real cost-basis numerator
+    # is unchanged because bonifica contributes 0 to price * qty.
+    read.refresh_from_db()
+    assert read.quantity_balance - pre_quantity == bonificacao_qty
+    assert read.normalized_total_bought == pre_normalized_total_bought
+
+
+
+
+@pytest.mark.usefixtures("stock_asset_metadata")
+def test__update__buy_to_bonificacao_splits_price(
+    client, two_buy_transactions, sync_assets_read_model
+):
+    # GIVEN
+    # Fixture order matters: _two_buy_transactions must run before
+    # sync_assets_read_model so the read model reflects the seeded BUY rows.
+    target = two_buy_transactions
+    read = AssetReadModel.objects.get(write_model_pk=target.asset_id)
+    pre_quantity = read.quantity_balance
+    pre_normalized_total_bought = read.normalized_total_bought
+
+    declared_price = Decimal("7.50")
+    data = {
+        "action": TransactionActions.bonificacao,
+        "price": str(declared_price),
+        "quantity": str(target.quantity),
+        "operation_date": target.operation_date.strftime("%d/%m/%Y"),
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{target.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+
+    assert (
+        Transaction.objects.filter(
+            pk=target.pk,
+            action=TransactionActions.bonificacao,
+            price=Decimal(),  # Real cost is zero; declared value lives in irpf_price.
+            irpf_price=declared_price,
+        ).count()
+        == 1
+    )
+
+    # Deltas: quantity_balance stays (we swapped a 50-share BUY for a 50-share
+    # bonifica). Real cost-basis numerator drops by the removed BUY's
+    # contribution (10 * 50 = 500), since bonifica adds 0.
+    read.refresh_from_db()
+    assert read.quantity_balance == pre_quantity
+    assert pre_normalized_total_bought - read.normalized_total_bought == Decimal("500")
