@@ -21,7 +21,7 @@ from shared.tests import convert_and_quantitize, skip_if_sqlite
 from tasks.models import TaskHistory
 
 from ...choices import AssetTypes, Currencies, TransactionActions
-from ...models import AssetClosedOperation, AssetReadModel, Transaction
+from ...models import Asset, AssetClosedOperation, AssetReadModel, Transaction
 from ..conftest import TransactionFactory
 
 pytestmark = pytest.mark.django_db
@@ -1080,6 +1080,7 @@ def test__list__sanity_check(client, buy_transaction):
                 "id": buy_transaction.id,
                 "action": TransactionActions.get_choice(buy_transaction.action).label,
                 "price": convert_and_quantitize(buy_transaction.price),
+                "irpf_price": convert_and_quantitize(buy_transaction.irpf_price),
                 "quantity": convert_and_quantitize(buy_transaction.quantity),
                 "operation_date": buy_transaction.operation_date.strftime("%Y-%m-%d"),
                 "current_currency_conversion_rate": (
@@ -1183,7 +1184,20 @@ def test__create__bonificacao(client, buy_transaction, sync_assets_read_model):
     assert read.quantity_balance - pre_quantity == bonificacao_qty
     assert read.normalized_total_bought == pre_normalized_total_bought
 
-
+    # IRPF view: cost basis = BUY (at price) + bonifica (at declared price).
+    total_qty = buy_transaction.quantity + bonificacao_qty
+    expected_basis = buy_transaction.price * buy_transaction.quantity + declared_price * bonificacao_qty
+    expected_avg = expected_basis / total_qty
+    irpf = (
+        Asset.objects.annotate_irpf_infos(year=timezone.localtime().year)
+        .values("avg_price", "transactions_balance", "normalized_total_invested")
+        .get(pk=asset_id)
+    )
+    assert convert_and_quantitize(irpf["avg_price"]) == convert_and_quantitize(expected_avg)
+    assert irpf["transactions_balance"] == total_qty
+    assert convert_and_quantitize(irpf["normalized_total_invested"]) == convert_and_quantitize(
+        expected_basis
+    )
 
 
 @pytest.mark.usefixtures("stock_asset_metadata")
@@ -1191,9 +1205,9 @@ def test__update__buy_to_bonificacao_splits_price(
     client, two_buy_transactions, sync_assets_read_model
 ):
     # GIVEN
-    # Fixture order matters: _two_buy_transactions must run before
+    # Fixture order matters: two_buy_transactions must run before
     # sync_assets_read_model so the read model reflects the seeded BUY rows.
-    target = two_buy_transactions
+    kept_buy, target = two_buy_transactions
     read = AssetReadModel.objects.get(write_model_pk=target.asset_id)
     pre_quantity = read.quantity_balance
     pre_normalized_total_bought = read.normalized_total_bought
@@ -1222,9 +1236,176 @@ def test__update__buy_to_bonificacao_splits_price(
         == 1
     )
 
-    # Deltas: quantity_balance stays (we swapped a 50-share BUY for a 50-share
-    # bonifica). Real cost-basis numerator drops by the removed BUY's
-    # contribution (10 * 50 = 500), since bonifica adds 0.
+    # Deltas: quantity_balance stays (target's qty unchanged, only its action
+    # flipped). Real cost-basis numerator drops by the swapped row's prior
+    # contribution (kept BUY was identical to target, so the delta equals the
+    # kept BUY's price * qty).
     read.refresh_from_db()
     assert read.quantity_balance == pre_quantity
-    assert pre_normalized_total_bought - read.normalized_total_bought == Decimal("500")
+    assert pre_normalized_total_bought - read.normalized_total_bought == (
+        kept_buy.price * kept_buy.quantity
+    )
+
+    # IRPF view: bonifica now contributes declared_price * qty to the basis.
+    total_qty = kept_buy.quantity + target.quantity
+    expected_basis = (
+        kept_buy.irpf_price * kept_buy.quantity + declared_price * target.quantity
+    )
+    expected_avg = expected_basis / total_qty
+    irpf = (
+        Asset.objects.annotate_irpf_infos(year=timezone.localtime().year)
+        .values("avg_price", "transactions_balance", "normalized_total_invested")
+        .get(pk=target.asset_id)
+    )
+    assert convert_and_quantitize(irpf["avg_price"]) == convert_and_quantitize(expected_avg)
+    assert irpf["transactions_balance"] == total_qty
+    assert convert_and_quantitize(irpf["normalized_total_invested"]) == convert_and_quantitize(
+        expected_basis
+    )
+
+
+@pytest.mark.usefixtures("stock_asset_metadata")
+def test__delete__bonificacao(
+    client, buy_transaction, bonificacao_transaction, sync_assets_read_model
+):
+    # GIVEN
+    # Fixture order: bonificacao_transaction (which also pulls buy_transaction)
+    # runs before sync_assets_read_model so pre-state reflects both rows.
+    asset_id = bonificacao_transaction.asset_id
+    read = AssetReadModel.objects.get(write_model_pk=asset_id)
+    pre_quantity = read.quantity_balance
+    pre_normalized_total_bought = read.normalized_total_bought
+
+    # WHEN
+    response = client.delete(f"{URL}/{bonificacao_transaction.pk}")
+
+    # THEN
+    assert response.status_code == HTTP_204_NO_CONTENT
+    assert not Transaction.objects.filter(pk=bonificacao_transaction.pk).exists()
+
+    # Deltas: quantity_balance drops by the bonifica qty (bonifica counted
+    # toward holdings); real cost-basis numerator unchanged (bonifica
+    # contributed 0 to price * qty).
+    read.refresh_from_db()
+    assert pre_quantity - read.quantity_balance == bonificacao_transaction.quantity
+    assert read.normalized_total_bought == pre_normalized_total_bought
+
+    # IRPF view: only the remaining BUY contributes (bonifica row is gone).
+    irpf = (
+        Asset.objects.annotate_irpf_infos(year=timezone.localtime().year)
+        .values("avg_price", "transactions_balance", "normalized_total_invested")
+        .get(pk=asset_id)
+    )
+    assert convert_and_quantitize(irpf["avg_price"]) == convert_and_quantitize(
+        buy_transaction.irpf_price
+    )
+    assert irpf["transactions_balance"] == buy_transaction.quantity
+    assert convert_and_quantitize(irpf["normalized_total_invested"]) == convert_and_quantitize(
+        buy_transaction.irpf_price * buy_transaction.quantity
+    )
+
+
+@pytest.mark.usefixtures("stock_asset_metadata")
+def test__partial_sell_roi__after_bonificacao(
+    stock_asset,
+    buy_transaction,
+    bonificacao_transaction,
+    partial_sell_after_bonificacao_transaction,
+):
+    # GIVEN
+    bonifica = bonificacao_transaction
+    sell = partial_sell_after_bonificacao_transaction
+    today = timezone.localdate()
+
+    # WHEN
+    real_roi = Transaction.objects.get_partial_sell_roi(
+        asset_id=stock_asset.pk, month=today.month, year=today.year
+    )
+    irpf_roi = Transaction.objects.get_partial_sell_roi(
+        asset_id=stock_asset.pk, month=today.month, year=today.year, for_irpf=True
+    )
+
+    # THEN
+    # Real path (for_irpf=False) filters BUY-only and uses `price`, so the
+    # bonifica row is excluded entirely.
+    real_avg = (buy_transaction.price * buy_transaction.quantity) / buy_transaction.quantity
+    expected_real = sell.price * sell.quantity - real_avg * sell.quantity
+    assert convert_and_quantitize(real_roi) == convert_and_quantitize(expected_real)
+
+    # IRPF path: bonifica contributes irpf_price * qty to the basis.
+    total_buy_qty = buy_transaction.quantity + bonifica.quantity
+    irpf_basis = (
+        buy_transaction.irpf_price * buy_transaction.quantity
+        + bonifica.irpf_price * bonifica.quantity
+    )
+    irpf_avg = irpf_basis / total_buy_qty
+    expected_irpf = sell.price * sell.quantity - irpf_avg * sell.quantity
+    assert convert_and_quantitize(irpf_roi) == convert_and_quantitize(expected_irpf)
+    # Sanity: IRPF ROI must be strictly lower than real ROI (Receita basis is
+    # higher), or we'd be over-reporting profit.
+    assert irpf_roi < real_roi
+
+    # IRPF annotation post-sell: balance drops by sold qty; avg-price uses
+    # irpf cost basis (unchanged by sells).
+    expected_balance = total_buy_qty - sell.quantity
+    irpf = (
+        Asset.objects.annotate_irpf_infos(year=today.year)
+        .values("avg_price", "transactions_balance", "normalized_total_invested")
+        .get(pk=stock_asset.pk)
+    )
+    assert convert_and_quantitize(irpf["avg_price"]) == convert_and_quantitize(irpf_avg)
+    assert irpf["transactions_balance"] == expected_balance
+    assert convert_and_quantitize(irpf["normalized_total_invested"]) == convert_and_quantitize(
+        irpf_avg * expected_balance
+    )
+
+
+@pytest.mark.usefixtures("stock_asset_metadata", "closed_op_after_bonificacao")
+def test__closed_op_irpf_roi__after_bonificacao(
+    stock_asset,
+    buy_transaction,
+    bonificacao_transaction,
+    closing_sell_after_bonificacao_transaction,
+):
+    # GIVEN
+    bonifica = bonificacao_transaction
+    sell = closing_sell_after_bonificacao_transaction
+    today = timezone.localdate()
+
+    # WHEN
+    closed_op = (
+        AssetClosedOperation.objects.filter(asset=stock_asset)
+        .annotate_roi()
+        .values("roi")
+        .get()
+    )
+    irpf_closed_op = (
+        AssetClosedOperation.objects.filter(asset=stock_asset)
+        .annotate_irpf_roi()
+        .values("roi")
+        .get()
+    )
+
+    # THEN
+    sold_normalized = sell.price * sell.quantity
+    real_basis = buy_transaction.price * buy_transaction.quantity  # bonifica contributes 0
+    irpf_basis = real_basis + bonifica.irpf_price * bonifica.quantity
+    assert convert_and_quantitize(closed_op["roi"]) == convert_and_quantitize(
+        sold_normalized - real_basis
+    )
+    assert convert_and_quantitize(irpf_closed_op["roi"]) == convert_and_quantitize(
+        sold_normalized - irpf_basis
+    )
+    # Sanity: IRPF ROI must be strictly lower than real ROI.
+    assert irpf_closed_op["roi"] < closed_op["roi"]
+
+    # IRPF annotation post-close: all transactions are <= the closed-op
+    # datetime, so balance and avg collapse to zero (no holdings remain).
+    irpf = (
+        Asset.objects.annotate_irpf_infos(year=today.year)
+        .values("avg_price", "transactions_balance", "normalized_total_invested")
+        .get(pk=stock_asset.pk)
+    )
+    assert irpf["transactions_balance"] == Decimal()
+    assert irpf["avg_price"] == Decimal()
+    assert irpf["normalized_total_invested"] == Decimal()

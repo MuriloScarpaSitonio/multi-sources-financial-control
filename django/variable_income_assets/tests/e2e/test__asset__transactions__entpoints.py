@@ -164,6 +164,7 @@ def test__list__sanity_check(client, stock_usa_asset):
                 "id": transaction.id,
                 "action": TransactionActions.get_choice(transaction.action).label,
                 "price": float(transaction.price),
+                "irpf_price": float(transaction.irpf_price),
                 "quantity": float(transaction.quantity),
                 "operation_date": transaction.operation_date.strftime("%Y-%m-%d"),
                 "current_currency_conversion_rate": transaction.current_currency_conversion_rate,
