@@ -137,8 +137,8 @@ const EditTransactionForm = ({
       // For bonificações the user enters/edits the company-declared value, which
       // the backend persists as `irpf_price`. The real `price` column is always
       // 0 for bonifica rows and would block the form's positive-price rule.
-      ...(isBonificacao && rest.irpf_price !== undefined
-        ? { price: rest.irpf_price }
+      ...(isBonificacao && initialData?.irpf_price !== undefined
+        ? { price: initialData.irpf_price }
         : {}),
       operation_date: new Date(operation_date + "T00:00"),
     }),
@@ -148,6 +148,7 @@ const EditTransactionForm = ({
       asset?.currency,
       asset?.id,
       asset?.is_held_in_self_custody,
+      initialData?.irpf_price,
       isBonificacao,
       operation_date,
       rest,
