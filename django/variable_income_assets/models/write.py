@@ -150,8 +150,17 @@ class AssetClosedOperation(models.Model):
     normalized_total_bought = models.DecimalField(
         decimal_places=4, max_digits=20, validators=[MinValueValidator(Decimal("0.0001"))]
     )
+    # IRPF cost basis: BONIFICACAO transactions contribute at their declared
+    # unit price (vs zero in the real-cost path). Used to compute capital-gain
+    # ROI reported to Receita without overstating profit.
+    irpf_normalized_total_bought = models.DecimalField(
+        decimal_places=4, max_digits=20, default=Decimal()
+    )
     total_bought = models.DecimalField(
         decimal_places=4, max_digits=20, validators=[MinValueValidator(Decimal("0.0001"))]
+    )
+    irpf_total_bought = models.DecimalField(
+        decimal_places=4, max_digits=20, default=Decimal()
     )
     quantity_bought = models.DecimalField(
         decimal_places=4, max_digits=20, validators=[MinValueValidator(Decimal("0.0001"))]
@@ -173,8 +182,12 @@ class AssetClosedOperation(models.Model):
 
 class Transaction(models.Model):
     external_id = models.CharField(max_length=100, blank=True, default="")
-    action = models.CharField(max_length=4, validators=[TransactionActions.validator])
+    action = models.CharField(max_length=20, validators=[TransactionActions.validator])
     price = models.DecimalField(decimal_places=8, max_digits=15)
+    # IRPF unit price: equals `price` for BUY/SELL; for BONIFICACAO it stores
+    # the company-declared value (while `price` is 0 because the shares were
+    # received free). Read by the IRPF-only cost-basis path.
+    irpf_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
     quantity = models.DecimalField(
         decimal_places=8,
         max_digits=15,  # crypto needs a lot of decimal places

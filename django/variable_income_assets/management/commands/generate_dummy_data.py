@@ -813,6 +813,7 @@ class Command(BaseCommand):
                 asset=asset,
                 action=TransactionActions.buy,
                 price=Decimal("1.00"),  # Price per unit at purchase
+                irpf_price=Decimal("1.00"),  # mirrors price for non-bonifica rows
                 quantity=purchase_value.quantize(Decimal("0.01")),  # Quantity = invested amount
                 operation_date=purchase_date,
                 current_currency_conversion_rate=Decimal("1.0"),
@@ -885,6 +886,7 @@ class Command(BaseCommand):
                 asset=asset,
                 action=TransactionActions.buy,
                 price=purchase_price,
+                irpf_price=purchase_price,  # mirrors price for non-bonifica rows
                 quantity=qty.quantize(Decimal("0.00000001")),
                 operation_date=purchase_date,
                 current_currency_conversion_rate=conversion_rate,
@@ -945,6 +947,7 @@ class Command(BaseCommand):
             asset=asset,
             action=TransactionActions.sell,
             price=sell_price,
+            irpf_price=sell_price,  # mirrors price for non-bonifica rows
             quantity=sell_quantity,
             operation_date=sell_date,
             current_currency_conversion_rate=conversion_rate,
@@ -975,18 +978,24 @@ class Command(BaseCommand):
             asset=asset,
             action=TransactionActions.sell,
             price=sell_price,
+            irpf_price=sell_price,  # mirrors price for non-bonifica rows
             quantity=total_quantity,
             operation_date=sell_date,
             current_currency_conversion_rate=conversion_rate,
         )
 
         # Create AssetClosedOperation record
+        normalized_total_bought = (total_bought_value * conversion_rate).quantize(
+            Decimal("0.0001")
+        )
+        total_bought = total_bought_value.quantize(Decimal("0.0001"))
         AssetClosedOperation.objects.create(
             asset=asset,
-            normalized_total_bought=(total_bought_value * conversion_rate).quantize(
-                Decimal("0.0001")
-            ),
-            total_bought=total_bought_value.quantize(Decimal("0.0001")),
+            normalized_total_bought=normalized_total_bought,
+            # No bonificações in synthetic data — IRPF basis mirrors real basis.
+            irpf_normalized_total_bought=normalized_total_bought,
+            total_bought=total_bought,
+            irpf_total_bought=total_bought,
             quantity_bought=total_quantity.quantize(Decimal("0.0001")),
             normalized_total_sold=(total_sold_value * conversion_rate).quantize(Decimal("0.0001")),
             operation_datetime=timezone.make_aware(

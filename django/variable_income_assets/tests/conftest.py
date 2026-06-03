@@ -7,6 +7,7 @@ from time import time
 from django.template.defaultfilters import slugify
 from django.utils import timezone
 
+import factory
 import pytest
 from dateutil.relativedelta import relativedelta
 from factory.django import DjangoModelFactory
@@ -50,7 +51,7 @@ from ..models import (
     PassiveIncome,
     Transaction,
 )
-from ..service_layer.tasks import upsert_asset_read_model
+from ..service_layer.tasks import create_asset_closed_operation, upsert_asset_read_model
 
 
 class AssetFactory(DjangoModelFactory):
@@ -76,6 +77,10 @@ class AssetReadModelFactory(DjangoModelFactory):
 class TransactionFactory(DjangoModelFactory):
     operation_date = timezone.localdate() - timedelta(days=2)
     current_currency_conversion_rate = 1
+    # Mirror price into irpf_price by default so factory-created BUY/SELL rows
+    # contribute correctly to IRPF aggregates. Tests that exercise BONIFICACAO
+    # must set both fields explicitly (price=0, irpf_price=declared).
+    irpf_price = factory.LazyAttribute(lambda o: o.price)
 
     class Meta:
         model = Transaction
@@ -231,6 +236,71 @@ def another_stock_usa_asset(user):
         objective=AssetObjectives.growth,
         user=user,
     )
+
+
+@pytest.fixture
+def two_buy_transactions(stock_asset):
+    # Used by test__update__buy_to_bonificacao_splits_price: gives the asset
+    # two BUY rows so we can "correct" one of them into a bonificacao while the
+    # other remains as real BUY shares. Returns (kept, target).
+    kept = TransactionFactory(
+        action=TransactionActions.buy, price=Decimal("10"), quantity=50, asset=stock_asset
+    )
+    target = TransactionFactory(
+        action=TransactionActions.buy, price=Decimal("10"), quantity=50, asset=stock_asset
+    )
+    return kept, target
+
+
+@pytest.fixture
+def bonificacao_transaction(stock_asset, buy_transaction):
+    # Realistic prior state: buy_transaction gave the asset shares, then the
+    # company granted a bonificação. price=0 (real cost), irpf_price holds
+    # the declared value.
+    return TransactionFactory(
+        action=TransactionActions.bonificacao,
+        price=Decimal(),
+        irpf_price=Decimal("12.34"),
+        quantity=Decimal("25"),
+        asset=stock_asset,
+        operation_date=timezone.localdate(),
+    )
+
+
+@pytest.fixture
+def partial_sell_after_bonificacao_transaction(stock_asset, bonificacao_transaction):
+    # Sells part of the post-bonifica position in the current month.
+    return TransactionFactory(
+        action=TransactionActions.sell,
+        price=Decimal("15"),
+        quantity=Decimal("30"),
+        asset=stock_asset,
+        operation_date=timezone.localdate(),
+    )
+
+
+@pytest.fixture
+def closing_sell_after_bonificacao_transaction(
+    stock_asset, buy_transaction, bonificacao_transaction
+):
+    # Sells the entire post-bonifica position, fully closing the asset.
+    return TransactionFactory(
+        action=TransactionActions.sell,
+        price=Decimal("15"),
+        quantity=buy_transaction.quantity + bonificacao_transaction.quantity,
+        asset=stock_asset,
+        operation_date=timezone.localdate(),
+    )
+
+
+@pytest.fixture
+def closed_op_after_bonificacao(stock_asset, closing_sell_after_bonificacao_transaction):
+    # Builds the AssetClosedOperation that the service task would create after
+    # the closing sell. Uses the create() task directly so the
+    # `irpf_*_total_bought` columns come from the production aggregation logic
+    # (not hand-crafted in the test).
+    create_asset_closed_operation(asset_pk=stock_asset.pk)
+    return AssetClosedOperation.objects.get(asset=stock_asset)
 
 
 @pytest.fixture
@@ -624,9 +694,9 @@ def binance_fiat_payments_sell_response():
 def buy_transaction(stock_asset):
     return TransactionFactory(
         action=TransactionActions.buy,
-        price=10,
+        price=Decimal("10"),
         asset=stock_asset,
-        quantity=50,
+        quantity=Decimal("50"),
     )
 
 

@@ -28,6 +28,8 @@ UserModel = get_user_model()
 
 
 def _get_closed_roi(month: int, year: int, asset_id: int) -> Decimal:
+    # IRPF report context: use the IRPF cost basis so bonificações inflate the
+    # basis at their declared unit price instead of contributing zero.
     try:
         return (
             AssetClosedOperation.objects.filter(
@@ -35,7 +37,7 @@ def _get_closed_roi(month: int, year: int, asset_id: int) -> Decimal:
                 operation_datetime__month=month,
                 operation_datetime__year=year,
             )
-            .annotate_roi()
+            .annotate_irpf_roi()
             .values("roi")
             .get()
         )["roi"]
@@ -44,7 +46,9 @@ def _get_closed_roi(month: int, year: int, asset_id: int) -> Decimal:
 
 
 def _get_partial_sell_roi(month: int, year: int, asset_id: int) -> Decimal:
-    return Transaction.objects.get_partial_sell_roi(asset_id=asset_id, month=month, year=year)
+    return Transaction.objects.get_partial_sell_roi(
+        asset_id=asset_id, month=month, year=year, for_irpf=True
+    )
 
 
 def _print_assets_portfolio(qs: AssetQuerySet[Asset], year: int) -> None:
@@ -53,6 +57,7 @@ def _print_assets_portfolio(qs: AssetQuerySet[Asset], year: int) -> None:
         qs.annotate_irpf_infos(year=year)
         .filter(transactions_balance__gt=0)
         .values(
+            "id",
             "code",
             "currency",
             "transactions_balance",
@@ -77,15 +82,17 @@ def _print_assets_portfolio(qs: AssetQuerySet[Asset], year: int) -> None:
         results.append(f"\tQuantidade: {asset['transactions_balance']:n}")
         results.append(f"\tPreço médio: {currency.symbol} {asset['avg_price']:n}")
         results.append(
-            f"\tTotal: R$ {asset['normalized_total_invested']:n}\n"
+            f"\tTotal: R$ {asset['normalized_total_invested']:n}"
             if currency.value == Currencies.real
             else (
                 f"\tTotal: R$ {asset['normalized_total_invested']:n} "
-                f"| {currency.symbol} {asset['total_invested']:n}\n"
+                f"| {currency.symbol} {asset['total_invested']:n}"
             )
         )
         if currency.value == Currencies.dollar:
-            results.append(f"\tDólar médio: R$ {asset['avg_current_currency_conversion_rate']:n}\n")
+            results.append(f"\tDólar médio: R$ {asset['avg_current_currency_conversion_rate']:n}")
+
+        results.append("")
 
     if results:
         print("------------ ATIVOS (seção 'Bens e direitos') ------------\n\n")
@@ -637,6 +644,8 @@ def group_or_split_asset_transactions(
         action=TransactionActions.buy,
         quantity=op(asset.quantity_balance, (factor - 1)),
         price=Decimal("0.0000000001"),
+        # Mirror price -> irpf_price to keep IRPF aggregates consistent.
+        irpf_price=Decimal("0.0000000001"),
         operation_date=operation_date,
         # TODO: o que fazer se currency != BRL?
         current_currency_conversion_rate=Decimal(1),

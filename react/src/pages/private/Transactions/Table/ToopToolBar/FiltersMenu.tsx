@@ -255,6 +255,31 @@ export const FiltersMenu = ({
                   }
                   label="Venda"
                 />
+                <FormControlLabel
+                  value="BONIFICACAO"
+                  control={
+                    <Radio
+                      color="default"
+                      size="small"
+                      onClick={(e: {
+                        target: EventTarget & {
+                          value?: string;
+                        };
+                      }) => {
+                        if (e.target?.value === field.value) {
+                          field.onChange("");
+                          setFilters(
+                            (prevFilters) =>
+                              removeProperties(prevFilters, [
+                                field.name,
+                              ]) as Filters,
+                          );
+                        }
+                      }}
+                    />
+                  }
+                  label="Bonificação"
+                />
               </RadioGroup>
             )}
           />

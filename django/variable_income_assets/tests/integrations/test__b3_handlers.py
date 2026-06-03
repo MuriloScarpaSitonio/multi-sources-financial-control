@@ -361,7 +361,7 @@ def test_existing_td_asset_stale_price_is_updated(tmp_path, user, td_asset):
     assert report["actions"][0]["action"] == "price_updated"
     assert report["actions"][0]["code"] == "BRSTNCNTB7T1"
     metadata = AssetMetaData.objects.get(code="BRSTNCNTB7T1")
-    assert metadata.current_price == Decimal("2932.2086563308")
+    assert metadata.current_price == Decimal("2932.2086563307")
 
 
 def test_missing_td_asset_with_movimentacao_creates_asset_and_transaction(

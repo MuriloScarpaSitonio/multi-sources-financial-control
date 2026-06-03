@@ -59,6 +59,7 @@ class TransactionSerializer(serializers.ModelSerializer):
             "id",
             "action",
             "price",
+            "irpf_price",
             "quantity",
             "operation_date",
             "user",
@@ -67,6 +68,10 @@ class TransactionSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "operation_date": {"required": True},
             "current_currency_conversion_rate": {"allow_null": False, "min_value": 1},
+            # irpf_price is derived from the submitted `price` (split server-side
+            # for BONIFICACAO); clients only read it to display the declared value
+            # on bonificação rows.
+            "irpf_price": {"read_only": True},
         }
 
 
@@ -78,6 +83,15 @@ class TransactionListSerializer(TransactionSerializer):
     class Meta(TransactionSerializer.Meta):
         fields = TransactionSerializer.Meta.fields + ("asset", "asset_pk")
 
+    @staticmethod
+    def _apply_bonificacao_price_split(validated_data: dict) -> None:
+        # User submits a single `price`. For BONIFICACAO the submitted value is
+        # the company-declared IRPF price; the real cost is zero. Split into the
+        # two DB columns before constructing the DTO.
+        if validated_data.get("action") == choices.TransactionActions.bonificacao:
+            validated_data["irpf_price"] = validated_data["price"]
+            validated_data["price"] = Decimal()
+
     def create(self, validated_data: dict) -> Transaction:
         try:
             asset: Asset = Asset.objects.annotate_for_domain().get(
@@ -86,6 +100,7 @@ class TransactionListSerializer(TransactionSerializer):
         except Asset.DoesNotExist as e:
             raise NotFound({"asset": "Not found."}) from e
 
+        self._apply_bonificacao_price_split(validated_data)
         try:
             asset_domain = asset.to_domain()
             asset_domain.add_transaction(transaction_dto=TransactionDTO(**validated_data))
@@ -102,6 +117,7 @@ class TransactionListSerializer(TransactionSerializer):
         try:
             validated_data.pop("user")
             validated_data.pop("asset_pk", None)
+            self._apply_bonificacao_price_split(validated_data)
 
             is_held_in_self_custody = AssetMetaData.objects.filter(
                 asset_id=self.instance.asset_id

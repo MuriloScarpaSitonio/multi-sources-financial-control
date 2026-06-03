@@ -29,7 +29,7 @@ def test__asset__irp_infos(stock_usa_asset):
         Asset.objects.order_by()
         .distinct()
         .annotate_irpf_infos(year=year)
-        .values("avg_price", "total_invested")
+        .values("avg_price", "normalized_total_invested")
         .get(pk=stock_usa_asset.pk)
     )
 

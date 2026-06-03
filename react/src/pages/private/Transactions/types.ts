@@ -3,8 +3,9 @@ import { AssetWrite } from "../Assets/api/models";
 
 export type Transaction = {
   id: number;
-  action: "Compra" | "Venda";
+  action: "Compra" | "Venda" | "Bonificação";
   price: number;
+  irpf_price?: number;
   quantity: number | null;
   operation_date: RawDateString;
   current_currency_conversion_rate: number;
