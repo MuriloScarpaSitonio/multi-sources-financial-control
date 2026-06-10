@@ -10,10 +10,13 @@ from django.contrib.auth import get_user_model
 from django.db import transaction as djtransaction
 from django.utils import timezone
 
+from rest_framework.exceptions import ValidationError as DRFValidationError
+
 from ...choices import AssetObjectives, AssetTypes, Currencies, LiquidityTypes
 from ...models import Asset, AssetMetaData, Transaction
 from ...scripts import update_asset_metadata_current_price
 from ...serializers import AssetSerializer, TransactionListSerializer
+from ._workbook import WorkbookSource
 from .movimentacao import parse_movements
 from .negociacao import (
     parse_fii_positions,
@@ -59,16 +62,37 @@ def _parse_workbook_dt(path: Path) -> datetime:
     )
 
 
-def _resolve_posicao_path(path: str | None) -> Path:
+def _resolve_posicao_path(source: WorkbookSource | None) -> WorkbookSource:
     from .parser import _resolve_path
 
-    return _resolve_path(path)
+    return _resolve_path(source)
 
 
-def _resolve_movimentacao_path(path: str | None) -> Path:
+def _resolve_movimentacao_path(path: WorkbookSource | None) -> WorkbookSource:
     from .movimentacao import _resolve_path
 
     return _resolve_path(path)
+
+
+def _source_label(source: WorkbookSource | None) -> str | None:
+    """Path strings help in CLI reports; an in-memory upload has no path."""
+    if isinstance(source, bytes):
+        return None
+    return str(source) if source is not None else None
+
+
+def _validation_message(exc: DRFValidationError) -> str:
+    # Flatten a serializer/domain ValidationError to a single readable message,
+    # dropping internal field names (e.g. "action" for a sell-exceeds-holdings).
+    detail = exc.detail
+    if isinstance(detail, dict):
+        messages: list = []
+        for value in detail.values():
+            messages.extend(value if isinstance(value, list | tuple) else [value])
+        return "; ".join(str(m) for m in messages)
+    if isinstance(detail, list | tuple):
+        return "; ".join(str(m) for m in detail)
+    return str(detail)
 
 
 def _build_description(position: B3FixedIncomePosition) -> str:
@@ -79,21 +103,36 @@ def _build_description(position: B3FixedIncomePosition) -> str:
 
 
 def _update_existing_price(
-    *, code: str, new_price: Decimal | None, workbook_dt: datetime
+    *,
+    code: str,
+    new_price: Decimal | None,
+    workbook_dt: datetime,
+    description: str | None = None,
 ) -> dict:
     if new_price is None:
-        return {"code": code, "action": "skipped", "reason": "no current_price in posicao"}
+        return {
+            "code": code,
+            "description": description,
+            "action": "skipped",
+            "reason": "sem preço atual na posição",
+        }
 
     metadata = AssetMetaData.objects.filter(code=code).first()
     if metadata is None:
-        return {"code": code, "action": "skipped", "reason": "no AssetMetaData row"}
+        return {
+            "code": code,
+            "description": description,
+            "action": "skipped",
+            "reason": "sem metadados do ativo",
+        }
 
     previous_dt = metadata.current_price_updated_at
     if previous_dt is not None and previous_dt >= workbook_dt:
         return {
             "code": code,
+            "description": description,
             "action": "price_skipped",
-            "reason": "metadata is at least as fresh as workbook",
+            "reason": "cotação já atualizada (planilha não é mais recente)",
             "metadata_updated_at": previous_dt.isoformat(),
             "workbook_dt": workbook_dt.isoformat(),
         }
@@ -101,6 +140,7 @@ def _update_existing_price(
     update_asset_metadata_current_price(code=code, price=new_price)
     return {
         "code": code,
+        "description": description,
         "action": "price_updated",
         "previous_price": str(metadata.current_price) if metadata.current_price else None,
         "new_price": str(new_price),
@@ -140,7 +180,7 @@ def _create_asset_and_transactions(
     asset = asset_serializer.save()
 
     transactions: list[dict] = []
-    for movement in movements:
+    for movement in sorted(movements, key=lambda m: m.operation_date):
         tx_serializer = TransactionListSerializer(
             data={
                 "asset_pk": asset.id,
@@ -204,7 +244,7 @@ def _create_tesouro_asset_and_transactions(
     asset = asset_serializer.save()
 
     transactions: list[dict] = []
-    for movement in movements:
+    for movement in sorted(movements, key=lambda m: m.operation_date):
         tx_serializer = TransactionListSerializer(
             data={
                 "asset_pk": asset.id,
@@ -259,8 +299,8 @@ def _renda_fixa_actions(
     use_posicao_price_when_missing_movement: bool,
     **_,
 ) -> list[dict]:
-    positions = parse_positions(str(posicao_path_resolved))
-    movements = parse_movements(str(movimentacao_path_resolved))
+    positions = parse_positions(posicao_path_resolved)
+    movements = parse_movements(movimentacao_path_resolved)
 
     movements_by_code: dict[str, list[B3FixedIncomeMovement]] = defaultdict(list)
     for movement in movements:
@@ -273,7 +313,7 @@ def _renda_fixa_actions(
                 {
                     "code": None,
                     "action": "skipped",
-                    "reason": "position has no code",
+                    "reason": "posição sem código",
                     "description": position.description,
                 }
             )
@@ -287,6 +327,7 @@ def _renda_fixa_actions(
                     code=position.code,
                     new_price=position.current_price,
                     workbook_dt=workbook_dt,
+                    description=_build_description(position),
                 )
             )
             continue
@@ -298,7 +339,7 @@ def _renda_fixa_actions(
                     {
                         "code": position.code,
                         "action": "skipped",
-                        "reason": "asset not in DB and no movimentação row",
+                        "reason": "ativo não cadastrado e sem linha de movimentação",
                     }
                 )
                 continue
@@ -308,7 +349,7 @@ def _renda_fixa_actions(
                     {
                         "code": position.code,
                         "action": "skipped",
-                        "reason": "fallback requested but posicao is missing price/issue_date",
+                        "reason": "posição sem preço/data de emissão para usar como movimentação",
                     }
                 )
                 continue
@@ -336,7 +377,7 @@ def _create_missing_transactions(
     )
     context = {"request": _RequestContext(user)}
     created: list[dict] = []
-    for movement in movements:
+    for movement in sorted(movements, key=lambda m: m.operation_date):
         key = (movement.action.value, movement.operation_date, movement.quantity, movement.unit_price)
         if key in existing:
             continue
@@ -356,6 +397,7 @@ def _create_missing_transactions(
         created.append(
             {
                 "code": asset.code,
+                "description": asset.description,
                 "action": "transaction_created",
                 "asset_pk": asset.id,
                 "transaction": {
@@ -378,8 +420,8 @@ def _tesouro_actions(
     movimentacao_path_resolved: Path,
     **_,
 ) -> list[dict]:
-    td_positions = parse_tesouro_positions(str(posicao_path_resolved))
-    td_movements = parse_tesouro_movements(str(movimentacao_path_resolved))
+    td_positions = parse_tesouro_positions(posicao_path_resolved)
+    td_movements = parse_tesouro_movements(movimentacao_path_resolved)
 
     td_by_name: dict[str, list[B3TesouroMovement]] = defaultdict(list)
     for td_movement in td_movements:
@@ -396,6 +438,7 @@ def _tesouro_actions(
                     code=td_position.isin,
                     new_price=td_position.current_price,
                     workbook_dt=workbook_dt,
+                    description=_build_tesouro_description(td_position),
                 )
             )
             actions.extend(
@@ -412,9 +455,9 @@ def _tesouro_actions(
             actions.append(
                 {
                     "code": td_position.isin,
-                    "name": td_position.name,
+                    "description": _build_tesouro_description(td_position),
                     "action": "skipped",
-                    "reason": "asset not in DB and no movimentação row",
+                    "reason": "ativo não cadastrado e sem linha de movimentação",
                 }
             )
             continue
@@ -434,9 +477,11 @@ def _run_with_rollback(
     dry_run: bool,
     posicao_path: str | None,
     pipelines: list,
+    workbook_dt: datetime | None = None,
 ) -> dict:
     posicao_path_resolved = _resolve_posicao_path(posicao_path)
-    workbook_dt = _parse_workbook_dt(posicao_path_resolved)
+    if workbook_dt is None:
+        workbook_dt = _parse_workbook_dt(posicao_path_resolved)
     user = User.objects.get(pk=user_id)
 
     actions: list[dict] = []
@@ -459,7 +504,7 @@ def _run_with_rollback(
     return {
         "dry_run": dry_run,
         "workbook_dt": workbook_dt.isoformat(),
-        "posicao_path": str(posicao_path_resolved),
+        "posicao_path": _source_label(posicao_path_resolved),
         "actions": actions,
     }
 
@@ -504,7 +549,7 @@ def _negociacao_actions(
     negociacao_path_resolved: Path,
     posicao_path_resolved: Path | None,
 ) -> list[dict]:
-    negotiations = parse_negotiations(str(negociacao_path_resolved))
+    negotiations = parse_negotiations(negociacao_path_resolved)
     by_code: dict[str, list[B3StockNegotiation]] = defaultdict(list)
     for negotiation in negotiations:
         by_code[negotiation.code].append(negotiation)
@@ -512,11 +557,11 @@ def _negociacao_actions(
     position_by_code: dict[str, B3StockPosition] = {}
     if posicao_path_resolved is not None:
         for position in parse_stock_positions(
-            str(posicao_path_resolved), asset_type=AssetTypes.stock
+            posicao_path_resolved, asset_type=AssetTypes.stock
         ):
             position_by_code[position.code] = position
         for position in parse_fii_positions(
-            str(posicao_path_resolved), asset_type=AssetTypes.fii
+            posicao_path_resolved, asset_type=AssetTypes.fii
         ):
             position_by_code[position.code] = position
 
@@ -530,9 +575,12 @@ def _negociacao_actions(
             position = position_by_code.get(code)
             if position is None:
                 reason = (
-                    "asset not in DB and no matching posicao row"
+                    "ativo não cadastrado e sem linha correspondente na posição"
                     if posicao_path_resolved is not None
-                    else "asset not in DB (pass create_missing_assets=True to create it)"
+                    else (
+                        "ativo não cadastrado; marque 'Criar ativos ausentes' "
+                        "e envie a posição para criá-lo"
+                    )
                 )
                 actions.append({"code": code, "action": "skipped", "reason": reason})
                 continue
@@ -548,15 +596,19 @@ def _negociacao_actions(
             actions.append(asset_action)
             asset_pk = new_asset_pk
             existing: set = set()
+            description = position.description.strip()
         else:
             asset_pk = asset.id
+            description = asset.description
             existing = set(
                 Transaction.objects.filter(asset=asset).values_list(
                     "action", "operation_date", "quantity", "price"
                 )
             )
 
-        for negotiation in code_negotiations:
+        # Apply chronologically: B3 reports list trades most-recent-first, but the
+        # domain enforces a running balance (no selling more than held).
+        for negotiation in sorted(code_negotiations, key=lambda n: n.operation_date):
             key = (
                 negotiation.action.value,
                 negotiation.operation_date,
@@ -566,18 +618,36 @@ def _negociacao_actions(
             if key in existing:
                 continue
 
-            _create_transaction(user=user, asset_pk=asset_pk, negotiation=negotiation)
+            tx_payload = {
+                "action": negotiation.action.value,
+                "price": str(negotiation.price),
+                "quantity": str(negotiation.quantity),
+                "operation_date": negotiation.operation_date.isoformat(),
+            }
+            try:
+                with djtransaction.atomic():
+                    _create_transaction(user=user, asset_pk=asset_pk, negotiation=negotiation)
+            except DRFValidationError as exc:
+                # e.g. a sell that exceeds holdings (partial history). Skip it and
+                # report it instead of aborting the whole import.
+                actions.append(
+                    {
+                        "code": code,
+                        "description": description,
+                        "action": "error",
+                        "reason": _validation_message(exc),
+                        "transaction": tx_payload,
+                    }
+                )
+                continue
+
             actions.append(
                 {
                     "code": code,
+                    "description": description,
                     "action": "transaction_created",
                     "asset_pk": asset_pk,
-                    "transaction": {
-                        "action": negotiation.action.value,
-                        "price": str(negotiation.price),
-                        "quantity": str(negotiation.quantity),
-                        "operation_date": negotiation.operation_date.isoformat(),
-                    },
+                    "transaction": tx_payload,
                 }
             )
 
@@ -617,11 +687,13 @@ def import_b3_renda_fixa_positions(
     use_posicao_price_when_missing_movement: bool = False,
     posicao_path: str | None = None,
     movimentacao_path: str | None = None,
+    workbook_dt: datetime | None = None,
 ) -> dict:
     return _run_with_rollback(
         user_id=user_id,
         dry_run=dry_run,
         posicao_path=posicao_path,
+        workbook_dt=workbook_dt,
         pipelines=[
             _make_renda_fixa_pipeline(
                 movimentacao_path=movimentacao_path,
@@ -637,11 +709,13 @@ def import_b3_tesouro_positions(
     dry_run: bool = True,
     posicao_path: str | None = None,
     movimentacao_path: str | None = None,
+    workbook_dt: datetime | None = None,
 ) -> dict:
     return _run_with_rollback(
         user_id=user_id,
         dry_run=dry_run,
         posicao_path=posicao_path,
+        workbook_dt=workbook_dt,
         pipelines=[_make_tesouro_pipeline(movimentacao_path=movimentacao_path)],
     )
 
@@ -674,8 +748,8 @@ def import_b3_negociacoes(
 
     return {
         "dry_run": dry_run,
-        "negociacao_path": str(negociacao_resolved),
-        "posicao_path": str(posicao_resolved) if posicao_resolved else None,
+        "negociacao_path": _source_label(negociacao_resolved),
+        "posicao_path": _source_label(posicao_resolved),
         "actions": actions,
     }
 
@@ -687,11 +761,13 @@ def import_b3_fixed_income_positions(
     use_posicao_price_when_missing_movement: bool = False,
     posicao_path: str | None = None,
     movimentacao_path: str | None = None,
+    workbook_dt: datetime | None = None,
 ) -> dict:
     return _run_with_rollback(
         user_id=user_id,
         dry_run=dry_run,
         posicao_path=posicao_path,
+        workbook_dt=workbook_dt,
         pipelines=[
             _make_renda_fixa_pipeline(
                 movimentacao_path=movimentacao_path,

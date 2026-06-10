@@ -19,8 +19,9 @@ from rest_framework.mixins import (
     ListModelMixin,
     UpdateModelMixin,
 )
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
-from rest_framework.status import HTTP_200_OK, HTTP_204_NO_CONTENT
+from rest_framework.status import HTTP_200_OK, HTTP_204_NO_CONTENT, HTTP_400_BAD_REQUEST
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from shared.filters import PatrimonyGrowthFilterSet
@@ -34,6 +35,7 @@ from variable_income_assets.models.managers.write import AssetClosedOperationQue
 from . import choices, filters, serializers
 from .adapters.key_value_store import get_dollar_conversion_rate
 from .domain import events
+from .integrations.b3.import_service import B3ImportOperationError, run_b3_import
 from .models import (
     Asset,
     AssetClosedOperation,
@@ -135,6 +137,33 @@ class AssetViewSet(
             {**qs, "total_diff_percentage": total_diff_percentage}
         )
         return Response(serializer.data, status=HTTP_200_OK)
+
+    @action(
+        methods=("POST",),
+        detail=False,
+        url_path="b3_import",
+        parser_classes=(MultiPartParser, FormParser),
+    )
+    def b3_import(self, request: Request) -> Response:
+        serializer = serializers.B3ImportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            result = run_b3_import(
+                user_id=request.user.id,
+                operations=data["operations"],
+                dry_run=data["dry_run"],
+                workbook_dt=data.get("workbook_dt"),
+                create_missing_assets=data.get("create_missing_assets", False),
+                negociacao_file=data.get("negociacao"),
+                posicao_file=data.get("posicao"),
+                movimentacao_file=data.get("movimentacao"),
+            )
+        except B3ImportOperationError as exc:
+            return Response(exc.as_dict(), status=HTTP_400_BAD_REQUEST)
+        return Response(
+            serializers.B3ImportResultSerializer(result).data, status=HTTP_200_OK
+        )
 
     @action(methods=("GET",), detail=False)
     def growth(self, request: Request) -> Response:

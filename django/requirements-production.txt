@@ -54,6 +54,8 @@ djangorestframework-simplejwt==5.5.0
     # via multi-sources-financial-control
 drf-spectacular==0.28.0
     # via multi-sources-financial-control
+et-xmlfile==2.0.0
+    # via openpyxl
 frozenlist==1.7.0
     # via
     #   aiohttp
@@ -73,6 +75,8 @@ multidict==6.6.2
     # via
     #   aiohttp
     #   yarl
+openpyxl==3.1.5
+    # via multi-sources-financial-control
 packaging==25.0
     # via gunicorn
 propcache==0.3.2
@@ -80,6 +84,7 @@ propcache==0.3.2
     #   aiohttp
     #   yarl
 psycopg==3.2.10
+    # via multi-sources-financial-control
 psycopg-pool==3.2.6
     # via psycopg
 pycparser==2.22 ; platform_python_implementation != 'PyPy'

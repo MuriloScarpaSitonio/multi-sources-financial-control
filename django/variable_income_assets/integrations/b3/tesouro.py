@@ -1,9 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from pathlib import Path
 
-from openpyxl import load_workbook
-
+from ._workbook import WorkbookSource, open_workbook
 from .parser import B3ParserError
 from .schemas import B3FixedIncomeAction, B3TesouroMovement, B3TesouroPosition
 
@@ -38,9 +36,7 @@ MOVIMENTACAO_REQUIRED_HEADERS = (
 def _is_blank(value) -> bool:
     if value is None:
         return True
-    if isinstance(value, str) and value.strip() in ("", "-"):
-        return True
-    return False
+    return bool(isinstance(value, str) and value.strip() in ("", "-"))
 
 
 def _to_optional_str(value) -> str | None:
@@ -117,12 +113,11 @@ def _build_header_index(header_row: tuple, *, required: tuple[str, ...]) -> dict
     return index
 
 
-def parse_tesouro_positions(path: str) -> list[B3TesouroPosition]:
-    resolved = Path(path)
-    workbook = load_workbook(resolved, data_only=True)
+def parse_tesouro_positions(source: WorkbookSource) -> list[B3TesouroPosition]:
+    workbook = open_workbook(source)
     try:
         if POSICAO_SHEET not in workbook.sheetnames:
-            raise B3ParserError(f"sheet {POSICAO_SHEET!r} not found in {resolved}")
+            raise B3ParserError(f"sheet {POSICAO_SHEET!r} not found")
 
         sheet = workbook[POSICAO_SHEET]
         rows = sheet.iter_rows(values_only=True)
@@ -167,12 +162,11 @@ def parse_tesouro_positions(path: str) -> list[B3TesouroPosition]:
         workbook.close()
 
 
-def parse_tesouro_movements(path: str) -> list[B3TesouroMovement]:
-    resolved = Path(path)
-    workbook = load_workbook(resolved, data_only=True)
+def parse_tesouro_movements(source: WorkbookSource) -> list[B3TesouroMovement]:
+    workbook = open_workbook(source)
     try:
         if MOVIMENTACAO_SHEET not in workbook.sheetnames:
-            raise B3ParserError(f"sheet {MOVIMENTACAO_SHEET!r} not found in {resolved}")
+            raise B3ParserError(f"sheet {MOVIMENTACAO_SHEET!r} not found")
 
         sheet = workbook[MOVIMENTACAO_SHEET]
         rows = sheet.iter_rows(values_only=True)
