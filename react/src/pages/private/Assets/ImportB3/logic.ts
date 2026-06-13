@@ -61,7 +61,7 @@ export const priceDiffPct = (
 };
 
 const fileKey = (file: File | null): string =>
-  file ? `${file.name}:${file.size}` : "-";
+  file ? `${file.name}:${file.size}:${file.lastModified}` : "-";
 
 export const computeSignature = (
   files: B3Files,

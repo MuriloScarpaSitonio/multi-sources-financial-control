@@ -15,8 +15,8 @@ const assertEqual = <T>(actual: T, expected: T, message: string) => {
 };
 
 // A pure-logic stand-in for File (avoids depending on a global File impl).
-const fakeFile = (name: string): File =>
-  ({ name, size: name.length }) as unknown as File;
+const fakeFile = (name: string, lastModified = 0): File =>
+  ({ name, size: name.length, lastModified }) as unknown as File;
 
 const files = (neg = false, pos = false, mov = false): B3Files => ({
   negociacao: neg ? fakeFile("negociacao.xlsx") : null,
@@ -93,6 +93,23 @@ assertEqual(
     computeSignature(base, ["renda_fixa"], dt, true),
   false,
   "create-missing toggle -> signature changes",
+);
+
+// F2: a same-name/size file with a different mtime must change the signature.
+const mtimeA: B3Files = {
+  negociacao: null,
+  posicao: fakeFile("posicao-2026-04-29-12-00-00.xlsx", 1000),
+  movimentacao: fakeFile("movimentacao.xlsx", 1000),
+};
+const mtimeB: B3Files = {
+  ...mtimeA,
+  posicao: fakeFile("posicao-2026-04-29-12-00-00.xlsx", 2000),
+};
+assertEqual(
+  computeSignature(mtimeA, ["renda_fixa"], dt, false) ===
+    computeSignature(mtimeB, ["renda_fixa"], dt, false),
+  false,
+  "different lastModified -> different signature",
 );
 
 // eslint-disable-next-line no-console

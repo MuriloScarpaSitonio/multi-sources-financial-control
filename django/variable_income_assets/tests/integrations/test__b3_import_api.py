@@ -143,6 +143,20 @@ def test_serializer_valid_negociacoes():
     assert serializer.is_valid(), serializer.errors
 
 
+def test_serializer_dedupes_duplicate_operations():
+    from variable_income_assets.serializers import B3ImportSerializer
+
+    serializer = B3ImportSerializer(
+        data={
+            "operations": ["negociacoes", "negociacoes"],
+            "dry_run": True,
+            "negociacao": _xlsx_upload("negociacao.xlsx"),
+        }
+    )
+    assert serializer.is_valid(), serializer.errors
+    assert serializer.validated_data["operations"] == ["negociacoes"]
+
+
 def test_serializer_create_missing_assets_requires_posicao():
     from variable_income_assets.serializers import B3ImportSerializer
 

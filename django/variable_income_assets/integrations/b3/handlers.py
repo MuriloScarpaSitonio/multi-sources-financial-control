@@ -14,7 +14,6 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 
 from ...choices import AssetObjectives, AssetTypes, Currencies, LiquidityTypes
 from ...models import Asset, AssetMetaData, Transaction
-from ...scripts import update_asset_metadata_current_price
 from ...serializers import AssetSerializer, TransactionListSerializer
 from ._workbook import WorkbookSource
 from .movimentacao import parse_movements
@@ -117,7 +116,17 @@ def _update_existing_price(
             "reason": "sem preço atual na posição",
         }
 
-    metadata = AssetMetaData.objects.filter(code=code).first()
+    # B3 fixed income/Tesouro is BRL and lives in the global (B3-synced) metadata
+    # row. Scope by type+currency and asset__isnull so we never touch a same-code
+    # row of another type/currency or a user's direct self-custody metadata
+    # (AssetMetaData.code is not globally unique).
+    metadata_qs = AssetMetaData.objects.filter(
+        code=code,
+        type=AssetTypes.fixed_br,
+        currency=Currencies.real,
+        asset__isnull=True,
+    )
+    metadata = metadata_qs.first()
     if metadata is None:
         return {
             "code": code,
@@ -137,7 +146,7 @@ def _update_existing_price(
             "workbook_dt": workbook_dt.isoformat(),
         }
 
-    update_asset_metadata_current_price(code=code, price=new_price)
+    metadata_qs.update(current_price=new_price, current_price_updated_at=timezone.now())
     return {
         "code": code,
         "description": description,

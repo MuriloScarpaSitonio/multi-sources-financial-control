@@ -682,6 +682,9 @@ class B3ImportSerializer(serializers.Serializer):
     )
 
     def validate(self, attrs: dict) -> dict:
+        # Normalize duplicates so an operation isn't executed (and its report
+        # overwritten) more than once.
+        attrs["operations"] = list(dict.fromkeys(attrs["operations"]))
         ops = set(attrs["operations"])
         negociacao = attrs.get("negociacao")
         posicao = attrs.get("posicao")

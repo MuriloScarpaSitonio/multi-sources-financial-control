@@ -10,6 +10,7 @@ from ...integrations.b3.handlers import (
     B3ImportError,
     import_b3_fixed_income_positions,
     import_b3_negociacoes,
+    import_b3_renda_fixa_positions,
 )
 from ...models import Asset, AssetMetaData, Transaction
 from ...choices import AssetTypes, Currencies, LiquidityTypes, AssetObjectives
@@ -539,6 +540,75 @@ def test_invalid_posicao_filename_raises(tmp_path, user):
             posicao_path=str(bad),
             movimentacao_path=movimentacao_path,
         )
+
+
+def test_price_update_is_scoped_by_type_and_currency(tmp_path, user, fixed_br_asset):
+    # A same-code metadata row of a different type must NOT be touched by the
+    # fixed-income price update (AssetMetaData.code is not globally unique).
+    decoy = AssetMetaDataFactory(
+        code="CDB426DGCVL",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        current_price=Decimal("999"),
+        current_price_updated_at=timezone.make_aware(WORKBOOK_DT - timedelta(days=1)),
+    )
+    posicao_path = _build_posicao(tmp_path, [_cdb_position_row()])
+    movimentacao_path = _build_movimentacao(tmp_path, [])
+
+    import_b3_renda_fixa_positions(
+        user_id=user.id,
+        dry_run=False,
+        posicao_path=posicao_path,
+        movimentacao_path=movimentacao_path,
+    )
+
+    updated = AssetMetaData.objects.get(
+        code="CDB426DGCVL", type=AssetTypes.fixed_br, asset__isnull=True
+    )
+    assert updated.current_price == Decimal("1100")
+    decoy.refresh_from_db()
+    assert decoy.current_price == Decimal("999")  # untouched
+
+
+def test_price_update_skips_self_custody_metadata(
+    tmp_path, user, another_user, fixed_br_asset
+):
+    # A same code/type/currency metadata row linked to a user's self-custody asset
+    # (asset_id set) must NOT be touched — B3 updates only the global B3 row.
+    custody_asset = AssetFactory(
+        code="CDB426DGCVL",
+        type=AssetTypes.fixed_br,
+        currency=Currencies.real,
+        objective=AssetObjectives.growth,
+        user=another_user,
+        liquidity_type=LiquidityTypes.at_maturity,
+    )
+    custody_meta = AssetMetaDataFactory(
+        code="CDB426DGCVL",
+        type=AssetTypes.fixed_br,
+        currency=Currencies.real,
+        asset=custody_asset,
+        current_price=Decimal("888"),
+        current_price_updated_at=timezone.make_aware(WORKBOOK_DT - timedelta(days=1)),
+    )
+    posicao_path = _build_posicao(tmp_path, [_cdb_position_row()])
+    movimentacao_path = _build_movimentacao(tmp_path, [])
+
+    import_b3_renda_fixa_positions(
+        user_id=user.id,
+        dry_run=False,
+        posicao_path=posicao_path,
+        movimentacao_path=movimentacao_path,
+    )
+
+    custody_meta.refresh_from_db()
+    assert custody_meta.current_price == Decimal("888")  # untouched
+    assert (
+        AssetMetaData.objects.get(
+            code="CDB426DGCVL", type=AssetTypes.fixed_br, asset__isnull=True
+        ).current_price
+        == Decimal("1100")
+    )
 
 
 def _neg_row(*, date: str, action: str, code: str, qty, price):
