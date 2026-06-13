@@ -221,7 +221,7 @@ def test_missing_asset_without_movimentacao_is_skipped_by_default(tmp_path, user
     )
 
     assert report["actions"][0]["action"] == "skipped"
-    assert "no movimentação" in report["actions"][0]["reason"]
+    assert "sem linha de movimentação" in report["actions"][0]["reason"]
     assert not Asset.objects.filter(user=user, code="CDB426DGCVL").exists()
 
 
@@ -398,7 +398,7 @@ def test_missing_td_asset_without_movimentacao_is_skipped(tmp_path, user):
     )
 
     assert report["actions"][0]["action"] == "skipped"
-    assert "no movimentação" in report["actions"][0]["reason"]
+    assert "sem linha de movimentação" in report["actions"][0]["reason"]
     assert not Asset.objects.filter(user=user, code="BRSTNCNTB7T1").exists()
 
 
@@ -441,7 +441,7 @@ def test_negociacao_skips_when_asset_not_in_db(tmp_path, user):
     )
 
     assert report["actions"][0]["action"] == "skipped"
-    assert "asset not in DB" in report["actions"][0]["reason"]
+    assert "ativo não cadastrado" in report["actions"][0]["reason"]
     assert not Transaction.objects.filter(asset__user=user).exists()
 
 
@@ -498,7 +498,7 @@ def test_negociacao_skips_when_missing_and_no_posicao(tmp_path, user):
     )
 
     assert report["actions"][0]["action"] == "skipped"
-    assert "create_missing_assets" in report["actions"][0]["reason"]
+    assert "Criar ativos ausentes" in report["actions"][0]["reason"]
 
 
 def test_negociacao_dry_run_rolls_back(tmp_path, user):
@@ -539,3 +539,78 @@ def test_invalid_posicao_filename_raises(tmp_path, user):
             posicao_path=str(bad),
             movimentacao_path=movimentacao_path,
         )
+
+
+def _neg_row(*, date: str, action: str, code: str, qty, price):
+    return [
+        date, action, "Mercado à Vista", "-", "INTER DTVM",
+        code, qty, price, float(qty) * float(price),
+    ]
+
+
+def test_negociacoes_applied_chronologically_when_file_is_descending(tmp_path, user):
+    # Existing asset with no holdings; the file lists the SELL (later date) BEFORE
+    # the BUY (earlier date), as B3 reports do (most-recent-first). Without
+    # chronological ordering the domain would reject the sell.
+    AssetFactory(
+        code="BBAS3", type=AssetTypes.stock, currency=Currencies.real,
+        objective=AssetObjectives.growth, user=user,
+    )
+    AssetMetaDataFactory(
+        code="BBAS3", type=AssetTypes.stock, currency=Currencies.real,
+        current_price=Decimal("21.71"), current_price_updated_at=timezone.now(),
+    )
+    from ...management.commands.sync_assets_cqrs import Command as Sync
+
+    Sync().handle(user_ids=[user.id])
+
+    negociacao_path = _build_negociacao(
+        tmp_path,
+        [
+            _neg_row(date="05/04/2026", action="Venda", code="BBAS3", qty=50, price=25),
+            _neg_row(date="01/04/2026", action="Compra", code="BBAS3", qty=100, price=20),
+        ],
+    )
+
+    report = import_b3_negociacoes(
+        user_id=user.id, dry_run=False, negociacao_path=negociacao_path
+    )
+
+    created = [a for a in report["actions"] if a["action"] == "transaction_created"]
+    assert len(created) == 2
+    assert (
+        Transaction.objects.filter(asset__user=user, asset__code="BBAS3").count() == 2
+    )
+
+
+def test_negociacoes_oversell_is_reported_not_aborted(tmp_path, user):
+    # Existing asset with no holdings; the file has only a SELL (partial history).
+    # The domain rejects it, but the import must report it as an error and keep
+    # going, not abort the whole run.
+    AssetFactory(
+        code="BBAS3", type=AssetTypes.stock, currency=Currencies.real,
+        objective=AssetObjectives.growth, user=user,
+    )
+    AssetMetaDataFactory(
+        code="BBAS3", type=AssetTypes.stock, currency=Currencies.real,
+        current_price=Decimal("21.71"), current_price_updated_at=timezone.now(),
+    )
+    from ...management.commands.sync_assets_cqrs import Command as Sync
+
+    Sync().handle(user_ids=[user.id])
+
+    negociacao_path = _build_negociacao(
+        tmp_path,
+        [_neg_row(date="01/04/2026", action="Venda", code="BBAS3", qty=10, price=20)],
+    )
+
+    report = import_b3_negociacoes(
+        user_id=user.id, dry_run=False, negociacao_path=negociacao_path
+    )
+
+    errors = [a for a in report["actions"] if a["action"] == "error"]
+    assert len(errors) == 1
+    assert "vender" in errors[0]["reason"].lower()
+    assert not Transaction.objects.filter(
+        asset__user=user, asset__code="BBAS3"
+    ).exists()

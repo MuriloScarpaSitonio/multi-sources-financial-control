@@ -3,6 +3,7 @@ import qs from "qs";
 import { apiProvider } from "../../../../api/methods";
 import { ApiListResponse, RawDateString } from "../../../../types";
 import { AssetCurrencies } from "../consts";
+import type { B3ImportResponse } from "../ImportB3/types";
 import { GroupBy, Kinds } from "../Reports/types";
 import {
   Asset,
@@ -14,6 +15,12 @@ import {
 } from "./models";
 
 const RESOURCE = "assets";
+
+// Pass FormData directly; axios derives the multipart boundary itself.
+export const importB3 = async (
+  formData: FormData,
+): Promise<B3ImportResponse> =>
+  (await apiProvider.post(`${RESOURCE}/b3_import`, formData)).data;
 
 type AssetsIndicatorsResponse = {
   ROI: number;

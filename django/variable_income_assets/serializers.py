@@ -1,5 +1,6 @@
 from decimal import ROUND_HALF_UP, Decimal, DecimalException
 
+from django.core.validators import FileExtensionValidator
 from django.utils import timezone
 
 from rest_framework import serializers
@@ -651,3 +652,70 @@ class AssetOperationPeriodSerializer(serializers.Serializer):
     started_at = serializers.DateField()
     closed_at = serializers.DateField(allow_null=True)
     roi = serializers.DecimalField(max_digits=20, decimal_places=4, allow_null=True)
+
+
+B3_IMPORT_OPERATIONS = ("negociacoes", "renda_fixa", "tesouro")
+B3_MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+class B3ImportSerializer(serializers.Serializer):
+    operations = serializers.ListField(
+        child=serializers.ChoiceField(choices=B3_IMPORT_OPERATIONS), allow_empty=False
+    )
+    dry_run = serializers.BooleanField()
+    create_missing_assets = serializers.BooleanField(required=False, default=False)
+    workbook_dt = serializers.DateTimeField(required=False, allow_null=True)
+    negociacao = serializers.FileField(
+        required=False,
+        allow_null=True,
+        validators=[FileExtensionValidator(allowed_extensions=["xlsx"])],
+    )
+    posicao = serializers.FileField(
+        required=False,
+        allow_null=True,
+        validators=[FileExtensionValidator(allowed_extensions=["xlsx"])],
+    )
+    movimentacao = serializers.FileField(
+        required=False,
+        allow_null=True,
+        validators=[FileExtensionValidator(allowed_extensions=["xlsx"])],
+    )
+
+    def validate(self, attrs: dict) -> dict:
+        ops = set(attrs["operations"])
+        negociacao = attrs.get("negociacao")
+        posicao = attrs.get("posicao")
+        movimentacao = attrs.get("movimentacao")
+
+        for field_name, file in (
+            ("negociacao", negociacao),
+            ("posicao", posicao),
+            ("movimentacao", movimentacao),
+        ):
+            # Extension is validated by FileExtensionValidator on the field; content is
+            # validated by openpyxl downstream. Here we only cap the size before reading.
+            if file is not None and file.size > B3_MAX_UPLOAD_BYTES:
+                raise serializers.ValidationError({field_name: "Arquivo muito grande (máx. 10 MB)"})
+
+        errors: dict = {}
+        if "negociacoes" in ops and negociacao is None:
+            errors["negociacao"] = "Necessário para importar negociações"
+        if attrs.get("create_missing_assets") and posicao is None:
+            errors["posicao"] = "Necessário para criar ativos ausentes"
+        if ops & {"renda_fixa", "tesouro"}:
+            if posicao is None:
+                errors["posicao"] = "Necessário para Renda Fixa / Tesouro"
+            if movimentacao is None:
+                errors["movimentacao"] = "Necessário para Renda Fixa / Tesouro"
+            if attrs.get("workbook_dt") is None:
+                errors["workbook_dt"] = "Necessário para Renda Fixa / Tesouro"
+        if errors:
+            raise serializers.ValidationError(errors)
+        return attrs
+
+
+class B3ImportResultSerializer(serializers.Serializer):
+    dry_run = serializers.BooleanField()
+    # reports maps each requested operation -> that handler's report dict
+    # (heterogeneous, already JSON-serializable); passed through as-is.
+    reports = serializers.DictField()

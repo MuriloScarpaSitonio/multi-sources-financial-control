@@ -15,6 +15,7 @@ import AddIcon from "@mui/icons-material/Add";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import SearchIcon from "@mui/icons-material/Search";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
 
 import {
   type MRT_PaginationState as PaginationState,
@@ -39,6 +40,7 @@ import { assetsFilterConfig } from "../../filterConfig";
 import NewTransactionDrawer from "../../../Transactions/components/NewTransactionDrawer";
 import CreateOrEditIncomeDrawer from "../../../Incomes/components/CreateOrEditIncomeDrawer";
 import { SearchBar } from "../../../components";
+import B3ImportDrawer from "../../ImportB3";
 
 const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -95,6 +97,7 @@ const TopToolBar = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openTransactionDrawer, setOpenTransactionDrawer] = useState(false);
   const [openIncomeDrawer, setOpenIncomeDrawer] = useState(false);
+  const [openB3ImportDrawer, setOpenB3ImportDrawer] = useState(false);
 
   return (
     <>
@@ -134,6 +137,14 @@ const TopToolBar = ({
             </Button>
             <Button
               variant="neutral"
+              startIcon={<UploadFileIcon />}
+              size="large"
+              onClick={() => setOpenB3ImportDrawer(true)}
+            >
+              Importar B3
+            </Button>
+            <Button
+              variant="neutral"
               startIcon={<FilterListIcon />}
               onClick={(e) => setAnchorEl(e.currentTarget)}
             >
@@ -165,6 +176,10 @@ const TopToolBar = ({
         open={openIncomeDrawer}
         onClose={() => setOpenIncomeDrawer(false)}
         variant="asset"
+      />
+      <B3ImportDrawer
+        open={openB3ImportDrawer}
+        onClose={() => setOpenB3ImportDrawer(false)}
       />
     </>
   );

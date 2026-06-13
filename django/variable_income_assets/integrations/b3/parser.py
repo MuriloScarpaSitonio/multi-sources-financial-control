@@ -3,8 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from openpyxl import load_workbook
-
+from ._workbook import WorkbookSource, open_workbook
 from .schemas import B3FixedIncomeKind, B3FixedIncomePosition
 
 logger = logging.getLogger(__name__)
@@ -29,7 +28,9 @@ class B3ParserError(Exception):
     pass
 
 
-def _resolve_path(path: str | None) -> Path:
+def _resolve_path(path: WorkbookSource | None) -> WorkbookSource:
+    if isinstance(path, bytes):
+        return path
     if path is not None:
         return Path(path)
 
@@ -44,9 +45,7 @@ def _resolve_path(path: str | None) -> Path:
 def _is_blank(value) -> bool:
     if value is None:
         return True
-    if isinstance(value, str) and value.strip() in ("", "-"):
-        return True
-    return False
+    return bool(isinstance(value, str) and value.strip() in ("", "-"))
 
 
 def _to_optional_str(value) -> str | None:
@@ -118,12 +117,11 @@ def _build_header_index(header_row: tuple) -> dict[str, int]:
     return index
 
 
-def parse_positions(path: str | None = None) -> list[B3FixedIncomePosition]:
-    resolved = _resolve_path(path)
-    workbook = load_workbook(resolved, data_only=True)
+def parse_positions(path: WorkbookSource | None = None) -> list[B3FixedIncomePosition]:
+    workbook = open_workbook(_resolve_path(path))
     try:
         if SHEET_NAME not in workbook.sheetnames:
-            raise B3ParserError(f"sheet {SHEET_NAME!r} not found in {resolved}")
+            raise B3ParserError(f"sheet {SHEET_NAME!r} not found")
 
         sheet = workbook[SHEET_NAME]
         rows = sheet.iter_rows(values_only=True)

@@ -24,6 +24,7 @@ dependencies = [
     "requests>=2.31.0,<3",
     "stripe>=7.8.0,<8",
     "psycopg[pool]>=3.2.10",
+    "openpyxl>=3.1,<4",
 ]
 
 [dependency-groups]

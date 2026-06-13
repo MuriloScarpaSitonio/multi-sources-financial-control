@@ -1,8 +1,11 @@
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
+
+# AssetMetaData.current_price is DecimalField(decimal_places=10).
+_PRICE_QUANTUM = Decimal("1.0000000000")
 
 
 class B3FixedIncomeKind(StrEnum):
@@ -56,7 +59,9 @@ class B3TesouroPosition(BaseModel):
     def current_price(self) -> Decimal | None:
         if self.current_value is None or self.quantity == 0:
             return None
-        return self.current_value / self.quantity
+        return (self.current_value / self.quantity).quantize(
+            _PRICE_QUANTUM, rounding=ROUND_HALF_UP
+        )
 
 
 class B3TesouroMovement(BaseModel):

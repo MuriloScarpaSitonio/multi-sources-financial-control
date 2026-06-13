@@ -110,7 +110,8 @@ def test_happy_path_parses_tesouro_positions(tmp_path):
     assert ipca.maturity_date == date(2032, 8, 15)
     assert ipca.quantity == Decimal("15.48")
     assert ipca.current_value == Decimal("45390.59")
-    assert ipca.current_price == Decimal("45390.59") / Decimal("15.48")
+    # current_price is quantized to AssetMetaData's 10 decimal places.
+    assert ipca.current_price == Decimal("2932.2086563307")
 
 
 def test_position_blank_and_total_rows_are_skipped(tmp_path):

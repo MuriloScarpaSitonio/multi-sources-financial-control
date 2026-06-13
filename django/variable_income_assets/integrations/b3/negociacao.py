@@ -2,8 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from openpyxl import load_workbook
-
+from ._workbook import WorkbookSource, open_workbook
 from .parser import PROJECT_ROOT, B3ParserError
 from .schemas import B3FixedIncomeAction, B3StockNegotiation, B3StockPosition
 
@@ -35,9 +34,11 @@ NEGOCIACAO_REQUIRED_HEADERS = (
 )
 
 
-def resolve_negociacao_path(path: str | None) -> Path:
-    if path is not None:
-        return Path(path)
+def resolve_negociacao_path(source: WorkbookSource | None) -> WorkbookSource:
+    if isinstance(source, bytes):
+        return source
+    if source is not None:
+        return Path(source)
     candidates = sorted(
         PROJECT_ROOT.glob(NEGOCIACAO_GLOB_PATTERN),
         key=lambda p: p.stat().st_mtime,
@@ -116,13 +117,12 @@ def _build_header_index(header_row: tuple, *, required: tuple[str, ...]) -> dict
 
 
 def _parse_positions_sheet(
-    path: str, *, sheet_name: str, asset_type: str
+    path: WorkbookSource, *, sheet_name: str, asset_type: str
 ) -> list[B3StockPosition]:
-    resolved = Path(path)
-    workbook = load_workbook(resolved, data_only=True)
+    workbook = open_workbook(path)
     try:
         if sheet_name not in workbook.sheetnames:
-            raise B3ParserError(f"sheet {sheet_name!r} not found in {resolved}")
+            raise B3ParserError(f"sheet {sheet_name!r} not found")
 
         sheet = workbook[sheet_name]
         rows = sheet.iter_rows(values_only=True)
@@ -162,20 +162,19 @@ def _parse_positions_sheet(
         workbook.close()
 
 
-def parse_stock_positions(path: str, *, asset_type: str) -> list[B3StockPosition]:
+def parse_stock_positions(path: WorkbookSource, *, asset_type: str) -> list[B3StockPosition]:
     return _parse_positions_sheet(path, sheet_name=ACOES_SHEET, asset_type=asset_type)
 
 
-def parse_fii_positions(path: str, *, asset_type: str) -> list[B3StockPosition]:
+def parse_fii_positions(path: WorkbookSource, *, asset_type: str) -> list[B3StockPosition]:
     return _parse_positions_sheet(path, sheet_name=FII_SHEET, asset_type=asset_type)
 
 
-def parse_negotiations(path: str) -> list[B3StockNegotiation]:
-    resolved = Path(path)
-    workbook = load_workbook(resolved, data_only=True)
+def parse_negotiations(path: WorkbookSource) -> list[B3StockNegotiation]:
+    workbook = open_workbook(path)
     try:
         if NEGOCIACAO_SHEET not in workbook.sheetnames:
-            raise B3ParserError(f"sheet {NEGOCIACAO_SHEET!r} not found in {resolved}")
+            raise B3ParserError(f"sheet {NEGOCIACAO_SHEET!r} not found")
 
         sheet = workbook[NEGOCIACAO_SHEET]
         rows = sheet.iter_rows(values_only=True)
