@@ -16,11 +16,16 @@ import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { ptBR } from "date-fns/locale/pt-BR";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { enqueueSnackbar } from "notistack";
 
 import { Colors, getColor } from "../../../../design-system";
+import { TRANSACTIONS_QUERY_KEY } from "../../Transactions/consts";
 import { importB3 } from "../api";
+import { useInvalidateAssetsIndicatorsQueries } from "../Indicators/hooks";
+import { useInvalidateAssetsReportsQueries } from "../Reports/hooks";
+import { GroupBy } from "../Reports/types";
+import { ASSETS_QUERY_KEY } from "../Table/consts";
 import B3ImportReport from "./B3ImportReport";
 import FileDropArea from "./FileDropArea";
 import {
@@ -69,6 +74,12 @@ const B3ImportDrawer = ({
   const [previewedSignature, setPreviewedSignature] = useState<string | null>(
     null,
   );
+
+  const queryClient = useQueryClient();
+  const { invalidate: invalidateAssetsReportsQueries } =
+    useInvalidateAssetsReportsQueries();
+  const { invalidate: invalidateAssetsIndicatorsQueries } =
+    useInvalidateAssetsIndicatorsQueries();
 
   // When the file set changes, default to every operation those files enable
   // (assume the user wants them all); they can still uncheck before running.
@@ -149,15 +160,24 @@ const B3ImportDrawer = ({
       if (workbookDt) fd.append("workbook_dt", workbookDt.toISOString());
       return importB3(fd);
     },
-    onSuccess: (data, asDryRun) => {
+    onSuccess: async (data, asDryRun) => {
       setReport(data);
       if (asDryRun) {
         setPreviewedSignature(currentSignature);
         enqueueSnackbar("Pré-visualização gerada", { variant: "success" });
-      } else {
-        setPreviewedSignature(null);
-        enqueueSnackbar("Importação aplicada", { variant: "success" });
+        return;
       }
+      // Applied: a fresh preview is required before applying again, and we go
+      // back to dry-run mode so the "preview first" hint doesn't show post-apply.
+      setPreviewedSignature(null);
+      setDryRun(true);
+      await Promise.all([
+        invalidateAssetsReportsQueries({ group_by: GroupBy.TYPE }),
+        invalidateAssetsIndicatorsQueries(),
+        queryClient.invalidateQueries({ queryKey: [ASSETS_QUERY_KEY] }),
+        queryClient.invalidateQueries({ queryKey: [TRANSACTIONS_QUERY_KEY] }),
+      ]);
+      enqueueSnackbar("Importação aplicada", { variant: "success" });
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (error: any) => {
