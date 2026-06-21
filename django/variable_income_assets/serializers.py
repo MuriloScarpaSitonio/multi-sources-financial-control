@@ -654,7 +654,7 @@ class AssetOperationPeriodSerializer(serializers.Serializer):
     roi = serializers.DecimalField(max_digits=20, decimal_places=4, allow_null=True)
 
 
-B3_IMPORT_OPERATIONS = ("negociacoes", "renda_fixa", "tesouro")
+B3_IMPORT_OPERATIONS = ("negociacoes", "renda_fixa", "tesouro", "proventos")
 B3_MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
@@ -680,6 +680,11 @@ class B3ImportSerializer(serializers.Serializer):
         allow_null=True,
         validators=[FileExtensionValidator(allowed_extensions=["xlsx"])],
     )
+    proventos = serializers.FileField(
+        required=False,
+        allow_null=True,
+        validators=[FileExtensionValidator(allowed_extensions=["xlsx"])],
+    )
 
     def validate(self, attrs: dict) -> dict:
         # Normalize duplicates so an operation isn't executed (and its report
@@ -689,11 +694,13 @@ class B3ImportSerializer(serializers.Serializer):
         negociacao = attrs.get("negociacao")
         posicao = attrs.get("posicao")
         movimentacao = attrs.get("movimentacao")
+        proventos = attrs.get("proventos")
 
         for field_name, file in (
             ("negociacao", negociacao),
             ("posicao", posicao),
             ("movimentacao", movimentacao),
+            ("proventos", proventos),
         ):
             # Extension is validated by FileExtensionValidator on the field; content is
             # validated by openpyxl downstream. Here we only cap the size before reading.
@@ -703,6 +710,8 @@ class B3ImportSerializer(serializers.Serializer):
         errors: dict = {}
         if "negociacoes" in ops and negociacao is None:
             errors["negociacao"] = "Necessário para importar negociações"
+        if "proventos" in ops and proventos is None:
+            errors["proventos"] = "Necessário para importar proventos"
         if attrs.get("create_missing_assets") and posicao is None:
             errors["posicao"] = "Necessário para criar ativos ausentes"
         if ops & {"renda_fixa", "tesouro"}:

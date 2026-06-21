@@ -309,3 +309,64 @@ def test_endpoint_bad_file_returns_400_with_operation(client):
     )
     assert response.status_code == 400
     assert response.data["operation"] == "tesouro"
+
+
+def test_serializer_proventos_requires_file():
+    from variable_income_assets.serializers import B3ImportSerializer
+
+    serializer = B3ImportSerializer(data={"operations": ["proventos"], "dry_run": True})
+    assert not serializer.is_valid()
+    assert "proventos" in serializer.errors
+
+
+def test_service_proventos_creates_income(tmp_path, user):
+    from variable_income_assets.choices import (
+        AssetObjectives,
+        AssetTypes,
+        Currencies,
+    )
+    from variable_income_assets.integrations.b3.import_service import run_b3_import
+    from variable_income_assets.management.commands.sync_assets_cqrs import (
+        Command as Sync,
+    )
+    from variable_income_assets.models import PassiveIncome
+    from variable_income_assets.tests.conftest import AssetFactory, AssetMetaDataFactory
+    from variable_income_assets.tests.integrations.test__b3_handlers import (
+        _build_proventos,
+    )
+
+    AssetFactory(
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        objective=AssetObjectives.growth,
+        user=user,
+    )
+    AssetMetaDataFactory(
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        current_price=Decimal("21.71"),
+        current_price_updated_at=timezone.now(),
+    )
+    Sync().handle(user_ids=[user.id])
+    d = (timezone.localdate() - timedelta(days=1)).strftime("%d/%m/%Y")
+    path = _build_proventos(
+        tmp_path, [["BBAS3 - BANCO DO BRASIL S/A", d, "Dividendo", "INTER", "100", 1, "10.00"]]
+    )
+    proventos = _upload_from_path(path, "proventos-2026.xlsx")
+
+    result = run_b3_import(
+        user_id=user.id,
+        operations=["proventos"],
+        dry_run=False,
+        workbook_dt=None,
+        negociacao_file=None,
+        posicao_file=None,
+        movimentacao_file=None,
+        proventos_file=proventos,
+    )
+
+    actions = result["reports"]["proventos"]["actions"]
+    assert actions[0]["action"] == "income_created"
+    assert PassiveIncome.objects.filter(asset__user=user, asset__code="BBAS3").exists()

@@ -50,7 +50,7 @@ const FileDropArea = ({ onFiles }: { onFiles: (files: FileList) => void }) => {
         Arraste os arquivos da B3 aqui ou clique para selecionar
       </Typography>
       <Typography variant="caption" color={getColor(Colors.neutral300)}>
-        negociação, posição e/ou movimentação (.xlsx)
+        negociação, posição, movimentação e/ou proventos (.xlsx)
       </Typography>
     </Box>
   );

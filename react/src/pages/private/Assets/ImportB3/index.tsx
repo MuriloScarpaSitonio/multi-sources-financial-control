@@ -43,18 +43,21 @@ const OPERATIONS: { op: B3Operation; label: string }[] = [
   { op: "negociacoes", label: "Negociações" },
   { op: "renda_fixa", label: "Renda Fixa" },
   { op: "tesouro", label: "Tesouro" },
+  { op: "proventos", label: "Proventos" },
 ];
 
 const SLOT_LABELS: { slot: B3FileSlot; label: string }[] = [
   { slot: "negociacao", label: "Negociação" },
   { slot: "posicao", label: "Posição" },
   { slot: "movimentacao", label: "Movimentação" },
+  { slot: "proventos", label: "Proventos" },
 ];
 
 const EMPTY_FILES: B3Files = {
   negociacao: null,
   posicao: null,
   movimentacao: null,
+  proventos: null,
 };
 
 const B3ImportDrawer = ({
@@ -154,6 +157,7 @@ const B3ImportDrawer = ({
       if (files.negociacao) fd.append("negociacao", files.negociacao);
       if (files.posicao) fd.append("posicao", files.posicao);
       if (files.movimentacao) fd.append("movimentacao", files.movimentacao);
+      if (files.proventos) fd.append("proventos", files.proventos);
       selectedOps.forEach((op) => fd.append("operations", op));
       fd.append("dry_run", String(asDryRun));
       fd.append("create_missing_assets", String(createMissingAssets));

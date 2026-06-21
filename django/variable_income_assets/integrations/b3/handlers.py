@@ -12,9 +12,20 @@ from django.utils import timezone
 
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
-from ...choices import AssetObjectives, AssetTypes, Currencies, LiquidityTypes
-from ...models import Asset, AssetMetaData, Transaction
+from ...adapters.key_value_store import get_dollar_conversion_rate
+from ...choices import (
+    AssetObjectives,
+    AssetTypes,
+    Currencies,
+    LiquidityTypes,
+    PassiveIncomeEventTypes,
+    PassiveIncomeTypes,
+)
+from ...domain import events
+from ...models import Asset, AssetMetaData, PassiveIncome, Transaction
 from ...serializers import AssetSerializer, TransactionListSerializer
+from ...service_layer import messagebus
+from ...service_layer.unit_of_work import DjangoUnitOfWork
 from ._workbook import WorkbookSource
 from .movimentacao import parse_movements
 from .negociacao import (
@@ -24,10 +35,12 @@ from .negociacao import (
     resolve_negociacao_path,
 )
 from .parser import parse_positions
+from .proventos import parse_proventos, resolve_proventos_path
 from .schemas import (
     B3FixedIncomeAction,
     B3FixedIncomeMovement,
     B3FixedIncomePosition,
+    B3ProventoType,
     B3StockNegotiation,
     B3StockPosition,
     B3TesouroMovement,
@@ -787,6 +800,139 @@ def import_b3_fixed_income_positions(
     )
 
 
+_PROVENTO_TYPE_MAP = {
+    B3ProventoType.DIVIDENDO: PassiveIncomeTypes.dividend,
+    B3ProventoType.JSCP: PassiveIncomeTypes.jcp,
+    B3ProventoType.RENDIMENTO: PassiveIncomeTypes.income,
+    B3ProventoType.REEMBOLSO: PassiveIncomeTypes.reimbursement,
+}
+
+
+def _proventos_actions(*, user_id: int, proventos_path_resolved) -> list[dict]:
+    proventos = parse_proventos(proventos_path_resolved)
+    if not proventos:
+        return []
+
+    # Bulk-load every involved asset and their existing credited incomes (2 queries
+    # total) instead of querying per row; persist with a single bulk_create.
+    assets_by_code = {
+        asset.code: asset
+        for asset in Asset.objects.filter(
+            user_id=user_id, code__in={p.code for p in proventos}
+        )
+    }
+    existing = set(
+        PassiveIncome.objects.filter(
+            asset_id__in=[a.id for a in assets_by_code.values()],
+            event_type=PassiveIncomeEventTypes.credited,
+        ).values_list("asset_id", "type", "operation_date", "amount")
+    )
+
+    today = timezone.localdate()
+    actions: list[dict] = []
+    to_create: list[PassiveIncome] = []
+
+    for provento in proventos:
+        asset = assets_by_code.get(provento.code)
+        if asset is None:
+            actions.append(
+                {"code": provento.code, "action": "skipped", "reason": "ativo não cadastrado"}
+            )
+            continue
+
+        income_type = _PROVENTO_TYPE_MAP[provento.kind]
+        base = {
+            "code": provento.code,
+            "description": asset.description,
+            "income": {
+                "type": income_type,
+                "amount": str(provento.amount),
+                "currency": asset.currency,
+                "operation_date": provento.payment_date.isoformat(),
+            },
+        }
+
+        key = (asset.id, income_type, provento.payment_date, provento.amount)
+        if key in existing:
+            actions.append({**base, "action": "skipped", "reason": "provento já cadastrado"})
+            continue
+        if provento.payment_date > today:
+            actions.append(
+                {
+                    **base,
+                    "action": "error",
+                    "reason": "rendimento creditado não pode estar no futuro",
+                }
+            )
+            continue
+        choice = AssetTypes.get_choice(asset.type)
+        if not choice.accept_incomes:
+            actions.append(
+                {
+                    **base,
+                    "action": "error",
+                    "reason": f"ativos de classe {choice.label} não aceitam rendimentos",
+                }
+            )
+            continue
+
+        to_create.append(
+            PassiveIncome(
+                asset=asset,
+                type=income_type,
+                event_type=PassiveIncomeEventTypes.credited,
+                amount=provento.amount,
+                operation_date=provento.payment_date,
+                current_currency_conversion_rate=(
+                    Decimal("1")
+                    if asset.currency == Currencies.real
+                    else get_dollar_conversion_rate()
+                ),
+            )
+        )
+        existing.add(key)  # also dedupe duplicate rows within the same file
+        actions.append({**base, "action": "income_created", "asset_pk": asset.id})
+
+    if to_create:
+        PassiveIncome.objects.bulk_create(to_create)
+        # bulk_create skips the messagebus, so upsert each affected asset's read
+        # model once (PassiveIncomeCreated -> upsert_read_model, aggregate fields).
+        for affected_asset_id in {income.asset_id for income in to_create}:
+            with DjangoUnitOfWork(asset_pk=affected_asset_id) as uow:
+                messagebus.handle(
+                    message=events.PassiveIncomeCreated(asset_pk=affected_asset_id),
+                    uow=uow,
+                )
+
+    return actions
+
+
+def import_b3_proventos(
+    *,
+    user_id: int,
+    dry_run: bool = True,
+    proventos_path: str | None = None,
+) -> dict:
+    proventos_resolved = resolve_proventos_path(proventos_path)
+
+    actions: list[dict] = []
+    try:
+        with djtransaction.atomic():
+            actions = _proventos_actions(
+                user_id=user_id, proventos_path_resolved=proventos_resolved
+            )
+            if dry_run:
+                raise _DryRunRollback
+    except _DryRunRollback:
+        pass
+
+    return {
+        "dry_run": dry_run,
+        "proventos_path": _source_label(proventos_resolved),
+        "actions": actions,
+    }
+
+
 def format_report(report: dict) -> str:
     lines: list[str] = []
     label = "DRY RUN" if report["dry_run"] else "APPLIED"
@@ -797,6 +943,8 @@ def format_report(report: dict) -> str:
         lines.append(f"  posicao:  {report['posicao_path']}")
     if "negociacao_path" in report:
         lines.append(f"  negociacao: {report['negociacao_path']}")
+    if "proventos_path" in report:
+        lines.append(f"  proventos: {report['proventos_path']}")
     lines.append("")
 
     counts: dict[str, int] = defaultdict(int)
@@ -839,6 +987,11 @@ def _format_action_detail(entry: dict) -> str:
     if action == "transaction_created":
         tx = entry["transaction"]
         return f"{tx['action']} {tx['quantity']} @ {tx['price']} on {tx['operation_date']}"
+    if action == "income_created":
+        inc = entry["income"]
+        return f"{inc['type']} {inc['amount']} on {inc['operation_date']}"
+    if action == "error":
+        return entry.get("reason", "")
     if action == "exists":
         return f"already in DB ({entry.get('type', '')})"
     if action == "asset_created":

@@ -10,10 +10,18 @@ from ...integrations.b3.handlers import (
     B3ImportError,
     import_b3_fixed_income_positions,
     import_b3_negociacoes,
+    import_b3_proventos,
     import_b3_renda_fixa_positions,
 )
-from ...models import Asset, AssetMetaData, Transaction
-from ...choices import AssetTypes, Currencies, LiquidityTypes, AssetObjectives
+from ...models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
+from ...choices import (
+    AssetObjectives,
+    AssetTypes,
+    Currencies,
+    LiquidityTypes,
+    PassiveIncomeEventTypes,
+    PassiveIncomeTypes,
+)
 from ..conftest import AssetFactory, AssetMetaDataFactory
 
 pytestmark = pytest.mark.django_db
@@ -684,3 +692,116 @@ def test_negociacoes_oversell_is_reported_not_aborted(tmp_path, user):
     assert not Transaction.objects.filter(
         asset__user=user, asset__code="BBAS3"
     ).exists()
+
+
+PROVENTOS_HEADER = [
+    "Produto",
+    "Pagamento",
+    "Tipo de Evento",
+    "Instituição",
+    "Quantidade",
+    "Preço unitário",
+    "Valor líquido",
+]
+
+
+def _build_proventos(tmp_path: Path, rows: list[list]) -> str:
+    path = tmp_path / "proventos-2026-06-12.xlsx"
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Proventos Recebidos"
+    ws.append(PROVENTOS_HEADER)
+    for row in rows:
+        ws.append(row)
+    wb.save(path)
+    return str(path)
+
+
+def test_proventos_creates_income_dedupes_and_skips_unknown(tmp_path, user):
+    from ...management.commands.sync_assets_cqrs import Command as Sync
+
+    asset = AssetFactory(
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        objective=AssetObjectives.growth,
+        user=user,
+    )
+    AssetMetaDataFactory(
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        current_price=Decimal("21.71"),
+        current_price_updated_at=timezone.now(),
+    )
+    Sync().handle(user_ids=[user.id])
+    yesterday = timezone.localdate() - timedelta(days=1)
+    d = yesterday.strftime("%d/%m/%Y")
+    rows = [
+        [
+            "BBAS3 - BANCO DO BRASIL S/A", d, "Juros Sobre Capital Próprio",
+            "INTER", "100", 1, "221.58",
+        ],
+        ["FOO11 - NAO CADASTRADO", d, "Rendimento", "INTER", "10", 1, "5.00"],
+    ]
+    proventos_path = _build_proventos(tmp_path, rows)
+
+    report = import_b3_proventos(user_id=user.id, dry_run=False, proventos_path=proventos_path)
+
+    created = [a for a in report["actions"] if a["action"] == "income_created"]
+    assert len(created) == 1 and created[0]["code"] == "BBAS3"
+    assert any(
+        a["action"] == "skipped" and a["code"] == "FOO11" for a in report["actions"]
+    )
+
+    income = PassiveIncome.objects.get(asset__user=user, asset__code="BBAS3")
+    assert income.type == PassiveIncomeTypes.jcp
+    assert income.event_type == PassiveIncomeEventTypes.credited
+    assert income.amount == Decimal("221.58")
+    assert income.operation_date == yesterday
+
+    # bulk_create skips the messagebus, so the read model is upserted explicitly
+    read_model = AssetReadModel.objects.get(write_model_pk=asset.id)
+    assert read_model.credited_incomes == Decimal("221.58")
+
+    # re-running dedupes: no new income for BBAS3
+    report2 = import_b3_proventos(user_id=user.id, dry_run=False, proventos_path=proventos_path)
+    assert all(
+        a["action"] != "income_created"
+        for a in report2["actions"]
+        if a["code"] == "BBAS3"
+    )
+    assert PassiveIncome.objects.filter(asset__user=user, asset__code="BBAS3").count() == 1
+    read_model.refresh_from_db()
+    assert read_model.credited_incomes == Decimal("221.58")  # unchanged
+
+
+def test_proventos_dry_run_persists_nothing(tmp_path, user):
+    from ...management.commands.sync_assets_cqrs import Command as Sync
+
+    asset = AssetFactory(
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        objective=AssetObjectives.growth,
+        user=user,
+    )
+    AssetMetaDataFactory(
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        current_price=Decimal("21.71"),
+        current_price_updated_at=timezone.now(),
+    )
+    Sync().handle(user_ids=[user.id])
+    d = (timezone.localdate() - timedelta(days=1)).strftime("%d/%m/%Y")
+    proventos_path = _build_proventos(
+        tmp_path, [["BBAS3 - BANCO DO BRASIL S/A", d, "Dividendo", "INTER", "100", 1, "10.00"]]
+    )
+
+    report = import_b3_proventos(user_id=user.id, dry_run=True, proventos_path=proventos_path)
+
+    assert report["actions"][0]["action"] == "income_created"
+    assert not PassiveIncome.objects.filter(asset__user=user, asset__code="BBAS3").exists()
+    # the read-model upsert is rolled back too
+    assert AssetReadModel.objects.get(write_model_pk=asset.id).credited_incomes == Decimal("0")

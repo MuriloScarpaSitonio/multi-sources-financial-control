@@ -20,6 +20,22 @@ class B3FixedIncomeAction(StrEnum):
     SELL = "SELL"
 
 
+class B3ProventoType(StrEnum):
+    DIVIDENDO = "DIVIDENDO"
+    JSCP = "JSCP"
+    RENDIMENTO = "RENDIMENTO"
+    REEMBOLSO = "REEMBOLSO"
+
+
+class B3Provento(BaseModel):
+    code: str
+    kind: B3ProventoType
+    payment_date: date
+    amount: Decimal
+
+    model_config = ConfigDict(frozen=True)
+
+
 class B3FixedIncomePosition(BaseModel):
     kind: B3FixedIncomeKind
     description: str

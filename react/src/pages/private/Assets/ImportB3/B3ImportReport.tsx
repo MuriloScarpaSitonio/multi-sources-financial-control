@@ -20,9 +20,11 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 
 import { Colors, getColor } from "../../../../design-system";
+import { AssetCurrencies, AssetCurrencyMap } from "../consts";
 import { priceDiffPct } from "./logic";
 import type {
   B3ActionEntry,
+  B3Income,
   B3ImportResponse,
   B3Operation,
   B3OperationReport,
@@ -32,16 +34,38 @@ const OPERATION_LABELS: Record<B3Operation, string> = {
   negociacoes: "Negociações",
   renda_fixa: "Renda Fixa",
   tesouro: "Tesouro",
+  proventos: "Proventos",
 };
 
 const ACTION_LABELS: Record<string, string> = {
   created: "Ativo criado",
   asset_created: "Ativo criado",
   transaction_created: "Transação criada",
+  income_created: "Provento criado",
   price_updated: "Preço atualizado",
   price_skipped: "Preço mantido",
   skipped: "Ignorado",
   error: "Erro",
+};
+
+const INCOME_TYPE_LABELS: Record<string, string> = {
+  DIVIDEND: "Dividendo",
+  JCP: "JCP",
+  INCOME: "Rendimento",
+  REIMBURSEMENT: "Reembolso",
+};
+
+// "JCP · R$221,58 · 11/06/2026"
+const formatIncome = (income: B3Income): string => {
+  const typeLabel = INCOME_TYPE_LABELS[income.type] ?? income.type;
+  const symbol =
+    AssetCurrencyMap[income.currency as AssetCurrencies]?.symbol ?? "";
+  const amount = Number(income.amount).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const [y, m, d] = income.operation_date.split("-");
+  return `${typeLabel} · ${symbol}${amount} · ${d}/${m}/${y}`;
 };
 
 // These chips label an outcome (not a status), so render them as outlined tags
@@ -51,6 +75,7 @@ const COLOR_BY_ACTION: Record<string, Colors> = {
   created: Colors.brand,
   asset_created: Colors.brand,
   transaction_created: Colors.brand,
+  income_created: Colors.brand,
   price_updated: Colors.brand,
   price_skipped: Colors.neutral300,
   skipped: Colors.neutral300,
@@ -75,6 +100,8 @@ const detailText = (entry: B3ActionEntry): string => {
   if (entry.action === "skipped") return entry.reason ?? "";
   if (entry.action === "price_skipped") return entry.reason ?? "";
   if (entry.action === "error") return entry.reason ?? "";
+  if (entry.action === "income_created" && entry.income)
+    return formatIncome(entry.income);
   if (entry.action === "created" || entry.action === "asset_created")
     return `#${entry.asset_pk ?? "—"}`;
   return "";

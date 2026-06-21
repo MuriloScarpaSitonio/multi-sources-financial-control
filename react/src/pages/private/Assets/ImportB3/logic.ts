@@ -4,6 +4,7 @@ export type B3Files = {
   negociacao: File | null;
   posicao: File | null;
   movimentacao: File | null;
+  proventos: File | null;
 };
 
 export type B3FileSlot = keyof B3Files;
@@ -15,11 +16,13 @@ export const classifyB3File = (name: string): B3FileSlot | null => {
   if (lower.startsWith("negociacao")) return "negociacao";
   if (lower.startsWith("posicao")) return "posicao";
   if (lower.startsWith("movimentacao")) return "movimentacao";
+  if (lower.startsWith("proventos")) return "proventos";
   return null;
 };
 
 export const isOperationEnabled = (op: B3Operation, files: B3Files): boolean => {
   if (op === "negociacoes") return files.negociacao !== null;
+  if (op === "proventos") return files.proventos !== null;
   // renda_fixa and tesouro both require posicao AND movimentacao
   return files.posicao !== null && files.movimentacao !== null;
 };
@@ -73,6 +76,7 @@ export const computeSignature = (
     neg: fileKey(files.negociacao),
     pos: fileKey(files.posicao),
     mov: fileKey(files.movimentacao),
+    prov: fileKey(files.proventos),
     ops: [...operations].sort(),
     dt: workbookDt ? workbookDt.toISOString() : "-",
     cma: createMissingAssets,

@@ -12,6 +12,7 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 from .handlers import (
     B3ImportError,
     import_b3_negociacoes,
+    import_b3_proventos,
     import_b3_renda_fixa_positions,
     import_b3_tesouro_positions,
 )
@@ -63,6 +64,7 @@ def _run_operation(
     negociacao: bytes | None,
     posicao: bytes | None,
     movimentacao: bytes | None,
+    proventos: bytes | None,
 ) -> dict:
     if operation == "negociacoes":
         return import_b3_negociacoes(
@@ -71,6 +73,10 @@ def _run_operation(
             create_missing_assets=create_missing_assets,
             negociacao_path=negociacao,
             posicao_path=posicao,
+        )
+    if operation == "proventos":
+        return import_b3_proventos(
+            user_id=user_id, dry_run=dry_run, proventos_path=proventos
         )
     if operation == "renda_fixa":
         return import_b3_renda_fixa_positions(
@@ -99,11 +105,13 @@ def run_b3_import(
     negociacao_file: UploadedFile | None,
     posicao_file: UploadedFile | None,
     movimentacao_file: UploadedFile | None,
+    proventos_file: UploadedFile | None = None,
 ) -> dict:
     files = {
         "negociacao": _read(negociacao_file),
         "posicao": _read(posicao_file),
         "movimentacao": _read(movimentacao_file),
+        "proventos": _read(proventos_file),
     }
 
     def run_all() -> dict:
