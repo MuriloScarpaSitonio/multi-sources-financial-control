@@ -114,11 +114,38 @@ def _build_description(position: B3FixedIncomePosition) -> str:
     return f"{base} - venc {position.maturity_date.strftime('%d/%m/%Y')}"
 
 
+def _bulk_fetch_fixed_br_metadata(codes) -> dict[str, AssetMetaData]:
+    # The global (B3-synced) metadata row per code, scoped by type+currency and
+    # asset__isnull so we never touch a same-code row of another type/currency or
+    # a user's direct self-custody metadata (AssetMetaData.code is not unique).
+    return {
+        metadata.code: metadata
+        for metadata in AssetMetaData.objects.filter(
+            code__in=set(codes),
+            type=AssetTypes.fixed_br,
+            currency=Currencies.real,
+            asset__isnull=True,
+        )
+    }
+
+
+def _bulk_fetch_existing_transactions(asset_ids) -> dict[int, set]:
+    # {asset_id: {(action, operation_date, quantity, price)}} for transaction dedup.
+    existing: dict[int, set] = defaultdict(set)
+    for asset_id, action, operation_date, quantity, price in Transaction.objects.filter(
+        asset_id__in=asset_ids
+    ).values_list("asset_id", "action", "operation_date", "quantity", "price"):
+        existing[asset_id].add((action, operation_date, quantity, price))
+    return existing
+
+
 def _update_existing_price(
     *,
     code: str,
     new_price: Decimal | None,
     workbook_dt: datetime,
+    metadata: AssetMetaData | None,
+    updates: list[AssetMetaData],
     description: str | None = None,
 ) -> dict:
     if new_price is None:
@@ -129,17 +156,6 @@ def _update_existing_price(
             "reason": "sem preço atual na posição",
         }
 
-    # B3 fixed income/Tesouro is BRL and lives in the global (B3-synced) metadata
-    # row. Scope by type+currency and asset__isnull so we never touch a same-code
-    # row of another type/currency or a user's direct self-custody metadata
-    # (AssetMetaData.code is not globally unique).
-    metadata_qs = AssetMetaData.objects.filter(
-        code=code,
-        type=AssetTypes.fixed_br,
-        currency=Currencies.real,
-        asset__isnull=True,
-    )
-    metadata = metadata_qs.first()
     if metadata is None:
         return {
             "code": code,
@@ -159,12 +175,15 @@ def _update_existing_price(
             "workbook_dt": workbook_dt.isoformat(),
         }
 
-    metadata_qs.update(current_price=new_price, current_price_updated_at=timezone.now())
+    previous_price = metadata.current_price
+    metadata.current_price = new_price
+    metadata.current_price_updated_at = timezone.now()
+    updates.append(metadata)
     return {
         "code": code,
         "description": description,
         "action": "price_updated",
-        "previous_price": str(metadata.current_price) if metadata.current_price else None,
+        "previous_price": str(previous_price) if previous_price else None,
         "new_price": str(new_price),
     }
 
@@ -328,6 +347,17 @@ def _renda_fixa_actions(
     for movement in movements:
         movements_by_code[movement.code].append(movement)
 
+    # Bulk-load which codes already exist + their metadata (2 queries) instead of
+    # one lookup per position; price writes are batched via bulk_update at the end.
+    position_codes = {p.code for p in positions if p.code}
+    existing_codes = set(
+        Asset.objects.filter(
+            user_id=user_id, type=AssetTypes.fixed_br, code__in=position_codes
+        ).values_list("code", flat=True)
+    )
+    metadata_by_code = _bulk_fetch_fixed_br_metadata(existing_codes)
+    price_updates: list[AssetMetaData] = []
+
     actions: list[dict] = []
     for position in positions:
         if not position.code:
@@ -341,14 +371,14 @@ def _renda_fixa_actions(
             )
             continue
 
-        if Asset.objects.filter(
-            user_id=user_id, code=position.code, type=AssetTypes.fixed_br
-        ).exists():
+        if position.code in existing_codes:
             actions.append(
                 _update_existing_price(
                     code=position.code,
                     new_price=position.current_price,
                     workbook_dt=workbook_dt,
+                    metadata=metadata_by_code.get(position.code),
+                    updates=price_updates,
                     description=_build_description(position),
                 )
             )
@@ -386,17 +416,16 @@ def _renda_fixa_actions(
             )
         )
 
+    if price_updates:
+        AssetMetaData.objects.bulk_update(
+            price_updates, ["current_price", "current_price_updated_at"]
+        )
     return actions
 
 
 def _create_missing_transactions(
-    *, user, asset, movements: list[B3TesouroMovement]
+    *, user, asset, movements: list[B3TesouroMovement], existing: set
 ) -> list[dict]:
-    existing = set(
-        Transaction.objects.filter(asset=asset).values_list(
-            "action", "operation_date", "quantity", "price"
-        )
-    )
     context = {"request": _RequestContext(user)}
     created: list[dict] = []
     for movement in sorted(movements, key=lambda m: m.operation_date):
@@ -449,17 +478,33 @@ def _tesouro_actions(
     for td_movement in td_movements:
         td_by_name[td_movement.name].append(td_movement)
 
+    # Bulk-load existing assets, their metadata, and their transactions (for dedup)
+    # up front; batch the price writes via bulk_update at the end.
+    existing_assets_by_isin = {
+        asset.code: asset
+        for asset in Asset.objects.filter(
+            user_id=user_id,
+            type=AssetTypes.fixed_br,
+            code__in={p.isin for p in td_positions},
+        )
+    }
+    metadata_by_code = _bulk_fetch_fixed_br_metadata(existing_assets_by_isin)
+    existing_tx_by_asset = _bulk_fetch_existing_transactions(
+        [asset.id for asset in existing_assets_by_isin.values()]
+    )
+    price_updates: list[AssetMetaData] = []
+
     actions: list[dict] = []
     for td_position in td_positions:
-        existing_asset = Asset.objects.filter(
-            user_id=user_id, code=td_position.isin, type=AssetTypes.fixed_br
-        ).first()
+        existing_asset = existing_assets_by_isin.get(td_position.isin)
         if existing_asset is not None:
             actions.append(
                 _update_existing_price(
                     code=td_position.isin,
                     new_price=td_position.current_price,
                     workbook_dt=workbook_dt,
+                    metadata=metadata_by_code.get(td_position.isin),
+                    updates=price_updates,
                     description=_build_tesouro_description(td_position),
                 )
             )
@@ -468,6 +513,7 @@ def _tesouro_actions(
                     user=user,
                     asset=existing_asset,
                     movements=td_by_name.get(td_position.name, []),
+                    existing=existing_tx_by_asset[existing_asset.id],
                 )
             )
             continue
@@ -490,6 +536,10 @@ def _tesouro_actions(
             )
         )
 
+    if price_updates:
+        AssetMetaData.objects.bulk_update(
+            price_updates, ["current_price", "current_price_updated_at"]
+        )
     return actions
 
 
@@ -587,10 +637,21 @@ def _negociacao_actions(
         ):
             position_by_code[position.code] = position
 
+    # Bulk-load the existing assets (by code) and their transactions (for dedup)
+    # up front instead of one query per code.
+    assets_by_code: dict[str, Asset] = {}
+    for asset in Asset.objects.filter(
+        user_id=user_id, code__in=set(by_code)
+    ).order_by("id"):
+        assets_by_code.setdefault(asset.code, asset)
+    existing_tx_by_asset = _bulk_fetch_existing_transactions(
+        [asset.id for asset in assets_by_code.values()]
+    )
+
     actions: list[dict] = []
 
     for code, code_negotiations in by_code.items():
-        asset = Asset.objects.filter(user_id=user_id, code=code).first()
+        asset = assets_by_code.get(code)
         asset_action: dict | None = None
 
         if asset is None:
@@ -622,11 +683,7 @@ def _negociacao_actions(
         else:
             asset_pk = asset.id
             description = asset.description
-            existing = set(
-                Transaction.objects.filter(asset=asset).values_list(
-                    "action", "operation_date", "quantity", "price"
-                )
-            )
+            existing = existing_tx_by_asset[asset.id]
 
         # Apply chronologically: B3 reports list trades most-recent-first, but the
         # domain enforces a running balance (no selling more than held).
