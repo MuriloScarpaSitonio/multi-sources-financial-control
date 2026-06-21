@@ -11,8 +11,10 @@ import AccordionSummary from "@mui/material/AccordionSummary";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Drawer from "@mui/material/Drawer";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -45,8 +47,12 @@ const ACTION_LABELS: Record<string, string> = {
   price_updated: "Preço atualizado",
   price_skipped: "Preço mantido",
   skipped: "Ignorado",
+  already_exists: "Já cadastrado",
   error: "Erro",
 };
+
+// Rows skipped only because the record already exists in the DB.
+const ALREADY_EXISTS = "already_exists";
 
 const INCOME_TYPE_LABELS: Record<string, string> = {
   DIVIDEND: "Dividendo",
@@ -79,6 +85,7 @@ const COLOR_BY_ACTION: Record<string, Colors> = {
   price_updated: Colors.brand,
   price_skipped: Colors.neutral300,
   skipped: Colors.neutral300,
+  already_exists: Colors.neutral300,
   error: Colors.danger200,
 };
 
@@ -99,6 +106,7 @@ const ActionChip = ({ action, label }: { action: string; label: string }) => {
 const detailText = (entry: B3ActionEntry): string => {
   if (entry.action === "skipped") return entry.reason ?? "";
   if (entry.action === "price_skipped") return entry.reason ?? "";
+  if (entry.action === ALREADY_EXISTS) return entry.reason ?? "";
   if (entry.action === "error") return entry.reason ?? "";
   if (entry.action === "income_created" && entry.income)
     return formatIncome(entry.income);
@@ -207,43 +215,57 @@ const StatusPill = ({ dryRun }: { dryRun: boolean }) => (
   />
 );
 
-const OperationContent = ({ report }: { report: B3OperationReport }) => (
-  <Stack spacing={1}>
-    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-      {summaryChips(report.actions)}
-      <Chip
-        size="small"
-        variant="outlined"
-        label={`Total: ${report.actions.length}`}
-        sx={{
-          borderColor: getColor(Colors.neutral300),
-          color: getColor(Colors.neutral300),
-        }}
-      />
+const OperationContent = ({
+  report,
+  hideExisting,
+}: {
+  report: B3OperationReport;
+  hideExisting: boolean;
+}) => {
+  // Summary chips count everything; the table can hide already-in-DB rows.
+  const rows = hideExisting
+    ? report.actions.filter((a) => a.action !== ALREADY_EXISTS)
+    : report.actions;
+  return (
+    <Stack spacing={1}>
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        {summaryChips(report.actions)}
+        <Chip
+          size="small"
+          variant="outlined"
+          label={`Total: ${report.actions.length}`}
+          sx={{
+            borderColor: getColor(Colors.neutral300),
+            color: getColor(Colors.neutral300),
+          }}
+        />
+      </Stack>
+      {rows.length > 0 ? (
+        <Table size="small">
+          <TableBody>
+            {rows.map((entry, i) => (
+              <ActionRow key={i} entry={entry} />
+            ))}
+          </TableBody>
+        </Table>
+      ) : (
+        <Typography variant="body2" color={getColor(Colors.neutral300)}>
+          Nenhuma ação.
+        </Typography>
+      )}
     </Stack>
-    {report.actions.length > 0 ? (
-      <Table size="small">
-        <TableBody>
-          {report.actions.map((entry, i) => (
-            <ActionRow key={i} entry={entry} />
-          ))}
-        </TableBody>
-      </Table>
-    ) : (
-      <Typography variant="body2" color={getColor(Colors.neutral300)}>
-        Nenhuma ação.
-      </Typography>
-    )}
-  </Stack>
-);
+  );
+};
 
 const OperationSection = ({
   op,
   report,
+  hideExisting,
   onExpand,
 }: {
   op: B3Operation;
   report: B3OperationReport;
+  hideExisting: boolean;
   onExpand: () => void;
 }) => (
   <Accordion defaultExpanded>
@@ -267,26 +289,43 @@ const OperationSection = ({
       </Stack>
     </AccordionSummary>
     <AccordionDetails>
-      <OperationContent report={report} />
+      <OperationContent report={report} hideExisting={hideExisting} />
     </AccordionDetails>
   </Accordion>
 );
 
 const B3ImportReport = ({ response }: { response: B3ImportResponse }) => {
   const [expandedOp, setExpandedOp] = useState<B3Operation | null>(null);
+  const [hideExisting, setHideExisting] = useState(true);
   const ops = (Object.keys(response.reports) as B3Operation[]).filter(
     (op) => response.reports[op],
   );
   const expandedReport = expandedOp ? response.reports[expandedOp] : null;
+  const hasExisting = ops.some((op) =>
+    response.reports[op]!.actions.some((a) => a.action === ALREADY_EXISTS),
+  );
 
   return (
     <>
       <Stack spacing={1}>
+        {hasExisting && (
+          <FormControlLabel
+            sx={{ alignSelf: "flex-start" }}
+            control={
+              <Switch
+                checked={hideExisting}
+                onChange={(e) => setHideExisting(e.target.checked)}
+              />
+            }
+            label="Ocultar já cadastrados"
+          />
+        )}
         {ops.map((op) => (
           <OperationSection
             key={op}
             op={op}
             report={response.reports[op]!}
+            hideExisting={hideExisting}
             onExpand={() => setExpandedOp(op)}
           />
         ))}
@@ -320,7 +359,10 @@ const B3ImportReport = ({ response }: { response: B3ImportResponse }) => {
                 <CloseIcon />
               </IconButton>
             </Stack>
-            <OperationContent report={expandedReport} />
+            <OperationContent
+              report={expandedReport}
+              hideExisting={hideExisting}
+            />
           </Stack>
         )}
       </Drawer>

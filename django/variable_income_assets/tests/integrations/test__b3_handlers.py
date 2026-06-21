@@ -2,18 +2,11 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
-import pytest
 from django.utils import timezone
+
+import pytest
 from openpyxl import Workbook
 
-from ...integrations.b3.handlers import (
-    B3ImportError,
-    import_b3_fixed_income_positions,
-    import_b3_negociacoes,
-    import_b3_proventos,
-    import_b3_renda_fixa_positions,
-)
-from ...models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
 from ...choices import (
     AssetObjectives,
     AssetTypes,
@@ -22,6 +15,14 @@ from ...choices import (
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
 )
+from ...integrations.b3.handlers import (
+    B3ImportError,
+    import_b3_fixed_income_positions,
+    import_b3_negociacoes,
+    import_b3_proventos,
+    import_b3_renda_fixa_positions,
+)
+from ...models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
 from ..conftest import AssetFactory, AssetMetaDataFactory
 
 pytestmark = pytest.mark.django_db
@@ -764,8 +765,12 @@ def test_proventos_creates_income_dedupes_and_skips_unknown(tmp_path, user):
     read_model = AssetReadModel.objects.get(write_model_pk=asset.id)
     assert read_model.credited_incomes == Decimal("221.58")
 
-    # re-running dedupes: no new income for BBAS3
+    # re-running dedupes: BBAS3 is reported as already_exists, no new income
     report2 = import_b3_proventos(user_id=user.id, dry_run=False, proventos_path=proventos_path)
+    assert any(
+        a["action"] == "already_exists" and a["code"] == "BBAS3"
+        for a in report2["actions"]
+    )
     assert all(
         a["action"] != "income_created"
         for a in report2["actions"]

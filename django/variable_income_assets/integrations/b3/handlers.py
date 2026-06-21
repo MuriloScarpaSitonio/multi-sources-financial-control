@@ -911,7 +911,9 @@ def _proventos_actions(*, user_id: int, proventos_path_resolved) -> list[dict]:
 
         key = (asset.id, income_type, provento.payment_date, provento.amount)
         if key in existing:
-            actions.append({**base, "action": "skipped", "reason": "provento já cadastrado"})
+            actions.append(
+                {**base, "action": "already_exists", "reason": "provento já cadastrado"}
+            )
             continue
         if provento.payment_date > today:
             actions.append(
@@ -1032,7 +1034,7 @@ def _format_action_detail(entry: dict) -> str:
         return f"{entry.get('previous_price', '—')} -> {entry['new_price']}"
     if action == "price_skipped":
         return f"metadata @ {entry['metadata_updated_at']} >= workbook"
-    if action == "skipped":
+    if action in ("skipped", "already_exists"):
         return entry.get("reason", "")
     if action == "created":
         head = f"asset #{entry['asset_pk']}  {entry['description']}"

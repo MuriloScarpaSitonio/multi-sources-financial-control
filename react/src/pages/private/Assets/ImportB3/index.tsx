@@ -251,31 +251,34 @@ const B3ImportDrawer = ({
         </Stack>
 
         <Divider />
-
         <Stack
-          spacing={2}
-          direction="row"
-          alignItems="center"
-          flexWrap="wrap"
-          useFlexGap
+          spacing={1}
         >
           <Typography variant="subtitle2">Importações</Typography>
-          {OPERATIONS.map(({ op, label }) => {
-            const enabled = isOperationEnabled(op, files);
-            return (
-              <FormControlLabel
-                key={op}
-                control={
-                  <Checkbox
-                    checked={selectedOps.includes(op)}
-                    disabled={!enabled}
-                    onChange={() => toggleOp(op)}
-                  />
-                }
-                label={label}
-              />
-            );
-          })}
+          <Stack
+            spacing={2}
+            direction="row"
+            alignItems="center"
+            flexWrap="wrap"
+            useFlexGap
+          >
+            {OPERATIONS.map(({ op, label }) => {
+              const enabled = isOperationEnabled(op, files);
+              return (
+                <FormControlLabel
+                  key={op}
+                  control={
+                    <Checkbox
+                      checked={selectedOps.includes(op)}
+                      disabled={!enabled}
+                      onChange={() => toggleOp(op)}
+                    />
+                  }
+                  label={label}
+                />
+              );
+            })}
+          </Stack>
         </Stack>
 
         {needsWorkbookDt && (
