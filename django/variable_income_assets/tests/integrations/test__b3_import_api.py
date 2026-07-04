@@ -143,6 +143,20 @@ def test_serializer_valid_negociacoes():
     assert serializer.is_valid(), serializer.errors
 
 
+def test_serializer_dedupes_duplicate_operations():
+    from variable_income_assets.serializers import B3ImportSerializer
+
+    serializer = B3ImportSerializer(
+        data={
+            "operations": ["negociacoes", "negociacoes"],
+            "dry_run": True,
+            "negociacao": _xlsx_upload("negociacao.xlsx"),
+        }
+    )
+    assert serializer.is_valid(), serializer.errors
+    assert serializer.validated_data["operations"] == ["negociacoes"]
+
+
 def test_serializer_create_missing_assets_requires_posicao():
     from variable_income_assets.serializers import B3ImportSerializer
 
@@ -295,3 +309,112 @@ def test_endpoint_bad_file_returns_400_with_operation(client):
     )
     assert response.status_code == 400
     assert response.data["operation"] == "tesouro"
+
+
+def test_serializer_proventos_requires_file():
+    from variable_income_assets.serializers import B3ImportSerializer
+
+    serializer = B3ImportSerializer(data={"operations": ["proventos"], "dry_run": True})
+    assert not serializer.is_valid()
+    assert "proventos" in serializer.errors
+
+
+def test_service_proventos_creates_income(tmp_path, user):
+    from variable_income_assets.choices import (
+        AssetObjectives,
+        AssetTypes,
+        Currencies,
+    )
+    from variable_income_assets.integrations.b3.import_service import run_b3_import
+    from variable_income_assets.management.commands.sync_assets_cqrs import (
+        Command as Sync,
+    )
+    from variable_income_assets.models import PassiveIncome
+    from variable_income_assets.tests.conftest import AssetFactory, AssetMetaDataFactory
+    from variable_income_assets.tests.integrations.test__b3_handlers import (
+        _build_proventos,
+    )
+
+    AssetFactory(
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        objective=AssetObjectives.growth,
+        user=user,
+    )
+    AssetMetaDataFactory(
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        current_price=Decimal("21.71"),
+        current_price_updated_at=timezone.now(),
+    )
+    Sync().handle(user_ids=[user.id])
+    d = (timezone.localdate() - timedelta(days=1)).strftime("%d/%m/%Y")
+    path = _build_proventos(
+        tmp_path, [["BBAS3 - BANCO DO BRASIL S/A", d, "Dividendo", "INTER", "100", 1, "10.00"]]
+    )
+    proventos = _upload_from_path(path, "proventos-2026.xlsx")
+
+    result = run_b3_import(
+        user_id=user.id,
+        operations=["proventos"],
+        dry_run=False,
+        workbook_dt=None,
+        negociacao_file=None,
+        posicao_file=None,
+        movimentacao_file=None,
+        proventos_file=proventos,
+    )
+
+    actions = result["reports"]["proventos"]["actions"]
+    assert actions[0]["action"] == "income_created"
+    assert PassiveIncome.objects.filter(asset__user=user, asset__code="BBAS3").exists()
+
+
+def test_service_dry_run_proventos_sees_asset_created_by_negociacoes(
+    tmp_path, user, sync_assets_read_model
+):
+    # In a dry-run preview, proventos must recognize an asset that negociações
+    # creates in the same import (both ops share one transaction, rolled back at
+    # the end) instead of reporting "ativo não cadastrado".
+    from variable_income_assets.integrations.b3.import_service import run_b3_import
+    from variable_income_assets.models import PassiveIncome
+    from variable_income_assets.tests.integrations.test__b3_handlers import (
+        _build_negociacao,
+        _build_proventos,
+        _negotiation_row,
+    )
+
+    acoes_row = [
+        "BBAS3 - BCO BRASIL S.A.", "INTER DTVM", "4038379", "BBAS3",
+        "00000000000191", "BRBBASACNOR3 - 337", "ON", "BANCO DO BRASIL S/A",
+        971, 971, "-", "-", 21.71, 21080.41,
+    ]
+    posicao_path = _build_posicao(tmp_path, [], acoes_rows=[acoes_row])
+    negociacao_path = _build_negociacao(tmp_path, [_negotiation_row(code="BBAS3")])
+    d = (timezone.localdate() - timedelta(days=1)).strftime("%d/%m/%Y")
+    proventos_path = _build_proventos(
+        tmp_path, [["BBAS3 - BANCO DO BRASIL S/A", d, "Dividendo", "INTER", "100", 1, "10.00"]]
+    )
+
+    result = run_b3_import(
+        user_id=user.id,
+        # reversed on purpose: the service must still run negociações before proventos
+        operations=["proventos", "negociacoes"],
+        dry_run=True,
+        workbook_dt=None,
+        create_missing_assets=True,
+        negociacao_file=_upload_from_path(negociacao_path, "negociacao.xlsx"),
+        posicao_file=_upload_from_path(posicao_path, "posicao-2026-04-29-12-00-00.xlsx"),
+        movimentacao_file=None,
+        proventos_file=_upload_from_path(proventos_path, "proventos-2026.xlsx"),
+    )
+
+    prov_actions = result["reports"]["proventos"]["actions"]
+    assert any(
+        a["action"] == "income_created" and a["code"] == "BBAS3" for a in prov_actions
+    )
+    # dry run: nothing persists
+    assert not Asset.objects.filter(user=user, code="BBAS3").exists()
+    assert not PassiveIncome.objects.filter(asset__user=user).exists()

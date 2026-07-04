@@ -12,10 +12,20 @@ from django.utils import timezone
 
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
-from ...choices import AssetObjectives, AssetTypes, Currencies, LiquidityTypes
-from ...models import Asset, AssetMetaData, Transaction
-from ...scripts import update_asset_metadata_current_price
+from ...adapters.key_value_store import get_dollar_conversion_rate
+from ...choices import (
+    AssetObjectives,
+    AssetTypes,
+    Currencies,
+    LiquidityTypes,
+    PassiveIncomeEventTypes,
+    PassiveIncomeTypes,
+)
+from ...domain import events
+from ...models import Asset, AssetMetaData, PassiveIncome, Transaction
 from ...serializers import AssetSerializer, TransactionListSerializer
+from ...service_layer import messagebus
+from ...service_layer.unit_of_work import DjangoUnitOfWork
 from ._workbook import WorkbookSource
 from .movimentacao import parse_movements
 from .negociacao import (
@@ -25,10 +35,12 @@ from .negociacao import (
     resolve_negociacao_path,
 )
 from .parser import parse_positions
+from .proventos import parse_proventos, resolve_proventos_path
 from .schemas import (
     B3FixedIncomeAction,
     B3FixedIncomeMovement,
     B3FixedIncomePosition,
+    B3ProventoType,
     B3StockNegotiation,
     B3StockPosition,
     B3TesouroMovement,
@@ -102,11 +114,38 @@ def _build_description(position: B3FixedIncomePosition) -> str:
     return f"{base} - venc {position.maturity_date.strftime('%d/%m/%Y')}"
 
 
+def _bulk_fetch_fixed_br_metadata(codes) -> dict[str, AssetMetaData]:
+    # The global (B3-synced) metadata row per code, scoped by type+currency and
+    # asset__isnull so we never touch a same-code row of another type/currency or
+    # a user's direct self-custody metadata (AssetMetaData.code is not unique).
+    return {
+        metadata.code: metadata
+        for metadata in AssetMetaData.objects.filter(
+            code__in=set(codes),
+            type=AssetTypes.fixed_br,
+            currency=Currencies.real,
+            asset__isnull=True,
+        )
+    }
+
+
+def _bulk_fetch_existing_transactions(asset_ids) -> dict[int, set]:
+    # {asset_id: {(action, operation_date, quantity, price)}} for transaction dedup.
+    existing: dict[int, set] = defaultdict(set)
+    for asset_id, action, operation_date, quantity, price in Transaction.objects.filter(
+        asset_id__in=asset_ids
+    ).values_list("asset_id", "action", "operation_date", "quantity", "price"):
+        existing[asset_id].add((action, operation_date, quantity, price))
+    return existing
+
+
 def _update_existing_price(
     *,
     code: str,
     new_price: Decimal | None,
     workbook_dt: datetime,
+    metadata: AssetMetaData | None,
+    updates: list[AssetMetaData],
     description: str | None = None,
 ) -> dict:
     if new_price is None:
@@ -117,7 +156,6 @@ def _update_existing_price(
             "reason": "sem preço atual na posição",
         }
 
-    metadata = AssetMetaData.objects.filter(code=code).first()
     if metadata is None:
         return {
             "code": code,
@@ -137,12 +175,15 @@ def _update_existing_price(
             "workbook_dt": workbook_dt.isoformat(),
         }
 
-    update_asset_metadata_current_price(code=code, price=new_price)
+    previous_price = metadata.current_price
+    metadata.current_price = new_price
+    metadata.current_price_updated_at = timezone.now()
+    updates.append(metadata)
     return {
         "code": code,
         "description": description,
         "action": "price_updated",
-        "previous_price": str(metadata.current_price) if metadata.current_price else None,
+        "previous_price": str(previous_price) if previous_price else None,
         "new_price": str(new_price),
     }
 
@@ -306,6 +347,17 @@ def _renda_fixa_actions(
     for movement in movements:
         movements_by_code[movement.code].append(movement)
 
+    # Bulk-load which codes already exist + their metadata (2 queries) instead of
+    # one lookup per position; price writes are batched via bulk_update at the end.
+    position_codes = {p.code for p in positions if p.code}
+    existing_codes = set(
+        Asset.objects.filter(
+            user_id=user_id, type=AssetTypes.fixed_br, code__in=position_codes
+        ).values_list("code", flat=True)
+    )
+    metadata_by_code = _bulk_fetch_fixed_br_metadata(existing_codes)
+    price_updates: list[AssetMetaData] = []
+
     actions: list[dict] = []
     for position in positions:
         if not position.code:
@@ -319,14 +371,14 @@ def _renda_fixa_actions(
             )
             continue
 
-        if Asset.objects.filter(
-            user_id=user_id, code=position.code, type=AssetTypes.fixed_br
-        ).exists():
+        if position.code in existing_codes:
             actions.append(
                 _update_existing_price(
                     code=position.code,
                     new_price=position.current_price,
                     workbook_dt=workbook_dt,
+                    metadata=metadata_by_code.get(position.code),
+                    updates=price_updates,
                     description=_build_description(position),
                 )
             )
@@ -364,17 +416,16 @@ def _renda_fixa_actions(
             )
         )
 
+    if price_updates:
+        AssetMetaData.objects.bulk_update(
+            price_updates, ["current_price", "current_price_updated_at"]
+        )
     return actions
 
 
 def _create_missing_transactions(
-    *, user, asset, movements: list[B3TesouroMovement]
+    *, user, asset, movements: list[B3TesouroMovement], existing: set
 ) -> list[dict]:
-    existing = set(
-        Transaction.objects.filter(asset=asset).values_list(
-            "action", "operation_date", "quantity", "price"
-        )
-    )
     context = {"request": _RequestContext(user)}
     created: list[dict] = []
     for movement in sorted(movements, key=lambda m: m.operation_date):
@@ -427,17 +478,33 @@ def _tesouro_actions(
     for td_movement in td_movements:
         td_by_name[td_movement.name].append(td_movement)
 
+    # Bulk-load existing assets, their metadata, and their transactions (for dedup)
+    # up front; batch the price writes via bulk_update at the end.
+    existing_assets_by_isin = {
+        asset.code: asset
+        for asset in Asset.objects.filter(
+            user_id=user_id,
+            type=AssetTypes.fixed_br,
+            code__in={p.isin for p in td_positions},
+        )
+    }
+    metadata_by_code = _bulk_fetch_fixed_br_metadata(existing_assets_by_isin)
+    existing_tx_by_asset = _bulk_fetch_existing_transactions(
+        [asset.id for asset in existing_assets_by_isin.values()]
+    )
+    price_updates: list[AssetMetaData] = []
+
     actions: list[dict] = []
     for td_position in td_positions:
-        existing_asset = Asset.objects.filter(
-            user_id=user_id, code=td_position.isin, type=AssetTypes.fixed_br
-        ).first()
+        existing_asset = existing_assets_by_isin.get(td_position.isin)
         if existing_asset is not None:
             actions.append(
                 _update_existing_price(
                     code=td_position.isin,
                     new_price=td_position.current_price,
                     workbook_dt=workbook_dt,
+                    metadata=metadata_by_code.get(td_position.isin),
+                    updates=price_updates,
                     description=_build_tesouro_description(td_position),
                 )
             )
@@ -446,6 +513,7 @@ def _tesouro_actions(
                     user=user,
                     asset=existing_asset,
                     movements=td_by_name.get(td_position.name, []),
+                    existing=existing_tx_by_asset[existing_asset.id],
                 )
             )
             continue
@@ -468,6 +536,10 @@ def _tesouro_actions(
             )
         )
 
+    if price_updates:
+        AssetMetaData.objects.bulk_update(
+            price_updates, ["current_price", "current_price_updated_at"]
+        )
     return actions
 
 
@@ -565,10 +637,21 @@ def _negociacao_actions(
         ):
             position_by_code[position.code] = position
 
+    # Bulk-load the existing assets (by code) and their transactions (for dedup)
+    # up front instead of one query per code.
+    assets_by_code: dict[str, Asset] = {}
+    for asset in Asset.objects.filter(
+        user_id=user_id, code__in=set(by_code)
+    ).order_by("id"):
+        assets_by_code.setdefault(asset.code, asset)
+    existing_tx_by_asset = _bulk_fetch_existing_transactions(
+        [asset.id for asset in assets_by_code.values()]
+    )
+
     actions: list[dict] = []
 
     for code, code_negotiations in by_code.items():
-        asset = Asset.objects.filter(user_id=user_id, code=code).first()
+        asset = assets_by_code.get(code)
         asset_action: dict | None = None
 
         if asset is None:
@@ -600,11 +683,7 @@ def _negociacao_actions(
         else:
             asset_pk = asset.id
             description = asset.description
-            existing = set(
-                Transaction.objects.filter(asset=asset).values_list(
-                    "action", "operation_date", "quantity", "price"
-                )
-            )
+            existing = existing_tx_by_asset[asset.id]
 
         # Apply chronologically: B3 reports list trades most-recent-first, but the
         # domain enforces a running balance (no selling more than held).
@@ -778,6 +857,153 @@ def import_b3_fixed_income_positions(
     )
 
 
+_PROVENTO_TYPE_MAP = {
+    B3ProventoType.DIVIDENDO: PassiveIncomeTypes.dividend,
+    B3ProventoType.JSCP: PassiveIncomeTypes.jcp,
+    B3ProventoType.RENDIMENTO: PassiveIncomeTypes.income,
+    B3ProventoType.REEMBOLSO: PassiveIncomeTypes.reimbursement,
+}
+
+
+def _proventos_actions(*, user_id: int, proventos_path_resolved) -> list[dict]:
+    proventos, skipped = parse_proventos(proventos_path_resolved)
+
+    # Rows whose event type we don't map (e.g. fixed-income "PAGAMENTO DE JUROS").
+    # Reported as "unsupported_event" (not "skipped") so the report's "ignored"
+    # filter never hides them — the user should always see what we couldn't import.
+    skipped_actions = [
+        {
+            "code": s.code,
+            "action": "unsupported_event",
+            "reason": f"tipo de evento não suportado: {s.label}",
+        }
+        for s in skipped
+    ]
+    if not proventos:
+        return skipped_actions
+
+    # Bulk-load every involved asset and their existing credited incomes (2 queries
+    # total) instead of querying per row; persist with a single bulk_create.
+    assets_by_code = {
+        asset.code: asset
+        for asset in Asset.objects.filter(
+            user_id=user_id, code__in={p.code for p in proventos}
+        )
+    }
+    existing = set(
+        PassiveIncome.objects.filter(
+            asset_id__in=[a.id for a in assets_by_code.values()],
+            event_type=PassiveIncomeEventTypes.credited,
+        ).values_list("asset_id", "type", "operation_date", "amount")
+    )
+
+    today = timezone.localdate()
+    actions: list[dict] = list(skipped_actions)
+    to_create: list[PassiveIncome] = []
+
+    for provento in proventos:
+        asset = assets_by_code.get(provento.code)
+        if asset is None:
+            actions.append(
+                {"code": provento.code, "action": "skipped", "reason": "ativo não cadastrado"}
+            )
+            continue
+
+        income_type = _PROVENTO_TYPE_MAP[provento.kind]
+        base = {
+            "code": provento.code,
+            "description": asset.description,
+            "income": {
+                "type": income_type,
+                "amount": str(provento.amount),
+                "currency": asset.currency,
+                "operation_date": provento.payment_date.isoformat(),
+            },
+        }
+
+        key = (asset.id, income_type, provento.payment_date, provento.amount)
+        if key in existing:
+            actions.append(
+                {**base, "action": "already_exists", "reason": "provento já cadastrado"}
+            )
+            continue
+        if provento.payment_date > today:
+            actions.append(
+                {
+                    **base,
+                    "action": "error",
+                    "reason": "rendimento creditado não pode estar no futuro",
+                }
+            )
+            continue
+        choice = AssetTypes.get_choice(asset.type)
+        if not choice.accept_incomes:
+            actions.append(
+                {
+                    **base,
+                    "action": "error",
+                    "reason": f"ativos de classe {choice.label} não aceitam rendimentos",
+                }
+            )
+            continue
+
+        to_create.append(
+            PassiveIncome(
+                asset=asset,
+                type=income_type,
+                event_type=PassiveIncomeEventTypes.credited,
+                amount=provento.amount,
+                operation_date=provento.payment_date,
+                current_currency_conversion_rate=(
+                    Decimal("1")
+                    if asset.currency == Currencies.real
+                    else get_dollar_conversion_rate()
+                ),
+            )
+        )
+        existing.add(key)  # also dedupe duplicate rows within the same file
+        actions.append({**base, "action": "income_created", "asset_pk": asset.id})
+
+    if to_create:
+        PassiveIncome.objects.bulk_create(to_create)
+        # bulk_create skips the messagebus, so upsert each affected asset's read
+        # model once (PassiveIncomeCreated -> upsert_read_model, aggregate fields).
+        for affected_asset_id in {income.asset_id for income in to_create}:
+            with DjangoUnitOfWork(asset_pk=affected_asset_id) as uow:
+                messagebus.handle(
+                    message=events.PassiveIncomeCreated(asset_pk=affected_asset_id),
+                    uow=uow,
+                )
+
+    return actions
+
+
+def import_b3_proventos(
+    *,
+    user_id: int,
+    dry_run: bool = True,
+    proventos_path: str | None = None,
+) -> dict:
+    proventos_resolved = resolve_proventos_path(proventos_path)
+
+    actions: list[dict] = []
+    try:
+        with djtransaction.atomic():
+            actions = _proventos_actions(
+                user_id=user_id, proventos_path_resolved=proventos_resolved
+            )
+            if dry_run:
+                raise _DryRunRollback
+    except _DryRunRollback:
+        pass
+
+    return {
+        "dry_run": dry_run,
+        "proventos_path": _source_label(proventos_resolved),
+        "actions": actions,
+    }
+
+
 def format_report(report: dict) -> str:
     lines: list[str] = []
     label = "DRY RUN" if report["dry_run"] else "APPLIED"
@@ -788,6 +1014,8 @@ def format_report(report: dict) -> str:
         lines.append(f"  posicao:  {report['posicao_path']}")
     if "negociacao_path" in report:
         lines.append(f"  negociacao: {report['negociacao_path']}")
+    if "proventos_path" in report:
+        lines.append(f"  proventos: {report['proventos_path']}")
     lines.append("")
 
     counts: dict[str, int] = defaultdict(int)
@@ -818,7 +1046,7 @@ def _format_action_detail(entry: dict) -> str:
         return f"{entry.get('previous_price', '—')} -> {entry['new_price']}"
     if action == "price_skipped":
         return f"metadata @ {entry['metadata_updated_at']} >= workbook"
-    if action == "skipped":
+    if action in ("skipped", "already_exists", "unsupported_event"):
         return entry.get("reason", "")
     if action == "created":
         head = f"asset #{entry['asset_pk']}  {entry['description']}"
@@ -830,6 +1058,11 @@ def _format_action_detail(entry: dict) -> str:
     if action == "transaction_created":
         tx = entry["transaction"]
         return f"{tx['action']} {tx['quantity']} @ {tx['price']} on {tx['operation_date']}"
+    if action == "income_created":
+        inc = entry["income"]
+        return f"{inc['type']} {inc['amount']} on {inc['operation_date']}"
+    if action == "error":
+        return entry.get("reason", "")
     if action == "exists":
         return f"already in DB ({entry.get('type', '')})"
     if action == "asset_created":

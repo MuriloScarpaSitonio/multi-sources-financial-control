@@ -2,17 +2,27 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
-import pytest
 from django.utils import timezone
+
+import pytest
 from openpyxl import Workbook
 
+from ...choices import (
+    AssetObjectives,
+    AssetTypes,
+    Currencies,
+    LiquidityTypes,
+    PassiveIncomeEventTypes,
+    PassiveIncomeTypes,
+)
 from ...integrations.b3.handlers import (
     B3ImportError,
     import_b3_fixed_income_positions,
     import_b3_negociacoes,
+    import_b3_proventos,
+    import_b3_renda_fixa_positions,
 )
-from ...models import Asset, AssetMetaData, Transaction
-from ...choices import AssetTypes, Currencies, LiquidityTypes, AssetObjectives
+from ...models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
 from ..conftest import AssetFactory, AssetMetaDataFactory
 
 pytestmark = pytest.mark.django_db
@@ -541,6 +551,75 @@ def test_invalid_posicao_filename_raises(tmp_path, user):
         )
 
 
+def test_price_update_is_scoped_by_type_and_currency(tmp_path, user, fixed_br_asset):
+    # A same-code metadata row of a different type must NOT be touched by the
+    # fixed-income price update (AssetMetaData.code is not globally unique).
+    decoy = AssetMetaDataFactory(
+        code="CDB426DGCVL",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        current_price=Decimal("999"),
+        current_price_updated_at=timezone.make_aware(WORKBOOK_DT - timedelta(days=1)),
+    )
+    posicao_path = _build_posicao(tmp_path, [_cdb_position_row()])
+    movimentacao_path = _build_movimentacao(tmp_path, [])
+
+    import_b3_renda_fixa_positions(
+        user_id=user.id,
+        dry_run=False,
+        posicao_path=posicao_path,
+        movimentacao_path=movimentacao_path,
+    )
+
+    updated = AssetMetaData.objects.get(
+        code="CDB426DGCVL", type=AssetTypes.fixed_br, asset__isnull=True
+    )
+    assert updated.current_price == Decimal("1100")
+    decoy.refresh_from_db()
+    assert decoy.current_price == Decimal("999")  # untouched
+
+
+def test_price_update_skips_self_custody_metadata(
+    tmp_path, user, another_user, fixed_br_asset
+):
+    # A same code/type/currency metadata row linked to a user's self-custody asset
+    # (asset_id set) must NOT be touched — B3 updates only the global B3 row.
+    custody_asset = AssetFactory(
+        code="CDB426DGCVL",
+        type=AssetTypes.fixed_br,
+        currency=Currencies.real,
+        objective=AssetObjectives.growth,
+        user=another_user,
+        liquidity_type=LiquidityTypes.at_maturity,
+    )
+    custody_meta = AssetMetaDataFactory(
+        code="CDB426DGCVL",
+        type=AssetTypes.fixed_br,
+        currency=Currencies.real,
+        asset=custody_asset,
+        current_price=Decimal("888"),
+        current_price_updated_at=timezone.make_aware(WORKBOOK_DT - timedelta(days=1)),
+    )
+    posicao_path = _build_posicao(tmp_path, [_cdb_position_row()])
+    movimentacao_path = _build_movimentacao(tmp_path, [])
+
+    import_b3_renda_fixa_positions(
+        user_id=user.id,
+        dry_run=False,
+        posicao_path=posicao_path,
+        movimentacao_path=movimentacao_path,
+    )
+
+    custody_meta.refresh_from_db()
+    assert custody_meta.current_price == Decimal("888")  # untouched
+    assert (
+        AssetMetaData.objects.get(
+            code="CDB426DGCVL", type=AssetTypes.fixed_br, asset__isnull=True
+        ).current_price
+        == Decimal("1100")
+    )
+
+
 def _neg_row(*, date: str, action: str, code: str, qty, price):
     return [
         date, action, "Mercado à Vista", "-", "INTER DTVM",
@@ -614,3 +693,128 @@ def test_negociacoes_oversell_is_reported_not_aborted(tmp_path, user):
     assert not Transaction.objects.filter(
         asset__user=user, asset__code="BBAS3"
     ).exists()
+
+
+PROVENTOS_HEADER = [
+    "Produto",
+    "Pagamento",
+    "Tipo de Evento",
+    "Instituição",
+    "Quantidade",
+    "Preço unitário",
+    "Valor líquido",
+]
+
+
+def _build_proventos(tmp_path: Path, rows: list[list]) -> str:
+    path = tmp_path / "proventos-2026-06-12.xlsx"
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Proventos Recebidos"
+    ws.append(PROVENTOS_HEADER)
+    for row in rows:
+        ws.append(row)
+    wb.save(path)
+    return str(path)
+
+
+def test_proventos_creates_income_dedupes_and_skips_unknown(tmp_path, user):
+    from ...management.commands.sync_assets_cqrs import Command as Sync
+
+    asset = AssetFactory(
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        objective=AssetObjectives.growth,
+        user=user,
+    )
+    AssetMetaDataFactory(
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        current_price=Decimal("21.71"),
+        current_price_updated_at=timezone.now(),
+    )
+    Sync().handle(user_ids=[user.id])
+    yesterday = timezone.localdate() - timedelta(days=1)
+    d = yesterday.strftime("%d/%m/%Y")
+    rows = [
+        [
+            "BBAS3 - BANCO DO BRASIL S/A", d, "Juros Sobre Capital Próprio",
+            "INTER", "100", 1, "221.58",
+        ],
+        ["FOO11 - NAO CADASTRADO", d, "Rendimento", "INTER", "10", 1, "5.00"],
+        # unmapped event type -> reported as skipped, doesn't abort the import
+        ["DEBENTURE - X", d, "PAGAMENTO DE JUROS", "INTER", "1", 1, "3.00"],
+    ]
+    proventos_path = _build_proventos(tmp_path, rows)
+
+    report = import_b3_proventos(user_id=user.id, dry_run=False, proventos_path=proventos_path)
+
+    created = [a for a in report["actions"] if a["action"] == "income_created"]
+    assert len(created) == 1 and created[0]["code"] == "BBAS3"
+    assert any(
+        a["action"] == "skipped" and a["code"] == "FOO11" for a in report["actions"]
+    )
+    assert any(
+        a["action"] == "unsupported_event"
+        and a["code"] == "DEBENTURE"
+        and "PAGAMENTO DE JUROS" in a["reason"]
+        for a in report["actions"]
+    )
+
+    income = PassiveIncome.objects.get(asset__user=user, asset__code="BBAS3")
+    assert income.type == PassiveIncomeTypes.jcp
+    assert income.event_type == PassiveIncomeEventTypes.credited
+    assert income.amount == Decimal("221.58")
+    assert income.operation_date == yesterday
+
+    # bulk_create skips the messagebus, so the read model is upserted explicitly
+    read_model = AssetReadModel.objects.get(write_model_pk=asset.id)
+    assert read_model.credited_incomes == Decimal("221.58")
+
+    # re-running dedupes: BBAS3 is reported as already_exists, no new income
+    report2 = import_b3_proventos(user_id=user.id, dry_run=False, proventos_path=proventos_path)
+    assert any(
+        a["action"] == "already_exists" and a["code"] == "BBAS3"
+        for a in report2["actions"]
+    )
+    assert all(
+        a["action"] != "income_created"
+        for a in report2["actions"]
+        if a["code"] == "BBAS3"
+    )
+    assert PassiveIncome.objects.filter(asset__user=user, asset__code="BBAS3").count() == 1
+    read_model.refresh_from_db()
+    assert read_model.credited_incomes == Decimal("221.58")  # unchanged
+
+
+def test_proventos_dry_run_persists_nothing(tmp_path, user):
+    from ...management.commands.sync_assets_cqrs import Command as Sync
+
+    asset = AssetFactory(
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        objective=AssetObjectives.growth,
+        user=user,
+    )
+    AssetMetaDataFactory(
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        current_price=Decimal("21.71"),
+        current_price_updated_at=timezone.now(),
+    )
+    Sync().handle(user_ids=[user.id])
+    d = (timezone.localdate() - timedelta(days=1)).strftime("%d/%m/%Y")
+    proventos_path = _build_proventos(
+        tmp_path, [["BBAS3 - BANCO DO BRASIL S/A", d, "Dividendo", "INTER", "100", 1, "10.00"]]
+    )
+
+    report = import_b3_proventos(user_id=user.id, dry_run=True, proventos_path=proventos_path)
+
+    assert report["actions"][0]["action"] == "income_created"
+    assert not PassiveIncome.objects.filter(asset__user=user, asset__code="BBAS3").exists()
+    # the read-model upsert is rolled back too
+    assert AssetReadModel.objects.get(write_model_pk=asset.id).credited_incomes == Decimal("0")
