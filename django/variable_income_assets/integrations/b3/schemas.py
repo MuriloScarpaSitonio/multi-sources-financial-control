@@ -36,6 +36,15 @@ class B3Provento(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
+class B3ProventoSkip(BaseModel):
+    # A row whose "Tipo de Evento" we don't map (e.g. fixed-income "PAGAMENTO DE
+    # JUROS"); surfaced in the report instead of aborting the whole import.
+    code: str
+    label: str
+
+    model_config = ConfigDict(frozen=True)
+
+
 class B3FixedIncomePosition(BaseModel):
     kind: B3FixedIncomeKind
     description: str

@@ -744,6 +744,8 @@ def test_proventos_creates_income_dedupes_and_skips_unknown(tmp_path, user):
             "INTER", "100", 1, "221.58",
         ],
         ["FOO11 - NAO CADASTRADO", d, "Rendimento", "INTER", "10", 1, "5.00"],
+        # unmapped event type -> reported as skipped, doesn't abort the import
+        ["DEBENTURE - X", d, "PAGAMENTO DE JUROS", "INTER", "1", 1, "3.00"],
     ]
     proventos_path = _build_proventos(tmp_path, rows)
 
@@ -753,6 +755,12 @@ def test_proventos_creates_income_dedupes_and_skips_unknown(tmp_path, user):
     assert len(created) == 1 and created[0]["code"] == "BBAS3"
     assert any(
         a["action"] == "skipped" and a["code"] == "FOO11" for a in report["actions"]
+    )
+    assert any(
+        a["action"] == "unsupported_event"
+        and a["code"] == "DEBENTURE"
+        and "PAGAMENTO DE JUROS" in a["reason"]
+        for a in report["actions"]
     )
 
     income = PassiveIncome.objects.get(asset__user=user, asset__code="BBAS3")

@@ -866,9 +866,21 @@ _PROVENTO_TYPE_MAP = {
 
 
 def _proventos_actions(*, user_id: int, proventos_path_resolved) -> list[dict]:
-    proventos = parse_proventos(proventos_path_resolved)
+    proventos, skipped = parse_proventos(proventos_path_resolved)
+
+    # Rows whose event type we don't map (e.g. fixed-income "PAGAMENTO DE JUROS").
+    # Reported as "unsupported_event" (not "skipped") so the report's "ignored"
+    # filter never hides them — the user should always see what we couldn't import.
+    skipped_actions = [
+        {
+            "code": s.code,
+            "action": "unsupported_event",
+            "reason": f"tipo de evento não suportado: {s.label}",
+        }
+        for s in skipped
+    ]
     if not proventos:
-        return []
+        return skipped_actions
 
     # Bulk-load every involved asset and their existing credited incomes (2 queries
     # total) instead of querying per row; persist with a single bulk_create.
@@ -886,7 +898,7 @@ def _proventos_actions(*, user_id: int, proventos_path_resolved) -> list[dict]:
     )
 
     today = timezone.localdate()
-    actions: list[dict] = []
+    actions: list[dict] = list(skipped_actions)
     to_create: list[PassiveIncome] = []
 
     for provento in proventos:
@@ -1034,7 +1046,7 @@ def _format_action_detail(entry: dict) -> str:
         return f"{entry.get('previous_price', '—')} -> {entry['new_price']}"
     if action == "price_skipped":
         return f"metadata @ {entry['metadata_updated_at']} >= workbook"
-    if action in ("skipped", "already_exists"):
+    if action in ("skipped", "already_exists", "unsupported_event"):
         return entry.get("reason", "")
     if action == "created":
         head = f"asset #{entry['asset_pk']}  {entry['description']}"

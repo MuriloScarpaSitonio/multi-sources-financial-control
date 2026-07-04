@@ -26,8 +26,10 @@ const FileDropArea = ({ onFiles }: { onFiles: (files: FileList) => void }) => {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
+        justifyContent: "center",
         gap: 1,
         p: 3,
+        minHeight: 280,
         borderRadius: 2,
         cursor: "pointer",
         textAlign: "center",
@@ -45,7 +47,7 @@ const FileDropArea = ({ onFiles }: { onFiles: (files: FileList) => void }) => {
           e.target.value = ""; // allow re-selecting the same files
         }}
       />
-      <UploadFileIcon />
+      <UploadFileIcon sx={{ fontSize: 48 }} />
       <Typography variant="body2">
         Arraste os arquivos da B3 aqui ou clique para selecionar
       </Typography>

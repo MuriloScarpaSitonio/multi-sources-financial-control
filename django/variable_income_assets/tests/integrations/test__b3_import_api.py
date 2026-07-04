@@ -370,3 +370,51 @@ def test_service_proventos_creates_income(tmp_path, user):
     actions = result["reports"]["proventos"]["actions"]
     assert actions[0]["action"] == "income_created"
     assert PassiveIncome.objects.filter(asset__user=user, asset__code="BBAS3").exists()
+
+
+def test_service_dry_run_proventos_sees_asset_created_by_negociacoes(
+    tmp_path, user, sync_assets_read_model
+):
+    # In a dry-run preview, proventos must recognize an asset that negociações
+    # creates in the same import (both ops share one transaction, rolled back at
+    # the end) instead of reporting "ativo não cadastrado".
+    from variable_income_assets.integrations.b3.import_service import run_b3_import
+    from variable_income_assets.models import PassiveIncome
+    from variable_income_assets.tests.integrations.test__b3_handlers import (
+        _build_negociacao,
+        _build_proventos,
+        _negotiation_row,
+    )
+
+    acoes_row = [
+        "BBAS3 - BCO BRASIL S.A.", "INTER DTVM", "4038379", "BBAS3",
+        "00000000000191", "BRBBASACNOR3 - 337", "ON", "BANCO DO BRASIL S/A",
+        971, 971, "-", "-", 21.71, 21080.41,
+    ]
+    posicao_path = _build_posicao(tmp_path, [], acoes_rows=[acoes_row])
+    negociacao_path = _build_negociacao(tmp_path, [_negotiation_row(code="BBAS3")])
+    d = (timezone.localdate() - timedelta(days=1)).strftime("%d/%m/%Y")
+    proventos_path = _build_proventos(
+        tmp_path, [["BBAS3 - BANCO DO BRASIL S/A", d, "Dividendo", "INTER", "100", 1, "10.00"]]
+    )
+
+    result = run_b3_import(
+        user_id=user.id,
+        # reversed on purpose: the service must still run negociações before proventos
+        operations=["proventos", "negociacoes"],
+        dry_run=True,
+        workbook_dt=None,
+        create_missing_assets=True,
+        negociacao_file=_upload_from_path(negociacao_path, "negociacao.xlsx"),
+        posicao_file=_upload_from_path(posicao_path, "posicao-2026-04-29-12-00-00.xlsx"),
+        movimentacao_file=None,
+        proventos_file=_upload_from_path(proventos_path, "proventos-2026.xlsx"),
+    )
+
+    prov_actions = result["reports"]["proventos"]["actions"]
+    assert any(
+        a["action"] == "income_created" and a["code"] == "BBAS3" for a in prov_actions
+    )
+    # dry run: nothing persists
+    assert not Asset.objects.filter(user=user, code="BBAS3").exists()
+    assert not PassiveIncome.objects.filter(asset__user=user).exists()

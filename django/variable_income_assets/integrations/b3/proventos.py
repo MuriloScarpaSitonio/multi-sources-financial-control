@@ -4,7 +4,7 @@ from pathlib import Path
 
 from ._workbook import WorkbookSource, open_workbook
 from .parser import PROJECT_ROOT, B3ParserError
-from .schemas import B3Provento, B3ProventoType
+from .schemas import B3Provento, B3ProventoSkip, B3ProventoType
 
 PROVENTOS_SHEET = "Proventos Recebidos"
 PROVENTOS_GLOB_PATTERN = "proventos-*.xlsx"
@@ -97,7 +97,9 @@ def _code_from_produto(produto: str) -> str:
     return produto.split(" - ", 1)[0].strip()
 
 
-def parse_proventos(path: WorkbookSource) -> list[B3Provento]:
+def parse_proventos(
+    path: WorkbookSource,
+) -> tuple[list[B3Provento], list[B3ProventoSkip]]:
     workbook = open_workbook(path)
     try:
         if PROVENTOS_SHEET not in workbook.sheetnames:
@@ -113,24 +115,27 @@ def parse_proventos(path: WorkbookSource) -> list[B3Provento]:
 
         h = _build_header_index(header_row, required=REQUIRED_HEADERS)
         proventos: list[B3Provento] = []
+        skipped: list[B3ProventoSkip] = []
 
         for row_index, row in enumerate(rows, start=2):
             produto = row[h["Produto"]] if h["Produto"] < len(row) else None
             if _is_blank(produto):
                 continue  # blank separator + the trailing "Total" row
 
+            code = _code_from_produto(
+                _to_required_str(produto, column="Produto", row_index=row_index)
+            )
             label = str(row[h["Tipo de Evento"]] or "").strip()
             kind = EVENT_LABELS.get(label)
             if kind is None:
-                raise B3ParserError(
-                    f"row {row_index}: unexpected Tipo de Evento {label!r}"
-                )
+                # Unmapped event type (e.g. fixed-income "PAGAMENTO DE JUROS"):
+                # skip the row and report it instead of aborting the import.
+                skipped.append(B3ProventoSkip(code=code, label=label))
+                continue
 
             proventos.append(
                 B3Provento(
-                    code=_code_from_produto(
-                        _to_required_str(produto, column="Produto", row_index=row_index)
-                    ),
+                    code=code,
                     kind=kind,
                     payment_date=_to_required_date(
                         row[h["Pagamento"]], column="Pagamento", row_index=row_index
@@ -141,6 +146,6 @@ def parse_proventos(path: WorkbookSource) -> list[B3Provento]:
                 )
             )
 
-        return proventos
+        return proventos, skipped
     finally:
         workbook.close()
