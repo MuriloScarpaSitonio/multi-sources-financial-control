@@ -66,6 +66,28 @@ def test_happy_path(tmp_path):
     assert negotiations[2].code == "BTLG11"
 
 
+def test_strips_fractional_market_suffix(tmp_path):
+    # "UNIP6F" (fractional market) is the same asset as "UNIP6"
+    frac = [
+        "02/04/2026", "Compra", "Fracionário", "-", INSTITUICAO,
+        "UNIP6F", 7, 80.5, 563.5,
+    ]
+    path = _build(tmp_path, [frac])
+
+    negotiations = parse_negotiations(path)
+
+    assert negotiations[0].code == "UNIP6"
+
+
+def test_keeps_code_when_f_not_fractional_suffix(tmp_path):
+    # a real ticker never ends in a digit+"F"; leave non-matching codes untouched
+    path = _build(tmp_path, [BBAS3_BUY])
+
+    negotiations = parse_negotiations(path)
+
+    assert negotiations[0].code == "BBAS3"
+
+
 def test_skips_unknown_movement_label(tmp_path):
     weird = list(BBAS3_BUY)
     weird[1] = "Bonificação"

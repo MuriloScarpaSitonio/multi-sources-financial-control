@@ -12,6 +12,7 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 from .handlers import (
     B3ImportError,
     import_b3_negociacoes,
+    import_b3_proventos,
     import_b3_renda_fixa_positions,
     import_b3_tesouro_positions,
 )
@@ -21,6 +22,10 @@ from .parser import B3ParserError
 # 400 attributed to the failing operation. BadZipFile / InvalidFileException
 # cover a corrupt or non-xlsx payload reaching openpyxl.
 _OPERATION_ERRORS = (B3ParserError, B3ImportError, zipfile.BadZipFile, InvalidFileException)
+
+
+class _DryRunBatchRollback(Exception):
+    """Internal: unwinds the shared transaction after a dry-run preview."""
 
 
 class B3ImportOperationError(Exception):
@@ -63,6 +68,7 @@ def _run_operation(
     negociacao: bytes | None,
     posicao: bytes | None,
     movimentacao: bytes | None,
+    proventos: bytes | None,
 ) -> dict:
     if operation == "negociacoes":
         return import_b3_negociacoes(
@@ -71,6 +77,10 @@ def _run_operation(
             create_missing_assets=create_missing_assets,
             negociacao_path=negociacao,
             posicao_path=posicao,
+        )
+    if operation == "proventos":
+        return import_b3_proventos(
+            user_id=user_id, dry_run=dry_run, proventos_path=proventos
         )
     if operation == "renda_fixa":
         return import_b3_renda_fixa_positions(
@@ -99,21 +109,31 @@ def run_b3_import(
     negociacao_file: UploadedFile | None,
     posicao_file: UploadedFile | None,
     movimentacao_file: UploadedFile | None,
+    proventos_file: UploadedFile | None = None,
 ) -> dict:
     files = {
         "negociacao": _read(negociacao_file),
         "posicao": _read(posicao_file),
         "movimentacao": _read(movimentacao_file),
+        "proventos": _read(proventos_file),
     }
 
-    def run_all() -> dict:
-        reports: dict = {}
-        for operation in operations:
+    # proventos must run after the asset-creating ops so it can match assets created
+    # in the same import (e.g. an FII created from negociações, then its dividends).
+    ordered_ops = sorted(operations, key=lambda op: op == "proventos")
+
+    reports: dict = {}
+
+    def run_all() -> None:
+        for operation in ordered_ops:
             try:
-                reports[operation] = _run_operation(
+                # Always persist within the shared transaction so each op sees what
+                # the previous ones created; the whole batch is rolled back below
+                # when this is a dry run.
+                report = _run_operation(
                     operation,
                     user_id=user_id,
-                    dry_run=dry_run,
+                    dry_run=False,
                     workbook_dt=workbook_dt,
                     create_missing_assets=create_missing_assets,
                     **files,
@@ -126,11 +146,17 @@ def run_b3_import(
                 raise B3ImportOperationError(
                     operation=operation, detail=_format_drf_error(exc)
                 ) from exc
-        return reports
+            report["dry_run"] = dry_run  # the report reflects the requested mode
+            reports[operation] = report
 
-    if dry_run:
-        # each handler self-rolls-back; the first op error aborts the whole preview
-        return {"dry_run": dry_run, "reports": run_all()}
+    # One transaction across every op: all-or-nothing on apply, and on a dry run we
+    # let the ops see each other's writes before rolling the whole thing back.
+    try:
+        with djtransaction.atomic():
+            run_all()
+            if dry_run:
+                raise _DryRunBatchRollback
+    except _DryRunBatchRollback:
+        pass
 
-    with djtransaction.atomic():  # all-or-nothing across ops on apply
-        return {"dry_run": dry_run, "reports": run_all()}
+    return {"dry_run": dry_run, "reports": reports}

@@ -18,10 +18,16 @@ const assertEqual = <T>(actual: T, expected: T, message: string) => {
 const fakeFile = (name: string, lastModified = 0): File =>
   ({ name, size: name.length, lastModified }) as unknown as File;
 
-const files = (neg = false, pos = false, mov = false): B3Files => ({
+const files = (
+  neg = false,
+  pos = false,
+  mov = false,
+  prov = false,
+): B3Files => ({
   negociacao: neg ? fakeFile("negociacao.xlsx") : null,
   posicao: pos ? fakeFile("posicao-2026-04-29-12-00-00.xlsx") : null,
   movimentacao: mov ? fakeFile("movimentacao.xlsx") : null,
+  proventos: prov ? fakeFile("proventos-2026.xlsx") : null,
 });
 
 // negociacoes needs the negociacao file
@@ -47,7 +53,24 @@ assertEqual(
   "posicao classified",
 );
 assertEqual(classifyB3File("movimentacao-2026.xlsx"), "movimentacao", "movimentacao classified");
+assertEqual(
+  classifyB3File("proventos-recebidos-2026.xlsx"),
+  "proventos",
+  "proventos classified",
+);
 assertEqual(classifyB3File("relatorio.xlsx"), null, "unknown -> null");
+
+// proventos op needs the proventos file
+assertEqual(
+  isOperationEnabled("proventos", files(false, false, false, true)),
+  true,
+  "proventos enabled",
+);
+assertEqual(
+  isOperationEnabled("proventos", files(false, false, false, false)),
+  false,
+  "proventos disabled",
+);
 
 // filename parsing
 const parsed = parseWorkbookDtFromFilename("posicao-2026-04-29-12-00-00.xlsx");
@@ -100,6 +123,7 @@ const mtimeA: B3Files = {
   negociacao: null,
   posicao: fakeFile("posicao-2026-04-29-12-00-00.xlsx", 1000),
   movimentacao: fakeFile("movimentacao.xlsx", 1000),
+  proventos: null,
 };
 const mtimeB: B3Files = {
   ...mtimeA,

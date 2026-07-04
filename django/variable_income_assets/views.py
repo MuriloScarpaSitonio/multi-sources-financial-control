@@ -158,6 +158,7 @@ class AssetViewSet(
                 negociacao_file=data.get("negociacao"),
                 posicao_file=data.get("posicao"),
                 movimentacao_file=data.get("movimentacao"),
+                proventos_file=data.get("proventos"),
             )
         except B3ImportOperationError as exc:
             return Response(exc.as_dict(), status=HTTP_400_BAD_REQUEST)

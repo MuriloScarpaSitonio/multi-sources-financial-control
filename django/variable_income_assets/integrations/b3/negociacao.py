@@ -25,6 +25,15 @@ COMPRA_VENDA_LABELS = {
     "Venda": B3FixedIncomeAction.SELL,
 }
 
+
+def _normalize_negotiation_code(code: str) -> str:
+    # Fractional-market trades carry a trailing "F" (e.g. "UNIP6F"); the asset is
+    # the same as the round-lot ticker ("UNIP6"), so drop it. Only strip when the
+    # char before is a digit, since real tickers always end in a number.
+    if len(code) > 1 and code[-1] == "F" and code[-2].isdigit():
+        return code[:-1]
+    return code
+
 NEGOCIACAO_REQUIRED_HEADERS = (
     "Data do Negócio",
     "Tipo de Movimentação",
@@ -201,8 +210,10 @@ def parse_negotiations(path: WorkbookSource) -> list[B3StockNegotiation]:
 
             negotiations.append(
                 B3StockNegotiation(
-                    code=_to_required_str(
-                        code_raw, column="Código de Negociação", row_index=row_index
+                    code=_normalize_negotiation_code(
+                        _to_required_str(
+                            code_raw, column="Código de Negociação", row_index=row_index
+                        )
                     ),
                     action=action,
                     operation_date=_to_required_date(
