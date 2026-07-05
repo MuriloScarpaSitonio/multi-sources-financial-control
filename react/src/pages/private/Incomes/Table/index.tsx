@@ -19,6 +19,7 @@ import {
 import { Colors, getColor } from "../../../../design-system";
 import useTable from "../../../../hooks/useTable";
 import { AssetCurrencyMap } from "../../Assets/consts";
+import AssetCell from "../../Assets/Table/AssetCell";
 import { getIncomes } from "../api";
 import CreateOrEditIncomeDrawer from "../components/CreateOrEditIncomeDrawer";
 import { useOnFormSuccess as useInvalidateIncomesQueries } from "../components/CreateOrEditIncomeDrawer/hooks";
@@ -111,10 +112,15 @@ const Table = ({ externalFilters }: TableProps) => {
   const columns = useMemo<Column<Income>[]>(
     () => [
       {
-        header: "Código ativo",
+        header: "Ativo",
         acessorKey: "asset.code",
         size: 50,
-        Cell: ({ row: { original } }) => original.asset.code,
+        Cell: ({ row: { original } }) => (
+          <AssetCell
+            code={original.asset.code}
+            description={original.asset.description}
+          />
+        ),
       },
       {
         header: "Categoria ativo",

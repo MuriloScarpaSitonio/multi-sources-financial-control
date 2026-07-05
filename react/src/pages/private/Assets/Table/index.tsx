@@ -22,6 +22,7 @@ import { defaultAssetsFilters } from "../filterConfig";
 import { getAssets } from "../api";
 import { Asset } from "../api/models";
 import { AssetCurrencyMap, LiquidityTypes, LiquidityTypesMapping } from "../consts";
+import AssetCell from "./AssetCell";
 import AssetsForm from "./AssetForm";
 import AssetUpdatePriceDrawer from "./AssetUpdatePriceDrawer";
 import { ASSETS_QUERY_KEY } from "./consts";
@@ -116,24 +117,24 @@ const Table = ({ externalFilters }: TableProps) => {
         accessorKey: "code",
         size: 50,
         Cell: ({ row: { original } }) => (
-          <Stack spacing={1}>
-            <Stack direction="row" spacing={1} alignItems="center">
+          <AssetCell
+            code={original.code}
+            description={original.description}
+            startAdornment={
               <StatusDot
                 variant={original.normalized_roi > 0 ? "success" : "danger"}
               />
-              <span>{original.code}</span>
-              {isEmergencyFundEligible(original) && (
+            }
+            endAdornment={
+              isEmergencyFundEligible(original) && (
                 <Tooltip title="Reserva de emergência">
                   <SavingsOutlinedIcon
                     sx={{ fontSize: 16, color: getColor(Colors.brand) }}
                   />
                 </Tooltip>
-              )}
-            </Stack>
-            {!!original.description && (
-              <span style={{ marginLeft: "20px" }}>{original.description}</span>
-            )}
-          </Stack>
+              )
+            }
+          />
         ),
       },
       {

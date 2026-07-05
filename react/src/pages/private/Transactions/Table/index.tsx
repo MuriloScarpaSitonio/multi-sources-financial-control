@@ -27,6 +27,7 @@ import EditTransactionDrawer from "./EditTransactionDrawer";
 import { useInvalidateTransactionsQueries } from "./hooks";
 
 import { AssetCurrencyMap } from "../../Assets/consts";
+import AssetCell from "../../Assets/Table/AssetCell";
 import { TransactionsContext } from "../context";
 import { customEndOfMonth } from "../../utils";
 import TopToolBar from "./ToopToolBar";
@@ -99,10 +100,15 @@ const Table = ({ externalFilters }: TableProps) => {
   const columns = useMemo<Column<Transaction>[]>(
     () => [
       {
-        header: "Código ativo",
+        header: "Ativo",
         acessorKey: "asset.code",
         size: 50,
-        Cell: ({ row: { original } }) => original.asset.code,
+        Cell: ({ row: { original } }) => (
+          <AssetCell
+            code={original.asset.code}
+            description={original.asset.description}
+          />
+        ),
       },
       {
         header: "Categoria ativo",
