@@ -75,8 +75,8 @@ def _to_required_decimal(value, *, column: str, row_index: int) -> Decimal:
 
 
 def _split_produto(produto: str) -> tuple[B3FixedIncomeKind, str] | None:
-    parts = produto.split(" - ", 1)
-    if len(parts) != 2:
+    parts = produto.split(" - ", 2)
+    if len(parts) < 2:
         return None
     prefix, code = parts[0].strip().upper(), parts[1].strip()
     try:
