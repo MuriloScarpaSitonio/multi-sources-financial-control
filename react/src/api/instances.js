@@ -5,9 +5,11 @@ import { apiProvider } from "./methods";
 
 import { AccessTokenStr, BaseApiUrl, RefreshTokenStr } from "../consts";
 
+const DEFAULT_API_TIMEOUT_MS = 30_000;
+
 let publicAxios = axios.create({
   baseURL: BaseApiUrl,
-  timeout: 5000,
+  timeout: DEFAULT_API_TIMEOUT_MS,
 });
 
 const getAuthHeaders = () => {
@@ -17,7 +19,7 @@ const getAuthHeaders = () => {
 
 let privateAxios = axios.create({
   baseURL: BaseApiUrl,
-  timeout: 5000,
+  timeout: DEFAULT_API_TIMEOUT_MS,
   headers: getAuthHeaders(),
 });
 

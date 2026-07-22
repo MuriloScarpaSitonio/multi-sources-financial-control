@@ -15,12 +15,17 @@ import {
 } from "./models";
 
 const RESOURCE = "assets";
+const B3_IMPORT_TIMEOUT_MS = 120_000;
 
 // Pass FormData directly; axios derives the multipart boundary itself.
 export const importB3 = async (
   formData: FormData,
 ): Promise<B3ImportResponse> =>
-  (await apiProvider.post(`${RESOURCE}/b3_import`, formData)).data;
+  (
+    await apiProvider.post(`${RESOURCE}/b3_import`, formData, {
+      timeout: B3_IMPORT_TIMEOUT_MS,
+    })
+  ).data;
 
 type AssetsIndicatorsResponse = {
   ROI: number;
