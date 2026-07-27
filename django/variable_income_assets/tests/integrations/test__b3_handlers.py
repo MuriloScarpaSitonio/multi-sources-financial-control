@@ -205,6 +205,7 @@ def test_missing_asset_with_movimentacao_creates_asset_and_transaction(
     report = import_b3_fixed_income_positions(
         user_id=user.id,
         dry_run=False,
+        create_missing_assets=True,
         posicao_path=posicao_path,
         movimentacao_path=movimentacao_path,
     )
@@ -217,6 +218,28 @@ def test_missing_asset_with_movimentacao_creates_asset_and_transaction(
     transaction = Transaction.objects.get(asset=asset)
     assert transaction.price == Decimal("1000")
     assert transaction.quantity == Decimal("10")
+    # the created asset's price is seeded from the posição (not left at 0)
+    metadata = AssetMetaData.objects.get(code="CDB426DGCVL", asset__isnull=True)
+    assert metadata.current_price == Decimal("1100")
+
+
+def test_missing_asset_is_skipped_when_create_missing_off(
+    tmp_path, user, sync_assets_read_model
+):
+    posicao_path = _build_posicao(tmp_path, [_cdb_position_row()])
+    movimentacao_path = _build_movimentacao(tmp_path, [_cdb_movimentacao_row()])
+
+    report = import_b3_fixed_income_positions(
+        user_id=user.id,
+        dry_run=False,
+        create_missing_assets=False,
+        posicao_path=posicao_path,
+        movimentacao_path=movimentacao_path,
+    )
+
+    assert report["actions"][0]["action"] == "skipped"
+    assert "Criar ativos ausentes" in report["actions"][0]["reason"]
+    assert not Asset.objects.filter(user=user, code="CDB426DGCVL").exists()
 
 
 def test_missing_asset_without_movimentacao_is_skipped_by_default(tmp_path, user):
@@ -226,6 +249,7 @@ def test_missing_asset_without_movimentacao_is_skipped_by_default(tmp_path, user
     report = import_b3_fixed_income_positions(
         user_id=user.id,
         dry_run=False,
+        create_missing_assets=True,
         posicao_path=posicao_path,
         movimentacao_path=movimentacao_path,
     )
@@ -244,6 +268,7 @@ def test_missing_asset_without_movimentacao_with_fallback_uses_posicao_price(
     report = import_b3_fixed_income_positions(
         user_id=user.id,
         dry_run=False,
+        create_missing_assets=True,
         use_posicao_price_when_missing_movement=True,
         posicao_path=posicao_path,
         movimentacao_path=movimentacao_path,
@@ -262,6 +287,7 @@ def test_dry_run_rolls_back(tmp_path, user, sync_assets_read_model):
     report = import_b3_fixed_income_positions(
         user_id=user.id,
         dry_run=True,
+        create_missing_assets=True,
         posicao_path=posicao_path,
         movimentacao_path=movimentacao_path,
     )
@@ -383,6 +409,7 @@ def test_missing_td_asset_with_movimentacao_creates_asset_and_transaction(
     report = import_b3_fixed_income_positions(
         user_id=user.id,
         dry_run=False,
+        create_missing_assets=True,
         posicao_path=posicao_path,
         movimentacao_path=movimentacao_path,
     )
@@ -394,6 +421,9 @@ def test_missing_td_asset_with_movimentacao_creates_asset_and_transaction(
     transaction = Transaction.objects.get(asset=asset)
     assert transaction.price == Decimal("2959.59")
     assert transaction.quantity == Decimal("2.02")
+    # the created asset's price is seeded from the posição (not left at 0)
+    metadata = AssetMetaData.objects.get(code="BRSTNCNTB7T1", asset__isnull=True)
+    assert metadata.current_price > Decimal("0")
 
 
 def test_missing_td_asset_without_movimentacao_is_skipped(tmp_path, user):
@@ -403,6 +433,7 @@ def test_missing_td_asset_without_movimentacao_is_skipped(tmp_path, user):
     report = import_b3_fixed_income_positions(
         user_id=user.id,
         dry_run=False,
+        create_missing_assets=True,
         posicao_path=posicao_path,
         movimentacao_path=movimentacao_path,
     )

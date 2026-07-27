@@ -91,9 +91,14 @@ assertEqual(
   "create-missing needs posicao",
 );
 assertEqual(
-  isCreateMissingEnabled(files(true, true), ["renda_fixa"]),
+  isCreateMissingEnabled(files(false, true), ["renda_fixa"]),
+  true,
+  "create-missing enabled for renda_fixa with posicao",
+);
+assertEqual(
+  isCreateMissingEnabled(files(false, false), ["proventos"]),
   false,
-  "create-missing needs negociacoes selected",
+  "create-missing not applicable to proventos",
 );
 
 // signature changes when inputs change

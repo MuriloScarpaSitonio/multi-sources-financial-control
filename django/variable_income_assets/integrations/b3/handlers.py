@@ -193,12 +193,29 @@ class _RequestContext:
         self.user = user
 
 
+def _set_created_fixed_br_price(
+    *, code: str, current_price: Decimal | None, workbook_dt: datetime
+) -> None:
+    # The AssetCreated event seeds metadata via fetch_asset_current_price, which
+    # returns 0 for fixed_br. Overwrite it with the posição's current price so a
+    # freshly-created RF/Tesouro asset starts with a real price instead of 0.
+    if current_price is None:
+        return
+    AssetMetaData.objects.filter(
+        code=code,
+        type=AssetTypes.fixed_br,
+        currency=Currencies.real,
+        asset__isnull=True,
+    ).update(current_price=current_price, current_price_updated_at=workbook_dt)
+
+
 def _create_asset_and_transactions(
     *,
     user,
     code: str,
     position: B3FixedIncomePosition,
     movements: list[B3FixedIncomeMovement],
+    workbook_dt: datetime,
 ) -> dict:
     description = _build_description(position)
     context = {"request": _RequestContext(user)}
@@ -219,6 +236,9 @@ def _create_asset_and_transactions(
     )
     asset_serializer.is_valid(raise_exception=True)
     asset = asset_serializer.save()
+    _set_created_fixed_br_price(
+        code=code, current_price=position.current_price, workbook_dt=workbook_dt
+    )
 
     transactions: list[dict] = []
     for movement in sorted(movements, key=lambda m: m.operation_date):
@@ -263,6 +283,7 @@ def _create_tesouro_asset_and_transactions(
     user,
     position: B3TesouroPosition,
     movements: list[B3TesouroMovement],
+    workbook_dt: datetime,
 ) -> dict:
     description = _build_tesouro_description(position)
     context = {"request": _RequestContext(user)}
@@ -283,6 +304,9 @@ def _create_tesouro_asset_and_transactions(
     )
     asset_serializer.is_valid(raise_exception=True)
     asset = asset_serializer.save()
+    _set_created_fixed_br_price(
+        code=position.isin, current_price=position.current_price, workbook_dt=workbook_dt
+    )
 
     transactions: list[dict] = []
     for movement in sorted(movements, key=lambda m: m.operation_date):
@@ -338,6 +362,7 @@ def _renda_fixa_actions(
     posicao_path_resolved: Path,
     movimentacao_path_resolved: Path,
     use_posicao_price_when_missing_movement: bool,
+    create_missing_assets: bool,
     **_,
 ) -> list[dict]:
     positions = parse_positions(posicao_path_resolved)
@@ -384,6 +409,16 @@ def _renda_fixa_actions(
             )
             continue
 
+        if not create_missing_assets:
+            actions.append(
+                {
+                    "code": position.code,
+                    "action": "skipped",
+                    "reason": "ativo não cadastrado; marque 'Criar ativos ausentes'",
+                }
+            )
+            continue
+
         code_movements = movements_by_code.get(position.code, [])
         if not code_movements:
             if not use_posicao_price_when_missing_movement:
@@ -413,6 +448,7 @@ def _renda_fixa_actions(
                 code=position.code,
                 position=position,
                 movements=code_movements,
+                workbook_dt=workbook_dt,
             )
         )
 
@@ -469,6 +505,7 @@ def _tesouro_actions(
     workbook_dt: datetime,
     posicao_path_resolved: Path,
     movimentacao_path_resolved: Path,
+    create_missing_assets: bool,
     **_,
 ) -> list[dict]:
     td_positions = parse_tesouro_positions(posicao_path_resolved)
@@ -518,6 +555,17 @@ def _tesouro_actions(
             )
             continue
 
+        if not create_missing_assets:
+            actions.append(
+                {
+                    "code": td_position.isin,
+                    "description": _build_tesouro_description(td_position),
+                    "action": "skipped",
+                    "reason": "ativo não cadastrado; marque 'Criar ativos ausentes'",
+                }
+            )
+            continue
+
         td_code_movements = td_by_name.get(td_position.name, [])
         if not td_code_movements:
             actions.append(
@@ -532,7 +580,10 @@ def _tesouro_actions(
 
         actions.append(
             _create_tesouro_asset_and_transactions(
-                user=user, position=td_position, movements=td_code_movements
+                user=user,
+                position=td_position,
+                movements=td_code_movements,
+                workbook_dt=workbook_dt,
             )
         )
 
@@ -737,6 +788,7 @@ def _make_renda_fixa_pipeline(
     *,
     movimentacao_path: str | None,
     use_posicao_price_when_missing_movement: bool,
+    create_missing_assets: bool,
 ):
     movimentacao_resolved = _resolve_movimentacao_path(movimentacao_path)
 
@@ -744,17 +796,22 @@ def _make_renda_fixa_pipeline(
         return _renda_fixa_actions(
             movimentacao_path_resolved=movimentacao_resolved,
             use_posicao_price_when_missing_movement=use_posicao_price_when_missing_movement,
+            create_missing_assets=create_missing_assets,
             **kw,
         )
 
     return pipeline
 
 
-def _make_tesouro_pipeline(*, movimentacao_path: str | None):
+def _make_tesouro_pipeline(*, movimentacao_path: str | None, create_missing_assets: bool):
     movimentacao_resolved = _resolve_movimentacao_path(movimentacao_path)
 
     def pipeline(**kw):
-        return _tesouro_actions(movimentacao_path_resolved=movimentacao_resolved, **kw)
+        return _tesouro_actions(
+            movimentacao_path_resolved=movimentacao_resolved,
+            create_missing_assets=create_missing_assets,
+            **kw,
+        )
 
     return pipeline
 
@@ -763,6 +820,7 @@ def import_b3_renda_fixa_positions(
     *,
     user_id: int,
     dry_run: bool = True,
+    create_missing_assets: bool = False,
     use_posicao_price_when_missing_movement: bool = False,
     posicao_path: str | None = None,
     movimentacao_path: str | None = None,
@@ -777,6 +835,7 @@ def import_b3_renda_fixa_positions(
             _make_renda_fixa_pipeline(
                 movimentacao_path=movimentacao_path,
                 use_posicao_price_when_missing_movement=use_posicao_price_when_missing_movement,
+                create_missing_assets=create_missing_assets,
             )
         ],
     )
@@ -786,6 +845,7 @@ def import_b3_tesouro_positions(
     *,
     user_id: int,
     dry_run: bool = True,
+    create_missing_assets: bool = False,
     posicao_path: str | None = None,
     movimentacao_path: str | None = None,
     workbook_dt: datetime | None = None,
@@ -795,7 +855,12 @@ def import_b3_tesouro_positions(
         dry_run=dry_run,
         posicao_path=posicao_path,
         workbook_dt=workbook_dt,
-        pipelines=[_make_tesouro_pipeline(movimentacao_path=movimentacao_path)],
+        pipelines=[
+            _make_tesouro_pipeline(
+                movimentacao_path=movimentacao_path,
+                create_missing_assets=create_missing_assets,
+            )
+        ],
     )
 
 
@@ -837,6 +902,7 @@ def import_b3_fixed_income_positions(
     *,
     user_id: int,
     dry_run: bool = True,
+    create_missing_assets: bool = False,
     use_posicao_price_when_missing_movement: bool = False,
     posicao_path: str | None = None,
     movimentacao_path: str | None = None,
@@ -851,8 +917,12 @@ def import_b3_fixed_income_positions(
             _make_renda_fixa_pipeline(
                 movimentacao_path=movimentacao_path,
                 use_posicao_price_when_missing_movement=use_posicao_price_when_missing_movement,
+                create_missing_assets=create_missing_assets,
             ),
-            _make_tesouro_pipeline(movimentacao_path=movimentacao_path),
+            _make_tesouro_pipeline(
+                movimentacao_path=movimentacao_path,
+                create_missing_assets=create_missing_assets,
+            ),
         ],
     )
 
