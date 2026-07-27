@@ -105,6 +105,10 @@ const B3ImportDrawer = ({
   const needsWorkbookDt = selectedOps.some(
     (op) => op === "renda_fixa" || op === "tesouro",
   );
+  // negociações, renda fixa and tesouro can all create missing assets
+  const showCreateMissing = selectedOps.some(
+    (op) => op === "negociacoes" || op === "renda_fixa" || op === "tesouro",
+  );
   const hasAnyFile = Object.values(files).some(Boolean);
 
   // Route a batch of dropped/selected files to their slots by filename.
@@ -298,7 +302,7 @@ const B3ImportDrawer = ({
               </Stack>
             </Stack>
 
-            {(needsWorkbookDt || selectedOps.includes("negociacoes")) && (
+            {(needsWorkbookDt || showCreateMissing) && (
               <Stack
                 direction="row"
                 spacing={4}
@@ -327,7 +331,7 @@ const B3ImportDrawer = ({
                     />
                   </LocalizationProvider>
                 )}
-                {selectedOps.includes("negociacoes") && (
+                {showCreateMissing && (
                   <Stack>
                     <FormControlLabel
                       control={

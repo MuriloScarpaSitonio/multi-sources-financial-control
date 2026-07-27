@@ -194,6 +194,7 @@ def test_service_dry_run_writes_nothing(tmp_path, user, sync_assets_read_model):
         user_id=user.id,
         operations=["renda_fixa"],
         dry_run=True,
+        create_missing_assets=True,
         workbook_dt=timezone.make_aware(WORKBOOK_DT),
         negociacao_file=None,
         posicao_file=posicao,
@@ -219,6 +220,7 @@ def test_service_apply_writes(tmp_path, user, sync_assets_read_model):
         user_id=user.id,
         operations=["renda_fixa"],
         dry_run=False,
+        create_missing_assets=True,
         workbook_dt=timezone.make_aware(WORKBOOK_DT),
         negociacao_file=None,
         posicao_file=posicao,
@@ -271,6 +273,7 @@ def test_endpoint_dry_run_returns_reports(client, user, tmp_path, sync_assets_re
             data={
                 "operations": ["renda_fixa"],
                 "dry_run": True,
+                "create_missing_assets": True,
                 "workbook_dt": timezone.make_aware(WORKBOOK_DT).isoformat(),
                 "posicao": posicao,
                 "movimentacao": movimentacao,

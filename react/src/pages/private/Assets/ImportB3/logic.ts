@@ -27,12 +27,17 @@ export const isOperationEnabled = (op: B3Operation, files: B3Files): boolean => 
   return files.posicao !== null && files.movimentacao !== null;
 };
 
-// "Criar ativos ausentes" only matters for Negociações, and creating an asset
-// needs the Posição file as its source.
+// Ops that can create a missing asset (all need the Posição file as the source).
+const CREATE_MISSING_OPS: B3Operation[] = ["negociacoes", "renda_fixa", "tesouro"];
+
+// "Criar ativos ausentes" gates asset creation for negociações, renda fixa and
+// tesouro; creating an asset needs the Posição file as its source.
 export const isCreateMissingEnabled = (
   files: B3Files,
   operations: B3Operation[],
-): boolean => operations.includes("negociacoes") && files.posicao !== null;
+): boolean =>
+  operations.some((op) => CREATE_MISSING_OPS.includes(op)) &&
+  files.posicao !== null;
 
 const FILENAME_RE = /posicao-(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})\.xlsx$/i;
 

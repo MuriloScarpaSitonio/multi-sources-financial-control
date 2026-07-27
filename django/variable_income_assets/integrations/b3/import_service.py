@@ -86,6 +86,7 @@ def _run_operation(
         return import_b3_renda_fixa_positions(
             user_id=user_id,
             dry_run=dry_run,
+            create_missing_assets=create_missing_assets,
             posicao_path=posicao,
             movimentacao_path=movimentacao,
             workbook_dt=workbook_dt,
@@ -93,6 +94,7 @@ def _run_operation(
     return import_b3_tesouro_positions(
         user_id=user_id,
         dry_run=dry_run,
+        create_missing_assets=create_missing_assets,
         posicao_path=posicao,
         movimentacao_path=movimentacao,
         workbook_dt=workbook_dt,

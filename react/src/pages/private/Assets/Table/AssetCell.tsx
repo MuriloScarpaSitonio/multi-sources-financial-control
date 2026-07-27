@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 
 import Stack from "@mui/material/Stack";
 
+import { Colors, FontSizes, Text } from "../../../../design-system";
+
 const AssetCell = ({
   code,
   description,
@@ -20,9 +22,13 @@ const AssetCell = ({
       {endAdornment}
     </Stack>
     {!!description && (
-      <span style={{ marginLeft: startAdornment ? "20px" : 0 }}>
+      <Text
+        size={FontSizes.EXTRA_SMALL}
+        color={Colors.neutral300}
+        extraStyle={{ marginLeft: startAdornment ? "20px" : 0 }}
+      >
         {description}
-      </span>
+      </Text>
     )}
   </Stack>
 );
