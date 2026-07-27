@@ -13,12 +13,21 @@ from typing import TYPE_CHECKING, Literal
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db import transaction as djtransaction
 from django.db.models import F
 from django.utils import timezone
 
 from .adapters.key_value_store import get_dollar_conversion_rate
-from .choices import AssetTypes, Currencies, PassiveIncomeTypes, TransactionActions
+from .choices import (
+    AssetObjectives,
+    AssetTypes,
+    Currencies,
+    LiquidityTypes,
+    PassiveIncomeTypes,
+    TransactionActions,
+)
 from .models import Asset, AssetClosedOperation, AssetMetaData, Transaction
+from .serializers import AssetSerializer, TransactionListSerializer
 from .service_layer.tasks import upsert_asset_read_model
 
 if TYPE_CHECKING:
@@ -659,6 +668,97 @@ def update_asset_metadata_current_price(code: str, price: Decimal) -> None:
         current_price=price,
         current_price_updated_at=timezone.now(),
     )
+
+
+def import_selic_ntnb(user_pk: int, dry_run: bool = True) -> None:
+    """One-off: register the Selic-held NTN-Bs (Inter DTVM custody, invisible to B3 files).
+
+    Data hand-extracted from the Inter "Extrato de Movimentação de Renda Fixa" PDFs
+    (aplicação dates + amounts) and the Selic "Extrato de custódia" of 08/07/2026
+    (ISINs + total quantities). Per-buy quantities are not reported anywhere; the
+    6/7/4 split of the 2030 title's 17 units is the only integer split whose implied
+    unit prices are consistent (~R$4.5k).
+
+    Dry run by default: writes inside a transaction, prints the report, rolls back.
+    Call with dry_run=False to persist. Skips assets that already exist (but not
+    their transactions — don't apply twice).
+
+    Usage:
+        from variable_income_assets.scripts import import_selic_ntnb
+        import_selic_ntnb(user_pk=1)                 # preview
+        import_selic_ntnb(user_pk=1, dry_run=False)  # persist
+    """
+    # (isin, maturity, current unit price @ 09/07/2026, [(operation_date, quantity, total_paid)])
+    titles = []
+
+    class _Rollback(Exception):
+        pass
+
+    class _RequestContext:
+        def __init__(self, user) -> None:
+            self.user = user
+
+    user = UserModel.objects.get(pk=user_pk)
+    context = {"request": _RequestContext(user)}
+
+    def _run() -> None:
+        for isin, maturity, current_price, buys in titles:
+            asset = Asset.objects.filter(
+                user_id=user_pk, code=isin, type=AssetTypes.fixed_br, currency=Currencies.real
+            ).first()
+            maturity_str = maturity.strftime("%d/%m/%Y")
+            if asset is not None:
+                print(f"{isin}: asset already exists (#{asset.id})")
+            else:
+                serializer = AssetSerializer(
+                    data={
+                        "type": AssetTypes.fixed_br,
+                        "code": isin,
+                        "currency": Currencies.real,
+                        "description": f"TPF - Título Público IPCA + 8% a.a. - venc {maturity_str}",
+                        "objective": AssetObjectives.growth,
+                        "liquidity_type": LiquidityTypes.at_maturity,
+                        "maturity_date": maturity_str,
+                    },
+                    context=context,
+                )
+                serializer.is_valid(raise_exception=True)
+                asset = serializer.save()
+                # AssetSerializer.save() returns the domain model (no .pk, only .id)
+                print(f"{isin}: asset created (#{asset.id})")
+
+            for operation_date, quantity, total_paid in buys:
+                price = (total_paid / quantity).quantize(Decimal("0.00000001"))
+                tx_serializer = TransactionListSerializer(
+                    data={
+                        "asset_pk": asset.id,
+                        "action": TransactionActions.buy,
+                        "price": str(price),
+                        "quantity": str(quantity),
+                        "operation_date": operation_date.strftime("%d/%m/%Y"),
+                    },
+                    context=context,
+                )
+                tx_serializer.is_valid(raise_exception=True)
+                tx_serializer.save()
+                print(f"{isin}: BUY {quantity} @ {price} on {operation_date} (total {total_paid})")
+
+            # The AssetCreated handler creates the global metadata row with price 0
+            # (fixed_br has no price integration); set the unit value from the extrato.
+            update_asset_metadata_current_price(
+                code=isin, price=current_price.quantize(Decimal("0.000001"))
+            )
+            print(f"{isin}: metadata price -> {current_price:.6f}")
+
+    try:
+        with djtransaction.atomic():
+            _run()
+            if dry_run:
+                raise _Rollback
+    except _Rollback:
+        print("\nDRY RUN — rolled back. Re-run with dry_run=False to persist.")
+    else:
+        print("\nAPPLIED.")
 
 
 def generate_fire_returns_ts(
