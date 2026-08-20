@@ -457,6 +457,27 @@ def test__list__filters(client, filter_by, count):
     assert response.json()["count"] == count
 
 
+@pytest.mark.usefixtures("stock_asset_metadata")
+def test__list__exposes_current_irpf_avg_price(
+    client,
+    buy_transaction,
+    bonificacao_transaction,
+    sync_assets_read_model,
+):
+    # GIVEN
+    # 50 shares bought at R$10 plus 25 bonus shares declared at R$12.34
+    # produces an IRPF cost basis of R$808.50 over 75 shares.
+
+    # WHEN
+    response = client.get(URL)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    result = response.json()["results"][0]
+    assert result["irpf_avg_price"] == 10.78
+    assert result["adjusted_avg_price"] != result["irpf_avg_price"]
+
+
 @skip_if_sqlite
 @pytest.mark.parametrize(
     "fixture, operation",

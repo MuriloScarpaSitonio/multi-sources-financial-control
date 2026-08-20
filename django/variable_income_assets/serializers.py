@@ -449,6 +449,7 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
             "current_price",
             "current_price_updated_at",
             "adjusted_avg_price",
+            "irpf_avg_price",
             "normalized_roi",
             "roi_percentage",
             "normalized_total_invested",

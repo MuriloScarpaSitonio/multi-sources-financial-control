@@ -17,6 +17,7 @@ export type Asset = {
   current_price: number;
   current_price_updated_at: string; // date
   adjusted_avg_price: number;
+  irpf_avg_price: number;
   normalized_roi: number;
   roi_percentage: number;
   normalized_total_invested: number;
@@ -35,6 +36,7 @@ export type AssetWrite = Omit<
   | "current_price"
   | "current_price_updated_at"
   | "adjusted_avg_price"
+  | "irpf_avg_price"
   | "normalized_roi"
   | "roi_percentage"
   | "normalized_total_invested"

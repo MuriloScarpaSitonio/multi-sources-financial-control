@@ -60,6 +60,11 @@ class AssetFactory(DjangoModelFactory):
 
 
 class AssetClosedOperationFactory(DjangoModelFactory):
+    irpf_normalized_total_bought = factory.LazyAttribute(
+        lambda operation: operation.normalized_total_bought
+    )
+    irpf_total_bought = factory.LazyAttribute(lambda operation: operation.total_bought)
+
     class Meta:
         model = AssetClosedOperation
 
