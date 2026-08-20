@@ -157,6 +157,19 @@ const Table = ({ externalFilters }: TableProps) => {
         },
       },
       {
+        header: "Preço médio IRPF",
+        accessorKey: "irpf_avg_price",
+        enableSorting: false,
+        size: 50,
+        Cell: ({ row: { original } }) => {
+          const price = original.irpf_avg_price.toLocaleString("pt-br", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 4,
+          });
+          return `${AssetCurrencyMap[original.currency].symbol} ${price}`;
+        },
+      },
+      {
         header: "Preço atual",
         accessorKey: "current_price",
         enableSorting: false,
@@ -331,6 +344,7 @@ const Table = ({ externalFilters }: TableProps) => {
     const isOpenedAssetsFiltered = filters.status === "OPENED";
     setColumnVisibility({
       adjusted_avg_price: isOpenedAssetsFiltered,
+      irpf_avg_price: isOpenedAssetsFiltered,
       current_price: isOpenedAssetsFiltered,
       quantity_balance: isOpenedAssetsFiltered,
       normalized_total_invested: isOpenedAssetsFiltered,

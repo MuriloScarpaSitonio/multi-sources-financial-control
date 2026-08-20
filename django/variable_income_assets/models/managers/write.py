@@ -67,6 +67,11 @@ class AssetQuerySet(QuerySet):
     def annotate_current_avg_price(self) -> Self:
         return self.annotate(avg_price=self.expressions.get_current_avg_price())
 
+    def annotate_current_irpf_avg_price(self) -> Self:
+        return self.annotate(
+            irpf_avg_price=self.expressions.get_current_avg_price(price_field="irpf_price")
+        )
+
     def annotate_current_normalized_avg_price(self) -> Self:
         return self.annotate(
             normalized_avg_price=self.expressions.get_current_normalized_avg_price()
@@ -150,6 +155,7 @@ class AssetQuerySet(QuerySet):
             return self._annotate_read_fields_for_is_held_in_self_custody()
         return (
             self.annotate_for_domain()
+            .annotate_current_irpf_avg_price()
             .annotate_current_normalized_avg_price()
             .annotate_normalized_total_bought()
             .annotate_current_normalized_total_sold()
@@ -163,6 +169,7 @@ class AssetQuerySet(QuerySet):
                 normalized_total_bought=self.expressions.get_normalized_current_total_bought(),
                 normalized_total_sold=self.expressions.get_current_normalized_total_sold(),
                 avg_price=self.expressions.get_avg_price_held_in_self_custody(),
+                irpf_avg_price=F("avg_price"),
                 # apenas ativos de renda fixa BRL sao aceitos no momento
                 normalized_avg_price=F("avg_price"),
                 #
@@ -213,7 +220,9 @@ class AssetQuerySet(QuerySet):
             normalized_total_invested=F("normalized_avg_price") * F("transactions_balance"),
             total_invested=F("avg_price") * F("transactions_balance"),
             avg_current_currency_conversion_rate=Coalesce(
-                self.expressions.get_normalized_total_bought(extra_filters, price_field="irpf_price")
+                self.expressions.get_normalized_total_bought(
+                    extra_filters, price_field="irpf_price"
+                )
                 / Greatest(
                     self.expressions.get_total_bought(extra_filters, price_field="irpf_price"),
                     Value(Decimal("1.0")),
@@ -648,6 +657,4 @@ class AssetClosedOperationQuerySet(QuerySet):
         # IRPF ROI uses the declared cost basis (irpf_normalized_total_bought),
         # which includes BONIFICACAO at the company-declared unit price. Avoids
         # overstating profit reported to Receita when bonificações precede a sell.
-        return self.annotate(
-            roi=F("normalized_total_sold") - F("irpf_normalized_total_bought")
-        )
+        return self.annotate(roi=F("normalized_total_sold") - F("irpf_normalized_total_bought"))

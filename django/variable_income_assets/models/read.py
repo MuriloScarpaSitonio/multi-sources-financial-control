@@ -35,6 +35,7 @@ class AssetReadModel(models.Model):
     maturity_date = models.DateField(null=True, blank=True)
     quantity_balance = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
     avg_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
+    irpf_avg_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
     normalized_avg_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
     normalized_total_bought = models.DecimalField(
         decimal_places=4, max_digits=20, default=Decimal()
