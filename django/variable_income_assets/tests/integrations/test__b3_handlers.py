@@ -820,6 +820,31 @@ def test_proventos_creates_income_dedupes_and_skips_unknown(tmp_path, user):
     assert read_model.credited_incomes == Decimal("221.58")  # unchanged
 
 
+def test_proventos_does_not_import_fixed_br_income(tmp_path, user, mocker):
+    asset = AssetFactory(
+        code="CDB-INTER",
+        type=AssetTypes.fixed_br,
+        currency=Currencies.real,
+        objective=AssetObjectives.dividend,
+        user=user,
+    )
+    mocker.patch("variable_income_assets.service_layer.handlers.upsert_asset_read_model")
+    payment_date = (timezone.localdate() - timedelta(days=1)).strftime("%d/%m/%Y")
+    proventos_path = _build_proventos(
+        tmp_path,
+        [["CDB-INTER - CDB INTER", payment_date, "Rendimento", "INTER", "1", 1, "10.00"]],
+    )
+
+    report = import_b3_proventos(
+        user_id=user.id,
+        dry_run=False,
+        proventos_path=proventos_path,
+    )
+
+    assert report["actions"][0]["action"] == "error"
+    assert not PassiveIncome.objects.filter(asset=asset).exists()
+
+
 def test_proventos_dry_run_persists_nothing(tmp_path, user):
     from ...management.commands.sync_assets_cqrs import Command as Sync
 

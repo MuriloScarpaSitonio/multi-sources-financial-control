@@ -77,6 +77,7 @@ class PassiveIncomeTypes(DjangoChoices):
     jcp = ChoiceItem("JCP", label="Juros sobre capital próprio")
     income = ChoiceItem("INCOME", label="Rendimento")
     reimbursement = ChoiceItem("REIMBURSEMENT", label="Reembolso")
+    interest = ChoiceItem("INTEREST", label="Juros")
 
 
 class PassiveIncomeEventTypes(DjangoChoices):

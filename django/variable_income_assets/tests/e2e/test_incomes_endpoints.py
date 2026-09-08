@@ -21,7 +21,7 @@ from config.settings.base import BASE_API_URL
 from shared.tests import convert_and_quantitize, skip_if_sqlite
 
 from ...choices import AssetTypes, Currencies, PassiveIncomeEventTypes, PassiveIncomeTypes
-from ...models import Asset, PassiveIncome
+from ...models import Asset, AssetReadModel, PassiveIncome
 from ...models.managers import PassiveIncomeQuerySet
 from ..conftest import PassiveIncomeFactory
 from ..shared import get_total_credited_incomes_brute_force
@@ -207,10 +207,44 @@ def test__create__credited__future(client, stock_usa_asset):
     }
 
 
-def test__create__fixed_br(client, fixed_asset_held_in_self_custody):
+def test__create__fixed_br__interest(client, fixed_asset_held_in_self_custody):
     # GIVEN
     data = {
-        "type": PassiveIncomeTypes.dividend,
+        "type": "INTEREST",
+        "event_type": PassiveIncomeEventTypes.credited,
+        "amount": 100,
+        "operation_date": "06/12/2022",
+        "asset_pk": fixed_asset_held_in_self_custody.pk,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_201_CREATED
+    income = PassiveIncome.objects.get(asset=fixed_asset_held_in_self_custody)
+    assert income.type == "INTEREST"
+    assert income.amount == 100
+
+    read_model = AssetReadModel.objects.get(write_model_pk=fixed_asset_held_in_self_custody.pk)
+    assert read_model.credited_incomes == 100
+
+
+@pytest.mark.parametrize(
+    "income_type",
+    (
+        PassiveIncomeTypes.dividend,
+        PassiveIncomeTypes.jcp,
+        PassiveIncomeTypes.income,
+        PassiveIncomeTypes.reimbursement,
+    ),
+)
+def test__create__fixed_br__rejects_non_interest_income_types(
+    client, fixed_asset_held_in_self_custody, income_type
+):
+    # GIVEN
+    data = {
+        "type": income_type,
         "event_type": PassiveIncomeEventTypes.credited,
         "amount": 100,
         "operation_date": "06/12/2022",
@@ -222,7 +256,26 @@ def test__create__fixed_br(client, fixed_asset_held_in_self_custody):
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"type": ["Ativos de classe Renda fixa BR não aceitam rendimentos"]}
+    assert not PassiveIncome.objects.filter(asset=fixed_asset_held_in_self_custody).exists()
+
+
+def test__create__non_fixed_br__rejects_interest(client, stock_asset, mocker):
+    # GIVEN
+    mocker.patch("variable_income_assets.service_layer.handlers.upsert_asset_read_model")
+    data = {
+        "type": "INTEREST",
+        "event_type": PassiveIncomeEventTypes.credited,
+        "amount": 100,
+        "operation_date": "06/12/2022",
+        "asset_pk": stock_asset.pk,
+    }
+
+    # WHEN
+    response = client.post(URL, data=data)
+
+    # THEN
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert not PassiveIncome.objects.filter(asset=stock_asset).exists()
 
 
 @pytest.mark.django_db(transaction=True)

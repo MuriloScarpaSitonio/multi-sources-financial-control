@@ -210,6 +210,21 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
         except Asset.DoesNotExist as e:
             raise NotFound({"asset": "Not found."}) from e
 
+        if (
+            asset.type == choices.AssetTypes.fixed_br
+            and attrs["type"] != choices.PassiveIncomeTypes.interest
+        ):
+            raise serializers.ValidationError(
+                {"type": "Ativos de classe Renda fixa BR aceitam apenas rendimentos do tipo Juros"}
+            )
+        if (
+            asset.type != choices.AssetTypes.fixed_br
+            and attrs["type"] == choices.PassiveIncomeTypes.interest
+        ):
+            raise serializers.ValidationError(
+                {"type": "Rendimentos do tipo Juros são exclusivos de ativos de Renda fixa BR"}
+            )
+
         if asset.currency == choices.Currencies.real:
             attrs["current_currency_conversion_rate"] = 1
 
@@ -236,7 +251,7 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
                 )
 
             choice = choices.AssetTypes.get_choice(asset.type)
-            if not choice.accept_incomes:
+            if not choice.accept_incomes and asset.type != choices.AssetTypes.fixed_br:
                 raise serializers.ValidationError(
                     {"type": f"Ativos de classe {choice.label} não aceitam rendimentos"}
                 )
