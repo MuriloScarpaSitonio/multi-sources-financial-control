@@ -54,7 +54,7 @@ export type Transaction = {
 
 export type Income = {
   id: number;
-  type: "Dividendo" | "Juros sobre capital próprio" | "Rendimento";
+  type: "Dividendo" | "Juros sobre capital próprio" | "Rendimento" | "Juros";
   event_type: "Creditado" | "Provisionado";
   amount: number;
   operation_date: RawDateString;

@@ -62,6 +62,7 @@ export const AssetCodeAutoComplete = ({
         label: asset.code,
         value: asset.pk,
         currency: asset.currency,
+        type: asset.type,
         is_held_in_self_custody: asset.is_held_in_self_custody,
       })) ?? [],
     [assets],
@@ -95,6 +96,7 @@ export const AssetCodeAutoComplete = ({
                     label,
                     value,
                     currency,
+                    type,
                     is_held_in_self_custody,
                     inputValue,
                   } = asset;
@@ -103,6 +105,7 @@ export const AssetCodeAutoComplete = ({
                     label: inputValue ?? label,
                     value: inputValue ? 0 : value,
                     currency,
+                    type,
                     is_held_in_self_custody,
                   });
                 }}

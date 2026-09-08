@@ -39,6 +39,7 @@ import { Income } from "../../types";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiListResponse } from "../../../../../types";
 import { formatISO } from "date-fns";
+import { incomeTypeOptionsForAssetType } from "../../incomeTypeOptions";
 
 const requireAssetSchema = yup
   .object()
@@ -46,12 +47,14 @@ const requireAssetSchema = yup
     label: yup.string().required("O ativo é obrigatório"),
     value: yup.number(),
     currency: yup.string(),
+    type: yup.string(),
   })
   .required("O ativo é obrigatório");
 const nonRequireAssetSchema = yup.object().shape({
   label: yup.string(),
   value: yup.number(),
   currency: yup.string(),
+  type: yup.string(),
 });
 const baseSchema = {
   type: yup
@@ -163,6 +166,7 @@ const CreateOrEditIncomeForm = ({
           label: asset?.code,
           value: asset?.id,
           currency: asset?.currency,
+          type: asset?.type,
         },
         type: {
           label: type,
@@ -191,6 +195,7 @@ const CreateOrEditIncomeForm = ({
     asset?.code,
     asset?.currency,
     asset?.id,
+    asset?.type,
     event_type,
     isEdit,
     operation_date,
@@ -256,6 +261,7 @@ const CreateOrEditIncomeForm = ({
     getErrorMessage,
     getValues,
     errors,
+    setValue,
   } = useFormPlus({
     mutationFn: isEdit ? editIncomeMutation : createIncomeMutation,
     schema: isEdit ? editSchema : createSchema,
@@ -283,7 +289,16 @@ const CreateOrEditIncomeForm = ({
   useEffect(() => setIsSubmitting(isPending), [isPending, setIsSubmitting]);
 
   const assetObj = watch("asset");
+  const assetType = assetObj?.type || asset?.type;
   const isCredited = watch("event_type") === EventTypes.CREDITED;
+
+  useEffect(() => {
+    const availableTypes = incomeTypeOptionsForAssetType(assetType);
+    const selectedType = getValues("type");
+    if (!availableTypes.some(({ value }) => value === selectedType?.value)) {
+      setValue("type", availableTypes[0]);
+    }
+  }, [assetType, getValues, setValue]);
 
   const currencySymbol =
     AssetCurrencyMap[(assetObj?.currency || asset?.currency) as AssetCurrencies]
@@ -316,6 +331,7 @@ const CreateOrEditIncomeForm = ({
               AssetsTypesMapping["Ação EUA"].value,
               AssetsTypesMapping.Cripto.value,
               AssetsTypesMapping.FII.value,
+              AssetsTypesMapping["Renda fixa BR"].value,
             ],
           }}
         />
@@ -326,6 +342,7 @@ const CreateOrEditIncomeForm = ({
         isFieldInvalid={isFieldInvalid}
         getFieldHasError={getFieldHasError}
         getErrorMessage={getErrorMessage}
+        assetType={assetType}
       />
       <EventTypesRadios control={control} />
       <PriceWithCurrencyInput

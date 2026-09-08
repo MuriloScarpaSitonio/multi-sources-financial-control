@@ -5,6 +5,7 @@ export const TypesMapping = {
   Dividendo: { value: "DIVIDEND", color: "#ccc86c" },
   Reembolso: { value: "REIMBURSEMENT", color: "#7eccb7" },
   "Juros sobre capital próprios": { value: "JCP", color: "#d9d3c5" },
+  Juros: { value: "INTEREST", color: "#d9a648" },
 };
 
 export enum EventTypes {

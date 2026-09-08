@@ -806,6 +806,14 @@ def test__minimal_data_endpoint(client, filters):
     assert response.json() == list(qs.values("code", "currency", "pk").order_by("code"))
 
 
+def test__minimal_data_endpoint__includes_asset_type(client, fixed_asset_held_in_self_custody):
+    response = client.get(f"{URL}/minimal_data")
+
+    assert response.status_code == HTTP_200_OK
+    assert response.json()[0]["pk"] == fixed_asset_held_in_self_custody.pk
+    assert response.json()[0]["type"] == AssetTypes.fixed_br
+
+
 @pytest.mark.usefixtures(
     "transactions", "passive_incomes", "stock_asset_metadata", "sync_assets_read_model"
 )
