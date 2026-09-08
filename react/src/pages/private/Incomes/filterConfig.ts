@@ -14,6 +14,7 @@ const typesValueMapping: Record<string, string> = {
   DIVIDEND: "Dividendo",
   REIMBURSEMENT: "Reembolso",
   JCP: "Juros sobre capital próprios",
+  INTEREST: "Juros",
 };
 
 const eventTypesValueMapping: Record<string, string> = {

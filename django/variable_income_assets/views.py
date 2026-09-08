@@ -259,7 +259,7 @@ class AssetViewSet(
                     output_field=BooleanField(),
                 ),
             )
-            .values("code", "currency", "pk", "is_held_in_self_custody")
+            .values("code", "currency", "pk", "type", "is_held_in_self_custody")
             .order_by("code"),
             status=HTTP_200_OK,
         )
