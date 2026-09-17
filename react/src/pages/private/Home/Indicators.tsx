@@ -39,11 +39,13 @@ import {
 } from "../Planning/api";
 import DividendsOnlyIndicator from "./DividendsOnlyIndicator";
 import ConstantDollarIndicator from "./ConstantDollarIndicator";
+import { buildPortfolio } from "./firePortfolio";
 import GalenoIndicator from "./GalenoIndicator";
 import OneOverNIndicator from "./OneOverNIndicator";
 import AgeInBondsIndicator from "./AgeInBondsIndicator";
 import ConstantDollarAgeInBondsIndicator from "./ConstantDollarAgeInBondsIndicator";
 import VPWIndicator from "./VPWIndicator";
+import { useFireAllocation } from "../Planning/fireAllocation";
 
 const Indicators = () => {
   const { hideValues } = useHideValues();
@@ -61,6 +63,12 @@ const Indicators = () => {
   const oneOverNPreferences = getOneOverNPlanningPreferences(preferences);
   const vpwPreferences = getVPWPlanningPreferences(preferences);
   const dateOfBirth = planningData?.dateOfBirth ?? null;
+  const { data: fireAllocationData, isPending: isFireAllocationLoading } =
+    useFireAllocation();
+  const firePortfolio = useMemo(
+    () => buildPortfolio(fireAllocationData?.buckets ?? [], firePreferences),
+    [fireAllocationData?.buckets, firePreferences],
+  );
   // Galeno parked while we redesign it as a standalone strategy — see
   // docs/superpowers/plans/2026-04-26-galeno-strategy.md. Re-enable by
   // restoring the previous expression.
@@ -117,7 +125,14 @@ const Indicators = () => {
     const fixed = data.find((d) => d.type === "Renda fixa BR")?.total ?? 0;
     const ifix = data.find((d) => d.type === "FII")?.total ?? 0;
     const equity = data
-      .filter((d) => ["Ação BR", "Ação EUA", "Cripto"].includes(d.type))
+      .filter((d) =>
+        [
+          "Renda variável BR",
+          "Renda variável EUA",
+          "Renda variável Global",
+          "Cripto",
+        ].includes(d.type),
+      )
       .reduce((sum, d) => sum + d.total, 0);
     return {
       fixedIncomeTotal: fixed,
@@ -208,19 +223,18 @@ const Indicators = () => {
                   <ConstantDollarAgeInBondsIndicator
                     patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
                     avgExpenses={expensesIndicators?.fire_avg ?? 0}
-                    isLoading={isLoading || isExpensesIndicatorsLoading || isReportsLoading}
+                    isLoading={isLoading || isExpensesIndicatorsLoading || isFireAllocationLoading}
                     dateOfBirth={dateOfBirth}
                     withdrawalRate={firePreferences.withdrawal_rate}
                     onWithdrawalRateChange={() => {}}
                     targetYears={firePreferences.target_years}
                     onTargetYearsChange={() => {}}
+                    portfolio={firePortfolio}
+                    samplingMethod={firePreferences.sampling_method}
                     fixedIncomeTotal={fixedIncomeTotal}
                     variableIncomeTotal={variableIncomeTotal}
-                    equityTotal={equityTotal}
-                    ifixTotal={ifixTotal}
                     monthlySavings={monthlySavings}
                     simulatedExpenses={firePreferences.monthly_expenses_override}
-                    excludeIfixFromSim={firePreferences.exclude_ifix_from_sim}
                     onProgressClick={openFireStrategy}
                     compact
                   />
@@ -228,17 +242,15 @@ const Indicators = () => {
                   <ConstantDollarIndicator
                     patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
                     avgExpenses={expensesIndicators?.fire_avg ?? 0}
-                    isLoading={isLoading || isExpensesIndicatorsLoading || isReportsLoading}
+                    isLoading={isLoading || isExpensesIndicatorsLoading || isFireAllocationLoading}
                     withdrawalRate={firePreferences.withdrawal_rate}
                     onWithdrawalRateChange={() => {}}
                     targetYears={firePreferences.target_years}
                     onTargetYearsChange={() => {}}
-                    equityTotal={equityTotal}
-                    ifixTotal={ifixTotal}
-                    fixedIncomeTotal={fixedIncomeTotal + bankAmount}
+                    portfolio={firePortfolio}
+                    samplingMethod={firePreferences.sampling_method}
                     monthlySavings={monthlySavings}
                     simulatedExpenses={firePreferences.monthly_expenses_override}
-                    excludeIfixFromSim={firePreferences.exclude_ifix_from_sim}
                     onProgressClick={openFireStrategy}
                     compact
                   />

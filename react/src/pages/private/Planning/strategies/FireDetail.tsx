@@ -7,17 +7,25 @@ import Switch from "@mui/material/Switch";
 
 import ConstantDollarAgeInBondsIndicator from "../../Home/ConstantDollarAgeInBondsIndicator";
 import ConstantDollarIndicator from "../../Home/ConstantDollarIndicator";
-import { useAssetsIndicators } from "../../Assets/Indicators/hooks";
-import { useAssetsReports } from "../../Assets/Reports/AssetAggregationReports/hooks";
-import { GroupBy, Kinds } from "../../Assets/Reports/types";
-import type { ReportAggregatedByTypeDataItem } from "../../Assets/Reports/types";
-import { useBankAccountsSummary } from "../../Expenses/hooks";
+import { buildPortfolio } from "../../Home/firePortfolio";
+import type {
+  CryptoProxy,
+  GlobalEquityProxy,
+  ReturnCategory,
+  SamplingMethod,
+  UsEquityProxy,
+} from "../../Home/fireReturnTypes";
 import AgeInBondsExplainer from "../AgeInBondsExplainer";
 import {
   getFirePlanningPreferences,
   type PlanningPreferences,
 } from "../api";
 import DefaultsPanel from "../DefaultsPanel";
+import FireHistoricalDataControls from "../FireHistoricalDataControls";
+import {
+  useFireAllocation,
+  type FireAllocationBucket,
+} from "../fireAllocation";
 import FireMethodologyWalkthrough from "../FireMethodologyWalkthrough";
 import {
   usePlanningPreferences,
@@ -48,9 +56,21 @@ const FireDetail = () => {
   const [expensesOverride, setExpensesOverride] = useState<number | null>(
     firePreferences.monthly_expenses_override,
   );
-  const [excludeIfixFromSim, setExcludeIfixFromSim] = useState(
-    firePreferences.exclude_ifix_from_sim,
+  const [samplingMethod, setSamplingMethod] = useState<SamplingMethod>(
+    firePreferences.sampling_method,
   );
+  const [usEquityProxy, setUsEquityProxy] = useState<UsEquityProxy>(
+    firePreferences.us_equity_proxy,
+  );
+  const [globalEquityProxy, setGlobalEquityProxy] = useState<GlobalEquityProxy>(
+    firePreferences.global_equity_proxy,
+  );
+  const [cryptoProxy, setCryptoProxy] = useState<CryptoProxy>(
+    firePreferences.crypto_proxy,
+  );
+  const [excludedReturnCategories, setExcludedReturnCategories] = useState<
+    ReturnCategory[]
+  >(firePreferences.excluded_return_categories);
   const [showAgeInBonds, setShowAgeInBonds] = useState(
     preferences?.show_age_in_bonds ?? false,
   );
@@ -64,11 +84,19 @@ const FireDetail = () => {
     setWithdrawalRate(firePreferences.withdrawal_rate);
     setTargetYears(firePreferences.target_years);
     setExpensesOverride(firePreferences.monthly_expenses_override);
-    setExcludeIfixFromSim(firePreferences.exclude_ifix_from_sim);
+    setSamplingMethod(firePreferences.sampling_method);
+    setUsEquityProxy(firePreferences.us_equity_proxy);
+    setGlobalEquityProxy(firePreferences.global_equity_proxy);
+    setCryptoProxy(firePreferences.crypto_proxy);
+    setExcludedReturnCategories(firePreferences.excluded_return_categories);
   }, [
-    firePreferences.exclude_ifix_from_sim,
+    firePreferences.crypto_proxy,
+    firePreferences.excluded_return_categories,
+    firePreferences.global_equity_proxy,
     firePreferences.monthly_expenses_override,
+    firePreferences.sampling_method,
     firePreferences.target_years,
+    firePreferences.us_equity_proxy,
     firePreferences.withdrawal_rate,
   ]);
 
@@ -81,36 +109,50 @@ const FireDetail = () => {
     derivedMonthlySavings,
     isLoading: isCommonLoading,
   } = useStrategyCommonData();
-  const { data: assetsIndicators, isPending: isAssetsLoading } = useAssetsIndicators({
-    includeYield: true,
-  });
-  const { data: { total: bankAmount } = { total: 0 }, isPending: isBankLoading } =
-    useBankAccountsSummary();
-  const { data: assetsReportData, isPending: isReportsLoading } = useAssetsReports({
-    kind: Kinds.TOTAL_INVESTED,
-    group_by: GroupBy.TYPE,
-    current: true,
-    percentage: false,
-  });
+  const { data: allocationData, isPending: isAllocationLoading } =
+    useFireAllocation();
+  const allocation = useMemo<FireAllocationBucket[]>(
+    () => allocationData?.buckets ?? [],
+    [allocationData?.buckets],
+  );
+  const patrimonyTotal = allocation.reduce((sum, bucket) => sum + bucket.total, 0);
+  const isDataLoading = isCommonLoading || isAllocationLoading;
+  const fixedIncomeTotal = allocation
+    .filter((bucket) => bucket.category.startsWith("FIXED_"))
+    .reduce((sum, bucket) => sum + bucket.total, 0);
+  const variableIncomeTotal = allocation
+    .filter(
+      (bucket) =>
+        bucket.category !== "CASH" && !bucket.category.startsWith("FIXED_"),
+    )
+    .reduce((sum, bucket) => sum + bucket.total, 0);
 
-  const patrimonyTotal = (assetsIndicators?.total ?? 0) + bankAmount;
-  const isDataLoading =
-    isAssetsLoading || isBankLoading || isCommonLoading || isReportsLoading;
-
-  const { fixedIncomeTotal, variableIncomeTotal, equityTotal, ifixTotal } = useMemo(() => {
-    const data = (assetsReportData ?? []) as ReportAggregatedByTypeDataItem[];
-    const fixed = data.find((d) => d.type === "Renda fixa BR")?.total ?? 0;
-    const ifix = data.find((d) => d.type === "FII")?.total ?? 0;
-    const equity = data
-      .filter((d) => ["Ação BR", "Ação EUA", "Cripto"].includes(d.type))
-      .reduce((sum, d) => sum + d.total, 0);
-    return {
-      fixedIncomeTotal: fixed,
-      variableIncomeTotal: equity + ifix,
-      equityTotal: equity,
-      ifixTotal: ifix,
-    };
-  }, [assetsReportData]);
+  const localFirePreferences = useMemo(
+    () => ({
+      withdrawal_rate: withdrawalRate,
+      target_years: targetYears,
+      monthly_expenses_override: expensesOverride,
+      sampling_method: samplingMethod,
+      us_equity_proxy: usEquityProxy,
+      global_equity_proxy: globalEquityProxy,
+      crypto_proxy: cryptoProxy,
+      excluded_return_categories: excludedReturnCategories,
+    }),
+    [
+      cryptoProxy,
+      excludedReturnCategories,
+      expensesOverride,
+      globalEquityProxy,
+      samplingMethod,
+      targetYears,
+      usEquityProxy,
+      withdrawalRate,
+    ],
+  );
+  const portfolio = useMemo(
+    () => buildPortfolio(allocation, localFirePreferences),
+    [allocation, localFirePreferences],
+  );
 
   const isDirty = useMemo(
     () =>
@@ -119,20 +161,33 @@ const FireDetail = () => {
       (withdrawalRate !== firePreferences.withdrawal_rate ||
         targetYears !== firePreferences.target_years ||
         expensesOverride !== firePreferences.monthly_expenses_override ||
-        excludeIfixFromSim !== firePreferences.exclude_ifix_from_sim ||
+        samplingMethod !== firePreferences.sampling_method ||
+        usEquityProxy !== firePreferences.us_equity_proxy ||
+        globalEquityProxy !== firePreferences.global_equity_proxy ||
+        cryptoProxy !== firePreferences.crypto_proxy ||
+        JSON.stringify(excludedReturnCategories) !==
+          JSON.stringify(firePreferences.excluded_return_categories) ||
         showAgeInBonds !== (preferences?.show_age_in_bonds ?? false)),
     [
       isActive,
       planningData,
-      firePreferences.exclude_ifix_from_sim,
+      cryptoProxy,
+      excludedReturnCategories,
       firePreferences.monthly_expenses_override,
+      firePreferences.sampling_method,
       firePreferences.target_years,
+      firePreferences.us_equity_proxy,
+      firePreferences.global_equity_proxy,
+      firePreferences.crypto_proxy,
+      firePreferences.excluded_return_categories,
+      globalEquityProxy,
       firePreferences.withdrawal_rate,
       preferences,
       withdrawalRate,
       targetYears,
       expensesOverride,
-      excludeIfixFromSim,
+      samplingMethod,
+      usEquityProxy,
       showAgeInBonds,
     ],
   );
@@ -146,7 +201,11 @@ const FireDetail = () => {
         withdrawal_rate: withdrawalRate,
         target_years: targetYears,
         monthly_expenses_override: expensesOverride,
-        exclude_ifix_from_sim: excludeIfixFromSim,
+        sampling_method: samplingMethod,
+        us_equity_proxy: usEquityProxy,
+        global_equity_proxy: globalEquityProxy,
+        crypto_proxy: cryptoProxy,
+        excluded_return_categories: excludedReturnCategories,
       },
       show_age_in_bonds: showAgeInBonds,
     };
@@ -158,6 +217,23 @@ const FireDetail = () => {
     : content.title;
 
   const monthlySavings = monthlySavingsOverride ?? derivedMonthlySavings;
+
+  const historicalDataControls = (
+    <FireHistoricalDataControls
+      allocation={allocation}
+      preferences={localFirePreferences}
+      onChange={(field, value) => {
+        if (field === "us_equity_proxy") setUsEquityProxy(value as UsEquityProxy);
+        if (field === "global_equity_proxy") {
+          setGlobalEquityProxy(value as GlobalEquityProxy);
+        }
+        if (field === "crypto_proxy") setCryptoProxy(value as CryptoProxy);
+        if (field === "excluded_return_categories") {
+          setExcludedReturnCategories(value as ReturnCategory[]);
+        }
+      }}
+    />
+  );
 
   const indicator = showAgeInBonds ? (
     <ConstantDollarAgeInBondsIndicator
@@ -171,10 +247,12 @@ const FireDetail = () => {
       onWithdrawalRateChange={setWithdrawalRate}
       targetYears={targetYears}
       onTargetYearsChange={setTargetYears}
+      portfolio={portfolio}
+      samplingMethod={samplingMethod}
+      onSamplingMethodChange={setSamplingMethod}
+      historicalDataControls={historicalDataControls}
       fixedIncomeTotal={fixedIncomeTotal}
       variableIncomeTotal={variableIncomeTotal}
-      equityTotal={equityTotal}
-      ifixTotal={ifixTotal}
       monthlySavings={monthlySavings}
       defaultMonthlySavings={derivedMonthlySavings}
       onMonthlySavingsChange={setMonthlySavingsOverride}
@@ -182,8 +260,6 @@ const FireDetail = () => {
       isMonthlySavingsOverridden={monthlySavingsOverride !== null}
       simulatedExpenses={expensesOverride}
       onSimulatedExpensesChange={setExpensesOverride}
-      excludeIfixFromSim={excludeIfixFromSim}
-      onExcludeIfixFromSimChange={setExcludeIfixFromSim}
     />
   ) : (
     <ConstantDollarIndicator
@@ -196,9 +272,10 @@ const FireDetail = () => {
       onWithdrawalRateChange={setWithdrawalRate}
       targetYears={targetYears}
       onTargetYearsChange={setTargetYears}
-      equityTotal={equityTotal}
-      ifixTotal={ifixTotal}
-      fixedIncomeTotal={fixedIncomeTotal + bankAmount}
+      portfolio={portfolio}
+      samplingMethod={samplingMethod}
+      onSamplingMethodChange={setSamplingMethod}
+      historicalDataControls={historicalDataControls}
       monthlySavings={monthlySavings}
       defaultMonthlySavings={derivedMonthlySavings}
       onMonthlySavingsChange={setMonthlySavingsOverride}
@@ -209,8 +286,6 @@ const FireDetail = () => {
       onSimulatedPatrimonyChange={setSimulatedPatrimony}
       simulatedExpenses={expensesOverride}
       onSimulatedExpensesChange={setExpensesOverride}
-      excludeIfixFromSim={excludeIfixFromSim}
-      onExcludeIfixFromSimChange={setExcludeIfixFromSim}
     />
   );
 

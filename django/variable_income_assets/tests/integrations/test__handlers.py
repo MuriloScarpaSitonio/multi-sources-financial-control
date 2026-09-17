@@ -9,11 +9,43 @@ from tasks.models import TaskHistory
 from ...choices import AssetSectors, AssetTypes, Currencies
 from ...integrations.binance.enums import FiatPaymentTransactionType
 from ...integrations.binance.handlers import sync_binance_transactions
-from ...integrations.handlers import update_prices
+from ...integrations.handlers import _fetch_prices, update_prices
 from ...integrations.kucoin.handlers import sync_kucoin_transactions
 from ...models import Asset, AssetMetaData, AssetReadModel, Transaction
 
 pytestmark = pytest.mark.django_db
+
+
+def test__fetch_prices__global_equity_uses_us_market_client(mocker):
+    # Omitting the global-equity batch must make the returned price group disappear.
+    metadata = AssetMetaData.objects.create(
+        code="VT",
+        type="EQUITY_GLOBAL",
+        currency=Currencies.dollar,
+        current_price=1,
+    )
+    mocker.patch(
+        "variable_income_assets.integrations.handlers.get_b3_prices",
+        side_effect=[{}, {}],
+    )
+    mocker.patch(
+        "variable_income_assets.integrations.handlers.get_crypto_prices",
+        side_effect=[{}, {}],
+    )
+    mocker.patch(
+        "variable_income_assets.integrations.handlers.get_stocks_usa_prices",
+        side_effect=[{}, {"VT": 123.45}],
+    )
+
+    _, prices = async_to_sync(_fetch_prices)(
+        AssetMetaData.objects.filter(pk=metadata.pk)
+    )
+
+    assert {
+        "prices": {"VT": 123.45},
+        "type": "EQUITY_GLOBAL",
+        "currency": Currencies.dollar,
+    } in prices
 
 
 @pytest.mark.usefixtures(
@@ -47,7 +79,7 @@ def test__update_prices(
 
     mocker.patch(
         "variable_income_assets.integrations.handlers.get_stocks_usa_prices",
-        return_value={stock_usa_asset_metadata.code: 26},
+        side_effect=[{stock_usa_asset_metadata.code: 26}, {}],
     )
     stock_usa_roi_before = AssetReadModel.objects.get(
         write_model_pk=stock_usa_asset.pk

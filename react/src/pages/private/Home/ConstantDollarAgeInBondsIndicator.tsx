@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
 import Tooltip from "@mui/material/Tooltip";
 import LinearProgress, { linearProgressClasses } from "@mui/material/LinearProgress";
 import { styled } from "@mui/material/styles";
@@ -33,17 +34,19 @@ import PatrimonySimulator from "./PatrimonySimulator";
 import PersistedSlider from "./PersistedSlider";
 import SavingsSimulator from "./SavingsSimulator";
 import {
-  computeWeights,
   findSafeWithdrawalRateWithVaryingWeights,
-  isIfixRestrictedSampleForVaryingWeights,
   runAccumulationBootstrap,
   runBootstrapWithVaryingWeights,
   type AccumulationResult,
-  type AllocationWeights,
   type BootstrapBand,
   type BootstrapResult,
-  type WeightsAtFn,
 } from "./fireBootstrap";
+import type { SamplingMethod } from "./fireReturnTypes";
+import {
+  buildAgeInBondsPortfolio,
+  type PortfolioAtFn,
+  type PortfolioSlice,
+} from "./firePortfolio";
 
 // === Idade-em-RF fixed-point solver ===
 //
@@ -134,30 +137,14 @@ const EMPTY_AGE_IN_BONDS_FIRE_STATE: AgeInBondsFireState = {
   status: "unreachable",
 };
 
-// `excludeIfix` overrides the IFIX slot to 0 each year *without* renormalizing.
-// equityRatio still reflects the real portfolio (so we don't redistribute the
-// IFIX fraction onto equity), and the per-year weights then sum to less than 1
-// during the stock-heavy retirement years; the missing fraction is "treat IFIX
-// as cash earning 0% real". Sample window unlocks because every year's
-// `weights.ifix` is 0 < MIN_WEIGHT_FOR_RETURN_SERIES.
-const buildAgeInBondsWeightsAt = (
+const buildAgeInBondsPortfolioAt = (
   anchorAge: number,
-  equityTotal: number,
-  ifixTotal: number,
-  excludeIfix: boolean = false,
-): WeightsAtFn => {
-  const equityIfixTotal = equityTotal + ifixTotal;
-  const equityRatio = equityIfixTotal > 0 ? equityTotal / equityIfixTotal : 1;
-  const ifixRatio = equityIfixTotal > 0 ? ifixTotal / equityIfixTotal : 0;
-  return (yearIndex: number): AllocationWeights => {
+  basePortfolio: readonly PortfolioSlice[],
+): PortfolioAtFn => {
+  return (yearIndex: number): readonly PortfolioSlice[] => {
     const age = anchorAge + yearIndex;
     const bondPct = Math.min(age, 100) / 100;
-    const stockPct = 1 - bondPct;
-    return {
-      equity: stockPct * equityRatio,
-      ifix: excludeIfix ? 0 : stockPct * ifixRatio,
-      fixedIncome: bondPct,
-    };
+    return buildAgeInBondsPortfolio(basePortfolio, 1 - bondPct);
   };
 };
 
@@ -185,44 +172,37 @@ const pickConservative = (candidates: SolverPass[]): SolverPass =>
 
 const solveAgeInBondsFireState = (params: {
   currentAge: number;
-  equityTotal: number;
-  ifixTotal: number;
+  portfolio: readonly PortfolioSlice[];
+  samplingMethod: SamplingMethod;
   effectivePatrimony: number;
   annualExpenses: number;
   annualSavings: number;
   withdrawalRate: number;
   targetYears: number;
-  accumulationWeights: AllocationWeights;
-  excludeIfix: boolean;
 }): AgeInBondsFireState => {
   const {
     currentAge,
-    equityTotal,
-    ifixTotal,
+    portfolio,
+    samplingMethod,
     effectivePatrimony,
     annualExpenses,
     annualSavings,
     withdrawalRate,
     targetYears,
-    accumulationWeights,
-    excludeIfix,
   } = params;
   const baseMultiplier = withdrawalRate > 0 ? 100 / withdrawalRate : 0;
 
   const runOnePass = (anchorAge: number): SolverPass => {
-    const weightsAt = buildAgeInBondsWeightsAt(
-      anchorAge,
-      equityTotal,
-      ifixTotal,
-      excludeIfix,
-    );
+    const portfolioAt = buildAgeInBondsPortfolioAt(anchorAge, portfolio);
     const safeRate = findSafeWithdrawalRateWithVaryingWeights(
       targetYears,
-      weightsAt,
+      portfolioAt,
+      samplingMethod,
     );
     const baselineSafeRate = findSafeWithdrawalRateWithVaryingWeights(
       30,
-      weightsAt,
+      portfolioAt,
+      samplingMethod,
     );
     const horizonFactor =
       safeRate > 0 && baselineSafeRate > 0
@@ -234,13 +214,15 @@ const solveAgeInBondsFireState = (params: {
       1_000_000,
       1_000_000 * (withdrawalRate / 100),
       targetYears,
-      weightsAt,
+      portfolioAt,
+      samplingMethod,
     );
     const accumulation = runAccumulationBootstrap({
       startingBalance: effectivePatrimony,
       annualContribution: annualSavings,
       target: fireTarget,
-      weights: accumulationWeights,
+      portfolio,
+      samplingMethod,
     });
     return {
       anchorAge,
@@ -348,17 +330,13 @@ const solveAgeInBondsFireState = (params: {
   // glide path that produced the converged fireTarget). This is the central
   // payoff of the solver — one anchor across target, tooltip, warning, and
   // preview.
-  const finalWeightsAt = buildAgeInBondsWeightsAt(
-    chosen.anchorAge,
-    equityTotal,
-    ifixTotal,
-    excludeIfix,
-  );
+  const finalPortfolioAt = buildAgeInBondsPortfolioAt(chosen.anchorAge, portfolio);
   const drawdownAtTarget = runBootstrapWithVaryingWeights(
     chosen.fireTarget,
     annualExpenses,
     targetYears,
-    finalWeightsAt,
+    finalPortfolioAt,
+    samplingMethod,
   );
 
   return {
@@ -536,10 +514,12 @@ const ConstantDollarAgeInBondsIndicator = ({
   onWithdrawalRateChange,
   targetYears,
   onTargetYearsChange,
+  portfolio,
+  samplingMethod,
+  onSamplingMethodChange,
+  historicalDataControls,
   fixedIncomeTotal,
   variableIncomeTotal,
-  equityTotal,
-  ifixTotal,
   monthlySavings = 0,
   defaultMonthlySavings = 0,
   onMonthlySavingsChange,
@@ -547,8 +527,6 @@ const ConstantDollarAgeInBondsIndicator = ({
   isMonthlySavingsOverridden = false,
   simulatedExpenses: simulatedExpensesProp,
   onSimulatedExpensesChange,
-  excludeIfixFromSim: excludeIfixFromSimProp,
-  onExcludeIfixFromSimChange,
   onProgressClick,
   compact = false,
   hideLabel = false,
@@ -563,10 +541,12 @@ const ConstantDollarAgeInBondsIndicator = ({
   onWithdrawalRateChange: (value: number) => void;
   targetYears: number;
   onTargetYearsChange: (value: number) => void;
+  portfolio: readonly PortfolioSlice[];
+  samplingMethod: SamplingMethod;
+  onSamplingMethodChange?: (value: SamplingMethod) => void;
+  historicalDataControls?: ReactNode;
   fixedIncomeTotal: number;
   variableIncomeTotal: number;
-  equityTotal: number;
-  ifixTotal: number;
   monthlySavings?: number;
   defaultMonthlySavings?: number;
   onMonthlySavingsChange?: (value: number) => void;
@@ -574,8 +554,6 @@ const ConstantDollarAgeInBondsIndicator = ({
   isMonthlySavingsOverridden?: boolean;
   simulatedExpenses?: number | null;
   onSimulatedExpensesChange?: (value: number | null) => void;
-  excludeIfixFromSim?: boolean;
-  onExcludeIfixFromSimChange?: (value: boolean) => void;
   onProgressClick?: () => void;
   compact?: boolean;
   hideLabel?: boolean;
@@ -606,18 +584,6 @@ const ConstantDollarAgeInBondsIndicator = ({
   const effectivePatrimony = simulatedPatrimony ?? patrimonyTotal;
   const currentAge = dateOfBirth ? computeAge(dateOfBirth) : null;
 
-  // "Excluir FII" toggle. See ConstantDollarIndicator for the same flag and
-  // the buildAgeInBondsWeightsAt comment above for how it propagates through
-  // the glide path (per-year `weights.ifix = 0` without redistributing to
-  // equity, weights sum to <1, missing fraction earns 0% real).
-  const [localExcludeIfixFromSim, setLocalExcludeIfixFromSim] = useState(false);
-  const excludeIfixFromSim =
-    excludeIfixFromSimProp ?? localExcludeIfixFromSim;
-  const setExcludeIfixFromSim = (value: boolean) => {
-    if (onExcludeIfixFromSimChange) onExcludeIfixFromSimChange(value);
-    else setLocalExcludeIfixFromSim(value);
-  };
-
   const annualExpenses = effectiveMonthlyExpenses * 12;
   const annualWithdrawal = effectivePatrimony * (withdrawalRate / 100);
   const monthlyWithdrawal = annualWithdrawal / 12;
@@ -636,15 +602,9 @@ const ConstantDollarAgeInBondsIndicator = ({
   // because a post-FIRE user is retiring *now* — that anchor is the right one
   // for the post-FIRE drawdown chart and depletion labels. Pre-FIRE this is
   // hypothetical and only the depletion labels read from it.
-  const lifestyleWeightsAt: WeightsAtFn = useMemo(
-    () =>
-      buildAgeInBondsWeightsAt(
-        currentAge ?? 0,
-        equityTotal,
-        ifixTotal,
-        excludeIfixFromSim,
-      ),
-    [currentAge, equityTotal, ifixTotal, excludeIfixFromSim],
+  const lifestylePortfolioAt: PortfolioAtFn = useMemo(
+    () => buildAgeInBondsPortfolioAt(currentAge ?? 0, portfolio),
+    [currentAge, portfolio],
   );
 
   const bootstrap = useMemo(
@@ -653,30 +613,22 @@ const ConstantDollarAgeInBondsIndicator = ({
         effectivePatrimony,
         annualExpenses,
         targetYears,
-        lifestyleWeightsAt,
+        lifestylePortfolioAt,
+        samplingMethod,
       ),
-    [effectivePatrimony, annualExpenses, targetYears, lifestyleWeightsAt],
+    [
+      effectivePatrimony,
+      annualExpenses,
+      targetYears,
+      lifestylePortfolioAt,
+      samplingMethod,
+    ],
   );
 
   // Accumulation uses *current* static allocation (the user is still working,
   // hasn't started rebalancing toward bonds). Glide path kicks in only at
   // retirement — the solver and post-FIRE bootstrap handle that.
   const annualSavings = Math.max(0, monthlySavings) * 12;
-  const rawAccumulationWeights = useMemo(
-    () => computeWeights(equityTotal, ifixTotal, fixedIncomeTotal),
-    [equityTotal, ifixTotal, fixedIncomeTotal],
-  );
-  // Same "treat IFIX as cash 0%" override applied to the static accumulation
-  // weights. Sum drops to 1 - rawIfixWeight; the IFIX fraction earns 0% real
-  // during accumulation just like during the glide.
-  const accumulationWeights = useMemo<AllocationWeights>(
-    () =>
-      excludeIfixFromSim
-        ? { ...rawAccumulationWeights, ifix: 0 }
-        : rawAccumulationWeights,
-    [rawAccumulationWeights, excludeIfixFromSim],
-  );
-
   // Fixed-point solver: produces one coherent {fireTarget, targetMultiplier,
   // horizonFactor, safeRate, baselineSafeRate, rateBootstrap, accumulation,
   // drawdownAtTarget, anchorAge, status} object whose glide-path anchor is
@@ -691,27 +643,23 @@ const ConstantDollarAgeInBondsIndicator = ({
     if (currentAge === null) return EMPTY_AGE_IN_BONDS_FIRE_STATE;
     return solveAgeInBondsFireState({
       currentAge,
-      equityTotal,
-      ifixTotal,
+      portfolio,
+      samplingMethod,
       effectivePatrimony,
       annualExpenses,
       annualSavings,
       withdrawalRate,
       targetYears,
-      accumulationWeights,
-      excludeIfix: excludeIfixFromSim,
     });
   }, [
     currentAge,
-    equityTotal,
-    ifixTotal,
+    portfolio,
+    samplingMethod,
     effectivePatrimony,
     annualExpenses,
     annualSavings,
     withdrawalRate,
     targetYears,
-    accumulationWeights,
-    excludeIfixFromSim,
   ]);
   const {
     fireTarget,
@@ -897,6 +845,23 @@ const ConstantDollarAgeInBondsIndicator = ({
             step={0.5}
             marks
           />
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={samplingMethod === "contiguous_12_month_blocks"}
+                onChange={(_, checked) =>
+                  onSamplingMethodChange?.(
+                    checked
+                      ? "contiguous_12_month_blocks"
+                      : "independent_months",
+                  )
+                }
+                disabled={isPersisting}
+              />
+            }
+            label="Preservar sequências históricas de 12 meses"
+          />
           <PersistedSlider
             value={targetYears}
             onChange={onTargetYearsChange}
@@ -931,6 +896,7 @@ const ConstantDollarAgeInBondsIndicator = ({
           />
         </Stack>
       )}
+      {!compact && historicalDataControls}
       {!compact && (
         <Stack direction="row" alignItems="center" gap={2}>
           <Text
@@ -944,43 +910,6 @@ const ConstantDollarAgeInBondsIndicator = ({
           </Text>
         </Stack>
       )}
-      {!compact &&
-        // Gate on the *raw* glide (excludeIfix=false) so the checkbox stays
-        // visible after the user toggles "Excluir FII" — otherwise the toggle
-        // would hide itself and the user couldn't toggle back.
-        isIfixRestrictedSampleForVaryingWeights(
-          buildAgeInBondsWeightsAt(
-            solverState.anchorAge,
-            equityTotal,
-            ifixTotal,
-            false,
-          ),
-          targetYears,
-        ) && (
-          <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
-            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-              <em>
-                {excludeIfixFromSim
-                  ? "FII excluído da simulação (modelado como caixa, 0% real). Amostra mensal: 1995–2025 (372 meses)."
-                  : "Amostra histórica mensal: 2011–2025 (180 meses) — sua exposição a FII restringe a janela. Não compare diretamente com SWRs Trinity baseados em séries longas (US 1926+)."}
-              </em>
-            </Text>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  size="small"
-                  checked={excludeIfixFromSim}
-                  onChange={(e) => setExcludeIfixFromSim(e.target.checked)}
-                />
-              }
-              label={
-                <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-                  Excluir FII da simulação
-                </Text>
-              }
-            />
-          </Stack>
-        )}
       {!compact && annualExpenses > 0 && fireProgress >= 100 && (
         <Stack direction="row" alignItems="center" gap={2}>
           <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>

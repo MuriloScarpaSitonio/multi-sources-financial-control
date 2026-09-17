@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from openpyxl import Workbook
 
-from ..movimentacao import parse_movements
+from ..movimentacao import parse_interest_payments, parse_movements
 from ..parser import B3ParserError
 from ..schemas import B3FixedIncomeAction, B3FixedIncomeKind
 
@@ -66,8 +66,32 @@ NON_BUY_SELL_ROW = [
     "-",
 ]
 
+LCI_MATURITY_ROW = [
+    "Debito",
+    "29/06/2026",
+    "VENCIMENTO",
+    "LCI - 25L03967955 - BANCO INTER S/A",
+    INSTITUICAO,
+    1000000,
+    "0.01",
+    10000,
+]
 
-def build_xlsx(path: Path, rows: list[list], *, sheet_name: str = "Movimentação", header=HEADER) -> Path:
+LCI_INTEREST_ROW = [
+    "Credito",
+    "29/06/2026",
+    "PAGAMENTO DE JUROS",
+    "LCI - 25L03967955 - BANCO INTER S/A",
+    INSTITUICAO,
+    1000000,
+    "0.00062816",
+    "628.16",
+]
+
+
+def build_xlsx(
+    path: Path, rows: list[list], *, sheet_name: str = "Movimentação", header=HEADER
+) -> Path:
     wb = Workbook()
     ws = wb.active
     ws.title = sheet_name
@@ -121,6 +145,31 @@ def test_debito_maps_to_sell(tmp_path):
     assert movements[0].action == B3FixedIncomeAction.SELL
 
 
+def test_vencimento_maps_to_sell(tmp_path):
+    path = build_xlsx(tmp_path / "movimentacao.xlsx", [LCI_MATURITY_ROW])
+
+    movements = parse_movements(str(path))
+
+    assert len(movements) == 1
+    assert movements[0].code == "25L03967955"
+    assert movements[0].action == B3FixedIncomeAction.SELL
+    assert movements[0].operation_date == date(2026, 6, 29)
+    assert movements[0].quantity == Decimal("1000000")
+    assert movements[0].unit_price == Decimal("0.01")
+    assert movements[0].is_maturity is True
+
+
+def test_pagamento_de_juros_parses_as_fixed_income_interest(tmp_path):
+    path = build_xlsx(tmp_path / "movimentacao.xlsx", [LCI_INTEREST_ROW])
+
+    payments = parse_interest_payments(str(path))
+
+    assert len(payments) == 1
+    assert payments[0].code == "25L03967955"
+    assert payments[0].operation_date == date(2026, 6, 29)
+    assert payments[0].amount == Decimal("628.16")
+
+
 def test_unknown_flow_raises(tmp_path):
     bad_row = list(CDB_BUY_ROW)
     bad_row[0] = "Garbage"
@@ -148,7 +197,7 @@ def test_missing_sheet_raises(tmp_path):
 
 def test_missing_required_header_raises(tmp_path):
     bad_header = [h for h in HEADER if h != "Quantidade"]
-    bad_row = [c for h, c in zip(HEADER, CDB_BUY_ROW) if h != "Quantidade"]
+    bad_row = [c for h, c in zip(HEADER, CDB_BUY_ROW, strict=True) if h != "Quantidade"]
     path = build_xlsx(tmp_path / "movimentacao.xlsx", [bad_row], header=bad_header)
 
     with pytest.raises(B3ParserError, match="Quantidade"):

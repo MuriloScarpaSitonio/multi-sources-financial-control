@@ -21,7 +21,14 @@ from rest_framework.status import (
 from config.settings.base import BASE_API_URL
 from shared.tests import convert_and_quantitize, skip_if_sqlite
 
-from ...choices import AssetObjectives, AssetSectors, AssetTypes, Currencies, LiquidityTypes
+from ...choices import (
+    AssetObjectives,
+    AssetSectors,
+    AssetTypes,
+    Currencies,
+    FixedIncomeIndexers,
+    LiquidityTypes,
+)
 from ...models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
 from ..shared import (
     get_avg_price_bute_force,
@@ -127,6 +134,32 @@ def test__create(client, asset_type, asset_sector, currency, mock_path, mocker):
     )
 
 
+def test__create__global_equity(client, mocker):
+    # Removing EQUITY_GLOBAL support must make this user-visible creation fail.
+    mocker.patch(
+        "variable_income_assets.integrations.helpers.get_stocks_usa_prices",
+        return_value={"VT": Decimal("123.45")},
+    )
+
+    response = client.post(
+        URL,
+        data={
+            "type": "EQUITY_GLOBAL",
+            "objective": AssetObjectives.growth,
+            "currency": Currencies.dollar,
+            "code": "VT",
+        },
+    )
+
+    assert response.status_code == HTTP_201_CREATED
+    assert AssetReadModel.objects.filter(
+        code="VT",
+        type="EQUITY_GLOBAL",
+        currency=Currencies.dollar,
+        metadata__current_price=Decimal("123.45"),
+    ).exists()
+
+
 @pytest.mark.parametrize(
     ("type", "currency", "status_code"),
     (
@@ -225,6 +258,7 @@ def test__create__fixed__held_custody(client, user):
         "description": "CDB Inter liquidez diária",
         "is_held_in_self_custody": True,
         "liquidity_type": LiquidityTypes.daily,
+        "indexer": FixedIncomeIndexers.cdi,
     }
 
     # WHEN
@@ -279,6 +313,7 @@ def test__create__code__w_space_and_not_held_custody(client):
         "currency": Currencies.real,
         "code": "CDB Inter liquidez diária",
         "liquidity_type": LiquidityTypes.daily,
+        "indexer": FixedIncomeIndexers.cdi,
     }
 
     # WHEN
@@ -289,6 +324,65 @@ def test__create__code__w_space_and_not_held_custody(client):
     assert response.json() == {
         "code": "O código de um ativo só pode ter espaços se não for custodiado pela b3"
     }
+
+
+def test__fixed_income_requires_indexer(client):
+    response = client.post(
+        URL,
+        data={
+            "code": "RF-1",
+            "type": AssetTypes.fixed_br,
+            "currency": Currencies.real,
+            "objective": AssetObjectives.growth,
+            "liquidity_type": LiquidityTypes.daily,
+        },
+    )
+
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert "indexer" in response.json()
+
+
+@pytest.mark.parametrize(
+    "indexer", (FixedIncomeIndexers.ipca, FixedIncomeIndexers.prefixed)
+)
+def test__fixed_income_duration_indexer_requires_maturity(client, indexer):
+    response = client.post(
+        URL,
+        data={
+            "code": "RF-1",
+            "type": AssetTypes.fixed_br,
+            "currency": Currencies.real,
+            "objective": AssetObjectives.growth,
+            "liquidity_type": LiquidityTypes.at_maturity,
+            "indexer": indexer,
+        },
+    )
+
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert "maturity_date" in response.json()
+
+
+def test__non_fixed_asset_clears_fixed_income_facts(client, stock_asset):
+    response = client.put(
+        f"{URL}/{stock_asset.id}",
+        data={
+            "code": stock_asset.code,
+            "type": AssetTypes.stock,
+            "currency": Currencies.real,
+            "objective": AssetObjectives.growth,
+            "indexer": FixedIncomeIndexers.cdi,
+            "liquidity_type": LiquidityTypes.daily,
+            "maturity_date": "15/05/2035",
+        },
+    )
+
+    assert response.status_code == HTTP_200_OK
+    stock_asset.refresh_from_db()
+    assert (stock_asset.indexer, stock_asset.liquidity_type, stock_asset.maturity_date) == (
+        "",
+        "",
+        None,
+    )
 
 
 @pytest.mark.django_db(transaction=True)

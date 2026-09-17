@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
-import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
 import Tooltip from "@mui/material/Tooltip";
 import LinearProgress, { linearProgressClasses } from "@mui/material/LinearProgress";
 import { styled } from "@mui/material/styles";
@@ -34,10 +34,10 @@ import { buildFirePatrimonyInputs } from "./fireResultPresentation";
 import PatrimonySimulator from "./PatrimonySimulator";
 import PersistedSlider from "./PersistedSlider";
 import SavingsSimulator from "./SavingsSimulator";
+import type { SamplingMethod } from "./fireReturnTypes";
+import type { PortfolioSlice } from "./firePortfolio";
 import {
-  computeWeights,
   findSafeWithdrawalRate,
-  isIfixRestrictedSample,
   runAccumulationBootstrap,
   runBootstrap,
   type BootstrapBand,
@@ -193,9 +193,10 @@ const ConstantDollarIndicator = ({
   onWithdrawalRateChange,
   targetYears,
   onTargetYearsChange,
-  equityTotal,
-  ifixTotal,
-  fixedIncomeTotal,
+  portfolio,
+  samplingMethod,
+  onSamplingMethodChange,
+  historicalDataControls,
   monthlySavings = 0,
   defaultMonthlySavings = 0,
   onMonthlySavingsChange,
@@ -210,8 +211,6 @@ const ConstantDollarIndicator = ({
   onSimulatedPatrimonyChange,
   simulatedExpenses: simulatedExpensesProp,
   onSimulatedExpensesChange,
-  excludeIfixFromSim: excludeIfixFromSimProp,
-  onExcludeIfixFromSimChange,
   onProgressClick,
 }: {
   patrimonyTotal: number;
@@ -221,9 +220,10 @@ const ConstantDollarIndicator = ({
   onWithdrawalRateChange: (value: number) => void;
   targetYears: number;
   onTargetYearsChange: (value: number) => void;
-  equityTotal: number;
-  ifixTotal: number;
-  fixedIncomeTotal: number;
+  portfolio: readonly PortfolioSlice[];
+  samplingMethod: SamplingMethod;
+  onSamplingMethodChange?: (value: SamplingMethod) => void;
+  historicalDataControls?: ReactNode;
   monthlySavings?: number;
   defaultMonthlySavings?: number;
   onMonthlySavingsChange?: (value: number) => void;
@@ -241,8 +241,6 @@ const ConstantDollarIndicator = ({
   onSimulatedPatrimonyChange?: (value: number | null) => void;
   simulatedExpenses?: number | null;
   onSimulatedExpensesChange?: (value: number | null) => void;
-  excludeIfixFromSim?: boolean;
-  onExcludeIfixFromSimChange?: (value: boolean) => void;
   onProgressClick?: () => void;
 }) => {
   const { hideValues } = useHideValues();
@@ -308,42 +306,26 @@ const ConstantDollarIndicator = ({
   const annualWithdrawal = effectivePatrimony * (withdrawalRate / 100);
   const monthlyWithdrawal = annualWithdrawal / 12;
 
-  const rawWeights = useMemo(
-    () => computeWeights(equityTotal, ifixTotal, fixedIncomeTotal),
-    [equityTotal, ifixTotal, fixedIncomeTotal],
-  );
-
-  // "Excluir FII" toggle: when true, sim treats IFIX as cash earning 0% real.
-  // Implementation: simWeights = {...rawWeights, ifix: 0} *without*
-  // renormalizing. Weights then sum to (1 − rawWeights.ifix); the missing
-  // fraction contributes 0 to per-year portfolio returns, so the IFIX slice
-  // earns nothing real (no equity/FI redistribution). Sample window unlocks
-  // because ifix=0 falls below MIN_WEIGHT_FOR_RETURN_SERIES.
-  const [localExcludeIfixFromSim, setLocalExcludeIfixFromSim] = useState(false);
-  const excludeIfixFromSim =
-    excludeIfixFromSimProp ?? localExcludeIfixFromSim;
-  const setExcludeIfixFromSim = (value: boolean) => {
-    if (onExcludeIfixFromSimChange) onExcludeIfixFromSimChange(value);
-    else setLocalExcludeIfixFromSim(value);
-  };
-  const weights = useMemo(
-    () => (excludeIfixFromSim ? { ...rawWeights, ifix: 0 } : rawWeights),
-    [rawWeights, excludeIfixFromSim],
-  );
   const allocationLabel = useMemo(() => {
+    const fixed = portfolio
+      .filter((slice) => slice.category.startsWith("FIXED_"))
+      .reduce((sum, slice) => sum + slice.weight, 0);
+    const variable = portfolio
+      .filter(
+        (slice) =>
+          slice.category !== "CASH" && !slice.category.startsWith("FIXED_"),
+      )
+      .reduce((sum, slice) => sum + slice.weight, 0);
+    const cash = portfolio
+      .filter((slice) => slice.category === "CASH")
+      .reduce((sum, slice) => sum + slice.weight, 0);
     const parts = [
-      `${(weights.fixedIncome * 100).toFixed(0)}% RF`,
-      `${(weights.equity * 100).toFixed(0)}% RV`,
+      `${(fixed * 100).toFixed(0)}% RF`,
+      `${(variable * 100).toFixed(0)}% RV`,
     ];
-    if (rawWeights.ifix > 0) {
-      parts.push(
-        excludeIfixFromSim
-          ? "FII excluido"
-          : `${(weights.ifix * 100).toFixed(0)}% FII`,
-      );
-    }
+    if (cash > 0) parts.push(`${(cash * 100).toFixed(0)}% caixa`);
     return parts.join(" / ");
-  }, [excludeIfixFromSim, rawWeights.ifix, weights]);
+  }, [portfolio]);
 
   // Bootstrap-derived horizon- and allocation-adjusted SWR. Used as the
   // honesty reference (warning chip + tooltip) and as the input to
@@ -351,8 +333,8 @@ const ConstantDollarIndicator = ({
   // fireTarget, not by bootstrap success — see
   // .claude/skills/fire-bootstrap-methodology/SKILL.md.
   const safeRate = useMemo(
-    () => findSafeWithdrawalRate(targetYears, weights),
-    [targetYears, weights],
+    () => findSafeWithdrawalRate(targetYears, portfolio, samplingMethod),
+    [targetYears, portfolio, samplingMethod],
   );
 
   // FIRE_number = expenses × multiplier. Multiplier = (100/userRate) × horizonFactor,
@@ -364,8 +346,8 @@ const ConstantDollarIndicator = ({
   // monthly withdrawal still falls short of expenses.
   // Bar = patrimony / FIRE_number.
   const baselineSafeRate = useMemo(
-    () => findSafeWithdrawalRate(30, weights),
-    [weights],
+    () => findSafeWithdrawalRate(30, portfolio, samplingMethod),
+    [portfolio, samplingMethod],
   );
   const horizonFactor =
     safeRate > 0 && baselineSafeRate > 0
@@ -393,17 +375,31 @@ const ConstantDollarIndicator = ({
         patrimonyInputs.scenarioPatrimony,
         annualExpenses,
         targetYears,
-        weights,
+        portfolio,
+        samplingMethod,
       ),
-    [patrimonyInputs.scenarioPatrimony, annualExpenses, targetYears, weights],
+    [
+      patrimonyInputs.scenarioPatrimony,
+      annualExpenses,
+      targetYears,
+      portfolio,
+      samplingMethod,
+    ],
   );
 
   // Secondary "rate test": is the slider rate historically safe at this
   // horizon and allocation? Scale-invariant (independent of patrimony), so
   // it answers a different question and is shown as a supporting indicator.
   const rateBootstrap = useMemo(
-    () => runBootstrap(1_000_000, 1_000_000 * (withdrawalRate / 100), targetYears, weights),
-    [withdrawalRate, targetYears, weights],
+    () =>
+      runBootstrap(
+        1_000_000,
+        1_000_000 * (withdrawalRate / 100),
+        targetYears,
+        portfolio,
+        samplingMethod,
+      ),
+    [withdrawalRate, targetYears, portfolio, samplingMethod],
   );
 
   // Accumulation forecast: how long until real current patrimony + savings
@@ -417,13 +413,15 @@ const ConstantDollarIndicator = ({
         startingBalance: patrimonyInputs.accumulationStartingPatrimony,
         annualContribution: annualSavings,
         target: fireTarget,
-        weights,
+        portfolio,
+        samplingMethod,
       }),
     [
       patrimonyInputs.accumulationStartingPatrimony,
       annualSavings,
       fireTarget,
-      weights,
+      portfolio,
+      samplingMethod,
     ],
   );
 
@@ -571,6 +569,23 @@ const ConstantDollarIndicator = ({
             step={0.5}
             marks
           />
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={samplingMethod === "contiguous_12_month_blocks"}
+                onChange={(_, checked) =>
+                  onSamplingMethodChange?.(
+                    checked
+                      ? "contiguous_12_month_blocks"
+                      : "independent_months",
+                  )
+                }
+                disabled={isPersisting}
+              />
+            }
+            label="Preservar sequências históricas de 12 meses"
+          />
           <PersistedSlider
             value={targetYears}
             onChange={onTargetYearsChange}
@@ -605,6 +620,7 @@ const ConstantDollarIndicator = ({
           />
         </Stack>
       )}
+      {!compact && historicalDataControls}
       {!compact && (
         <Stack direction="row" alignItems="center" gap={2}>
           <Text
@@ -616,31 +632,6 @@ const ConstantDollarIndicator = ({
               ? `⚠ Taxa de ${withdrawalRate}% tem apenas ${(rateBootstrap.successRate * 100).toFixed(0)}% de sucesso histórico em ${targetYears} anos. Limite seguro: ${safeRate.toFixed(2)}% (90% sucesso).`
               : `Limite seguro p/ ${targetYears} anos: ${safeRate.toFixed(2)}% a.a. (90% sucesso histórico).`}
           </Text>
-        </Stack>
-      )}
-      {!compact && isIfixRestrictedSample(rawWeights) && (
-        <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
-          <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-            <em>
-              {excludeIfixFromSim
-                ? "FII excluído da simulação (modelado como caixa, 0% real). Amostra mensal: 1995–2025 (372 meses)."
-                : "Amostra histórica mensal: 2011–2025 (180 meses) — sua exposição a FII restringe a janela. Não compare diretamente com SWRs Trinity baseados em séries longas (US 1926+)."}
-            </em>
-          </Text>
-          <FormControlLabel
-            control={
-              <Checkbox
-                size="small"
-                checked={excludeIfixFromSim}
-                onChange={(e) => setExcludeIfixFromSim(e.target.checked)}
-              />
-            }
-            label={
-              <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-                Excluir FII da simulação
-              </Text>
-            }
-          />
         </Stack>
       )}
       {!compact && annualExpenses > 0 && (

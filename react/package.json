@@ -35,6 +35,8 @@
     "dev": "vite",
     "start": "vite",
     "build": "tsc -b && vite build",
+    "test:components": "vitest src/pages/private/Planning/FireHistoricalDataControls.test.tsx",
+    "test:fire": "tsx src/pages/private/Home/firePortfolio.test.ts && tsx src/pages/private/Home/fireBootstrap.test.ts",
     "preview": "vite preview",
     "lint": "eslint src --ext .ts,.tsx"
   },
@@ -52,10 +54,13 @@
     "eslint": "^8.52.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.0",
+    "jsdom": "^26.1.0",
     "prettier": "^3.1.0",
     "prettier-eslint": "^16.1.2",
+    "tsx": "^4.20.5",
     "typescript": "^5.4.4",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "vitest": "^3.2.4"
   },
   "resolutions": {
     "react-is": "^18.3.1"

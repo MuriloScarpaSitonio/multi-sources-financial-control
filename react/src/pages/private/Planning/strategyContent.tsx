@@ -91,8 +91,8 @@ export const STRATEGY_CONTENT: Record<ActiveMethodKey, StrategyContent> = {
         explanation:
           "Os gráficos simulam 2000 amostras levando em consideração " +
           "a composição do seu patrimônio atual e retornos históricos " +
-          "de pelo menos 31 anos (1995–2025; com exceção de FIIs: " +
-          "2011–2025). De cada conjunto de 2000 simulações você vê " +
+          "do período comum aos ativos e proxies incluídos. De cada " +
+          "conjunto de 2000 simulações você vê " +
           "três cenários: otimista, mediano e pessimista. " +
           "Antes de atingir 100% da meta, mostramos dois gráficos. " +
           "O primeiro mostra quanto ainda falta para você bater a meta FIRE ao longo " +

@@ -9,7 +9,7 @@ from django.utils.functional import cached_property
 from shared.models_utils import serializable_today_function
 
 from ..adapters.key_value_store import get_dollar_conversion_rate
-from ..choices import AssetObjectives, AssetTypes, Currencies, LiquidityTypes
+from ..choices import AssetObjectives, AssetTypes, Currencies, FixedIncomeIndexers, LiquidityTypes
 from .managers import AssetReadModelQuerySet, AssetsTotalInvestedSnapshotQuerySet
 from .write import AssetMetaData
 
@@ -18,7 +18,7 @@ class AssetReadModel(models.Model):
     # region: write model fields
     code = models.CharField(max_length=200)
     description = models.CharField(max_length=100, blank=True, default="")
-    type = models.CharField(max_length=10, validators=[AssetTypes.validator])
+    type = models.CharField(max_length=20, validators=[AssetTypes.validator])
     objective = models.CharField(
         max_length=50,
         validators=[AssetObjectives.validator],
@@ -33,6 +33,13 @@ class AssetReadModel(models.Model):
         max_length=20, validators=[LiquidityTypes.validator], default="", blank=True
     )
     maturity_date = models.DateField(null=True, blank=True)
+    indexer = models.CharField(
+        max_length=10,
+        validators=[FixedIncomeIndexers.validator],
+        blank=True,
+        default="",
+        db_default="",
+    )
     quantity_balance = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
     avg_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())
     normalized_avg_price = models.DecimalField(decimal_places=8, max_digits=15, default=Decimal())

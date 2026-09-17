@@ -1,5 +1,5 @@
 const BaseApiUrl =
-  import.meta.env.VITE_BASE_API_URL || "http://127.0.0.1:8000/api/v1";
+  import.meta.env?.VITE_BASE_API_URL || "http://127.0.0.1:8000/api/v1";
 
 const AssetsObjectivesMapping = [
   { label: "Crescimento", value: "GROWTH" },
@@ -22,8 +22,9 @@ const AssetsSectorsMapping = [
 ];
 
 const AssetsTypesMapping = [
-  { label: "Ação B3", value: "STOCK" },
-  { label: "Ação EUA", value: "STOCK_USA" },
+  { label: "Renda variável BR", value: "STOCK" },
+  { label: "Renda variável EUA", value: "STOCK_USA" },
+  { label: "Renda variável Global", value: "EQUITY_GLOBAL" },
   { label: "Criptoativos", value: "CRYPTO" },
   { label: "FII", value: "FII" },
 ];
@@ -43,6 +44,7 @@ const CurrenciesAssetTypesMapping = {
   STOCK: "BRL",
   FII: "BRL",
   STOCK_USA: "USD",
+  EQUITY_GLOBAL: "USD",
 };
 
 const PassiveIncomeTypesMapping = [
@@ -66,4 +68,3 @@ export {
   BaseApiUrl, CurrenciesAssetTypesMapping, CurrenciesMapping, PassiveIncomeEventTypesMapping, PassiveIncomeTypesMapping, RefreshTokenStr,
   TransactionsActionsMapping
 };
-

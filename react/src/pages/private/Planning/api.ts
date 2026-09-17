@@ -1,4 +1,11 @@
 import { apiProvider } from "../../../api/methods";
+import type {
+  CryptoProxy,
+  GlobalEquityProxy,
+  ReturnCategory,
+  SamplingMethod,
+  UsEquityProxy,
+} from "../Home/fireReturnTypes";
 
 export type WithdrawalMethodKey = "fire" | "dividends_only" | "constant_withdrawal" | "one_over_n" | "vpw";
 export type ActiveMethodKey = "fire" | "dividends_only" | "one_over_n" | "vpw";
@@ -17,14 +24,22 @@ export type FirePlanningPreferences = {
   withdrawal_rate?: number;
   target_years?: number;
   monthly_expenses_override?: number | null;
-  exclude_ifix_from_sim?: boolean;
+  sampling_method?: SamplingMethod;
+  us_equity_proxy?: UsEquityProxy;
+  global_equity_proxy?: GlobalEquityProxy;
+  crypto_proxy?: CryptoProxy;
+  excluded_return_categories?: ReturnCategory[];
 };
 
 export const DEFAULT_FIRE_PREFERENCES = {
   withdrawal_rate: 4,
   target_years: 30,
   monthly_expenses_override: null,
-  exclude_ifix_from_sim: false,
+  sampling_method: "independent_months",
+  us_equity_proxy: "SPY",
+  global_equity_proxy: "VT",
+  crypto_proxy: "BTC",
+  excluded_return_categories: [],
 } satisfies Required<FirePlanningPreferences>;
 
 export const getFirePlanningPreferences = (

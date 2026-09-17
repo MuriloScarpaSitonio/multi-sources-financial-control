@@ -65,8 +65,9 @@ export const FiltersMenu = ({
   // Sync form state with external filters
   useEffect(() => {
     const assetTypeToLabel: Record<string, string> = {
-      STOCK: "Ação BR",
-      STOCK_USA: "Ação EUA",
+      STOCK: "Renda variável BR",
+      STOCK_USA: "Renda variável EUA",
+      EQUITY_GLOBAL: "Renda variável Global",
       CRYPTO: "Cripto",
       FII: "FII",
       FIXED_BR: "Renda fixa BR",

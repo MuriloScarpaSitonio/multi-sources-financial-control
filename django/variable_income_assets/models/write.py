@@ -11,6 +11,7 @@ from ..choices import (
     AssetSectors,
     AssetTypes,
     Currencies,
+    FixedIncomeIndexers,
     LiquidityTypes,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
@@ -47,7 +48,7 @@ class ConversionRate(models.Model):
 
 class AssetMetaData(models.Model):
     code = models.CharField(max_length=200)
-    type = models.CharField(max_length=10, validators=[AssetTypes.validator])
+    type = models.CharField(max_length=20, validators=[AssetTypes.validator])
     sector = models.CharField(
         max_length=50, validators=[AssetSectors.validator], default=AssetSectors.unknown
     )
@@ -88,7 +89,7 @@ class AssetMetaData(models.Model):
 class Asset(models.Model):
     code = models.CharField(max_length=200)
     description = models.CharField(max_length=100, blank=True, default="")
-    type = models.CharField(max_length=10, validators=[AssetTypes.validator])
+    type = models.CharField(max_length=20, validators=[AssetTypes.validator])
     objective = models.CharField(
         max_length=50,
         validators=[AssetObjectives.validator],
@@ -99,6 +100,13 @@ class Asset(models.Model):
         max_length=20, validators=[LiquidityTypes.validator], default="", blank=True
     )
     maturity_date = models.DateField(null=True, blank=True)
+    indexer = models.CharField(
+        max_length=10,
+        validators=[FixedIncomeIndexers.validator],
+        blank=True,
+        default="",
+        db_default="",
+    )
     user = models.ForeignKey(
         to=settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -113,6 +121,43 @@ class Asset(models.Model):
                 fields=("code", "type", "currency", "user"),
                 name="code__type__currency__user__unique_together",
             ),
+            # Enable these constraints in the second PR, after the manual backfill:
+            # models.CheckConstraint(
+            #     condition=~models.Q(type=AssetTypes.fixed_br)
+            #     | models.Q(
+            #         indexer__in=(
+            #             FixedIncomeIndexers.cdi,
+            #             FixedIncomeIndexers.selic,
+            #             FixedIncomeIndexers.ipca,
+            #             FixedIncomeIndexers.prefixed,
+            #         )
+            #     ),
+            #     name="fixed_br_requires_supported_indexer",
+            # ),
+            # models.CheckConstraint(
+            #     condition=(
+            #         ~models.Q(type=AssetTypes.fixed_br)
+            #         | ~models.Q(
+            #             indexer__in=(
+            #                 FixedIncomeIndexers.ipca,
+            #                 FixedIncomeIndexers.prefixed,
+            #             )
+            #         )
+            #         | models.Q(maturity_date__isnull=False)
+            #     ),
+            #     name="duration_indexer_requires_maturity",
+            # ),
+            # models.CheckConstraint(
+            #     condition=(
+            #         models.Q(type=AssetTypes.fixed_br)
+            #         | models.Q(
+            #             indexer="",
+            #             liquidity_type="",
+            #             maturity_date__isnull=True,
+            #         )
+            #     ),
+            #     name="non_fixed_has_no_fixed_income_facts",
+            # ),
         ]
 
     def __str__(self) -> str:
@@ -135,6 +180,9 @@ class Asset(models.Model):
             description=self.description,
             currency=self.currency,
             is_held_in_self_custody=self.is_held_in_self_custody,
+            liquidity_type=self.liquidity_type or None,
+            maturity_date=self.maturity_date,
+            indexer=self.indexer or None,
             # values MUST be already annotated!
             quantity_balance=getattr(self, "quantity_balance", None),
             avg_price=getattr(self, "avg_price", None),

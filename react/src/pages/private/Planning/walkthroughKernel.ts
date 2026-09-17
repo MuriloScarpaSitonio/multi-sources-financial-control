@@ -6,11 +6,43 @@
 // references. The kernel keeps the demo math in one place: simulation
 // rules can change without two files drifting apart.
 
-import {
-  EQUITY_REAL_RETURNS,
-  FIRE_RETURNS_YEARS,
-  FIXED_INCOME_REAL_RETURNS,
-} from "../Home/fireReturns";
+import { FIRE_RETURN_SERIES } from "../Home/fireReturns";
+
+const completeYears = (months: readonly string[]): number[] => {
+  const counts = new Map<number, number>();
+  months.forEach((month) => {
+    const year = Number(month.slice(0, 4));
+    counts.set(year, (counts.get(year) ?? 0) + 1);
+  });
+  return Array.from(counts.entries())
+    .filter(([, count]) => count === 12)
+    .map(([year]) => year)
+    .sort((left, right) => left - right);
+};
+
+export const FIRE_RETURNS_YEARS = completeYears(
+  FIRE_RETURN_SERIES.IBOV.months.filter((month) =>
+    FIRE_RETURN_SERIES.CDI.months.includes(month),
+  ),
+);
+
+const annualReturns = (series: "IBOV" | "CDI"): readonly number[] => {
+  const data = FIRE_RETURN_SERIES[series];
+  const byMonth = new Map(
+    data.months.map((month, index) => [month, data.realReturns[index]]),
+  );
+  return FIRE_RETURNS_YEARS.map((year) => {
+    let compounded = 1;
+    for (let month = 1; month <= 12; month += 1) {
+      const key = `${year}-${String(month).padStart(2, "0")}`;
+      compounded *= 1 + (byMonth.get(key) ?? 0);
+    }
+    return compounded - 1;
+  });
+};
+
+const EQUITY_REAL_RETURNS = annualReturns("IBOV");
+const FIXED_INCOME_REAL_RETURNS = annualReturns("CDI");
 
 export const EXAMPLE_EQUITY_WEIGHT = 0.7;
 export const EXAMPLE_FI_WEIGHT = 0.3;

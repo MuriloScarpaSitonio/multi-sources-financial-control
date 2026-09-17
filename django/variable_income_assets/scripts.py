@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import base64
 import contextlib
-import json
 import locale
-import urllib.request
-from collections import defaultdict
-from datetime import date, datetime
+import os
+from datetime import date
 from decimal import Decimal
 from operator import mul, truediv
+from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 from django.conf import settings
@@ -22,11 +20,18 @@ from .choices import (
     AssetObjectives,
     AssetTypes,
     Currencies,
+    FixedIncomeIndexers,
     LiquidityTypes,
+    PassiveIncomeEventTypes,
     PassiveIncomeTypes,
     TransactionActions,
 )
-from .models import Asset, AssetClosedOperation, AssetMetaData, Transaction
+from .fire_returns import (
+    build_fire_return_series,
+    render_fire_returns_ts,
+    validate_fire_return_series,
+)
+from .models import Asset, AssetClosedOperation, AssetMetaData, PassiveIncome, Transaction
 from .serializers import AssetSerializer, TransactionListSerializer
 from .service_layer.tasks import upsert_asset_read_model
 
@@ -670,6 +675,252 @@ def update_asset_metadata_current_price(code: str, price: Decimal) -> None:
     )
 
 
+class _BackfillDryRunRollback(Exception):
+    pass
+
+
+_USER_1_FIXED_INCOME_FACTS = {
+    "CDBC24DIQ8Z": {"indexer": FixedIncomeIndexers.cdi},
+    "24L03571458": {"indexer": FixedIncomeIndexers.prefixed},
+    "CDB1253MX9Z": {"indexer": FixedIncomeIndexers.prefixed},
+    "BRSTNCNTB666": {"indexer": FixedIncomeIndexers.ipca},
+    "CDB3259N1UN": {"indexer": FixedIncomeIndexers.cdi},
+    "CDBC248SHCJ": {"indexer": FixedIncomeIndexers.prefixed},
+    "CDB72426EJQ": {"indexer": FixedIncomeIndexers.prefixed},
+    "25H03552378": {"indexer": FixedIncomeIndexers.prefixed},
+    "25H03552398": {"indexer": FixedIncomeIndexers.cdi},
+    "CDB4193UXEU": {"indexer": FixedIncomeIndexers.prefixed},
+    "porquinho-inter": {"indexer": FixedIncomeIndexers.cdi},
+    "25L03967955": {"indexer": FixedIncomeIndexers.prefixed},
+    "LIG02500SUX": {"indexer": FixedIncomeIndexers.cdi},
+    "CDB1265D0XD": {"indexer": FixedIncomeIndexers.ipca},
+    "CDB12694JYR": {"indexer": FixedIncomeIndexers.ipca},
+    "BRSTNCLTN8J8": {
+        "indexer": FixedIncomeIndexers.prefixed,
+        "expected_maturity_date": date(2032, 12, 1),
+        "maturity_date": date(2032, 1, 1),
+    },
+    "BRSTNCNTB7T1": {"indexer": FixedIncomeIndexers.ipca},
+    "CDB4264L42J": {"indexer": FixedIncomeIndexers.prefixed},
+    "CDB4264L42U": {"indexer": FixedIncomeIndexers.ipca},
+    "CDB426DGCVL": {"indexer": FixedIncomeIndexers.prefixed},
+    "BRSTNCLF1RU6": {"indexer": FixedIncomeIndexers.selic},
+    "BRSTNCNTB4X0": {"indexer": FixedIncomeIndexers.ipca},
+    "BRSTNCNTB3B8": {"indexer": FixedIncomeIndexers.ipca},
+}
+
+
+_USER_1_FIXED_INCOME_TRANSACTIONS = (
+    {
+        "code": "25L03967955",
+        "action": TransactionActions.sell,
+        "operation_date": date(2026, 6, 29),
+        "quantity": Decimal("1000000"),
+        "price": Decimal("0.01"),
+    },
+    {
+        "code": "25H03552378",
+        "action": TransactionActions.sell,
+        "operation_date": date(2026, 2, 19),
+        "quantity": Decimal("1000000"),
+        "price": Decimal("0.01"),
+    },
+)
+
+
+_USER_1_FIXED_INCOME_INTERESTS = (
+    {
+        "code": "25L03967955",
+        "operation_date": date(2026, 6, 29),
+        "amount": Decimal("628.16"),
+    },
+)
+
+
+def backfill_user_1_fixed_income_facts(dry_run: bool = True) -> list[dict]:
+    """Backfill the reviewed fixed-income indexers and maturity correction.
+
+    Usage in ``python manage.py shell``::
+
+        from variable_income_assets.scripts import backfill_user_1_fixed_income_facts
+        backfill_user_1_fixed_income_facts()               # preview, rolled back
+        backfill_user_1_fixed_income_facts(dry_run=False)  # persist
+    """
+    report: list[dict] = []
+    try:
+        with djtransaction.atomic():
+            assets = {
+                asset.code: asset
+                for asset in Asset.objects.filter(
+                    user_id=1,
+                    type=AssetTypes.fixed_br,
+                    code__in=_USER_1_FIXED_INCOME_FACTS,
+                )
+            }
+            missing = sorted(set(_USER_1_FIXED_INCOME_FACTS) - set(assets))
+            if missing:
+                raise RuntimeError(f"Missing user_id=1 fixed-income assets: {missing}")
+
+            for code, desired in _USER_1_FIXED_INCOME_FACTS.items():
+                asset = assets[code]
+                changes: dict[str, dict] = {}
+
+                desired_indexer = desired["indexer"]
+                if asset.indexer not in ("", desired_indexer):
+                    raise RuntimeError(
+                        f"{code}: expected blank or {desired_indexer!r} indexer, "
+                        f"found {asset.indexer!r}"
+                    )
+                if asset.indexer != desired_indexer:
+                    changes["indexer"] = {"from": asset.indexer, "to": desired_indexer}
+                    asset.indexer = desired_indexer
+
+                desired_maturity = desired.get("maturity_date")
+                if desired_maturity is not None:
+                    expected_maturity = desired["expected_maturity_date"]
+                    if asset.maturity_date not in (expected_maturity, desired_maturity):
+                        raise RuntimeError(
+                            f"{code}: expected maturity {expected_maturity} or "
+                            f"{desired_maturity}, found {asset.maturity_date}"
+                        )
+                    if asset.maturity_date != desired_maturity:
+                        changes["maturity_date"] = {
+                            "from": asset.maturity_date,
+                            "to": desired_maturity,
+                        }
+                        asset.maturity_date = desired_maturity
+
+                if changes:
+                    asset.save(update_fields=tuple(changes))
+                    upsert_asset_read_model(asset_id=asset.id, is_aggregate_upsert=False)
+                    action = "updated"
+                else:
+                    action = "already_applied"
+                report.append(
+                    {
+                        "code": code,
+                        "description": asset.description,
+                        "user_id": asset.user_id,
+                        "action": action,
+                        "changes": changes,
+                    }
+                )
+
+            if dry_run:
+                raise _BackfillDryRunRollback
+    except _BackfillDryRunRollback:
+        pass
+    return report
+
+
+class _ShellRequest:
+    def __init__(self, user) -> None:
+        self.user = user
+
+
+def backfill_user_1_fixed_income_events(dry_run: bool = True) -> list[dict]:
+    """Create the reviewed B3 maturity transactions and fixed-income interest.
+
+    Usage in ``python manage.py shell``::
+
+        from variable_income_assets.scripts import backfill_user_1_fixed_income_events
+        backfill_user_1_fixed_income_events()               # preview, rolled back
+        backfill_user_1_fixed_income_events(dry_run=False)  # persist
+    """
+    report: list[dict] = []
+    event_codes = {
+        event["code"]
+        for event in (*_USER_1_FIXED_INCOME_TRANSACTIONS, *_USER_1_FIXED_INCOME_INTERESTS)
+    }
+    try:
+        with djtransaction.atomic():
+            user = UserModel.objects.get(pk=1)
+            assets = {
+                asset.code: asset
+                for asset in Asset.objects.filter(
+                    user_id=1,
+                    type=AssetTypes.fixed_br,
+                    code__in=event_codes,
+                )
+            }
+            missing = sorted(event_codes - set(assets))
+            if missing:
+                raise RuntimeError(f"Missing user_id=1 fixed-income assets: {missing}")
+
+            ordered_events = [
+                (event["operation_date"], 0, "interest", event)
+                for event in _USER_1_FIXED_INCOME_INTERESTS
+            ] + [
+                (event["operation_date"], 1, "transaction", event)
+                for event in _USER_1_FIXED_INCOME_TRANSACTIONS
+            ]
+            for _, _, event_kind, event in sorted(ordered_events, key=lambda item: item[:2]):
+                asset = assets[event["code"]]
+                if event_kind == "interest":
+                    lookup = {
+                        "asset": asset,
+                        "type": PassiveIncomeTypes.interest,
+                        "event_type": PassiveIncomeEventTypes.credited,
+                        "operation_date": event["operation_date"],
+                        "amount": event["amount"],
+                    }
+                    if PassiveIncome.objects.filter(**lookup).exists():
+                        action = "income_already_exists"
+                    else:
+                        PassiveIncome.objects.create(
+                            **lookup,
+                            current_currency_conversion_rate=Decimal("1"),
+                        )
+                        upsert_asset_read_model(asset_id=asset.id, is_aggregate_upsert=True)
+                        action = "income_created"
+                    report.append({**event, "code": asset.code, "action": action})
+                    continue
+
+                lookup = {
+                    "asset": asset,
+                    "action": event["action"],
+                    "operation_date": event["operation_date"],
+                    "quantity": event["quantity"],
+                    "price": event["price"],
+                }
+                maturity_already_exists = Transaction.objects.filter(
+                    asset=asset,
+                    action=TransactionActions.sell,
+                    operation_date=event["operation_date"],
+                    quantity=event["quantity"],
+                ).exists()
+                if Transaction.objects.filter(**lookup).exists() or maturity_already_exists:
+                    action = "transaction_already_exists"
+                else:
+                    serializer = TransactionListSerializer(
+                        data={
+                            "asset_pk": asset.id,
+                            "action": event["action"],
+                            "operation_date": event["operation_date"].strftime("%d/%m/%Y"),
+                            "quantity": str(event["quantity"]),
+                            "price": str(event["price"]),
+                        },
+                        context={"request": _ShellRequest(user)},
+                    )
+                    serializer.is_valid(raise_exception=True)
+                    serializer.save()
+                    action = "transaction_created"
+                report.append(
+                    {
+                        **event,
+                        "code": asset.code,
+                        "transaction_action": event["action"],
+                        "action": action,
+                    }
+                )
+
+            if dry_run:
+                raise _BackfillDryRunRollback
+    except _BackfillDryRunRollback:
+        pass
+    return report
+
+
 def import_selic_ntnb(user_pk: int, dry_run: bool = True) -> None:
     """One-off: register the Selic-held NTN-Bs (Inter DTVM custody, invisible to B3 files).
 
@@ -762,350 +1013,25 @@ def import_selic_ntnb(user_pk: int, dry_run: bool = True) -> None:
 
 
 def generate_fire_returns_ts(
-    output_path: str = "../react/src/pages/private/Home/fireReturns.ts",
+    output_path: str | None = "../react/src/pages/private/Home/fireReturns.ts",
     start_year: int = 1995,
     end_year: int | None = None,
 ) -> None:
-    """
-    Download B3 IBOV/IFIX, BCB CDI, and BCB IPCA data, compute real annual and
-    monthly returns, and emit a TypeScript module with const arrays for the FIRE
-    bootstrap.
-
-    start_year must stay >= 1995. Earlier IBOV history has additional display
-    redenominations that this generator does not normalize.
-
-    Output (when output_path is provided): a .ts file with FIRE_RETURNS_YEARS,
-    EQUITY_REAL_RETURNS, FIXED_INCOME_REAL_RETURNS, IFIX_YEARS, and
-    IFIX_REAL_RETURNS, plus their monthly equivalents. Otherwise prints to stdout.
-
-    Usage:
-        from variable_income_assets.scripts import generate_fire_returns_ts
-        generate_fire_returns_ts()
-    """
-
-    if end_year is None:
-        end_year = timezone.localtime().year - 1
-
     if start_year < 1995:
         raise ValueError("generate_fire_returns_ts only supports start_year >= 1995")
+    if end_year is None:
+        end_year = timezone.localdate().year - 1
     if end_year < start_year:
         raise ValueError("end_year must be greater than or equal to start_year")
 
-    # Reverse-engineered from B3's index statistics pages; this is not a stable
-    # public API, so keep the generated TS checked in and rerun intentionally.
-    B3_INDEX_URL = (
-        "https://sistemaswebb3-listados.b3.com.br/indexStatisticsProxy/IndexCall/GetPortfolioDay"
+    series = build_fire_return_series(
+        start_year=start_year,
+        end_year=end_year,
+        alpha_vantage_api_key=os.environ["ALPHA_VANTAGE_API_KEY"],
     )
-    BCB_CDI_URL = (
-        "https://api.bcb.gov.br/dados/serie/bcdata.sgs.4391/dados"
-        f"?formato=json&dataInicial=01/01/{start_year}&dataFinal=31/12/{{end}}"
-    )
-    BCB_IPCA_URL = (
-        "https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados"
-        f"?formato=json&dataInicial=01/01/{start_year}&dataFinal=31/12/{{end}}"
-    )
-    HTTP_TIMEOUT_SECONDS = 30
-
-    def compound(periodic: list[float]) -> float:
-        result = 1.0
-        for r in periodic:
-            result *= 1.0 + r
-        return result - 1.0
-
-    def parse_b3_number(value: str) -> float:
-        return float(value.replace(",", ""))
-
-    def fetch_json(url: str):
-        request = urllib.request.Request(
-            url,
-            headers={"User-Agent": "multi-sources-financial-control/1.0"},
-        )
-        with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-
-    def normalize_ibov_value(refdate: date, value: float) -> float:
-        # B3's raw historical table spans the 10:1 Ibovespa display split from
-        # 1997-03-03. Normalize older point values to the post-split scale so
-        # annual returns do not treat the display change as a market loss.
-        if refdate < date(1997, 3, 3):
-            return value / 10.0
-        return value
-
-    def normalize_b3_index_value(index: str, refdate: date, value: float) -> float:
-        if index == "IBOV":
-            return normalize_ibov_value(refdate, value)
-        return value
-
-    def month_key(refdate: date) -> tuple[int, int]:
-        return (refdate.year, refdate.month)
-
-    def month_key_str(month: tuple[int, int]) -> str:
-        year, month_number = month
-        return f"{year}-{month_number:02d}"
-
-    def previous_month(month: tuple[int, int]) -> tuple[int, int]:
-        year, month_number = month
-        if month_number == 1:
-            return (year - 1, 12)
-        return (year, month_number - 1)
-
-    def iter_months(first_year: int, last_year: int) -> list[tuple[int, int]]:
-        return [
-            (year, month) for year in range(first_year, last_year + 1) for month in range(1, 13)
-        ]
-
-    def b3_index_url(index: str, year: int) -> str:
-        payload = json.dumps(
-            {"language": "en-us", "index": index, "year": year},
-            separators=(",", ":"),
-        ).encode()
-        return f"{B3_INDEX_URL}/{base64.b64encode(payload).decode()}"
-
-    def download_b3_index_year(index: str, year: int) -> dict[date, float]:
-        url = b3_index_url(index, year)
-        raw = fetch_json(url)
-
-        points: dict[date, float] = {}
-        if not isinstance(raw, dict):
-            return points
-        for row in raw.get("results") or []:
-            try:
-                day = int(row["day"])
-            except (KeyError, TypeError, ValueError) as exc:
-                raise RuntimeError(
-                    f"Malformed B3 {index} row for {year}: missing/invalid day"
-                ) from exc
-            for month in range(1, 13):
-                value = row.get(f"rateValue{month}")
-                if value is None:
-                    continue
-                try:
-                    refdate = date(year, month, day)
-                    points[refdate] = normalize_b3_index_value(
-                        index,
-                        refdate,
-                        parse_b3_number(value),
-                    )
-                except ValueError as exc:
-                    raise RuntimeError(
-                        f"Malformed B3 {index} row for {year}: value present for invalid date "
-                        f"{year}-{month:02d}-{day:02d}"
-                    ) from exc
-        return points
-
-    def compute_annual_index_returns(
-        points: dict[date, float],
-        first_year: int,
-        last_year: int,
-    ) -> tuple[dict[int, float], dict[int, int]]:
-        annual_returns: dict[int, float] = {}
-        days_by_year: dict[int, int] = defaultdict(int)
-        sorted_dates = sorted(points)
-        for d in sorted_dates:
-            days_by_year[d.year] += 1
-
-        for year in range(first_year, last_year + 1):
-            previous_dates = [d for d in sorted_dates if d.year < year]
-            current_dates = [d for d in sorted_dates if d.year == year]
-            if not previous_dates or not current_dates:
-                continue
-            previous_close = points[max(previous_dates)]
-            current_close = points[max(current_dates)]
-            annual_returns[year] = current_close / previous_close - 1.0
-
-        return annual_returns, days_by_year
-
-    def compute_monthly_index_returns(
-        points: dict[date, float],
-        first_year: int,
-        last_year: int,
-    ) -> tuple[dict[tuple[int, int], float], dict[tuple[int, int], int]]:
-        monthly_returns: dict[tuple[int, int], float] = {}
-        days_by_month: dict[tuple[int, int], int] = defaultdict(int)
-        month_close_dates: dict[tuple[int, int], date] = {}
-
-        for d in sorted(points):
-            key = month_key(d)
-            days_by_month[key] += 1
-            if key not in month_close_dates or d > month_close_dates[key]:
-                month_close_dates[key] = d
-
-        month_closes = {key: points[d] for key, d in month_close_dates.items()}
-        for key in iter_months(first_year, last_year):
-            previous_key = previous_month(key)
-            if key not in month_closes or previous_key not in month_closes:
-                continue
-            monthly_returns[key] = month_closes[key] / month_closes[previous_key] - 1.0
-
-        return monthly_returns, days_by_month
-
-    print(f"Downloading B3 IBOV from {B3_INDEX_URL} ...")
-    ibov_daily: dict[date, float] = {}
-    for year in range(start_year - 1, end_year + 1):
-        ibov_daily.update(download_b3_index_year("IBOV", year))
-
-    if not ibov_daily:
-        raise RuntimeError("No B3 IBOV data parsed — check URL/format.")
-
-    annual_ibov, ibov_days_by_year = compute_annual_index_returns(
-        ibov_daily,
-        start_year,
-        end_year,
-    )
-    if 1997 in annual_ibov and not -0.8 <= annual_ibov[1997] <= 2.0:
-        raise RuntimeError(
-            "IBOV 1997 return is outside the expected range. Check whether B3 changed "
-            "historical IBOV scaling before changing normalize_ibov_value()."
-        )
-    monthly_ibov, ibov_days_by_month = compute_monthly_index_returns(
-        ibov_daily,
-        start_year,
-        end_year,
-    )
-
-    cdi_url = BCB_CDI_URL.format(end=end_year)
-    print(f"Downloading BCB CDI from {cdi_url} ...")
-    cdi_raw = fetch_json(cdi_url)
-
-    cdi_monthly: dict[int, list[float]] = defaultdict(list)
-    cdi_by_month: dict[tuple[int, int], float] = {}
-    for row in cdi_raw:
-        d = datetime.strptime(row["data"], "%d/%m/%Y")
-        if start_year <= d.year <= end_year:
-            value = float(row["valor"]) / 100.0
-            cdi_monthly[d.year].append(value)
-            cdi_by_month[month_key(d.date())] = value
-
-    annual_cdi = {y: compound(v) for y, v in cdi_monthly.items()}
-
-    ipca_url = BCB_IPCA_URL.format(end=end_year)
-    print(f"Downloading BCB IPCA from {ipca_url} ...")
-    ipca_raw = fetch_json(ipca_url)
-
-    ipca_monthly: dict[int, list[float]] = defaultdict(list)
-    ipca_by_month: dict[tuple[int, int], float] = {}
-    for row in ipca_raw:
-        d = datetime.strptime(row["data"], "%d/%m/%Y")
-        if start_year <= d.year <= end_year:
-            value = float(row["valor"]) / 100.0
-            ipca_monthly[d.year].append(value)
-            ipca_by_month[month_key(d.date())] = value
-
-    annual_ipca = {y: compound(v) for y, v in ipca_monthly.items()}
-
-    # Keep only years with a mostly-complete trading year (≥200 days) and full CDI/IPCA.
-    common_years = sorted(
-        y
-        for y in set(annual_ibov) & set(annual_cdi) & set(annual_ipca)
-        if ibov_days_by_year[y] >= 200 and len(cdi_monthly[y]) == 12 and len(ipca_monthly[y]) == 12
-    )
-    if not common_years:
-        raise RuntimeError("No overlapping complete years between IBOV, CDI, and IPCA.")
-    if common_years[-1] != end_year:
-        raise RuntimeError(
-            f"Latest complete IBOV/CDI/IPCA year is {common_years[-1]}, expected {end_year}. "
-            "Check whether B3/BCB data for the requested year is complete before regenerating."
-        )
-
-    real_rm = [(1 + annual_ibov[y]) / (1 + annual_ipca[y]) - 1 for y in common_years]
-    real_rf = [(1 + annual_cdi[y]) / (1 + annual_ipca[y]) - 1 for y in common_years]
-    common_months = sorted(
-        m
-        for m in set(monthly_ibov) & set(cdi_by_month) & set(ipca_by_month)
-        if ibov_days_by_month[m] > 0
-    )
-    if not common_months:
-        raise RuntimeError("No overlapping complete months between IBOV, CDI, and IPCA.")
-
-    real_rm_monthly = [(1 + monthly_ibov[m]) / (1 + ipca_by_month[m]) - 1 for m in common_months]
-    real_rf_monthly = [(1 + cdi_by_month[m]) / (1 + ipca_by_month[m]) - 1 for m in common_months]
-
-    print(f"Downloading B3 IFIX from {B3_INDEX_URL} ...")
-    ifix_start_year = 2011
-    ifix_daily: dict[date, float] = {}
-    for year in range(ifix_start_year - 1, end_year + 1):
-        ifix_daily.update(download_b3_index_year("IFIX", year))
-
-    if not ifix_daily:
-        raise RuntimeError("No B3 IFIX data parsed — check URL/format.")
-
-    annual_ifix, ifix_days_by_year = compute_annual_index_returns(
-        ifix_daily,
-        ifix_start_year,
-        end_year,
-    )
-    monthly_ifix, ifix_days_by_month = compute_monthly_index_returns(
-        ifix_daily,
-        ifix_start_year,
-        end_year,
-    )
-    ifix_years = sorted(
-        y
-        for y in set(annual_ifix) & set(annual_ipca)
-        if ifix_days_by_year[y] >= 200 and len(ipca_monthly[y]) == 12
-    )
-    if not ifix_years:
-        raise RuntimeError("No overlapping complete years between IFIX and IPCA.")
-    if ifix_years[0] != ifix_start_year:
-        raise RuntimeError(
-            f"First complete IFIX year is {ifix_years[0]}, expected {ifix_start_year}. "
-            "Check whether B3 returned the IFIX base point for 2010."
-        )
-    if ifix_years[-1] != end_year:
-        raise RuntimeError(
-            f"Latest complete IFIX/IPCA year is {ifix_years[-1]}, expected {end_year}."
-        )
-    real_ifix = [(1 + annual_ifix[y]) / (1 + annual_ipca[y]) - 1 for y in ifix_years]
-    ifix_months = sorted(
-        m for m in set(monthly_ifix) & set(ipca_by_month) if ifix_days_by_month[m] > 0
-    )
-    real_ifix_monthly = [(1 + monthly_ifix[m]) / (1 + ipca_by_month[m]) - 1 for m in ifix_months]
-
-    rm_values = ", ".join(f"{v:.6f}" for v in real_rm)
-    rf_values = ", ".join(f"{v:.6f}" for v in real_rf)
-    ifix_values = ", ".join(f"{v:.6f}" for v in real_ifix)
-    years_str = ", ".join(str(y) for y in common_years)
-    ifix_years_str = ", ".join(str(y) for y in ifix_years)
-    months_str = ", ".join(f'"{month_key_str(m)}"' for m in common_months)
-    ifix_months_str = ", ".join(f'"{month_key_str(m)}"' for m in ifix_months)
-    rm_monthly_values = ", ".join(f"{v:.6f}" for v in real_rm_monthly)
-    rf_monthly_values = ", ".join(f"{v:.6f}" for v in real_rf_monthly)
-    ifix_monthly_values = ", ".join(f"{v:.6f}" for v in real_ifix_monthly)
-
-    ts_content = (
-        "// Auto-generated by "
-        "django/variable_income_assets/scripts.py::generate_fire_returns_ts\n"
-        "// Source: B3 IBOV + B3 IFIX + BCB SGS 4391 (CDI) + BCB SGS 433 (IPCA).\n"
-        f"// IBOV/CDI/IPCA period: {common_years[0]}–{common_years[-1]} "
-        f"({len(common_years)} complete years, {len(common_months)} months).\n"
-        f"// IFIX period: {ifix_years[0]}–{ifix_years[-1]} "
-        f"({len(ifix_years)} complete years, {len(ifix_months)} months).\n"
-        "// Real returns = (1 + nominal) / (1 + IPCA) - 1.\n\n"
-        f"export const FIRE_RETURNS_YEARS: readonly number[] = [{years_str}];\n\n"
-        "// IBOV (Ibovespa total return, BRL) — real annual returns.\n"
-        f"export const EQUITY_REAL_RETURNS: readonly number[] = [{rm_values}];\n\n"
-        "// CDI (BCB SGS 4391, monthly aggregated to annual) — real annual returns.\n"
-        f"export const FIXED_INCOME_REAL_RETURNS: readonly number[] = [{rf_values}];\n\n"
-        f"export const IFIX_YEARS: readonly number[] = [{ifix_years_str}];\n\n"
-        "// IFIX (Brazilian REIT index, total return) — real annual returns.\n"
-        f"export const IFIX_REAL_RETURNS: readonly number[] = [{ifix_values}];\n\n"
-        f"export const FIRE_RETURNS_MONTHS: readonly string[] = [{months_str}];\n\n"
-        "// IBOV (Ibovespa total return, BRL) — real monthly returns.\n"
-        f"export const EQUITY_MONTHLY_REAL_RETURNS: readonly number[] = [{rm_monthly_values}];\n\n"
-        "// CDI (BCB SGS 4391) — real monthly returns.\n"
-        "export const FIXED_INCOME_MONTHLY_REAL_RETURNS: readonly number[] = "
-        f"[{rf_monthly_values}];\n\n"
-        f"export const IFIX_MONTHS: readonly string[] = [{ifix_months_str}];\n\n"
-        "// IFIX (Brazilian REIT index, total return) — real monthly returns.\n"
-        f"export const IFIX_MONTHLY_REAL_RETURNS: readonly number[] = [{ifix_monthly_values}];\n"
-    )
-
+    validate_fire_return_series(series)
+    content = render_fire_returns_ts(series)
     if output_path is None:
-        print(ts_content)
-    else:
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(ts_content)
-        print(
-            f"Wrote {len(common_years)} years / {len(common_months)} months "
-            f"({common_years[0]}–{common_years[-1]}) to {output_path}"
-        )
+        print(content)
+        return
+    Path(output_path).write_text(content, encoding="utf-8")

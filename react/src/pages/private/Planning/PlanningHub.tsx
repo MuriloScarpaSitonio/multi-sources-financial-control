@@ -24,6 +24,7 @@ import { useIncomesAvg } from "../Incomes/Indicators/hooks";
 import { useHomeRevenuesIndicators } from "../Revenues/hooks/useRevenuesIndicators";
 import DividendsOnlyIndicator from "../Home/DividendsOnlyIndicator";
 import ConstantDollarIndicator from "../Home/ConstantDollarIndicator";
+import { buildPortfolio } from "../Home/firePortfolio";
 import OneOverNIndicator from "../Home/OneOverNIndicator";
 import VPWIndicator from "../Home/VPWIndicator";
 import { usePlanningPreferences } from "./hooks";
@@ -36,6 +37,7 @@ import {
   type ActiveMethodKey,
 } from "./api";
 import { STRATEGY_CONTENT } from "./strategyContent";
+import { useFireAllocation } from "./fireAllocation";
 
 const STRATEGY_ORDER: ActiveMethodKey[] = [
   "fire",
@@ -53,6 +55,13 @@ const PlanningHub = () => {
   const oneOverNPreferences = getOneOverNPlanningPreferences(preferences);
   const vpwPreferences = getVPWPlanningPreferences(preferences);
   const dateOfBirth = planningData?.dateOfBirth ?? null;
+  const { data: fireAllocationData, isPending: isFireAllocationLoading } =
+    useFireAllocation();
+  const firePortfolio = useMemo(
+    () =>
+      buildPortfolio(fireAllocationData?.buckets ?? [], firePreferences),
+    [fireAllocationData?.buckets, firePreferences],
+  );
 
   const {
     data: assetsIndicators,
@@ -91,16 +100,22 @@ const PlanningHub = () => {
   const isDataLoading =
     isAssetsLoading || isBankLoading || isExpensesLoading || isRevenuesLoading;
 
-  const { fixedIncomeTotal, variableIncomeTotal, equityTotal, ifixTotal } = useMemo(() => {
+  const { fixedIncomeTotal, equityTotal, ifixTotal } = useMemo(() => {
     const data = (assetsReportData ?? []) as ReportAggregatedByTypeDataItem[];
     const fixed = data.find((d) => d.type === "Renda fixa BR")?.total ?? 0;
     const ifix = data.find((d) => d.type === "FII")?.total ?? 0;
     const equity = data
-      .filter((d) => ["Ação BR", "Ação EUA", "Cripto"].includes(d.type))
+      .filter((d) =>
+        [
+          "Renda variável BR",
+          "Renda variável EUA",
+          "Renda variável Global",
+          "Cripto",
+        ].includes(d.type),
+      )
       .reduce((sum, d) => sum + d.total, 0);
     return {
       fixedIncomeTotal: fixed,
-      variableIncomeTotal: equity + ifix,
       equityTotal: equity,
       ifixTotal: ifix,
     };
@@ -111,16 +126,14 @@ const PlanningHub = () => {
       <ConstantDollarIndicator
         patrimonyTotal={patrimonyTotal}
         avgExpenses={avgExpenses}
-        isLoading={isDataLoading || isReportsLoading}
+        isLoading={isDataLoading || isReportsLoading || isFireAllocationLoading}
         withdrawalRate={firePreferences.withdrawal_rate}
         onWithdrawalRateChange={() => {}}
         targetYears={firePreferences.target_years}
         onTargetYearsChange={() => {}}
-        equityTotal={equityTotal}
-        ifixTotal={ifixTotal}
-        fixedIncomeTotal={fixedIncomeTotal + bankAmount}
+        portfolio={firePortfolio}
+        samplingMethod={firePreferences.sampling_method}
         simulatedExpenses={firePreferences.monthly_expenses_override}
-        excludeIfixFromSim={firePreferences.exclude_ifix_from_sim}
         compact
         hideLabel
       />

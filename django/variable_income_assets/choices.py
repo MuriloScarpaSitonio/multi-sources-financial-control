@@ -17,14 +17,21 @@ class Currencies(DjangoChoices):
 class AssetTypes(DjangoChoices):
     stock = ChoiceItem(
         "STOCK",
-        label="Ação BR",
+        label="Renda variável BR",
         monthly_sell_threshold=settings.STOCKS_MONTHLY_SELL_EXEMPTION_THRESHOLD,
         valid_currencies=(Currencies.real,),
         accept_incomes=True,
     )
     stock_usa = ChoiceItem(
         "STOCK_USA",
-        label="Ação EUA",
+        label="Renda variável EUA",
+        monthly_sell_threshold=settings.STOCKS_USA_MONTHLY_SELL_EXEMPTION_THRESHOLD,
+        valid_currencies=(Currencies.dollar,),
+        accept_incomes=True,
+    )
+    equity_global = ChoiceItem(
+        "EQUITY_GLOBAL",
+        label="Renda variável Global",
         monthly_sell_threshold=settings.STOCKS_USA_MONTHLY_SELL_EXEMPTION_THRESHOLD,
         valid_currencies=(Currencies.dollar,),
         accept_incomes=True,
@@ -116,3 +123,10 @@ class AssetStatus(DjangoChoices):
 class LiquidityTypes(DjangoChoices):
     daily = ChoiceItem("DAILY", label="Liquidez Diária")
     at_maturity = ChoiceItem("AT_MATURITY", label="Somente no Vencimento")
+
+
+class FixedIncomeIndexers(DjangoChoices):
+    cdi = ChoiceItem("CDI", label="CDI")
+    selic = ChoiceItem("SELIC", label="Selic")
+    ipca = ChoiceItem("IPCA", label="IPCA")
+    prefixed = ChoiceItem("PREFIXED", label="Prefixado")

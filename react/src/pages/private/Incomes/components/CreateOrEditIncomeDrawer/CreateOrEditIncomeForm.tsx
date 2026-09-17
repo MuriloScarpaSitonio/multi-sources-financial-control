@@ -327,8 +327,9 @@ const CreateOrEditIncomeForm = ({
           getErrorMessage={getErrorMessage}
           filters={{
             type: [
-              AssetsTypesMapping["Ação BR"].value,
-              AssetsTypesMapping["Ação EUA"].value,
+              AssetsTypesMapping["Renda variável BR"].value,
+              AssetsTypesMapping["Renda variável EUA"].value,
+              AssetsTypesMapping["Renda variável Global"].value,
               AssetsTypesMapping.Cripto.value,
               AssetsTypesMapping.FII.value,
               AssetsTypesMapping["Renda fixa BR"].value,

@@ -622,7 +622,7 @@ def test__partial_update__planning_preferences__fire_inputs(client, user):
         "withdrawal_rate": 3.5,
         "target_years": 45,
         "monthly_expenses_override": 12500.0,
-        "exclude_ifix_from_sim": True,
+        "excluded_return_categories": ["FII"],
     }
 
 
@@ -659,9 +659,54 @@ def test__partial_update__planning_preferences__merges_fire_inputs(client, user)
             "withdrawal_rate": 3.5,
             "target_years": 45,
             "monthly_expenses_override": None,
-            "exclude_ifix_from_sim": True,
+            "excluded_return_categories": ["FII"],
         },
     }
+
+
+def test__partial_update__planning_preferences__fire_proxy_fields(client, user):
+    response = client.patch(
+        f"{URL}/{user.pk}",
+        data={
+            "planning_preferences": {
+                "selected_method": "fire",
+                "fire": {
+                    "sampling_method": "contiguous_12_month_blocks",
+                    "us_equity_proxy": "VTI",
+                    "global_equity_proxy": "VWRL",
+                    "crypto_proxy": "CMBI10",
+                    "excluded_return_categories": ["FII", "FIXED_IPCA"],
+                },
+            }
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == HTTP_200_OK
+    assert response.json()["planning_preferences"]["fire"] == {
+        "sampling_method": "contiguous_12_month_blocks",
+        "us_equity_proxy": "VTI",
+        "global_equity_proxy": "VWRL",
+        "crypto_proxy": "CMBI10",
+        "excluded_return_categories": ["FII", "FIXED_IPCA"],
+    }
+
+
+def test__retrieve__translates_and_persists_legacy_ifix_preference(client, user):
+    user.planning_preferences = {
+        "selected_method": "fire",
+        "fire": {"exclude_ifix_from_sim": True},
+    }
+    user.save(update_fields=("planning_preferences",))
+
+    response = client.get(f"{URL}/{user.pk}")
+
+    assert response.status_code == HTTP_200_OK
+    fire = response.json()["planning_preferences"]["fire"]
+    assert fire["excluded_return_categories"] == ["FII"]
+    assert "exclude_ifix_from_sim" not in fire
+    user.refresh_from_db()
+    assert user.planning_preferences["fire"] == fire
 
 
 @pytest.mark.parametrize(

@@ -14,6 +14,7 @@ from ..choices import (
     AssetObjectives,
     AssetTypes,
     Currencies,
+    FixedIncomeIndexers,
     LiquidityTypes,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
@@ -25,6 +26,8 @@ from .exceptions import (
     AssetHeldInSelfCustodyWithQuantityException,
     AssetNotHeldInSelfCustodyWithoutQuantityException,
     CurrencyConversionRateNullOrOneForNonBrlAssets,
+    FixedIncomeIndexerRequiredException,
+    FixedIncomeMaturityRequiredException,
     FutureTransactionNotAllowedException,
     InvalidAssetCurrentException,
     NegativeQuantityNotAllowedException,
@@ -88,6 +91,7 @@ class Asset:
     # Emergency fund fields (only for FIXED_BR assets)
     liquidity_type: choices_to_enum(LiquidityTypes) | None = None
     maturity_date: date | None = None
+    indexer: choices_to_enum(FixedIncomeIndexers) | None = None
 
     def __post_init__(self) -> None:
         self._transactions: list[TransactionDTO] = []
@@ -111,6 +115,19 @@ class Asset:
         else:
             if " " in self.code:
                 raise SpaceNotAllowedInB3AssetCode
+
+        if self.type == AssetTypes.fixed_br:
+            if not self.indexer:
+                raise FixedIncomeIndexerRequiredException
+            if (
+                self.indexer in (FixedIncomeIndexers.ipca, FixedIncomeIndexers.prefixed)
+                and self.maturity_date is None
+            ):
+                raise FixedIncomeMaturityRequiredException
+        else:
+            self.indexer = None
+            self.liquidity_type = None
+            self.maturity_date = None
 
     @property
     def is_fixed_br(self) -> bool:

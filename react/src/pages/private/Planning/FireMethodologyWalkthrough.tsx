@@ -26,13 +26,13 @@ import {
   getColor,
   Text,
 } from "../../../design-system";
-import { FIRE_RETURNS_YEARS } from "../Home/fireReturns";
 import {
   DEFAULT_HORIZON,
   EXAMPLE_EQUITY_WEIGHT,
   EXAMPLE_FI_WEIGHT,
   HORIZON_MAX,
   HORIZON_MIN,
+  FIRE_RETURNS_YEARS,
   drawYearReturn,
   runBinarySearch,
   sampleTrialYears,
@@ -300,7 +300,7 @@ const SingleTrialStep = ({
           * Fontes históricas
         </Text>
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Ações BR:{" "}
+          Renda variável BR:{" "}
           <Link
             href="https://www.b3.com.br/pt_br/market-data-e-indices/indices/indices-amplos/ibovespa.htm"
             target="_blank"
@@ -308,8 +308,8 @@ const SingleTrialStep = ({
           >
             IBOV
           </Link>
-          , 1995–2025. Ações EUA e Cripto entram nesse mesmo balde por
-          simplificação.
+          . Renda variável EUA, global e cripto usam o proxy selecionado em
+          Dados históricos.
         </Text>
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
           FIIs:{" "}
@@ -320,10 +320,11 @@ const SingleTrialStep = ({
           >
             IFIX
           </Link>{" "}
-          (B3), 2011–2025.
+          (B3).
         </Text>
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Renda fixa BR:{" "}
+          Renda fixa BR usa CDI ou o índice IMA derivado do indexador e do
+          vencimento do ativo. O CDI vem do{" "}
           <Link
             href="https://www3.bcb.gov.br/sgspub/consultarvalores/consultarValoresSeries.do?hdOidSeriesSelecionadas=4391&method=consultarGraficoPorId"
             target="_blank"
@@ -331,7 +332,7 @@ const SingleTrialStep = ({
           >
             CDI acumulado no mês
           </Link>{" "}
-          (BCB SGS 4391), 1995–2025.
+          (BCB SGS 4391).
         </Text>
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
           Inflação para deflacionar tudo a valores reais:{" "}

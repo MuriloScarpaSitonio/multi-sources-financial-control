@@ -10,7 +10,13 @@ from authentication.models import CustomUser
 from authentication.tests.conftest import UserFactory
 from config.settings.base import BASE_API_URL
 
-from ...choices import AssetObjectives, AssetTypes, Currencies, LiquidityTypes
+from ...choices import (
+    AssetObjectives,
+    AssetTypes,
+    Currencies,
+    FixedIncomeIndexers,
+    LiquidityTypes,
+)
 from ...models import Asset, AssetReadModel
 from ..conftest import (
     AssetFactory,
@@ -35,6 +41,7 @@ class TestCreateFixedBRAssetLiquidityValidation:
             "description": "CDB Banco X",
             "code": "CDB-BANCO-X",
             "is_held_in_self_custody": False,
+            "indexer": FixedIncomeIndexers.cdi,
         }
 
         # WHEN
@@ -56,6 +63,7 @@ class TestCreateFixedBRAssetLiquidityValidation:
             "code": "CDB-BANCO-X",
             "is_held_in_self_custody": False,
             "liquidity_type": LiquidityTypes.daily,
+            "indexer": FixedIncomeIndexers.cdi,
         }
 
         # WHEN
@@ -81,6 +89,7 @@ class TestCreateFixedBRAssetLiquidityValidation:
             "is_held_in_self_custody": False,
             "liquidity_type": LiquidityTypes.at_maturity,
             "maturity_date": future_date.strftime("%d/%m/%Y"),
+            "indexer": FixedIncomeIndexers.cdi,
         }
 
         # WHEN
@@ -136,6 +145,7 @@ class TestEditFixedBRAssetWithEmptyLiquidity:
             currency=Currencies.real,
             liquidity_type="",
             maturity_date=None,
+            indexer=FixedIncomeIndexers.cdi,
             user=user,
         )
 
@@ -151,6 +161,7 @@ class TestEditFixedBRAssetWithEmptyLiquidity:
             "description": "Updated CDB",
             "code": asset.code,
             # No liquidity_type provided
+            "indexer": asset.indexer,
         }
 
         # WHEN
@@ -174,6 +185,7 @@ class TestEditFixedBRAssetWithEmptyLiquidity:
             "description": "Updated CDB",
             "code": asset.code,
             "liquidity_type": LiquidityTypes.daily,
+            "indexer": asset.indexer,
         }
 
         # WHEN
@@ -201,6 +213,7 @@ class TestMaturityDateValidation:
             "is_held_in_self_custody": False,
             "liquidity_type": LiquidityTypes.at_maturity,
             "maturity_date": past_date.strftime("%d/%m/%Y"),
+            "indexer": FixedIncomeIndexers.cdi,
         }
 
         # WHEN
@@ -222,6 +235,7 @@ class TestMaturityDateValidation:
             "is_held_in_self_custody": False,
             "liquidity_type": LiquidityTypes.at_maturity,
             "maturity_date": future_date.strftime("%d/%m/%Y"),
+            "indexer": FixedIncomeIndexers.cdi,
         }
 
         # WHEN
@@ -367,6 +381,7 @@ class TestCQRSSyncForLiquidityFields:
             "is_held_in_self_custody": False,
             "liquidity_type": LiquidityTypes.at_maturity,
             "maturity_date": future_date.strftime("%d/%m/%Y"),
+            "indexer": FixedIncomeIndexers.cdi,
         }
 
         # WHEN
@@ -405,6 +420,7 @@ class TestUpdateAssetDescription:
             objective=AssetObjectives.dividend,
             currency=Currencies.real,
             liquidity_type=LiquidityTypes.daily,
+            indexer=FixedIncomeIndexers.cdi,
             user=user,
         )
 
@@ -419,6 +435,7 @@ class TestUpdateAssetDescription:
             "code": asset.code,
             "description": new_description,
             "liquidity_type": asset.liquidity_type,
+            "indexer": asset.indexer,
         }
 
         # WHEN
@@ -440,6 +457,7 @@ class TestUpdateAssetDescription:
             "code": asset.code,
             "description": "",
             "liquidity_type": asset.liquidity_type,
+            "indexer": asset.indexer,
         }
 
         # WHEN
@@ -466,6 +484,7 @@ class TestUpdateMaturityDateFormat:
             currency=Currencies.real,
             liquidity_type=LiquidityTypes.at_maturity,
             maturity_date=timezone.localdate() + relativedelta(months=6),
+            indexer=FixedIncomeIndexers.cdi,
             user=user,
         )
 
@@ -483,6 +502,7 @@ class TestUpdateMaturityDateFormat:
             "description": asset.description,
             "liquidity_type": asset.liquidity_type,
             "maturity_date": new_date.strftime("%d/%m/%Y"),  # DD/MM/YYYY format
+            "indexer": asset.indexer,
         }
 
         # WHEN
@@ -505,6 +525,7 @@ class TestUpdateMaturityDateFormat:
             "description": asset.description,
             "liquidity_type": asset.liquidity_type,
             "maturity_date": None,
+            "indexer": asset.indexer,
         }
 
         # WHEN
@@ -528,6 +549,7 @@ class TestUpdateMaturityDateFormat:
             "description": asset.description,
             "liquidity_type": asset.liquidity_type,
             "maturity_date": new_date.strftime("%Y-%m-%d"),  # Wrong format!
+            "indexer": asset.indexer,
         }
 
         # WHEN

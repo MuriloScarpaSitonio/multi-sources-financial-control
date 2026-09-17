@@ -2,8 +2,9 @@ export const AssetsTypesMapping: Record<
   string,
   { value: string; color: string }
 > = {
-  "Ação BR": { value: "STOCK", color: "#cc6cc8" },
-  "Ação EUA": { value: "STOCK_USA", color: "#906ccc" },
+  "Renda variável BR": { value: "STOCK", color: "#cc6cc8" },
+  "Renda variável EUA": { value: "STOCK_USA", color: "#906ccc" },
+  "Renda variável Global": { value: "EQUITY_GLOBAL", color: "#7b76d8" },
   Cripto: { value: "CRYPTO", color: "#ccc86c" },
   FII: { value: "FII", color: "#6cccc6" },
   "Renda fixa BR": { value: "FIXED_BR", color: "#d9a648" },

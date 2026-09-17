@@ -16,7 +16,13 @@ import { useHideValues } from "../../../hooks/useHideValues";
 import { formatCurrency } from "../utils";
 import type { ReportAggregatedByTypeDataItem } from "../Assets/Reports/types";
 
-const STOCK_TYPES = new Set(["Ação BR", "Ação EUA", "Cripto", "FII"]);
+const STOCK_TYPES = new Set([
+  "Renda variável BR",
+  "Renda variável EUA",
+  "Renda variável Global",
+  "Cripto",
+  "FII",
+]);
 const BOND_TYPES = new Set(["Renda fixa BR"]);
 
 const GalenoLinearProgress = styled(LinearProgress)(({ value }) => ({
