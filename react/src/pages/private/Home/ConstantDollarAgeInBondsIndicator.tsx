@@ -33,325 +33,11 @@ import ExpenseSimulator from "./ExpenseSimulator";
 import PatrimonySimulator from "./PatrimonySimulator";
 import PersistedSlider from "./PersistedSlider";
 import SavingsSimulator from "./SavingsSimulator";
-import {
-  findSafeWithdrawalRateWithVaryingWeights,
-  runAccumulationBootstrap,
-  runBootstrapWithVaryingWeights,
-  type AccumulationResult,
-  type BootstrapBand,
-  type BootstrapResult,
-} from "./fireBootstrap";
+import type { BootstrapBand } from "./fireBootstrap";
+import type { FireSimulationRequest } from "./fireSimulation";
 import type { SamplingMethod } from "./fireReturnTypes";
-import {
-  buildAgeInBondsPortfolio,
-  type PortfolioAtFn,
-  type PortfolioSlice,
-} from "./firePortfolio";
-
-// === Idade-em-RF fixed-point solver ===
-//
-// The FIRE target depends on `safeRate`, which depends on the post-retirement
-// glide path, which depends on retirement age, which depends on accumulation,
-// which depends on the FIRE target. For a pre-FIRE user this is a self-
-// consistency problem: if I anchor `weightsAt` at `currentAge`, I'm sizing the
-// target against an "if I retired today" glide that the user won't actually
-// live. We iterate until the loop closes — then a single anchor age drives
-// `fireTarget`, the tooltip multiplier, the "agressivo" warning, and the
-// Aposentadoria preview.
-//
-// Convergence guards (in the order they're checked inside the loop):
-// 1. **Converged** — stop on `medianYearsToTarget` unchanged from prior
-//    iterate (the next anchor would equal the current one; this iterate is
-//    a fixed point).
-// 2. **Cycle** — if the current median appeared in any earlier (non-
-//    immediately-prior) iterate, we have a 2+ cycle. Pick the most
-//    conservative member across all visited iterates plus the current pass:
-//    largest `fireTarget`, with later `medianYearsToTarget` as a secondary
-//    tie-break. **Cycle is checked before target_delta** because a 2-cycle
-//    like 8 → 10 → 8 can produce a sub-1% fireTarget swing on the third
-//    pass, which would otherwise exit as `target_delta` and silently bypass
-//    `pickConservative`.
-// 3. **Target-delta** — only after ≥3 iterates exist and cycle didn't fire,
-//    stop on `|ΔfireTarget| / fireTarget < 1%`. Single-step sub-1% moves
-//    can be coincidental; requiring three iterates makes it a stability
-//    signal.
-// 4. **Max-iter** — hard cap at SOLVER_MAX_ITER. The mapping is
-//    bootstrap-quantized and not provably contractive (or even monotonic),
-//    so a cap is load-bearing. Return `pickConservative([...visited, pass])`
-//    — the last iterate is **not** necessarily the highest-`fireTarget`
-//    one, so returning it would silently understate the target.
-// 5. **Unreachable** — if any pass produces `medianYearsToTarget === null`,
-//    return immediately with `drawdownAtTarget: null` and
-//    status "unreachable". Don't fall back to a current-age anchor that
-//    would coherent-look an unreachable case.
-
-type SolverStatus =
-  | "converged"
-  | "target_delta"
-  | "cycle"
-  | "max_iter"
-  | "unreachable";
-
-type AgeInBondsFireState = {
-  fireTarget: number;
-  targetMultiplier: number;
-  horizonFactor: number;
-  safeRate: number;
-  baselineSafeRate: number;
-  rateBootstrap: BootstrapResult;
-  accumulation: AccumulationResult;
-  drawdownAtTarget: BootstrapResult | null;
-  anchorAge: number;
-  status: SolverStatus;
-};
-
-const SOLVER_MAX_ITER = 5;
-const SOLVER_TARGET_DELTA_THRESHOLD = 0.01; // 1%
-
-// Sentinel returned by the solver memo when `currentAge` is null (DOB not set).
-// The component renders a placeholder in that branch and never reads these
-// values; this exists to avoid running ~5 expensive bootstrap calls just to
-// discard them.
-const EMPTY_AGE_IN_BONDS_FIRE_STATE: AgeInBondsFireState = {
-  fireTarget: 0,
-  targetMultiplier: 0,
-  horizonFactor: 1,
-  safeRate: 0,
-  baselineSafeRate: 0,
-  rateBootstrap: {
-    successRate: 0,
-    bands: [],
-    withdrawalBands: [],
-    medianDepletionYear: null,
-    p10DepletionYear: null,
-  },
-  accumulation: {
-    successRate: 0,
-    medianYearsToTarget: null,
-    p10YearsToTarget: null,
-    p90YearsToTarget: null,
-    gapBands: [],
-  },
-  drawdownAtTarget: null,
-  anchorAge: 0,
-  status: "unreachable",
-};
-
-const buildAgeInBondsPortfolioAt = (
-  anchorAge: number,
-  basePortfolio: readonly PortfolioSlice[],
-): PortfolioAtFn => {
-  return (yearIndex: number): readonly PortfolioSlice[] => {
-    const age = anchorAge + yearIndex;
-    const bondPct = Math.min(age, 100) / 100;
-    return buildAgeInBondsPortfolio(basePortfolio, 1 - bondPct);
-  };
-};
-
-type SolverPass = {
-  anchorAge: number;
-  safeRate: number;
-  baselineSafeRate: number;
-  horizonFactor: number;
-  targetMultiplier: number;
-  fireTarget: number;
-  rateBootstrap: BootstrapResult;
-  accumulation: AccumulationResult;
-};
-
-const pickConservative = (candidates: SolverPass[]): SolverPass =>
-  candidates.reduce((best, cur) => {
-    if (cur.fireTarget > best.fireTarget) return cur;
-    if (cur.fireTarget === best.fireTarget) {
-      const bestMedian = best.accumulation.medianYearsToTarget ?? -1;
-      const curMedian = cur.accumulation.medianYearsToTarget ?? -1;
-      return curMedian > bestMedian ? cur : best;
-    }
-    return best;
-  });
-
-const solveAgeInBondsFireState = (params: {
-  currentAge: number;
-  portfolio: readonly PortfolioSlice[];
-  samplingMethod: SamplingMethod;
-  effectivePatrimony: number;
-  annualExpenses: number;
-  annualSavings: number;
-  withdrawalRate: number;
-  targetYears: number;
-}): AgeInBondsFireState => {
-  const {
-    currentAge,
-    portfolio,
-    samplingMethod,
-    effectivePatrimony,
-    annualExpenses,
-    annualSavings,
-    withdrawalRate,
-    targetYears,
-  } = params;
-  const baseMultiplier = withdrawalRate > 0 ? 100 / withdrawalRate : 0;
-
-  const runOnePass = (anchorAge: number): SolverPass => {
-    const portfolioAt = buildAgeInBondsPortfolioAt(anchorAge, portfolio);
-    const safeRate = findSafeWithdrawalRateWithVaryingWeights(
-      targetYears,
-      portfolioAt,
-      samplingMethod,
-    );
-    const baselineSafeRate = findSafeWithdrawalRateWithVaryingWeights(
-      30,
-      portfolioAt,
-      samplingMethod,
-    );
-    const horizonFactor =
-      safeRate > 0 && baselineSafeRate > 0
-        ? Math.max(1, baselineSafeRate / safeRate)
-        : 1;
-    const targetMultiplier = baseMultiplier * horizonFactor;
-    const fireTarget = annualExpenses * targetMultiplier;
-    const rateBootstrap = runBootstrapWithVaryingWeights(
-      1_000_000,
-      1_000_000 * (withdrawalRate / 100),
-      targetYears,
-      portfolioAt,
-      samplingMethod,
-    );
-    const accumulation = runAccumulationBootstrap({
-      startingBalance: effectivePatrimony,
-      annualContribution: annualSavings,
-      target: fireTarget,
-      portfolio,
-      samplingMethod,
-    });
-    return {
-      anchorAge,
-      safeRate,
-      baselineSafeRate,
-      horizonFactor,
-      targetMultiplier,
-      fireTarget,
-      rateBootstrap,
-      accumulation,
-    };
-  };
-
-  const visited: SolverPass[] = [];
-  let nextAnchor = currentAge;
-  let chosen: SolverPass | null = null;
-  let status: SolverStatus = "max_iter";
-
-  for (let i = 0; i < SOLVER_MAX_ITER; i++) {
-    const pass = runOnePass(nextAnchor);
-
-    // Unreachable: stop immediately, skip the preview chart. Don't fall back
-    // to the current-age anchor — that would dress an unreachable scenario
-    // up as a coherent-looking projection.
-    if (pass.accumulation.medianYearsToTarget === null) {
-      return {
-        fireTarget: pass.fireTarget,
-        targetMultiplier: pass.targetMultiplier,
-        horizonFactor: pass.horizonFactor,
-        safeRate: pass.safeRate,
-        baselineSafeRate: pass.baselineSafeRate,
-        rateBootstrap: pass.rateBootstrap,
-        accumulation: pass.accumulation,
-        drawdownAtTarget: null,
-        anchorAge: pass.anchorAge,
-        status: "unreachable",
-      };
-    }
-
-    const median = pass.accumulation.medianYearsToTarget;
-
-    // Convergence: median equal to the prior iterate's median means the next
-    // iteration's anchor would be identical to this one's, so this pass is a
-    // fixed point.
-    if (visited.length > 0) {
-      const prev = visited[visited.length - 1];
-      if (prev.accumulation.medianYearsToTarget === median) {
-        chosen = pass;
-        status = "converged";
-        break;
-      }
-    }
-
-    // Cycle: median appears in any prior iterate. The convergence check above
-    // already handles the immediately-prior case (1-cycle), so a hit here is
-    // a 2+ cycle. Pick the most conservative member across all visited
-    // iterates plus the current pass.
-    //
-    // **Cycle is checked before target_delta** on purpose. A 2-cycle like
-    // 8 → 10 → 8 can produce a sub-1% fireTarget swing on the third pass,
-    // which would otherwise exit as `target_delta` and bypass
-    // `pickConservative`. Cycle detection must take precedence.
-    if (
-      visited.some((v) => v.accumulation.medianYearsToTarget === median)
-    ) {
-      chosen = pickConservative([...visited, pass]);
-      status = "cycle";
-      break;
-    }
-
-    // Target-delta stop: only after at least 3 iterates exist (i >= 2 means
-    // pass is iterate index 2 with prior iterates 0 and 1). A single-step
-    // sub-1% move can be coincidental; requiring three iterates makes it a
-    // stability signal rather than a single-pass artifact. Safe to evaluate
-    // here only because we already ruled out cycles above.
-    if (i >= 2) {
-      const prev = visited[visited.length - 1];
-      const delta = Math.abs(pass.fireTarget - prev.fireTarget) / prev.fireTarget;
-      if (delta < SOLVER_TARGET_DELTA_THRESHOLD) {
-        chosen = pass;
-        status = "target_delta";
-        break;
-      }
-    }
-
-    visited.push(pass);
-    nextAnchor = currentAge + median;
-
-    // No early stop, last iteration → max_iter. The mapping isn't proven
-    // monotonic (or even contractive), so the last pass isn't necessarily
-    // the conservative answer — pick the largest-fireTarget iterate across
-    // all visited (including the just-completed pass).
-    if (i === SOLVER_MAX_ITER - 1) {
-      chosen = pickConservative([...visited, pass]);
-      status = "max_iter";
-      break;
-    }
-  }
-
-  // chosen is set in every break path above; the loop only exits via break.
-  // Fallback for type safety only.
-  if (chosen === null) chosen = visited[visited.length - 1];
-
-  // Drawdown preview uses the same anchor as the chosen pass (i.e. the same
-  // glide path that produced the converged fireTarget). This is the central
-  // payoff of the solver — one anchor across target, tooltip, warning, and
-  // preview.
-  const finalPortfolioAt = buildAgeInBondsPortfolioAt(chosen.anchorAge, portfolio);
-  const drawdownAtTarget = runBootstrapWithVaryingWeights(
-    chosen.fireTarget,
-    annualExpenses,
-    targetYears,
-    finalPortfolioAt,
-    samplingMethod,
-  );
-
-  return {
-    fireTarget: chosen.fireTarget,
-    targetMultiplier: chosen.targetMultiplier,
-    horizonFactor: chosen.horizonFactor,
-    safeRate: chosen.safeRate,
-    baselineSafeRate: chosen.baselineSafeRate,
-    rateBootstrap: chosen.rateBootstrap,
-    accumulation: chosen.accumulation,
-    drawdownAtTarget,
-    anchorAge: chosen.anchorAge,
-    status,
-  };
-};
+import type { PortfolioSlice } from "./firePortfolio";
+import { useFireSimulationWorker } from "./useFireSimulationWorker";
 
 const ProgressBar = styled(LinearProgress)(({ value }) => ({
   height: 24,
@@ -597,78 +283,41 @@ const ConstantDollarAgeInBondsIndicator = ({
       ? (targetBondPct / 100) * investmentTotal - fixedIncomeTotal
       : 0;
 
-  // Lifestyle bootstrap (post-FIRE): "starting from today's patrimony, can I
-  // sustain my actual expenses for `targetYears`?" Anchored at currentAge
-  // because a post-FIRE user is retiring *now* — that anchor is the right one
-  // for the post-FIRE drawdown chart and depletion labels. Pre-FIRE this is
-  // hypothetical and only the depletion labels read from it.
-  const lifestylePortfolioAt: PortfolioAtFn = useMemo(
-    () => buildAgeInBondsPortfolioAt(currentAge ?? 0, portfolio),
-    [currentAge, portfolio],
-  );
-
-  const bootstrap = useMemo(
-    () =>
-      runBootstrapWithVaryingWeights(
+  const annualSavings = Math.max(0, monthlySavings) * 12;
+  const simulationRequest = useMemo<FireSimulationRequest | null>(() => {
+    if (currentAge === null) return null;
+    return {
+      kind: "age_in_bonds",
+      input: {
+        currentAge,
+        targetYears,
+        portfolio,
+        samplingMethod,
         effectivePatrimony,
         annualExpenses,
-        targetYears,
-        lifestylePortfolioAt,
-        samplingMethod,
-      ),
-    [
-      effectivePatrimony,
-      annualExpenses,
-      targetYears,
-      lifestylePortfolioAt,
-      samplingMethod,
-    ],
-  );
-
-  // Accumulation uses *current* static allocation (the user is still working,
-  // hasn't started rebalancing toward bonds). Glide path kicks in only at
-  // retirement — the solver and post-FIRE bootstrap handle that.
-  const annualSavings = Math.max(0, monthlySavings) * 12;
-  // Fixed-point solver: produces one coherent {fireTarget, targetMultiplier,
-  // horizonFactor, safeRate, baselineSafeRate, rateBootstrap, accumulation,
-  // drawdownAtTarget, anchorAge, status} object whose glide-path anchor is
-  // the projected retirement age (not currentAge). See the solver comment
-  // above and the fire-bootstrap-methodology skill for rationale.
-  //
-  // When `currentAge` is null (no DOB on profile), the component returns the
-  // "configure sua data de nascimento" placeholder a few lines below, so the
-  // result would be discarded anyway. Short-circuit with an empty state to
-  // skip ~5 expensive bootstrap calls per render in that branch.
-  const solverState = useMemo<AgeInBondsFireState>(() => {
-    if (currentAge === null) return EMPTY_AGE_IN_BONDS_FIRE_STATE;
-    return solveAgeInBondsFireState({
-      currentAge,
-      portfolio,
-      samplingMethod,
-      effectivePatrimony,
-      annualExpenses,
-      annualSavings,
-      withdrawalRate,
-      targetYears,
-    });
+        annualSavings,
+        withdrawalRate,
+      },
+    };
   }, [
     currentAge,
-    portfolio,
-    samplingMethod,
-    effectivePatrimony,
     annualExpenses,
     annualSavings,
-    withdrawalRate,
+    effectivePatrimony,
+    portfolio,
+    samplingMethod,
     targetYears,
+    withdrawalRate,
   ]);
   const {
-    fireTarget,
-    targetMultiplier,
-    safeRate,
-    rateBootstrap,
-    accumulation,
-    drawdownAtTarget,
-  } = solverState;
+    result: simulationResult,
+    isCalculating,
+    error: simulationError,
+  } = useFireSimulationWorker(simulationRequest);
+  const simulation =
+    simulationResult?.kind === "age_in_bonds"
+      ? simulationResult.output
+      : null;
 
   if (isLoading) {
     return <Skeleton height={48} sx={{ borderRadius: "10px" }} />;
@@ -695,6 +344,24 @@ const ConstantDollarAgeInBondsIndicator = ({
       </Stack>
     );
   }
+
+  if (simulationError && simulation === null) {
+    return <Text color={Colors.danger200}>{simulationError}</Text>;
+  }
+  if (simulation === null) {
+    return <Skeleton height={48} sx={{ borderRadius: "10px" }} />;
+  }
+
+  const bootstrap = simulation.lifestyleBootstrap;
+  const solverState = simulation.solverState;
+  const {
+    fireTarget,
+    targetMultiplier,
+    safeRate,
+    rateBootstrap,
+    accumulation,
+    drawdownAtTarget,
+  } = solverState;
 
   const monthlyWithdrawalFormatted = hideValues ? "***" : formatCurrency(monthlyWithdrawal);
   const monthlyExpensesFormatted = hideValues ? "***" : formatCurrency(effectiveMonthlyExpenses);
@@ -897,6 +564,16 @@ const ConstantDollarAgeInBondsIndicator = ({
         </Stack>
       )}
       {!compact && historicalDataControls}
+      {!compact && isCalculating && (
+        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+          Calculando simulação…
+        </Text>
+      )}
+      {!compact && simulationError && (
+        <Text size={FontSizes.EXTRA_SMALL} color={Colors.danger200}>
+          {simulationError}
+        </Text>
+      )}
       {!compact && (
         <Stack direction="row" alignItems="center" gap={2}>
           <Text

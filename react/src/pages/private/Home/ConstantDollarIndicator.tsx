@@ -30,18 +30,14 @@ import { useHideValues } from "../../../hooks/useHideValues";
 import { formatCurrency } from "../utils";
 import ExpenseSimulator from "./ExpenseSimulator";
 import FireSimulationResults from "./FireSimulationResults";
-import { buildFirePatrimonyInputs } from "./fireResultPresentation";
 import PatrimonySimulator from "./PatrimonySimulator";
 import PersistedSlider from "./PersistedSlider";
 import SavingsSimulator from "./SavingsSimulator";
-import type { SamplingMethod } from "./fireReturnTypes";
 import type { PortfolioSlice } from "./firePortfolio";
-import {
-  findSafeWithdrawalRate,
-  runAccumulationBootstrap,
-  runBootstrap,
-  type BootstrapBand,
-} from "./fireBootstrap";
+import type { BootstrapBand } from "./fireBootstrap";
+import type { FireSimulationRequest } from "./fireSimulation";
+import type { SamplingMethod } from "./fireReturnTypes";
+import { useFireSimulationWorker } from "./useFireSimulationWorker";
 
 // Bar value is patrimony / fireTarget × 100. ≥100 = FIRE'd.
 const ProgressBar = styled(LinearProgress)(({ value }) => ({
@@ -327,107 +323,61 @@ const ConstantDollarIndicator = ({
     return parts.join(" / ");
   }, [portfolio]);
 
-  // Bootstrap-derived horizon- and allocation-adjusted SWR. Used as the
-  // honesty reference (warning chip + tooltip) and as the input to
-  // horizonFactor below. The progress bar is driven by patrimony /
-  // fireTarget, not by bootstrap success — see
-  // .claude/skills/fire-bootstrap-methodology/SKILL.md.
-  const safeRate = useMemo(
-    () => findSafeWithdrawalRate(targetYears, portfolio, samplingMethod),
-    [targetYears, portfolio, samplingMethod],
-  );
-
-  // FIRE_number = expenses × multiplier. Multiplier = (100/userRate) × horizonFactor,
-  // where horizonFactor stretches the rule-of-thumb target up for long horizons.
-  // horizonFactor = max(1, safeRate(30) / safeRate(horizon)). At 30y baseline
-  // factor = 1 (Trinity). At 60y factor ≈ 1.4 (need ~40% more). Clamped at 1
-  // from below so short horizons never shrink the target below `expenses ×
-  // 100/userRate` — otherwise the bar can read ≥100% while the chosen rate's
-  // monthly withdrawal still falls short of expenses.
-  // Bar = patrimony / FIRE_number.
-  const baselineSafeRate = useMemo(
-    () => findSafeWithdrawalRate(30, portfolio, samplingMethod),
-    [portfolio, samplingMethod],
-  );
-  const horizonFactor =
-    safeRate > 0 && baselineSafeRate > 0
-      ? Math.max(1, baselineSafeRate / safeRate)
-      : 1;
-  const baseMultiplier = withdrawalRate > 0 ? 100 / withdrawalRate : 0;
-  const targetMultiplier = baseMultiplier * horizonFactor;
-  const fireTarget = annualExpenses * targetMultiplier;
-  const patrimonyInputs = useMemo(
-    () =>
-      buildFirePatrimonyInputs({
-        actualPatrimony: patrimonyTotal,
-        simulatedPatrimony,
-        fireTarget,
-      }),
-    [fireTarget, patrimonyTotal, simulatedPatrimony],
-  );
-
-  // Bar bootstrap: tests sustainability of the user's actual lifestyle
-  // (annualExpenses) against the scenario patrimony. The patrimony slider is a
-  // what-if input for this sustainability calculation only.
-  const bootstrap = useMemo(
-    () =>
-      runBootstrap(
-        patrimonyInputs.scenarioPatrimony,
-        annualExpenses,
-        targetYears,
-        portfolio,
-        samplingMethod,
-      ),
-    [
-      patrimonyInputs.scenarioPatrimony,
-      annualExpenses,
-      targetYears,
-      portfolio,
-      samplingMethod,
-    ],
-  );
-
-  // Secondary "rate test": is the slider rate historically safe at this
-  // horizon and allocation? Scale-invariant (independent of patrimony), so
-  // it answers a different question and is shown as a supporting indicator.
-  const rateBootstrap = useMemo(
-    () =>
-      runBootstrap(
-        1_000_000,
-        1_000_000 * (withdrawalRate / 100),
-        targetYears,
-        portfolio,
-        samplingMethod,
-      ),
-    [withdrawalRate, targetYears, portfolio, samplingMethod],
-  );
-
-  // Accumulation forecast: how long until real current patrimony + savings
-  // crosses `fireTarget`? This deliberately ignores the patrimony what-if
-  // slider; changing the slider must not make the retirement-date forecast
-  // start from the simulated value.
   const annualSavings = Math.max(0, monthlySavings) * 12;
-  const accumulation = useMemo(
-    () =>
-      runAccumulationBootstrap({
-        startingBalance: patrimonyInputs.accumulationStartingPatrimony,
-        annualContribution: annualSavings,
-        target: fireTarget,
+  const simulationRequest = useMemo<FireSimulationRequest>(
+    () => ({
+      kind: "constant_dollar",
+      input: {
+        targetYears,
         portfolio,
         samplingMethod,
-      }),
+        annualExpenses,
+        withdrawalRate,
+        patrimonyTotal,
+        simulatedPatrimony,
+        annualSavings,
+      },
+    }),
     [
-      patrimonyInputs.accumulationStartingPatrimony,
+      annualExpenses,
       annualSavings,
-      fireTarget,
+      patrimonyTotal,
       portfolio,
       samplingMethod,
+      simulatedPatrimony,
+      targetYears,
+      withdrawalRate,
     ],
   );
+  const {
+    result: simulationResult,
+    isCalculating,
+    error: simulationError,
+  } = useFireSimulationWorker(simulationRequest);
+  const simulation =
+    simulationResult?.kind === "constant_dollar"
+      ? simulationResult.output
+      : null;
 
   if (isLoading) {
     return <Skeleton height={48} sx={{ borderRadius: "10px" }} />;
   }
+  if (simulationError && simulation === null) {
+    return <Text color={Colors.danger200}>{simulationError}</Text>;
+  }
+  if (simulation === null) {
+    return <Skeleton height={48} sx={{ borderRadius: "10px" }} />;
+  }
+
+  const {
+    safeRate,
+    targetMultiplier,
+    fireTarget,
+    patrimonyInputs,
+    bootstrap,
+    rateBootstrap,
+    accumulation,
+  } = simulation;
 
   const monthlyWithdrawalFormatted = hideValues ? "***" : formatCurrency(monthlyWithdrawal);
   const monthlyExpensesFormatted = hideValues ? "***" : formatCurrency(effectiveMonthlyExpenses);
@@ -621,6 +571,16 @@ const ConstantDollarIndicator = ({
         </Stack>
       )}
       {!compact && historicalDataControls}
+      {!compact && isCalculating && (
+        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+          Calculando simulação…
+        </Text>
+      )}
+      {!compact && simulationError && (
+        <Text size={FontSizes.EXTRA_SMALL} color={Colors.danger200}>
+          {simulationError}
+        </Text>
+      )}
       {!compact && (
         <Stack direction="row" alignItems="center" gap={2}>
           <Text
