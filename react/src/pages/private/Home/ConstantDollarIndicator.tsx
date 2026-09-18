@@ -1,5 +1,6 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
+import Alert from "@mui/material/Alert";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
@@ -38,6 +39,9 @@ import type { BootstrapBand } from "./fireBootstrap";
 import type { FireSimulationRequest } from "./fireSimulation";
 import type { SamplingMethod } from "./fireReturnTypes";
 import { useFireSimulationWorker } from "./useFireSimulationWorker";
+import FireResultsSkeleton, {
+  type FireCalculationState,
+} from "../Planning/fire/FireResultsSkeleton";
 
 // Bar value is patrimony / fireTarget × 100. ≥100 = FIRE'd.
 const ProgressBar = styled(LinearProgress)(({ value }) => ({
@@ -208,6 +212,9 @@ const ConstantDollarIndicator = ({
   simulatedExpenses: simulatedExpensesProp,
   onSimulatedExpensesChange,
   onProgressClick,
+  presentation = "legacy",
+  onCalculationStateChange,
+  simulationRequestOverride,
 }: {
   patrimonyTotal: number;
   avgExpenses: number;
@@ -238,6 +245,9 @@ const ConstantDollarIndicator = ({
   simulatedExpenses?: number | null;
   onSimulatedExpensesChange?: (value: number | null) => void;
   onProgressClick?: () => void;
+  presentation?: "legacy" | "studio";
+  onCalculationStateChange?: (state: FireCalculationState) => void;
+  simulationRequestOverride?: FireSimulationRequest | null;
 }) => {
   const { hideValues } = useHideValues();
   const [localSimulatedPatrimony, setLocalSimulatedPatrimony] = useState<
@@ -324,7 +334,7 @@ const ConstantDollarIndicator = ({
   }, [portfolio]);
 
   const annualSavings = Math.max(0, monthlySavings) * 12;
-  const simulationRequest = useMemo<FireSimulationRequest>(
+  const derivedSimulationRequest = useMemo<FireSimulationRequest>(
     () => ({
       kind: "constant_dollar",
       input: {
@@ -349,6 +359,10 @@ const ConstantDollarIndicator = ({
       withdrawalRate,
     ],
   );
+  const simulationRequest =
+    simulationRequestOverride === undefined
+      ? derivedSimulationRequest
+      : simulationRequestOverride;
   const {
     result: simulationResult,
     isCalculating,
@@ -358,9 +372,28 @@ const ConstantDollarIndicator = ({
     simulationResult?.kind === "constant_dollar"
       ? simulationResult.output
       : null;
+  const showInlineControls = !compact && presentation === "legacy";
+
+  useEffect(() => {
+    onCalculationStateChange?.({
+      isCalculating,
+      error: simulationError,
+    });
+  }, [isCalculating, onCalculationStateChange, simulationError]);
 
   if (isLoading) {
     return <Skeleton height={48} sx={{ borderRadius: "10px" }} />;
+  }
+  if (presentation === "studio" && isCalculating) {
+    return <FireResultsSkeleton />;
+  }
+  if (presentation === "studio" && simulationError) {
+    return (
+      <Alert severity="error">
+        Não foi possível recalcular a simulação. Seus valores foram preservados;
+        tente novamente.
+      </Alert>
+    );
   }
   if (simulationError && simulation === null) {
     return <Text color={Colors.danger200}>{simulationError}</Text>;
@@ -502,7 +535,7 @@ const ConstantDollarIndicator = ({
           })()}
         </Text>
       </Stack>
-      {!compact && (
+      {showInlineControls && (
         <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
           <PersistedSlider
             value={withdrawalRate}
@@ -570,13 +603,13 @@ const ConstantDollarIndicator = ({
           />
         </Stack>
       )}
-      {!compact && historicalDataControls}
-      {!compact && isCalculating && (
+      {showInlineControls && historicalDataControls}
+      {showInlineControls && isCalculating && (
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
           Calculando simulação…
         </Text>
       )}
-      {!compact && simulationError && (
+      {showInlineControls && simulationError && (
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.danger200}>
           {simulationError}
         </Text>
@@ -690,7 +723,7 @@ const ConstantDollarIndicator = ({
                 otimista, mediano e pessimista cruzam a meta.
               </Text>
             </Stack>
-            {onMonthlySavingsChange && onMonthlySavingsReset && (
+            {showInlineControls && onMonthlySavingsChange && onMonthlySavingsReset && (
               <SavingsSimulator
                 value={Math.max(0, monthlySavings)}
                 onChange={onMonthlySavingsChange}

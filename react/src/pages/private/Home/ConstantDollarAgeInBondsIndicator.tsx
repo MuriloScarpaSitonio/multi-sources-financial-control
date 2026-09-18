@@ -1,5 +1,6 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
+import Alert from "@mui/material/Alert";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Skeleton from "@mui/material/Skeleton";
@@ -38,6 +39,9 @@ import type { FireSimulationRequest } from "./fireSimulation";
 import type { SamplingMethod } from "./fireReturnTypes";
 import type { PortfolioSlice } from "./firePortfolio";
 import { useFireSimulationWorker } from "./useFireSimulationWorker";
+import FireResultsSkeleton, {
+  type FireCalculationState,
+} from "../Planning/fire/FireResultsSkeleton";
 
 const ProgressBar = styled(LinearProgress)(({ value }) => ({
   height: 24,
@@ -213,11 +217,16 @@ const ConstantDollarAgeInBondsIndicator = ({
   isMonthlySavingsOverridden = false,
   simulatedExpenses: simulatedExpensesProp,
   onSimulatedExpensesChange,
+  simulatedPatrimony: simulatedPatrimonyProp,
+  onSimulatedPatrimonyChange,
   onProgressClick,
   compact = false,
   hideLabel = false,
   persistEnabled = false,
   isPersisting = false,
+  presentation = "legacy",
+  onCalculationStateChange,
+  simulationRequestOverride,
 }: {
   patrimonyTotal: number;
   avgExpenses: number;
@@ -240,14 +249,29 @@ const ConstantDollarAgeInBondsIndicator = ({
   isMonthlySavingsOverridden?: boolean;
   simulatedExpenses?: number | null;
   onSimulatedExpensesChange?: (value: number | null) => void;
+  simulatedPatrimony?: number | null;
+  onSimulatedPatrimonyChange?: (value: number | null) => void;
   onProgressClick?: () => void;
   compact?: boolean;
   hideLabel?: boolean;
   persistEnabled?: boolean;
   isPersisting?: boolean;
+  presentation?: "legacy" | "studio";
+  onCalculationStateChange?: (state: FireCalculationState) => void;
+  simulationRequestOverride?: FireSimulationRequest | null;
 }) => {
   const { hideValues } = useHideValues();
-  const [simulatedPatrimony, setSimulatedPatrimony] = useState<number | null>(null);
+  const [localSimulatedPatrimony, setLocalSimulatedPatrimony] = useState<
+    number | null
+  >(null);
+  const simulatedPatrimony =
+    simulatedPatrimonyProp !== undefined
+      ? simulatedPatrimonyProp
+      : localSimulatedPatrimony;
+  const setSimulatedPatrimony = (value: number | null) => {
+    if (onSimulatedPatrimonyChange) onSimulatedPatrimonyChange(value);
+    else setLocalSimulatedPatrimony(value);
+  };
   const [visibleScenarios, setVisibleScenarios] = useState<
     ("otimista" | "mediana" | "pessimista")[]
   >(["otimista", "mediana", "pessimista"]);
@@ -284,7 +308,7 @@ const ConstantDollarAgeInBondsIndicator = ({
       : 0;
 
   const annualSavings = Math.max(0, monthlySavings) * 12;
-  const simulationRequest = useMemo<FireSimulationRequest | null>(() => {
+  const derivedSimulationRequest = useMemo<FireSimulationRequest | null>(() => {
     if (currentAge === null) return null;
     return {
       kind: "age_in_bonds",
@@ -309,6 +333,10 @@ const ConstantDollarAgeInBondsIndicator = ({
     targetYears,
     withdrawalRate,
   ]);
+  const simulationRequest =
+    simulationRequestOverride === undefined
+      ? derivedSimulationRequest
+      : simulationRequestOverride;
   const {
     result: simulationResult,
     isCalculating,
@@ -318,9 +346,29 @@ const ConstantDollarAgeInBondsIndicator = ({
     simulationResult?.kind === "age_in_bonds"
       ? simulationResult.output
       : null;
+  const showInlineControls = !compact && presentation === "legacy";
+
+  useEffect(() => {
+    onCalculationStateChange?.({
+      isCalculating,
+      error: simulationError,
+    });
+  }, [isCalculating, onCalculationStateChange, simulationError]);
 
   if (isLoading) {
     return <Skeleton height={48} sx={{ borderRadius: "10px" }} />;
+  }
+
+  if (presentation === "studio" && isCalculating) {
+    return <FireResultsSkeleton />;
+  }
+  if (presentation === "studio" && simulationError) {
+    return (
+      <Alert severity="error">
+        Não foi possível recalcular a simulação. Seus valores foram preservados;
+        tente novamente.
+      </Alert>
+    );
   }
 
   if (!dateOfBirth || currentAge === null) {
@@ -495,7 +543,7 @@ const ConstantDollarAgeInBondsIndicator = ({
           )}
         </Text>
       </Stack>
-      {!compact && (
+      {showInlineControls && (
         <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
           <PersistedSlider
             value={withdrawalRate}
@@ -563,13 +611,13 @@ const ConstantDollarAgeInBondsIndicator = ({
           />
         </Stack>
       )}
-      {!compact && historicalDataControls}
-      {!compact && isCalculating && (
+      {showInlineControls && historicalDataControls}
+      {showInlineControls && isCalculating && (
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
           Calculando simulação…
         </Text>
       )}
-      {!compact && simulationError && (
+      {showInlineControls && simulationError && (
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.danger200}>
           {simulationError}
         </Text>
@@ -695,7 +743,7 @@ const ConstantDollarAgeInBondsIndicator = ({
             >
               Acumulação · quantos reais ainda preciso acumular para atingir minha meta de FIRE em cada idade
             </Text>
-            {onMonthlySavingsChange && onMonthlySavingsReset && (
+            {showInlineControls && onMonthlySavingsChange && onMonthlySavingsReset && (
               <SavingsSimulator
                 value={Math.max(0, monthlySavings)}
                 onChange={onMonthlySavingsChange}

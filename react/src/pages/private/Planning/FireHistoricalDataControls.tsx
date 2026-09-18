@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type Ref } from "react";
 
 import Alert from "@mui/material/Alert";
 import Checkbox from "@mui/material/Checkbox";
@@ -45,6 +45,28 @@ const SERIES_LABELS: Partial<Record<FireReturnSeriesKey, string>> = {
   IMA_B_5: "IMA-B 5",
   IMA_B_5_PLUS: "IMA-B 5+",
   IMA_GERAL_EX_C: "IMA-Geral ex-C",
+};
+
+const fixedIncomeSeriesLabel = (
+  category: ReturnCategory,
+  series: readonly FireReturnSeriesKey[],
+) => {
+  const selected = new Set(series);
+  if (
+    category === "FIXED_IPCA" &&
+    selected.has("IMA_B_5") &&
+    selected.has("IMA_B_5_PLUS")
+  ) {
+    return "IMA-B 5 (até 5 anos) e IMA-B 5+ (acima de 5 anos)";
+  }
+  if (
+    category === "FIXED_PREFIXED" &&
+    selected.has("IRF_M_1") &&
+    selected.has("IRF_M_1_PLUS")
+  ) {
+    return "IRF-M 1 (até 1 ano) e IRF-M 1+ (acima de 1 ano)";
+  }
+  return series.map((key) => SERIES_LABELS[key] ?? key).join(" e ");
 };
 
 export const PROXY_OPTIONS = {
@@ -100,6 +122,8 @@ const FireHistoricalDataControls = ({
   allocation,
   preferences,
   onChange,
+  showShortPeriodWarning = true,
+  controlsRef,
 }: {
   allocation: readonly FireAllocationBucket[];
   preferences: Preferences;
@@ -107,6 +131,8 @@ const FireHistoricalDataControls = ({
     field: K,
     value: Preferences[K],
   ) => void;
+  showShortPeriodWarning?: boolean;
+  controlsRef?: Ref<HTMLDivElement>;
 }) => {
   const owned = useMemo(() => {
     const byCategory = new Map<ReturnCategory, FireAllocationBucket[]>();
@@ -135,7 +161,7 @@ const FireHistoricalDataControls = ({
   };
 
   return (
-    <Stack gap={1.5}>
+    <Stack gap={1.5} ref={controlsRef} tabIndex={controlsRef ? -1 : undefined}>
       <Text size={FontSizes.SMALL}>Dados históricos</Text>
       {owned.map(([category, buckets]) => {
         const selectable = category in PROXY_OPTIONS;
@@ -198,7 +224,7 @@ const FireHistoricalDataControls = ({
               </Select>
             ) : (
               <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-                {series.map((key) => SERIES_LABELS[key] ?? key).join(" + ")}
+                {fixedIncomeSeriesLabel(category, series)}
               </Text>
             )}
             {since !== null && (
@@ -214,7 +240,7 @@ const FireHistoricalDataControls = ({
         Período resultante: {period.first?.slice(0, 4) ?? "—"}–
         {period.last?.slice(0, 4) ?? "—"}
       </Text>
-      {period.count > 0 && period.count < 120 && (
+      {showShortPeriodWarning && period.count > 0 && period.count < 120 && (
         <Alert severity="warning">
           O período histórico é curto; a simulação continua disponível, mas o
           resultado é menos robusto.

@@ -42,23 +42,19 @@ ETF_SYMBOLS = {
     # USD/BRL normalization correct while the product-facing proxy remains VWRL.
     "VWRL": "VWRD.LON",
 }
-BCB_SGS_SERIES = {
+BCB_SGS_RATE_SERIES_IDS = {
     "CDI": 4391,
     "IPCA": 433,
-    "IMA_S": 12462,
-    "IMA_B_5": 12467,
-    "IRF_M_1": 17626,
-    "IRF_M_1_PLUS": 17627,
-    "IMA_GERAL_EX_C": 17628,
 }
-IMA_BCB_IDS = {
+BCB_SGS_IMA_LEVEL_SERIES_IDS = {
     "IMA-S": 12462,
     "IRF-M 1": 17626,
     "IRF-M 1+": 17627,
     "IMA-B 5": 12467,
+    "IMA-B 5+": 12468,
     "IMA-Geral ex-C": 17628,
 }
-_IMA_LEVEL_SERIES_IDS = frozenset(IMA_BCB_IDS.values())
+_IMA_LEVEL_SERIES_IDS = frozenset(BCB_SGS_IMA_LEVEL_SERIES_IDS.values())
 _TRANSIENT_HTTP_CODES = frozenset((429, 500, 502, 503, 504))
 
 
@@ -405,7 +401,7 @@ def fetch_anbima_ima_monthly(
 
 
 def fetch_ima_monthly(index: str, start_year: int, end_year: int) -> MonthlySeries:
-    series_id = IMA_BCB_IDS.get(index)
+    series_id = BCB_SGS_IMA_LEVEL_SERIES_IDS.get(index)
     legacy = (
         fetch_bcb_sgs_monthly(series_id, start_year, min(end_year, 2023))
         if series_id is not None
@@ -421,14 +417,18 @@ def fetch_ima_monthly(index: str, start_year: int, end_year: int) -> MonthlySeri
 def build_fire_return_series(
     *, start_year: int, end_year: int, alpha_vantage_api_key: str
 ) -> dict[str, MonthlySeries]:
-    ipca = fetch_bcb_sgs_monthly(BCB_SGS_SERIES["IPCA"], start_year, end_year)
+    ipca = fetch_bcb_sgs_monthly(
+        BCB_SGS_RATE_SERIES_IDS["IPCA"], start_year, end_year
+    )
     usd_brl = close_levels_to_returns(
         fetch_ptax_month_end_selling(start_year, end_year)
     )
     brl_nominal = {
         "IBOV": fetch_b3_index_monthly("IBOV", start_year, end_year),
         "IFIX": fetch_b3_index_monthly("IFIX", start_year, end_year),
-        "CDI": fetch_bcb_sgs_monthly(BCB_SGS_SERIES["CDI"], start_year, end_year),
+        "CDI": fetch_bcb_sgs_monthly(
+            BCB_SGS_RATE_SERIES_IDS["CDI"], start_year, end_year
+        ),
         "IMA_S": fetch_ima_monthly("IMA-S", start_year, end_year),
         "IRF_M_1": fetch_ima_monthly("IRF-M 1", start_year, end_year),
         "IRF_M_1_PLUS": fetch_ima_monthly("IRF-M 1+", start_year, end_year),

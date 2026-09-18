@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { createRef } from "react";
 import { expect, test, vi } from "vitest";
 
 import { FIRE_RETURN_SERIES } from "../Home/fireReturns";
@@ -85,4 +86,54 @@ test("renders owned categories and updates proxy/exclusion controls", () => {
   expect(allocation.reduce((sum, bucket) => sum + bucket.total, 0)).toBe(
     1_050_000,
   );
+});
+
+test("distinguishes short- and long-duration fixed-income proxies", () => {
+  render(
+    <FireHistoricalDataControls
+      allocation={[
+        { category: "FIXED_IPCA", series: "IMA_B_5_PLUS", total: 100_000 },
+        { category: "FIXED_IPCA", series: "IMA_B_5", total: 50_000 },
+        {
+          category: "FIXED_PREFIXED",
+          series: "IRF_M_1_PLUS",
+          total: 100_000,
+        },
+        { category: "FIXED_PREFIXED", series: "IRF_M_1", total: 50_000 },
+      ]}
+      preferences={DEFAULT_FIRE_PREFERENCES}
+      onChange={vi.fn()}
+    />,
+  );
+
+  expect(
+    screen.getByText("IMA-B 5 (até 5 anos) e IMA-B 5+ (acima de 5 anos)"),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText("IRF-M 1 (até 1 ano) e IRF-M 1+ (acima de 1 ano)"),
+  ).toBeInTheDocument();
+});
+
+test("lets the studio own the warning and focus the historical controls", () => {
+  const controlsRef = createRef<HTMLDivElement>();
+
+  const { container } = render(
+    <FireHistoricalDataControls
+      allocation={allocation}
+      preferences={{
+        ...DEFAULT_FIRE_PREFERENCES,
+        crypto_proxy: "CMBI10",
+      }}
+      onChange={vi.fn()}
+      showShortPeriodWarning={false}
+      controlsRef={controlsRef}
+    />,
+  );
+
+  expect(within(container).queryByRole("alert")).not.toBeInTheDocument();
+  expect(
+    within(container).getByText(/Período resultante:/),
+  ).toBeInTheDocument();
+  controlsRef.current?.focus();
+  expect(controlsRef.current).toHaveFocus();
 });

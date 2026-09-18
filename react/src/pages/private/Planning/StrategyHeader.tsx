@@ -23,6 +23,7 @@ type StrategyHeaderProps = {
   onSelect: () => void;
   isDirty: boolean;
   onSave: () => void;
+  actions?: ReactNode;
 };
 
 const StrategyHeader = ({
@@ -33,9 +34,13 @@ const StrategyHeader = ({
   onSelect,
   isDirty,
   onSave,
+  actions,
 }: StrategyHeaderProps) => (
   <>
-    <Link to="/planning" style={{ textDecoration: "none", alignSelf: "flex-start" }}>
+    <Link
+      to="/planning"
+      style={{ textDecoration: "none", alignSelf: "flex-start" }}
+    >
       <Button
         variant="text"
         size="small"
@@ -46,7 +51,13 @@ const StrategyHeader = ({
       </Button>
     </Link>
 
-    <Stack direction="row" justifyContent="space-between" alignItems="center">
+    <Stack
+      direction="row"
+      justifyContent="space-between"
+      alignItems="center"
+      flexWrap="wrap"
+      gap={1}
+    >
       <Stack gap={0.5}>
         <Text weight={FontWeights.SEMI_BOLD} size={FontSizes.LARGE}>
           {title}
@@ -55,36 +66,39 @@ const StrategyHeader = ({
           {subtitle}
         </Text>
       </Stack>
-      {isActive ? (
-        <Stack direction="row" gap={1} alignItems="center">
-          {isDirty && (
-            <Button
+      <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
+        {actions}
+        {isActive ? (
+          <>
+            {isDirty && (
+              <Button
+                color="success"
+                variant="contained"
+                size="small"
+                onClick={onSave}
+                disabled={isMutating}
+              >
+                Salvar alterações
+              </Button>
+            )}
+            <Chip
+              icon={<CheckCircleIcon />}
+              label="Estratégia ativa"
               color="success"
-              variant="contained"
               size="small"
-              onClick={onSave}
-              disabled={isMutating}
-            >
-              Salvar alterações
-            </Button>
-          )}
-          <Chip
-            icon={<CheckCircleIcon />}
-            label="Estratégia ativa"
-            color="success"
+            />
+          </>
+        ) : (
+          <Button
+            variant="outlined"
             size="small"
-          />
-        </Stack>
-      ) : (
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={onSelect}
-          disabled={isMutating}
-        >
-          Selecionar como ativa
-        </Button>
-      )}
+            onClick={onSelect}
+            disabled={isMutating}
+          >
+            Selecionar como ativa
+          </Button>
+        )}
+      </Stack>
     </Stack>
   </>
 );

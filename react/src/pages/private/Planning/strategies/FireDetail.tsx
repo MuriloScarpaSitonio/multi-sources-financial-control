@@ -4,6 +4,8 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 
 import ConstantDollarAgeInBondsIndicator from "../../Home/ConstantDollarAgeInBondsIndicator";
 import ConstantDollarIndicator from "../../Home/ConstantDollarIndicator";
@@ -16,10 +18,7 @@ import type {
   UsEquityProxy,
 } from "../../Home/fireReturnTypes";
 import AgeInBondsExplainer from "../AgeInBondsExplainer";
-import {
-  getFirePlanningPreferences,
-  type PlanningPreferences,
-} from "../api";
+import { getFirePlanningPreferences, type PlanningPreferences } from "../api";
 import DefaultsPanel from "../DefaultsPanel";
 import FireHistoricalDataControls from "../FireHistoricalDataControls";
 import {
@@ -27,6 +26,8 @@ import {
   type FireAllocationBucket,
 } from "../fireAllocation";
 import FireMethodologyWalkthrough from "../FireMethodologyWalkthrough";
+import FireSimulationStudio from "../fire/FireSimulationStudio";
+import type { FireStudioDraft } from "../fire/fireStudioScenario";
 import {
   usePlanningPreferences,
   useSelectedMethod,
@@ -38,6 +39,18 @@ import { AGE_IN_BONDS_TITLES, STRATEGY_CONTENT } from "../strategyContent";
 import { useStrategyCommonData } from "../useStrategyCommonData";
 
 const METHOD = "fire" as const;
+
+const ageFromDateOfBirth = (dateOfBirth: string | null): number | null => {
+  if (!dateOfBirth) return null;
+  const birth = new Date(`${dateOfBirth}T00:00:00`);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age -= 1;
+  }
+  return age;
+};
 
 const FireDetail = () => {
   const content = STRATEGY_CONTENT[METHOD];
@@ -51,7 +64,9 @@ const FireDetail = () => {
   const { mutate: updatePreferences, isPending: isUpdating } =
     useUpdatePlanningPreferences();
 
-  const [withdrawalRate, setWithdrawalRate] = useState(firePreferences.withdrawal_rate);
+  const [withdrawalRate, setWithdrawalRate] = useState(
+    firePreferences.withdrawal_rate,
+  );
   const [targetYears, setTargetYears] = useState(firePreferences.target_years);
   const [expensesOverride, setExpensesOverride] = useState<number | null>(
     firePreferences.monthly_expenses_override,
@@ -75,10 +90,13 @@ const FireDetail = () => {
     preferences?.show_age_in_bonds ?? false,
   );
   // Local what-if state — never persisted (no FIRE monthly_savings field).
-  const [simulatedPatrimony, setSimulatedPatrimony] = useState<number | null>(null);
-  const [monthlySavingsOverride, setMonthlySavingsOverride] = useState<number | null>(
+  const [simulatedPatrimony, setSimulatedPatrimony] = useState<number | null>(
     null,
   );
+  const [monthlySavingsOverride, setMonthlySavingsOverride] = useState<
+    number | null
+  >(null);
+  const [view, setView] = useState<"legacy" | "new">("new");
 
   useLayoutEffect(() => {
     setWithdrawalRate(firePreferences.withdrawal_rate);
@@ -115,7 +133,10 @@ const FireDetail = () => {
     () => allocationData?.buckets ?? [],
     [allocationData?.buckets],
   );
-  const patrimonyTotal = allocation.reduce((sum, bucket) => sum + bucket.total, 0);
+  const patrimonyTotal = allocation.reduce(
+    (sum, bucket) => sum + bucket.total,
+    0,
+  );
   const isDataLoading = isCommonLoading || isAllocationLoading;
   const fixedIncomeTotal = allocation
     .filter((bucket) => bucket.category.startsWith("FIXED_"))
@@ -218,21 +239,63 @@ const FireDetail = () => {
 
   const monthlySavings = monthlySavingsOverride ?? derivedMonthlySavings;
 
+  const handleHistoricalPreferenceChange = <
+    K extends keyof typeof localFirePreferences,
+  >(
+    field: K,
+    value: (typeof localFirePreferences)[K],
+  ) => {
+    if (field === "us_equity_proxy") {
+      setUsEquityProxy(value as UsEquityProxy);
+    }
+    if (field === "global_equity_proxy") {
+      setGlobalEquityProxy(value as GlobalEquityProxy);
+    }
+    if (field === "crypto_proxy") setCryptoProxy(value as CryptoProxy);
+    if (field === "excluded_return_categories") {
+      setExcludedReturnCategories(value as ReturnCategory[]);
+    }
+  };
+
   const historicalDataControls = (
     <FireHistoricalDataControls
       allocation={allocation}
       preferences={localFirePreferences}
-      onChange={(field, value) => {
-        if (field === "us_equity_proxy") setUsEquityProxy(value as UsEquityProxy);
-        if (field === "global_equity_proxy") {
-          setGlobalEquityProxy(value as GlobalEquityProxy);
-        }
-        if (field === "crypto_proxy") setCryptoProxy(value as CryptoProxy);
-        if (field === "excluded_return_categories") {
-          setExcludedReturnCategories(value as ReturnCategory[]);
-        }
-      }}
+      onChange={handleHistoricalPreferenceChange}
     />
+  );
+
+  const studioDraft = useMemo<FireStudioDraft>(
+    () => ({
+      isReady: !isDataLoading,
+      showAgeInBonds,
+      currentAge: ageFromDateOfBirth(dateOfBirth),
+      patrimonyTotal,
+      simulatedPatrimony,
+      avgExpenses,
+      expensesOverride,
+      derivedMonthlySavings,
+      monthlySavingsOverride,
+      withdrawalRate,
+      targetYears,
+      samplingMethod,
+      portfolio,
+    }),
+    [
+      avgExpenses,
+      dateOfBirth,
+      derivedMonthlySavings,
+      expensesOverride,
+      isDataLoading,
+      monthlySavingsOverride,
+      patrimonyTotal,
+      portfolio,
+      samplingMethod,
+      showAgeInBonds,
+      simulatedPatrimony,
+      targetYears,
+      withdrawalRate,
+    ],
   );
 
   const indicator = showAgeInBonds ? (
@@ -260,6 +323,8 @@ const FireDetail = () => {
       isMonthlySavingsOverridden={monthlySavingsOverride !== null}
       simulatedExpenses={expensesOverride}
       onSimulatedExpensesChange={setExpensesOverride}
+      simulatedPatrimony={simulatedPatrimony}
+      onSimulatedPatrimonyChange={setSimulatedPatrimony}
     />
   ) : (
     <ConstantDollarIndicator
@@ -299,31 +364,73 @@ const FireDetail = () => {
         onSelect={handleSelect}
         isDirty={isDirty}
         onSave={handleSave}
+        actions={
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={view}
+            onChange={(_, next: "legacy" | "new" | null) => {
+              if (next) setView(next);
+            }}
+            aria-label="Visualização FIRE"
+          >
+            <ToggleButton value="legacy">Legacy</ToggleButton>
+            <ToggleButton value="new">New</ToggleButton>
+          </ToggleButtonGroup>
+        }
       />
 
-      <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>{indicator}</Paper>
+      {view === "legacy" ? (
+        <Paper
+          data-testid="fire-legacy-view"
+          elevation={1}
+          sx={{ p: 3, borderRadius: 2 }}
+        >
+          {indicator}
+        </Paper>
+      ) : (
+        <FireSimulationStudio
+          draft={studioDraft}
+          allocation={allocation}
+          firePreferences={localFirePreferences}
+          dateOfBirth={dateOfBirth}
+          fixedIncomeTotal={fixedIncomeTotal}
+          variableIncomeTotal={variableIncomeTotal}
+          isPersisting={isUpdating}
+          onSimulatedPatrimonyChange={setSimulatedPatrimony}
+          onExpensesChange={setExpensesOverride}
+          onMonthlySavingsChange={setMonthlySavingsOverride}
+          onWithdrawalRateChange={setWithdrawalRate}
+          onTargetYearsChange={setTargetYears}
+          onSamplingMethodChange={setSamplingMethod}
+          onShowAgeInBondsChange={setShowAgeInBonds}
+          onHistoricalPreferenceChange={handleHistoricalPreferenceChange}
+        />
+      )}
 
-      {showAgeInBonds && (
+      {(view === "new" || showAgeInBonds) && (
         <DefaultsPanel
           items={content.defaultsExplained}
           extra={<FireMethodologyWalkthrough />}
         />
       )}
 
-      <Stack gap={1}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={showAgeInBonds}
-              onChange={(_, value) => setShowAgeInBonds(value)}
-              disabled={isUpdating}
-              size="small"
-            />
-          }
-          label="Alocação Idade em Renda Fixa"
-          slotProps={{ typography: { variant: "caption" } }}
-        />
-      </Stack>
+      {view === "legacy" && (
+        <Stack gap={1}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={showAgeInBonds}
+                onChange={(_, value) => setShowAgeInBonds(value)}
+                disabled={isUpdating}
+                size="small"
+              />
+            }
+            label="Alocação Idade em Renda Fixa"
+            slotProps={{ typography: { variant: "caption" } }}
+          />
+        </Stack>
+      )}
 
       {showAgeInBonds && (
         <AgeInBondsExplainer

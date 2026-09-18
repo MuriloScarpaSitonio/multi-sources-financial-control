@@ -307,6 +307,30 @@ def test__fetch_ima_monthly_hands_off_from_bcb_to_anbima(monkeypatch):
     }
 
 
+def test__fetch_ima_b_5_plus_uses_bcb_history(monkeypatch):
+    requested_series = []
+
+    def fake_fetch_bcb(series_id, *args, **kwargs):
+        requested_series.append(series_id)
+        return {"2004-05": Decimal("0.01")}
+
+    monkeypatch.setattr(
+        fire_return_sources,
+        "fetch_bcb_sgs_monthly",
+        fake_fetch_bcb,
+    )
+    monkeypatch.setattr(
+        fire_return_sources,
+        "fetch_anbima_ima_monthly",
+        lambda *args, **kwargs: {},
+    )
+
+    assert fetch_ima_monthly("IMA-B 5+", 2004, 2004) == {
+        "2004-05": Decimal("0.01")
+    }
+    assert requested_series == [12468]
+
+
 def test_generate_fire_returns_ts_renders_built_series(tmp_path, monkeypatch):
     monkeypatch.setenv("ALPHA_VANTAGE_API_KEY", "secret")
     monkeypatch.setattr(
