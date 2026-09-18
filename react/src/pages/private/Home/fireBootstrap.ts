@@ -61,6 +61,59 @@ const nextMonth = (month: string): string => {
     : `${year}-${String(monthNumber + 1).padStart(2, "0")}`;
 };
 
+type MonthSampler = (count: number, rng: () => number) => number[];
+
+// Historical block eligibility depends on the sample window, not the trial.
+// Prepare it once; only drawing the indices consumes random numbers.
+const prepareMonthSampler = (
+  eligible: readonly string[],
+  method: SamplingMethod,
+): MonthSampler => {
+  if (method === "independent_months") {
+    return (count, rng) => {
+      if (count <= 0) return [];
+      if (eligible.length === 0) {
+        throw new Error("No aligned historical months are available");
+      }
+      const sampled = new Array<number>(Math.floor(count) || 0);
+      for (let i = 0; i < sampled.length; i += 1) {
+        sampled[i] = Math.floor(rng() * eligible.length);
+      }
+      return sampled;
+    };
+  }
+
+  const starts = eligible.filter((_, start) => {
+    if (start + MONTHS_PER_YEAR > eligible.length) return false;
+    for (let offset = 1; offset < MONTHS_PER_YEAR; offset += 1) {
+      if (
+        eligible[start + offset] !== nextMonth(eligible[start + offset - 1])
+      ) {
+        return false;
+      }
+    }
+    return true;
+  });
+  const eligibleIndex = new Map(eligible.map((month, index) => [month, index]));
+  const startIndices = starts.map((month) => eligibleIndex.get(month)!);
+  return (count, rng) => {
+    if (count <= 0) return [];
+    if (eligible.length === 0) {
+      throw new Error("No aligned historical months are available");
+    }
+    if (startIndices.length === 0) {
+      throw new Error("No complete 12-month historical block is available");
+    }
+    const sampled: number[] = [];
+    while (sampled.length < count) {
+      const start = startIndices[Math.floor(rng() * startIndices.length)];
+      const end = Math.min(start + MONTHS_PER_YEAR, eligible.length);
+      for (let index = start; index < end; index += 1) sampled.push(index);
+    }
+    return sampled.slice(0, count);
+  };
+};
+
 export const sampleMonthKeys = ({
   eligible,
   method,
@@ -73,47 +126,32 @@ export const sampleMonthKeys = ({
   rng: () => number;
 }): string[] => {
   if (count <= 0) return [];
-  if (eligible.length === 0) {
-    throw new Error("No aligned historical months are available");
-  }
-  if (method === "independent_months") {
-    return Array.from(
-      { length: count },
-      () => eligible[Math.floor(rng() * eligible.length)],
-    );
-  }
-
-  const starts = eligible.filter((_, start) => {
-    if (start + MONTHS_PER_YEAR > eligible.length) return false;
-    for (let offset = 1; offset < MONTHS_PER_YEAR; offset += 1) {
-      if (eligible[start + offset] !== nextMonth(eligible[start + offset - 1])) {
-        return false;
-      }
-    }
-    return true;
-  });
-  if (starts.length === 0) {
-    throw new Error("No complete 12-month historical block is available");
-  }
-
-  const eligibleIndex = new Map(eligible.map((month, index) => [month, index]));
-  const sampled: string[] = [];
-  while (sampled.length < count) {
-    const start = starts[Math.floor(rng() * starts.length)];
-    const index = eligibleIndex.get(start)!;
-    sampled.push(...eligible.slice(index, index + MONTHS_PER_YEAR));
-  }
-  return sampled.slice(0, count);
+  return prepareMonthSampler(eligible, method)(count, rng).map(
+    (index) => eligible[index],
+  );
 };
 
-const drawPortfolioMonthReturn = (
+type PreparedPortfolio = {
+  returns: readonly number[];
+  sampleMonths: MonthSampler;
+};
+
+const preparePortfolio = (
   portfolio: readonly PortfolioSlice[],
-  month: string,
-): number =>
-  portfolio.reduce(
-    (sum, slice) => sum + slice.weight * returnForMonth(slice, month),
-    0,
-  );
+  method: SamplingMethod,
+): PreparedPortfolio => {
+  const available = eligibleMonths(portfolio);
+  return {
+    // Keep the exact slice and arithmetic order of the monthly calculation.
+    returns: available.map((month) =>
+      portfolio.reduce(
+        (sum, slice) => sum + slice.weight * returnForMonth(slice, month),
+        0,
+      ),
+    ),
+    sampleMonths: prepareMonthSampler(available, method),
+  };
+};
 
 const legacyEligibleMonths = (weights: AllocationWeights): readonly string[] => {
   const keys = ["IBOV", "CDI"] as const;
@@ -160,9 +198,7 @@ const runTrial = (
   startingBalance: number,
   annualWithdrawal: number,
   horizon: number,
-  portfolio: readonly PortfolioSlice[],
-  available: readonly string[],
-  samplingMethod: SamplingMethod,
+  prepared: PreparedPortfolio,
   rng: () => number,
 ): Trial => {
   const balances = [startingBalance];
@@ -171,20 +207,16 @@ const runTrial = (
   let depletionYear: number | null = null;
   const monthlyWithdrawal = annualWithdrawal / MONTHS_PER_YEAR;
   const horizonMonths = horizon * MONTHS_PER_YEAR;
-  const sampledMonths = sampleMonthKeys({
-    eligible: available,
-    method: samplingMethod,
-    count: horizonMonths,
-    rng,
-  });
+  // Draw the entire horizon even after depletion so subsequent trials retain
+  // their existing seeded sequences.
+  const sampledMonths = prepared.sampleMonths(horizonMonths, rng);
   for (let m = 0; m < horizonMonths; m++) {
     const yearIndex = Math.floor(m / MONTHS_PER_YEAR);
     if (balance <= 0) {
       if ((m + 1) % MONTHS_PER_YEAR === 0) balances.push(0);
       continue;
     }
-    const grown =
-      balance * (1 + drawPortfolioMonthReturn(portfolio, sampledMonths[m]));
+    const grown = balance * (1 + prepared.returns[sampledMonths[m]]);
     const actualWithdrawal = Math.min(monthlyWithdrawal, Math.max(0, grown));
     balance = grown - actualWithdrawal;
     withdrawals[yearIndex] += actualWithdrawal;
@@ -215,18 +247,25 @@ export const runBootstrap = (
     };
   }
 
+  return runPreparedBootstrap(
+    startingBalance,
+    annualWithdrawal,
+    horizon,
+    preparePortfolio(portfolio, samplingMethod),
+    numTrials,
+  );
+};
+
+const runPreparedBootstrap = (
+  startingBalance: number,
+  annualWithdrawal: number,
+  horizon: number,
+  prepared: PreparedPortfolio,
+  numTrials: number,
+): BootstrapResult => {
   const rng = mulberry32(FIXED_SEED);
-  const available = eligibleMonths(portfolio);
   const trials = Array.from({ length: numTrials }, () =>
-    runTrial(
-      startingBalance,
-      annualWithdrawal,
-      horizon,
-      portfolio,
-      available,
-      samplingMethod,
-      rng,
-    ),
+    runTrial(startingBalance, annualWithdrawal, horizon, prepared, rng),
   );
   const successRate =
     trials.filter((t) => t.depletionYear === null).length / numTrials;
@@ -307,16 +346,16 @@ export const findSafeWithdrawalRate = (
   // works here — 1M is just a convenient placeholder; the user's actual
   // patrimony is irrelevant to "what's the safe withdrawal rate?".
   const dummyPatrimony = 1_000_000;
+  const prepared = preparePortfolio(portfolio, samplingMethod);
   let lo = 0.005;
   let hi = 0.1;
   for (let i = 0; i < 20; i++) {
     const mid = (lo + hi) / 2;
-    const result = runBootstrap(
+    const result = runPreparedBootstrap(
       dummyPatrimony,
       dummyPatrimony * mid,
       horizon,
-      portfolio,
-      samplingMethod,
+      prepared,
       numTrials,
     );
     if (result.successRate >= targetSuccess) {
@@ -336,9 +375,7 @@ const runTrialVaryingWeights = (
   startingBalance: number,
   annualWithdrawal: number,
   horizon: number,
-  portfoliosByYear: readonly (readonly PortfolioSlice[])[],
-  availableByYear: readonly (readonly string[])[],
-  samplingMethod: SamplingMethod,
+  preparedByYear: readonly PreparedPortfolio[],
   rng: () => number,
 ): Trial => {
   const balances = [startingBalance];
@@ -347,13 +384,8 @@ const runTrialVaryingWeights = (
   let depletionYear: number | null = null;
   const monthlyWithdrawal = annualWithdrawal / MONTHS_PER_YEAR;
   const horizonMonths = horizon * MONTHS_PER_YEAR;
-  const sampledByYear = portfoliosByYear.map((_, yearIndex) =>
-    sampleMonthKeys({
-      eligible: availableByYear[yearIndex],
-      method: samplingMethod,
-      count: MONTHS_PER_YEAR,
-      rng,
-    }),
+  const sampledByYear = preparedByYear.map((prepared) =>
+    prepared.sampleMonths(MONTHS_PER_YEAR, rng),
   );
   for (let m = 0; m < horizonMonths; m++) {
     const yearIndex = Math.floor(m / MONTHS_PER_YEAR);
@@ -364,10 +396,9 @@ const runTrialVaryingWeights = (
     const grown =
       balance *
       (1 +
-        drawPortfolioMonthReturn(
-          portfoliosByYear[yearIndex],
-          sampledByYear[yearIndex][m % MONTHS_PER_YEAR],
-        ));
+        preparedByYear[yearIndex].returns[
+          sampledByYear[yearIndex][m % MONTHS_PER_YEAR]
+        ]);
     const actualWithdrawal = Math.min(monthlyWithdrawal, Math.max(0, grown));
     balance = grown - actualWithdrawal;
     withdrawals[yearIndex] += actualWithdrawal;
@@ -398,20 +429,32 @@ export const runBootstrapWithVaryingWeights = (
     };
   }
 
-  const rng = mulberry32(FIXED_SEED);
-  const portfoliosByYear: (readonly PortfolioSlice[])[] = Array.from(
-    { length: horizon },
-    (_, i) => portfolioAt(i),
+  const preparedByYear = Array.from({ length: horizon }, (_, i) =>
+    preparePortfolio(portfolioAt(i), samplingMethod),
   );
-  const availableByYear = portfoliosByYear.map(eligibleMonths);
+  return runPreparedBootstrapWithVaryingWeights(
+    startingBalance,
+    annualWithdrawal,
+    horizon,
+    preparedByYear,
+    numTrials,
+  );
+};
+
+const runPreparedBootstrapWithVaryingWeights = (
+  startingBalance: number,
+  annualWithdrawal: number,
+  horizon: number,
+  preparedByYear: readonly PreparedPortfolio[],
+  numTrials: number,
+): BootstrapResult => {
+  const rng = mulberry32(FIXED_SEED);
   const trials = Array.from({ length: numTrials }, () =>
     runTrialVaryingWeights(
       startingBalance,
       annualWithdrawal,
       horizon,
-      portfoliosByYear,
-      availableByYear,
-      samplingMethod,
+      preparedByYear,
       rng,
     ),
   );
@@ -475,16 +518,18 @@ export const findSafeWithdrawalRateWithVaryingWeights = (
 ): number => {
   if (horizon <= 0) return 0;
   const dummyPatrimony = 1_000_000;
+  const preparedByYear = Array.from({ length: horizon }, (_, i) =>
+    preparePortfolio(portfolioAt(i), samplingMethod),
+  );
   let lo = 0.005;
   let hi = 0.1;
   for (let i = 0; i < 20; i++) {
     const mid = (lo + hi) / 2;
-    const result = runBootstrapWithVaryingWeights(
+    const result = runPreparedBootstrapWithVaryingWeights(
       dummyPatrimony,
       dummyPatrimony * mid,
       horizon,
-      portfolioAt,
-      samplingMethod,
+      preparedByYear,
       numTrials,
     );
     if (result.successRate >= targetSuccess) {
@@ -660,9 +705,7 @@ const runAccumulationTrial = (
   starting: number,
   contribution: number,
   target: number,
-  portfolio: readonly PortfolioSlice[],
-  availableMonths: readonly string[],
-  samplingMethod: SamplingMethod,
+  prepared: PreparedPortfolio,
   maxYears: number,
   rng: () => number,
 ): { yearReached: number | null; balances: number[] } => {
@@ -670,12 +713,7 @@ const runAccumulationTrial = (
   let balance = starting;
   let yearReached: number | null = balance >= target ? 0 : null;
   const monthlyContribution = contribution / MONTHS_PER_YEAR;
-  const sampledMonths = sampleMonthKeys({
-    eligible: availableMonths,
-    method: samplingMethod,
-    count: maxYears * MONTHS_PER_YEAR,
-    rng,
-  });
+  const sampledMonths = prepared.sampleMonths(maxYears * MONTHS_PER_YEAR, rng);
   for (let y = 1; y <= maxYears; y++) {
     if (yearReached !== null) {
       // Crossed already — accumulation phase is done. Pin balance at target
@@ -689,8 +727,7 @@ const runAccumulationTrial = (
     for (let month = 0; month < MONTHS_PER_YEAR; month++) {
       const sampledMonth = sampledMonths[(y - 1) * MONTHS_PER_YEAR + month];
       balance =
-        (balance + monthlyContribution) *
-        (1 + drawPortfolioMonthReturn(portfolio, sampledMonth));
+        (balance + monthlyContribution) * (1 + prepared.returns[sampledMonth]);
     }
     if (balance >= target) yearReached = y;
     balances.push(balance);
@@ -715,16 +752,14 @@ export const runAccumulationBootstrap = (
   }
 
   const rng = mulberry32(FIXED_SEED);
-  const availableMonths = eligibleMonths(params.portfolio);
   const samplingMethod = params.samplingMethod ?? "independent_months";
+  const prepared = preparePortfolio(params.portfolio, samplingMethod);
   const trials = Array.from({ length: numTrials }, () =>
     runAccumulationTrial(
       params.startingBalance,
       params.annualContribution,
       params.target,
-      params.portfolio,
-      availableMonths,
-      samplingMethod,
+      prepared,
       maxYears,
       rng,
     ),
