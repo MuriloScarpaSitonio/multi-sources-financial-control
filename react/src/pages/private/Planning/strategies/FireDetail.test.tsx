@@ -1,9 +1,9 @@
 import {
   cleanup,
-  fireEvent,
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
@@ -101,6 +101,7 @@ const mocks = vi.hoisted(() => ({
       fire: {
         withdrawal_rate: 4,
         target_years: 30,
+        simulated_patrimony: null,
         monthly_expenses_override: null,
         sampling_method: "independent_months" as const,
         us_equity_proxy: "SPY" as const,
@@ -108,6 +109,7 @@ const mocks = vi.hoisted(() => ({
         crypto_proxy: "BTC" as const,
         excluded_return_categories: [],
         historical_series_overrides: {},
+        historical_series_fallbacks: {},
       },
     },
     dateOfBirth: "1986-01-01",
@@ -205,65 +207,104 @@ describe("FireDetail presentation switch", () => {
     vi.unstubAllGlobals();
   });
 
-  it("defaults to New and switches views without persisting or losing drafts", async () => {
+  it("keeps header actions synchronized with saved and calculated state", async () => {
     const user = userEvent.setup();
     renderPage();
+    const header = within(
+      screen.getByRole("region", { name: "Ações do cenário" }),
+    );
+    await waitFor(() =>
+      expect(header.getByRole("button", { name: "Recalcular" })).toBeDisabled(),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Aumentar Patrimônio" }),
+    );
+    expect(header.getByRole("button", { name: "Recalcular" })).toBeEnabled();
+    expect(
+      header.getByRole("button", { name: "Salvar alterações" }),
+    ).toBeEnabled();
+    await user.click(
+      screen.getByRole("button", { name: "Resetar Patrimônio" }),
+    );
+    expect(header.getByRole("button", { name: "Recalcular" })).toBeDisabled();
+    expect(
+      header.queryByRole("button", { name: "Salvar alterações" }),
+    ).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Aumentar Patrimônio" }),
+    );
+    await user.click(header.getByRole("button", { name: "Recalcular" }));
+    await waitFor(() =>
+      expect(header.getByRole("button", { name: "Recalcular" })).toBeDisabled(),
+    );
+    expect(
+      header.getByRole("button", { name: "Salvar alterações" }),
+    ).toBeEnabled();
+    expect(screen.getAllByRole("button", { name: "Recalcular" })).toHaveLength(
+      2,
+    );
+  });
 
-    expect(screen.getByRole("button", { name: "New" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
+  it("enables saving when only Patrimônio changes and restores it on reopening", async () => {
+    const user = userEvent.setup();
+    const page = renderPage();
+    const input = screen.getByRole("textbox", { name: "Patrimônio" });
+    await user.clear(input);
+    await user.type(input, "2100000");
+    const save = screen.getByRole("button", { name: "Salvar alterações" });
+    expect(save).toBeEnabled();
+    await user.click(save);
+    expect(mocks.updatePreferences).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fire: expect.objectContaining({ simulated_patrimony: 2100000 }),
+      }),
+    );
+    const original = mocks.planningData.preferences.fire;
+    mocks.planningData.preferences.fire = {
+      ...original,
+      ...mocks.updatePreferences.mock.calls[0][0].fire,
+    };
+    page.unmount();
+    try {
+      renderPage();
+      expect(screen.getByRole("textbox", { name: "Patrimônio" })).toHaveValue(
+        "R$ 2.100.000",
+      );
+      expect(
+        screen.queryByRole("button", { name: "Salvar alterações" }),
+      ).not.toBeInTheDocument();
+      await user.click(
+        screen.getByRole("button", { name: "Resetar Patrimônio" }),
+      );
+      expect(screen.getByRole("textbox", { name: "Patrimônio" })).toHaveValue(
+        "R$ 1.000.000",
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Salvar alterações" }),
+      );
+      expect(mocks.updatePreferences).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          fire: expect.objectContaining({ simulated_patrimony: null }),
+        }),
+      );
+    } finally {
+      mocks.planningData.preferences.fire = original;
+    }
+  });
+
+  it("renders only the current scenario with the active badge beside its title", () => {
+    renderPage();
+    expect(
+      screen.queryByRole("button", { name: "Legacy" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "New" }),
+    ).not.toBeInTheDocument();
+    const badge = screen.getByText("Estratégia ativa");
+    expect(badge.closest('[data-testid="strategy-title"]')).toHaveTextContent(
+      "Retirada constante (FIRE)",
     );
     expect(screen.getByTestId("fire-simulation-studio")).toBeInTheDocument();
-
-    const rate = screen.getByRole("textbox", { name: "Taxa de retirada" });
-    await user.clear(rate);
-    await user.type(rate, "5");
-    expect(rate).toHaveValue("5% a.a.");
-
-    await user.click(screen.getByRole("button", { name: "Legacy" }));
-    expect(
-      screen.queryByTestId("fire-simulation-studio"),
-    ).not.toBeInTheDocument();
-    expect(screen.getByTestId("fire-legacy-view")).toBeInTheDocument();
-    expect(mocks.updatePreferences).not.toHaveBeenCalled();
-
-    await waitFor(() => expect(FakeWorker.instances).toHaveLength(2));
-    expect(FakeWorker.instances[1].messages[0].request).toMatchObject({
-      kind: "constant_dollar",
-      input: { withdrawalRate: 5 },
-    });
-
-    const legacyWithdrawalSlider = screen.getAllByRole("slider")[0];
-    legacyWithdrawalSlider.focus();
-    await user.keyboard("{ArrowLeft}");
-    await waitFor(() => expect(FakeWorker.instances).toHaveLength(3));
-    expect(FakeWorker.instances[2].messages[0].request).toMatchObject({
-      kind: "constant_dollar",
-      input: { withdrawalRate: 4.5 },
-    });
-
-    await user.click(screen.getByRole("button", { name: "New" }));
-    expect(
-      screen.getByRole("textbox", { name: "Taxa de retirada" }),
-    ).toHaveValue("4,5% a.a.");
-    expect(mocks.updatePreferences).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
-    expect(mocks.updatePreferences).toHaveBeenCalledTimes(1);
-    expect(mocks.updatePreferences).toHaveBeenCalledWith({
-      fire: {
-        withdrawal_rate: 4.5,
-        target_years: 30,
-        monthly_expenses_override: null,
-        sampling_method: "independent_months",
-        us_equity_proxy: "SPY",
-        global_equity_proxy: "VT",
-        crypto_proxy: "BTC",
-        excluded_return_categories: [],
-        historical_series_overrides: {},
-      },
-      show_age_in_bonds: false,
-    });
   });
 
   it("applies a dataset override to the next calculation and saves it only explicitly", async () => {
@@ -283,7 +324,7 @@ describe("FireDetail presentation switch", () => {
     await user.click(screen.getByRole("button", { name: "Aplicar" }));
     expect(mocks.updatePreferences).not.toHaveBeenCalled();
     expect(FakeWorker.instances).toHaveLength(1);
-    await user.click(screen.getByRole("button", { name: "Recalcular" }));
+    await user.click(screen.getAllByRole("button", { name: "Recalcular" })[0]);
     await waitFor(() => expect(FakeWorker.instances).toHaveLength(2));
     expect(FakeWorker.instances[1].messages[0].request.input.portfolio).toEqual(
       [
@@ -303,33 +344,46 @@ describe("FireDetail presentation switch", () => {
         }),
       }),
     );
-    await user.click(screen.getByRole("button", { name: "Legacy" }));
+  });
+
+  it("saves a fallback only after Apply and explicit Save, and includes it in recalculation", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(FakeWorker.instances).toHaveLength(1));
+    await user.click(
+      screen.getByRole("button", { name: "Premissas avançadas" }),
+    );
     await user.click(
       screen.getByRole("button", { name: "Configurar históricos" }),
     );
-    expect(
-      screen.getByRole("combobox", { name: "Histórico para Renda fixa Selic" }),
-    ).toHaveTextContent("CDI");
     await user.click(
-      screen.getByRole("combobox", { name: "Histórico para Renda fixa Selic" }),
+      screen.getByRole("button", { name: "Complementar histórico anterior" }),
     );
-    await user.click(screen.getByRole("option", { name: /^IMA-S/ }));
+    await user.click(
+      screen.getByRole("combobox", {
+        name: "Histórico anterior para Renda fixa Selic",
+      }),
+    );
+    await user.click(screen.getByRole("option", { name: /^CDI ·/ }));
+    expect(mocks.updatePreferences).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Aplicar" }));
-    await waitFor(() =>
-      expect(
-        FakeWorker.instances.at(-1)?.messages[0].request.input.portfolio,
-      ).toEqual([
-        {
-          category: "FIXED_SELIC",
-          series: "IMA_S",
-          weight: 1,
-          constrainsSample: true,
-        },
-      ]),
+    expect(FakeWorker.instances).toHaveLength(1);
+    await user.click(screen.getAllByRole("button", { name: "Recalcular" })[0]);
+    await waitFor(() => expect(FakeWorker.instances).toHaveLength(2));
+    expect(
+      FakeWorker.instances[1].messages[0].request.input.portfolio[0],
+    ).toMatchObject({ series: "IMA_S", fallbackSeries: "CDI", weight: 1 });
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+    expect(mocks.updatePreferences).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fire: expect.objectContaining({
+          historical_series_fallbacks: { "FIXED_SELIC:IMA_S": "CDI" },
+        }),
+      }),
     );
   });
 
-  it("preserves simulated patrimony when age in bonds switches to Legacy", async () => {
+  it("preserves simulated patrimony when recalculating with age in bonds", async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -346,7 +400,7 @@ describe("FireDetail presentation switch", () => {
         name: "Alocação Idade em Renda Fixa",
       }),
     );
-    await user.click(screen.getByRole("button", { name: "Legacy" }));
+    await user.click(screen.getAllByRole("button", { name: "Recalcular" })[0]);
 
     await waitFor(() => expect(FakeWorker.instances).toHaveLength(2));
     expect(screen.getAllByRole("textbox")[0]).toHaveValue("R$ 500.000");

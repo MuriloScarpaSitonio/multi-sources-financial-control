@@ -9,6 +9,7 @@ export const fireAllocationKey = (bucket: FireAllocationBucket) =>
 export type PortfolioSlice = {
   category: ReturnCategory | "CASH";
   series: FireReturnSeriesKey;
+  fallbackSeries?: FireReturnSeriesKey;
   weight: number;
   constrainsSample: boolean;
 };
@@ -62,7 +63,12 @@ export const buildPortfolio = (
         ? "CASH"
         : (override ??
           (excluded ? "CASH" : resolveSeries(bucket, preferences)));
+    const fallbackSeries =
+      bucket.category === "CASH"
+        ? undefined
+        : preferences.historical_series_fallbacks?.[fireAllocationKey(bucket)];
     return {
+      ...(fallbackSeries ? { fallbackSeries } : {}),
       category: bucket.category,
       series,
       weight: bucket.total / total,
@@ -70,6 +76,26 @@ export const buildPortfolio = (
     };
   });
 };
+
+/** Earlier history only: the primary always owns its first month onward. */
+export const historicalMonthsForSlice = (
+  slice: PortfolioSlice,
+): readonly string[] => {
+  const primary = FIRE_RETURN_SERIES[slice.series].months;
+  if (!slice.fallbackSeries || !primary.length) return primary;
+  const earlier = FIRE_RETURN_SERIES[slice.fallbackSeries].months.filter(
+    (month) => month < primary[0],
+  );
+  return earlier.length ? [...earlier, ...primary] : primary;
+};
+
+export const historicalSourceForMonth = (
+  slice: PortfolioSlice,
+  month: string,
+): FireReturnSeriesKey =>
+  slice.fallbackSeries && month < FIRE_RETURN_SERIES[slice.series].months[0]
+    ? slice.fallbackSeries
+    : slice.series;
 
 export const eligibleMonths = (
   portfolio: readonly PortfolioSlice[],
@@ -79,9 +105,9 @@ export const eligibleMonths = (
 
   const [first, ...rest] = constraining;
   const remaining = rest.map(
-    (slice) => new Set(FIRE_RETURN_SERIES[slice.series].months),
+    (slice) => new Set(historicalMonthsForSlice(slice)),
   );
-  return FIRE_RETURN_SERIES[first.series].months.filter((month) =>
+  return historicalMonthsForSlice(first).filter((month) =>
     remaining.every((months) => months.has(month)),
   );
 };
@@ -104,17 +130,18 @@ export const returnForMonth = (
   slice: PortfolioSlice,
   month: string,
 ): number => {
-  let index = returnIndexBySeries.get(slice.series);
+  const series = historicalSourceForMonth(slice, month);
+  let index = returnIndexBySeries.get(series);
   if (!index) {
-    const data = FIRE_RETURN_SERIES[slice.series];
+    const data = FIRE_RETURN_SERIES[series];
     index = new Map(data.months.map((key, position) => [key, position]));
-    returnIndexBySeries.set(slice.series, index);
+    returnIndexBySeries.set(series, index);
   }
   const position = index.get(month);
   if (position === undefined) {
-    throw new Error(`${slice.series} has no return for ${month}`);
+    throw new Error(`${series} has no return for ${month}`);
   }
-  return FIRE_RETURN_SERIES[slice.series].realReturns[position];
+  return FIRE_RETURN_SERIES[series].realReturns[position];
 };
 
 const scaleSlices = (

@@ -28,6 +28,7 @@ const FireHistoricalSettings = ({
   onOpenChange: (open: boolean) => void;
   onApply: (
     overrides: Required<FirePlanningPreferences>["historical_series_overrides"],
+    fallbacks: Required<FirePlanningPreferences>["historical_series_fallbacks"],
   ) => void;
   controlsRef?: Ref<HTMLDivElement>;
 }) => {
@@ -67,8 +68,8 @@ const FireHistoricalSettings = ({
           preferences={preferences}
           showAgeInBonds={showAgeInBonds}
           onClose={() => onOpenChange(false)}
-          onApply={(overrides) => {
-            onApply(overrides);
+          onApply={(overrides, fallbacks) => {
+            onApply(overrides, fallbacks);
             onOpenChange(false);
           }}
         />

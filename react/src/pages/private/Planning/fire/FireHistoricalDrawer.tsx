@@ -3,9 +3,6 @@ import Drawer from "@mui/material/Drawer";
 import Stack from "@mui/material/Stack";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import ListSubheader from "@mui/material/ListSubheader";
-import MenuItem from "@mui/material/MenuItem";
-import Select from "@mui/material/Select";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
@@ -19,15 +16,17 @@ import {
 import { buildPortfolio, fireAllocationKey } from "../../Home/firePortfolio";
 import type { FireReturnSeriesKey } from "../../Home/fireReturnTypes";
 import type { FirePlanningPreferences } from "../api";
-import { CATEGORY_LABELS } from "../FireHistoricalDataControls";
+import { CATEGORY_LABELS } from "./fireHistoricalDatasets";
 import type { FireAllocationBucket } from "../fireAllocation";
 import {
-  DATASET_GROUPS,
   DATASET_LABELS,
   datasetPeriodLabel,
   datasetChoiceWarning,
   historicalSummary,
 } from "./fireHistoricalDatasets";
+
+import FireDatasetSelect from "./FireDatasetSelect";
+import FireHistoricalCoverage from "./FireHistoricalCoverage";
 
 type Overrides = Record<string, FireReturnSeriesKey>;
 const money = new Intl.NumberFormat("pt-BR", {
@@ -49,17 +48,27 @@ const FireHistoricalDrawer = ({
   allocation: readonly FireAllocationBucket[];
   preferences: Required<FirePlanningPreferences>;
   showAgeInBonds?: boolean;
-  onApply: (overrides: Overrides) => void;
+  onApply: (overrides: Overrides, fallbacks: Overrides) => void;
   onClose: () => void;
 }) => {
   const titleId = useId();
   const [overrides, setOverrides] = useState<Overrides>(() => ({
     ...preferences.historical_series_overrides,
   }));
+  const [fallbacks, setFallbacks] = useState<Overrides>(() => ({
+    ...preferences.historical_series_fallbacks,
+  }));
+  const [fallbackFields, setFallbackFields] = useState<Record<string, boolean>>(
+    {},
+  );
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const draft = useMemo(
-    () => ({ ...preferences, historical_series_overrides: overrides }),
-    [preferences, overrides],
+    () => ({
+      ...preferences,
+      historical_series_overrides: overrides,
+      historical_series_fallbacks: fallbacks,
+    }),
+    [preferences, overrides, fallbacks],
   );
   const summary = historicalSummary(allocation, draft, showAgeInBonds);
   const buckets = allocation
@@ -105,6 +114,13 @@ const FireHistoricalDrawer = ({
             <Text size={FontSizes.EXTRA_SMALL}>
               Período disponível: {summary.label}
             </Text>
+            {showAgeInBonds && (
+              <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral300}>
+                Período da aposentadoria antes dos 100 anos. A acumulação e a
+                fase a partir dos 100 anos podem usar períodos diferentes,
+                indicados em cada complemento.
+              </Text>
+            )}
             {summary.limiting.length > 0 && (
               <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral300}>
                 Limitado por:{" "}
@@ -147,7 +163,11 @@ const FireHistoricalDrawer = ({
               split && bucket.series
                 ? `${label} · ${DATASET_LABELS[bucket.series]}`
                 : label;
-            const series = buildPortfolio([bucket], draft)[0].series;
+            const slice = buildPortfolio([bucket], draft)[0];
+            const series = slice.series;
+            const fallbackWarning = slice.fallbackSeries
+              ? datasetChoiceWarning(bucket.category, slice.fallbackSeries)
+              : null;
             const assets = bucket.assets;
             const choiceWarning = datasetChoiceWarning(bucket.category, series);
             return (
@@ -177,60 +197,16 @@ const FireHistoricalDrawer = ({
                     {percent.format(bucket.total / total)}
                   </Text>
                 </Stack>
-                <Select
-                  size="small"
-                  fullWidth
+                <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral300}>
+                  Histórico principal
+                </Text>
+                <FireDatasetSelect
+                  label={`Histórico para ${name}`}
                   value={series}
-                  inputProps={{ "aria-label": `Histórico para ${name}` }}
-                  onChange={(event) =>
-                    setOverrides((current) => ({
-                      ...current,
-                      [key]: event.target.value as FireReturnSeriesKey,
-                    }))
+                  onChange={(value) =>
+                    setOverrides((current) => ({ ...current, [key]: value }))
                   }
-                  renderValue={(value) => DATASET_LABELS[value]}
-                  sx={{
-                    fontSize: getFontSize(FontSizes.EXTRA_SMALL),
-                    "& .MuiSelect-select": { py: 0.75 },
-                    "& fieldset": { borderColor: getColor(Colors.neutral600) },
-                    "&.Mui-focused fieldset": {
-                      borderColor: getColor(Colors.brand200),
-                    },
-                  }}
-                  MenuProps={{
-                    slotProps: {
-                      paper: { sx: { maxWidth: "calc(100vw - 32px)" } },
-                    },
-                  }}
-                >
-                  {DATASET_GROUPS.flatMap((group) => [
-                    <ListSubheader
-                      key={`group-${group.label}`}
-                      sx={{
-                        fontSize: getFontSize(FontSizes.EXTRA_SMALL),
-                        color: getColor(Colors.neutral300),
-                        backgroundColor: getColor(Colors.neutral800),
-                        lineHeight: "28px",
-                      }}
-                    >
-                      {group.label}
-                    </ListSubheader>,
-                    ...group.datasets.map((dataset) => (
-                      <MenuItem
-                        key={dataset}
-                        value={dataset}
-                        sx={{
-                          fontSize: getFontSize(FontSizes.EXTRA_SMALL),
-                          whiteSpace: "normal",
-                          pl: 3,
-                        }}
-                      >
-                        {DATASET_LABELS[dataset]} ·{" "}
-                        {datasetPeriodLabel(dataset)}
-                      </MenuItem>
-                    )),
-                  ])}
-                </Select>
+                />
                 <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral300}>
                   {datasetPeriodLabel(series)}
                 </Text>
@@ -255,6 +231,93 @@ const FireHistoricalDrawer = ({
                       {choiceWarning}
                     </Text>
                   </Stack>
+                )}
+                {slice.fallbackSeries || fallbackFields[key] ? (
+                  <Stack gap={0.75}>
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      justifyContent="space-between"
+                    >
+                      <Text
+                        size={FontSizes.EXTRA_SMALL}
+                        color={Colors.neutral300}
+                      >
+                        Histórico anterior
+                      </Text>
+                      <Button
+                        size="small"
+                        variant="brand-text"
+                        aria-label={`Remover histórico anterior para ${name}`}
+                        onClick={() => {
+                          setFallbacks((current) => {
+                            const next = { ...current };
+                            delete next[key];
+                            return next;
+                          });
+                          setFallbackFields((current) => ({
+                            ...current,
+                            [key]: false,
+                          }));
+                        }}
+                      >
+                        Remover
+                      </Button>
+                    </Stack>
+                    <FireDatasetSelect
+                      label={`Histórico anterior para ${name}`}
+                      value={slice.fallbackSeries ?? ""}
+                      onChange={(value) =>
+                        setFallbacks((current) => ({
+                          ...current,
+                          [key]: value,
+                        }))
+                      }
+                    />
+                    {fallbackWarning && (
+                      <Text
+                        role="status"
+                        size={FontSizes.EXTRA_SMALL}
+                        color={Colors.neutral300}
+                      >
+                        Histórico anterior: {fallbackWarning}
+                      </Text>
+                    )}
+                    {summary.phases
+                      .filter((phase) =>
+                        phase.portfolio.some(
+                          (item) =>
+                            item.category === slice.category &&
+                            item.series === slice.series,
+                        ),
+                      )
+                      .map((phase) => (
+                        <FireHistoricalCoverage
+                          key={phase.label}
+                          label={phase.label}
+                          slice={slice}
+                          months={phase.months}
+                        />
+                      ))}
+                  </Stack>
+                ) : (
+                  <Button
+                    variant="brand-text"
+                    size="small"
+                    sx={{
+                      alignSelf: "flex-start",
+                      p: 0,
+                      fontSize: getFontSize(FontSizes.EXTRA_SMALL),
+                    }}
+                    onClick={() =>
+                      setFallbackFields((current) => ({
+                        ...current,
+                        [key]: true,
+                      }))
+                    }
+                  >
+                    Complementar histórico anterior
+                  </Button>
                 )}
                 {assets ? (
                   <>
@@ -344,7 +407,7 @@ const FireHistoricalDrawer = ({
           <Button
             variant="brand"
             disabled={summary.period.count === 0}
-            onClick={() => onApply(overrides)}
+            onClick={() => onApply(overrides, fallbacks)}
           >
             Aplicar
           </Button>

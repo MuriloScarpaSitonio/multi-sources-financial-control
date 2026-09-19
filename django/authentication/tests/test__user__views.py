@@ -677,6 +677,7 @@ def test__partial_update__planning_preferences__fire_proxy_fields(client, user):
                     "crypto_proxy": "CMBI10",
                     "excluded_return_categories": ["FII", "FIXED_IPCA"],
                     "historical_series_overrides": {"FIXED_SELIC:IMA_S": "CDI"},
+                    "historical_series_fallbacks": {"FIXED_IPCA:IMA_B_5_PLUS": "IBOV"},
                 },
             }
         },
@@ -691,7 +692,17 @@ def test__partial_update__planning_preferences__fire_proxy_fields(client, user):
         "crypto_proxy": "CMBI10",
         "excluded_return_categories": ["FII", "FIXED_IPCA"],
         "historical_series_overrides": {"FIXED_SELIC:IMA_S": "CDI"},
+        "historical_series_fallbacks": {"FIXED_IPCA:IMA_B_5_PLUS": "IBOV"},
     }
+    response = client.patch(
+        f"{URL}/{user.pk}",
+        data={"planning_preferences": {"fire": {"historical_series_fallbacks": {}}}},
+        content_type="application/json",
+    )
+    assert response.status_code == HTTP_200_OK
+    user.refresh_from_db()
+    assert user.planning_preferences["fire"]["historical_series_fallbacks"] == {}
+    assert user.planning_preferences["fire"]["historical_series_overrides"] == {"FIXED_SELIC:IMA_S": "CDI"}
 
 
 def test__retrieve__translates_and_persists_legacy_ifix_preference(client, user):
@@ -934,3 +945,21 @@ def test__retrieve__includes_date_of_birth(client, user):
     assert response.status_code == HTTP_200_OK
     assert "date_of_birth" in response.json()
     assert response.json()["date_of_birth"] is None
+
+
+@pytest.mark.parametrize("value", [2100000.26, 0, None])
+def test__partial_update__planning_preferences__fire_patrimony(client, user, value):
+    response = client.patch(f"{URL}/{user.pk}", data={
+        "planning_preferences": {"selected_method": "fire", "fire": {"simulated_patrimony": value}}
+    }, content_type="application/json")
+    assert response.status_code == HTTP_200_OK, response.data
+    user.refresh_from_db()
+    assert user.planning_preferences["fire"]["simulated_patrimony"] == value
+
+
+def test__partial_update__planning_preferences__rejects_negative_fire_patrimony(client, user):
+    response = client.patch(f"{URL}/{user.pk}", data={
+        "planning_preferences": {"selected_method": "fire", "fire": {"simulated_patrimony": -1}}
+    }, content_type="application/json")
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert "simulated_patrimony" in response.data["planning_preferences"]["fire"]

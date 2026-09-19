@@ -35,7 +35,7 @@
     "dev": "vite",
     "start": "vite",
     "build": "tsc -b && vite build",
-    "test:components": "vitest src/pages/private/Planning/FireHistoricalDataControls.test.tsx",
+    "test:components": "vitest src/pages/private/Planning/fire",
     "test:fire": "tsx src/pages/private/Home/firePortfolio.test.ts && tsx src/pages/private/Home/fireBootstrap.test.ts",
     "preview": "vite preview",
     "lint": "eslint src --ext .ts,.tsx"

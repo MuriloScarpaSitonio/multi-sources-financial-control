@@ -1,7 +1,10 @@
 import {
   buildAgeInBondsPortfolio,
   buildPortfolio,
-  eligiblePeriod,
+  eligibleMonths,
+  historicalMonthsForSlice,
+  historicalSourceForMonth,
+  type PortfolioSlice,
 } from "../../Home/firePortfolio";
 import { FIRE_RETURN_SERIES } from "../../Home/fireReturns";
 import type {
@@ -101,6 +104,26 @@ export const datasetPeriodLabel = (key: FireReturnSeriesKey) => {
   const months = FIRE_RETURN_SERIES[key].months;
   return `${formatHistoricalMonth(months[0])}–${formatHistoricalMonth(months.at(-1))}`;
 };
+// Separate phases retain the calendar intersection used by each allocation.
+export const historicalPhases = (
+  base: readonly PortfolioSlice[],
+  showAgeInBonds: boolean,
+) =>
+  (showAgeInBonds
+    ? [
+        { label: "Acumulação", portfolio: [...base] },
+        {
+          label: "Aposentadoria · antes dos 100 anos",
+          portfolio: buildAgeInBondsPortfolio(base, 0.5),
+        },
+        {
+          label: "A partir dos 100 anos, se alcançados",
+          portfolio: buildAgeInBondsPortfolio(base, 0),
+        },
+      ]
+    : [{ label: "Histórico usado", portfolio: [...base] }]
+  ).map((phase) => ({ ...phase, months: eligibleMonths(phase.portfolio) }));
+
 export const historicalSummary = (
   allocation: readonly FireAllocationBucket[],
   preferences: Required<FirePlanningPreferences>,
@@ -121,34 +144,45 @@ export const historicalSummary = (
         .map((slice) => slice.series),
     ),
   ];
-  const period = eligiblePeriod(portfolio);
-  const keys = [
-    ...new Set(
-      portfolio
-        .filter((slice) => slice.constrainsSample)
-        .map((slice) => slice.series),
-    ),
-  ];
-  const limiting = keys.filter((key) => {
-    const months = FIRE_RETURN_SERIES[key].months;
-    return months[0] === period.first || months.at(-1) === period.last;
+  const months = eligibleMonths(portfolio);
+  const period = {
+    first: months[0] ?? null,
+    last: months.at(-1) ?? null,
+    count: months.length,
+  };
+  const sources = portfolio
+    .filter((slice) => slice.constrainsSample)
+    .map((slice) => ({ slice, months: historicalMonthsForSlice(slice) }));
+  const limiting = sources.flatMap((source) => {
+    const keys: FireReturnSeriesKey[] = [];
+    if (period.first && source.months[0] === period.first)
+      keys.push(historicalSourceForMonth(source.slice, period.first));
+    if (
+      period.last &&
+      source.months.at(-1) === period.last &&
+      sources.some((other) => (other.months.at(-1) ?? "") > period.last!)
+    )
+      keys.push(historicalSourceForMonth(source.slice, period.last));
+    return keys;
   });
-  // Sources sharing only the common latest month do not explain a shorter starting history.
-  const startLimiters = keys.filter(
-    (key) => FIRE_RETURN_SERIES[key].months[0] === period.first,
-  );
-  const endLimiters = limiting.filter(
-    (key) =>
-      FIRE_RETURN_SERIES[key].months.at(-1) === period.last &&
-      keys.some(
-        (other) =>
-          (FIRE_RETURN_SERIES[other].months.at(-1) ?? "") > (period.last ?? ""),
-      ),
-  );
   return {
     period,
+    phases: historicalPhases(base, showAgeInBonds),
+    months,
     additional,
-    limiting: [...new Set([...startLimiters, ...endLimiters])],
+    limiting: [...new Set(limiting)],
     label: `${formatHistoricalMonth(period.first)}–${formatHistoricalMonth(period.last)}`,
   };
+};
+
+export const CATEGORY_LABELS: Record<ReturnCategory, string> = {
+  BR_EQUITY: "Renda variável BR",
+  US_EQUITY: "Renda variável EUA",
+  GLOBAL_EQUITY: "Renda variável Global",
+  FII: "FII",
+  CRYPTO: "Cripto",
+  FIXED_CDI: "Renda fixa CDI",
+  FIXED_SELIC: "Renda fixa Selic",
+  FIXED_PREFIXED: "Renda fixa prefixada",
+  FIXED_IPCA: "Renda fixa IPCA",
 };

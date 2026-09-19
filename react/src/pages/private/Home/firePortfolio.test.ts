@@ -23,6 +23,7 @@ const assertDeepEqual = (
 const DEFAULT_FIRE_PREFERENCES = {
   withdrawal_rate: 4,
   target_years: 30,
+  simulated_patrimony: null,
   monthly_expenses_override: null,
   sampling_method: "independent_months",
   us_equity_proxy: "SPY",
@@ -30,6 +31,7 @@ const DEFAULT_FIRE_PREFERENCES = {
   crypto_proxy: "BTC",
   excluded_return_categories: [],
   historical_series_overrides: {},
+  historical_series_fallbacks: {},
 } satisfies Required<FirePlanningPreferences>;
 
 const allocation: FireAllocationBucket[] = [

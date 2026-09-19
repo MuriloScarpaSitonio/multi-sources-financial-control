@@ -126,15 +126,12 @@ const renderStudioIndicator = (onCalculationStateChange = vi.fn()) => {
       avgExpenses={10_000}
       isLoading={false}
       withdrawalRate={4}
-      onWithdrawalRateChange={vi.fn()}
       targetYears={30}
-      onTargetYearsChange={vi.fn()}
       portfolio={[]}
       samplingMethod="independent_months"
       monthlySavings={5_000}
       simulatedPatrimony={null}
       simulatedExpenses={null}
-      presentation="studio"
       onCalculationStateChange={onCalculationStateChange}
     />,
   );
@@ -151,9 +148,7 @@ const renderAgeInBondsStudioIndicator = (
       isLoading={false}
       dateOfBirth="1986-01-01"
       withdrawalRate={4}
-      onWithdrawalRateChange={vi.fn()}
       targetYears={30}
-      onTargetYearsChange={vi.fn()}
       portfolio={[]}
       samplingMethod="independent_months"
       fixedIncomeTotal={600_000}
@@ -161,7 +156,6 @@ const renderAgeInBondsStudioIndicator = (
       monthlySavings={5_000}
       simulatedPatrimony={null}
       simulatedExpenses={null}
-      presentation="studio"
       onCalculationStateChange={onCalculationStateChange}
     />,
   );
@@ -314,6 +308,57 @@ describe("studio result presentation", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("discloses a fallback used only during age-in-bonds accumulation", async () => {
+    vi.stubGlobal("Worker", FakeWorker);
+    renderStudio({ ...studioProps, draft: { ...studioDraft, showAgeInBonds: true, portfolio: [{ category: "US_EQUITY", series: "VTI", fallbackSeries: "SPY", weight: 1, constrainsSample: true }] } });
+    await waitFor(() => expect(FakeWorker.instances).toHaveLength(1));
+    act(() => FakeWorker.instances[0].respond(ageInBondsResult));
+    expect(screen.getByText("Histórico complementado")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Comparar sem complemento" })).toBeEnabled();
+  });
+
+  it("compares the submitted portfolio without changing its fallback choices", async () => {
+    vi.stubGlobal("Worker", FakeWorker);
+    const user = userEvent.setup();
+    const change = vi.fn();
+    renderStudio({
+      ...studioProps,
+      onHistoricalPreferenceChange: change,
+      draft: {
+        ...studioDraft,
+        portfolio: [
+          {
+            category: "FIXED_IPCA",
+            series: "IMA_B_5_PLUS",
+            fallbackSeries: "IBOV",
+            weight: 1,
+            constrainsSample: true,
+          },
+        ],
+      },
+    });
+    await waitFor(() => expect(FakeWorker.instances).toHaveLength(1));
+    act(() => FakeWorker.instances[0].respond(constantDollarResult));
+    expect(screen.getByText("Histórico complementado")).toBeVisible();
+    await user.click(
+      screen.getByRole("button", { name: "Comparar sem complemento" }),
+    );
+    await waitFor(() => expect(FakeWorker.instances).toHaveLength(2));
+    expect(
+      FakeWorker.instances[1].messages[0].request.input.portfolio[0],
+    ).not.toHaveProperty("fallbackSeries");
+    act(() => FakeWorker.instances[1].respond(constantDollarResult));
+    await user.click(
+      screen.getByRole("button", { name: "Voltar ao histórico complementado" }),
+    );
+    await waitFor(() => expect(FakeWorker.instances).toHaveLength(3));
+    expect(
+      FakeWorker.instances[2].messages[0].request.input.portfolio[0]
+        .fallbackSeries,
+    ).toBe("IBOV");
+    expect(change).not.toHaveBeenCalled();
+  });
+
   it("keeps draft edits out of the worker until recalculation", async () => {
     vi.stubGlobal("Worker", FakeWorker);
     const user = userEvent.setup();
@@ -329,7 +374,7 @@ describe("studio result presentation", () => {
       FakeWorker.instances[0].respond(constantDollarResult);
     });
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Recalcular" })).toBeEnabled(),
+      expect(screen.getByRole("button", { name: "Recalcular" })).toBeDisabled(),
     );
 
     const updatedPortfolio = [
@@ -384,7 +429,7 @@ describe("studio result presentation", () => {
       expect(
         screen.queryByTestId("fire-results-skeleton"),
       ).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Recalcular" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Recalcular" })).toBeDisabled();
     });
   });
 
@@ -413,6 +458,7 @@ describe("studio result presentation", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Não foi possível recalcular a simulação",
     );
+    expect(screen.getByRole("button", { name: "Recalcular" })).toBeEnabled();
     expect(
       screen.getByRole("textbox", { name: "Taxa de retirada" }),
     ).toHaveValue("5% a.a.");

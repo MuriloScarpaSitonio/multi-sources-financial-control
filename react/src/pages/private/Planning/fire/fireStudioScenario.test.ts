@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildFireStudioSnapshot,
+  withoutHistoricalFallbacks,
   resubmitFireStudioSnapshot,
   type FireStudioDraft,
 } from "./fireStudioScenario";
@@ -119,3 +120,28 @@ describe("buildFireStudioSnapshot", () => {
     expect(second.portfolio).not.toBe(first.portfolio);
   });
 });
+
+it.each([false, true])(
+  "compares primary-only history without mutating the submitted scenario (age in bonds: %s)",
+  (showAgeInBonds) => {
+    const original = buildFireStudioSnapshot({
+      ...baseDraft,
+      showAgeInBonds,
+      portfolio: [
+        {
+          category: "FIXED_IPCA",
+          series: "IMA_B_5_PLUS",
+          fallbackSeries: "IBOV",
+          weight: 1,
+          constrainsSample: true,
+        },
+      ],
+    })!;
+    const comparison = withoutHistoricalFallbacks(original);
+    expect(comparison.portfolio[0]).not.toHaveProperty("fallbackSeries");
+    expect(comparison.request?.input.portfolio).toEqual(comparison.portfolio);
+    expect(original.portfolio[0].fallbackSeries).toBe("IBOV");
+    expect(comparison.effectivePatrimony).toBe(original.effectivePatrimony);
+    expect(comparison.samplingMethod).toBe(original.samplingMethod);
+  },
+);

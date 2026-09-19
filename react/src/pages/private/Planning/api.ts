@@ -27,6 +27,7 @@ export type PlanningPreferences = {
 };
 
 export type FirePlanningPreferences = {
+  simulated_patrimony?: number | null;
   withdrawal_rate?: number;
   target_years?: number;
   monthly_expenses_override?: number | null;
@@ -36,9 +37,11 @@ export type FirePlanningPreferences = {
   crypto_proxy?: CryptoProxy;
   excluded_return_categories?: ReturnCategory[];
   historical_series_overrides?: Record<string, FireReturnSeriesKey>;
+  historical_series_fallbacks?: Record<string, FireReturnSeriesKey>;
 };
 
 export const DEFAULT_FIRE_PREFERENCES = {
+  simulated_patrimony: null,
   withdrawal_rate: 4,
   target_years: 30,
   monthly_expenses_override: null,
@@ -48,6 +51,7 @@ export const DEFAULT_FIRE_PREFERENCES = {
   crypto_proxy: "BTC",
   excluded_return_categories: [],
   historical_series_overrides: {},
+  historical_series_fallbacks: {},
 } satisfies Required<FirePlanningPreferences>;
 
 export const getFirePlanningPreferences = (

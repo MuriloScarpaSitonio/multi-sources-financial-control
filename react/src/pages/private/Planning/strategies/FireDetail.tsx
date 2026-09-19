@@ -1,14 +1,9 @@
+import type { ReactNode } from "react";
+import { FontSizes } from "../../../../design-system";
 import { useLayoutEffect, useMemo, useState } from "react";
 
-import FormControlLabel from "@mui/material/FormControlLabel";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import Switch from "@mui/material/Switch";
-import ToggleButton from "@mui/material/ToggleButton";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 
-import ConstantDollarAgeInBondsIndicator from "../../Home/ConstantDollarAgeInBondsIndicator";
-import ConstantDollarIndicator from "../../Home/ConstantDollarIndicator";
 import { buildPortfolio } from "../../Home/firePortfolio";
 import type {
   CryptoProxy,
@@ -20,7 +15,6 @@ import type {
 import AgeInBondsExplainer from "../AgeInBondsExplainer";
 import { getFirePlanningPreferences, type PlanningPreferences } from "../api";
 import DefaultsPanel from "../DefaultsPanel";
-import FireHistoricalSettings from "../fire/FireHistoricalSettings";
 import {
   useFireAllocation,
   type FireAllocationBucket,
@@ -89,20 +83,21 @@ const FireDetail = () => {
   const [historicalSeriesOverrides, setHistoricalSeriesOverrides] = useState(
     firePreferences.historical_series_overrides,
   );
+  const [historicalSeriesFallbacks, setHistoricalSeriesFallbacks] = useState(
+    firePreferences.historical_series_fallbacks,
+  );
   const [showAgeInBonds, setShowAgeInBonds] = useState(
     preferences?.show_age_in_bonds ?? false,
   );
-  // Local what-if state — never persisted (no FIRE monthly_savings field).
   const [simulatedPatrimony, setSimulatedPatrimony] = useState<number | null>(
-    null,
+    firePreferences.simulated_patrimony,
   );
   const [monthlySavingsOverride, setMonthlySavingsOverride] = useState<
     number | null
   >(null);
-  const [historicalDrawerOpen, setHistoricalDrawerOpen] = useState(false);
-  const [view, setView] = useState<"legacy" | "new">("new");
 
   useLayoutEffect(() => {
+    setSimulatedPatrimony(firePreferences.simulated_patrimony);
     setWithdrawalRate(firePreferences.withdrawal_rate);
     setTargetYears(firePreferences.target_years);
     setExpensesOverride(firePreferences.monthly_expenses_override);
@@ -112,8 +107,11 @@ const FireDetail = () => {
     setCryptoProxy(firePreferences.crypto_proxy);
     setExcludedReturnCategories(firePreferences.excluded_return_categories);
     setHistoricalSeriesOverrides(firePreferences.historical_series_overrides);
+    setHistoricalSeriesFallbacks(firePreferences.historical_series_fallbacks);
   }, [
+    firePreferences.simulated_patrimony,
     firePreferences.historical_series_overrides,
+    firePreferences.historical_series_fallbacks,
     firePreferences.crypto_proxy,
     firePreferences.excluded_return_categories,
     firePreferences.global_equity_proxy,
@@ -158,6 +156,7 @@ const FireDetail = () => {
     () => ({
       withdrawal_rate: withdrawalRate,
       target_years: targetYears,
+      simulated_patrimony: simulatedPatrimony,
       monthly_expenses_override: expensesOverride,
       sampling_method: samplingMethod,
       us_equity_proxy: usEquityProxy,
@@ -165,11 +164,14 @@ const FireDetail = () => {
       crypto_proxy: cryptoProxy,
       excluded_return_categories: excludedReturnCategories,
       historical_series_overrides: historicalSeriesOverrides,
+      historical_series_fallbacks: historicalSeriesFallbacks,
     }),
     [
       cryptoProxy,
       historicalSeriesOverrides,
+      historicalSeriesFallbacks,
       excludedReturnCategories,
+      simulatedPatrimony,
       expensesOverride,
       globalEquityProxy,
       samplingMethod,
@@ -187,8 +189,11 @@ const FireDetail = () => {
     () =>
       isActive &&
       !!planningData &&
-      (JSON.stringify(historicalSeriesOverrides) !==
-        JSON.stringify(firePreferences.historical_series_overrides) ||
+      (JSON.stringify(historicalSeriesFallbacks) !==
+        JSON.stringify(firePreferences.historical_series_fallbacks) ||
+        JSON.stringify(historicalSeriesOverrides) !==
+          JSON.stringify(firePreferences.historical_series_overrides) ||
+        simulatedPatrimony !== firePreferences.simulated_patrimony ||
         withdrawalRate !== firePreferences.withdrawal_rate ||
         targetYears !== firePreferences.target_years ||
         expensesOverride !== firePreferences.monthly_expenses_override ||
@@ -204,8 +209,11 @@ const FireDetail = () => {
       planningData,
       cryptoProxy,
       historicalSeriesOverrides,
+      historicalSeriesFallbacks,
       excludedReturnCategories,
       firePreferences.historical_series_overrides,
+      firePreferences.historical_series_fallbacks,
+      firePreferences.simulated_patrimony,
       firePreferences.monthly_expenses_override,
       firePreferences.sampling_method,
       firePreferences.target_years,
@@ -218,6 +226,7 @@ const FireDetail = () => {
       preferences,
       withdrawalRate,
       targetYears,
+      simulatedPatrimony,
       expensesOverride,
       samplingMethod,
       usEquityProxy,
@@ -233,6 +242,7 @@ const FireDetail = () => {
       fire: {
         withdrawal_rate: withdrawalRate,
         target_years: targetYears,
+        simulated_patrimony: simulatedPatrimony,
         monthly_expenses_override: expensesOverride,
         sampling_method: samplingMethod,
         us_equity_proxy: usEquityProxy,
@@ -240,6 +250,7 @@ const FireDetail = () => {
         crypto_proxy: cryptoProxy,
         excluded_return_categories: excludedReturnCategories,
         historical_series_overrides: historicalSeriesOverrides,
+        historical_series_fallbacks: historicalSeriesFallbacks,
       },
       show_age_in_bonds: showAgeInBonds,
     };
@@ -250,14 +261,14 @@ const FireDetail = () => {
     ? (AGE_IN_BONDS_TITLES[METHOD]?.title ?? content.title)
     : content.title;
 
-  const monthlySavings = monthlySavingsOverride ?? derivedMonthlySavings;
-
   const handleHistoricalPreferenceChange = <
     K extends keyof typeof localFirePreferences,
   >(
     field: K,
     value: (typeof localFirePreferences)[K],
   ) => {
+    if (field === "historical_series_fallbacks")
+      setHistoricalSeriesFallbacks(value as typeof historicalSeriesFallbacks);
     if (field === "historical_series_overrides")
       setHistoricalSeriesOverrides(value as typeof historicalSeriesOverrides);
     if (field === "us_equity_proxy") {
@@ -271,17 +282,6 @@ const FireDetail = () => {
       setExcludedReturnCategories(value as ReturnCategory[]);
     }
   };
-
-  const historicalDataControls = (
-    <FireHistoricalSettings
-      allocation={allocation}
-      preferences={localFirePreferences}
-      showAgeInBonds={showAgeInBonds}
-      open={historicalDrawerOpen}
-      onOpenChange={setHistoricalDrawerOpen}
-      onApply={setHistoricalSeriesOverrides}
-    />
-  );
 
   const studioDraft = useMemo<FireStudioDraft>(
     () => ({
@@ -316,139 +316,45 @@ const FireDetail = () => {
     ],
   );
 
-  const indicator = showAgeInBonds ? (
-    <ConstantDollarAgeInBondsIndicator
-      patrimonyTotal={patrimonyTotal}
-      avgExpenses={avgExpenses}
-      isLoading={isDataLoading}
-      persistEnabled={isActive}
-      isPersisting={isUpdating}
-      dateOfBirth={dateOfBirth}
-      withdrawalRate={withdrawalRate}
-      onWithdrawalRateChange={setWithdrawalRate}
-      targetYears={targetYears}
-      onTargetYearsChange={setTargetYears}
-      portfolio={portfolio}
-      samplingMethod={samplingMethod}
-      onSamplingMethodChange={setSamplingMethod}
-      historicalDataControls={historicalDataControls}
-      fixedIncomeTotal={fixedIncomeTotal}
-      variableIncomeTotal={variableIncomeTotal}
-      monthlySavings={monthlySavings}
-      defaultMonthlySavings={derivedMonthlySavings}
-      onMonthlySavingsChange={setMonthlySavingsOverride}
-      onMonthlySavingsReset={() => setMonthlySavingsOverride(null)}
-      isMonthlySavingsOverridden={monthlySavingsOverride !== null}
-      simulatedExpenses={expensesOverride}
-      onSimulatedExpensesChange={setExpensesOverride}
-      simulatedPatrimony={simulatedPatrimony}
-      onSimulatedPatrimonyChange={setSimulatedPatrimony}
-    />
-  ) : (
-    <ConstantDollarIndicator
-      patrimonyTotal={patrimonyTotal}
-      avgExpenses={avgExpenses}
-      isLoading={isDataLoading}
-      persistEnabled={isActive}
-      isPersisting={isUpdating}
-      withdrawalRate={withdrawalRate}
-      onWithdrawalRateChange={setWithdrawalRate}
-      targetYears={targetYears}
-      onTargetYearsChange={setTargetYears}
-      portfolio={portfolio}
-      samplingMethod={samplingMethod}
-      onSamplingMethodChange={setSamplingMethod}
-      historicalDataControls={historicalDataControls}
-      monthlySavings={monthlySavings}
-      defaultMonthlySavings={derivedMonthlySavings}
-      onMonthlySavingsChange={setMonthlySavingsOverride}
-      onMonthlySavingsReset={() => setMonthlySavingsOverride(null)}
-      isMonthlySavingsOverridden={monthlySavingsOverride !== null}
-      dateOfBirth={dateOfBirth}
-      simulatedPatrimony={simulatedPatrimony}
-      onSimulatedPatrimonyChange={setSimulatedPatrimony}
-      simulatedExpenses={expensesOverride}
-      onSimulatedExpensesChange={setExpensesOverride}
+  const renderHeader = (recalculate?: ReactNode) => (
+    <StrategyHeader
+      sticky
+      title={displayTitle}
+      titleSize={FontSizes.REGULAR}
+      isActive={isActive}
+      isMutating={isUpdating}
+      onSelect={handleSelect}
+      isDirty={isDirty}
+      onSave={handleSave}
+      activeBadgeByTitle
+      actions={recalculate}
     />
   );
 
   return (
     <Stack spacing={3} pb={3}>
-      <StrategyHeader
-        title={displayTitle}
-        subtitle={content.subtitle}
-        isActive={isActive}
-        isMutating={isUpdating}
-        onSelect={handleSelect}
-        isDirty={isDirty}
-        onSave={handleSave}
-        actions={
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={view}
-            onChange={(_, next: "legacy" | "new" | null) => {
-              if (next) setView(next);
-            }}
-            aria-label="Visualização FIRE"
-          >
-            <ToggleButton value="legacy">Legacy</ToggleButton>
-            <ToggleButton value="new">New</ToggleButton>
-          </ToggleButtonGroup>
-        }
+      <FireSimulationStudio
+        renderHeader={renderHeader}
+        draft={studioDraft}
+        allocation={allocation}
+        firePreferences={localFirePreferences}
+        dateOfBirth={dateOfBirth}
+        fixedIncomeTotal={fixedIncomeTotal}
+        variableIncomeTotal={variableIncomeTotal}
+        isPersisting={isUpdating}
+        onSimulatedPatrimonyChange={setSimulatedPatrimony}
+        onExpensesChange={setExpensesOverride}
+        onMonthlySavingsChange={setMonthlySavingsOverride}
+        onWithdrawalRateChange={setWithdrawalRate}
+        onTargetYearsChange={setTargetYears}
+        onSamplingMethodChange={setSamplingMethod}
+        onShowAgeInBondsChange={setShowAgeInBonds}
+        onHistoricalPreferenceChange={handleHistoricalPreferenceChange}
       />
-
-      {view === "legacy" ? (
-        <Paper
-          data-testid="fire-legacy-view"
-          elevation={1}
-          sx={{ p: 3, borderRadius: 2 }}
-        >
-          {indicator}
-        </Paper>
-      ) : (
-        <FireSimulationStudio
-          draft={studioDraft}
-          allocation={allocation}
-          firePreferences={localFirePreferences}
-          dateOfBirth={dateOfBirth}
-          fixedIncomeTotal={fixedIncomeTotal}
-          variableIncomeTotal={variableIncomeTotal}
-          isPersisting={isUpdating}
-          onSimulatedPatrimonyChange={setSimulatedPatrimony}
-          onExpensesChange={setExpensesOverride}
-          onMonthlySavingsChange={setMonthlySavingsOverride}
-          onWithdrawalRateChange={setWithdrawalRate}
-          onTargetYearsChange={setTargetYears}
-          onSamplingMethodChange={setSamplingMethod}
-          onShowAgeInBondsChange={setShowAgeInBonds}
-          onHistoricalPreferenceChange={handleHistoricalPreferenceChange}
-        />
-      )}
-
-      {(view === "new" || showAgeInBonds) && (
-        <DefaultsPanel
-          items={content.defaultsExplained}
-          extra={<FireMethodologyWalkthrough />}
-        />
-      )}
-
-      {view === "legacy" && (
-        <Stack gap={1}>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={showAgeInBonds}
-                onChange={(_, value) => setShowAgeInBonds(value)}
-                disabled={isUpdating}
-                size="small"
-              />
-            }
-            label="Alocação Idade em Renda Fixa"
-            slotProps={{ typography: { variant: "caption" } }}
-          />
-        </Stack>
-      )}
+      <DefaultsPanel
+        items={content.defaultsExplained}
+        extra={<FireMethodologyWalkthrough />}
+      />
 
       {showAgeInBonds && (
         <AgeInBondsExplainer

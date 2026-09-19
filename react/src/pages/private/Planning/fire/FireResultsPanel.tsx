@@ -66,17 +66,13 @@ const FireResultsPanel = ({
         avgExpenses={input.annualExpenses / 12}
         isLoading={false}
         withdrawalRate={input.withdrawalRate}
-        onWithdrawalRateChange={() => undefined}
         targetYears={input.targetYears}
-        onTargetYearsChange={() => undefined}
         portfolio={input.portfolio}
         samplingMethod={input.samplingMethod}
         monthlySavings={input.annualSavings / 12}
-        defaultMonthlySavings={input.annualSavings / 12}
         dateOfBirth={dateOfBirth}
         simulatedPatrimony={input.simulatedPatrimony}
         simulatedExpenses={null}
-        presentation="studio"
         simulationRequestOverride={snapshot.request}
         onCalculationStateChange={onCalculationStateChange}
       />
@@ -90,22 +86,18 @@ const FireResultsPanel = ({
         isLoading={false}
         dateOfBirth={dateOfBirth}
         withdrawalRate={input.withdrawalRate}
-        onWithdrawalRateChange={() => undefined}
         targetYears={input.targetYears}
-        onTargetYearsChange={() => undefined}
         portfolio={input.portfolio}
         samplingMethod={input.samplingMethod}
         fixedIncomeTotal={fixedIncomeTotal}
         variableIncomeTotal={variableIncomeTotal}
         monthlySavings={input.annualSavings / 12}
-        defaultMonthlySavings={input.annualSavings / 12}
         simulatedPatrimony={
           input.effectivePatrimony === snapshot.patrimonyTotal
             ? null
             : input.effectivePatrimony
         }
         simulatedExpenses={null}
-        presentation="studio"
         simulationRequestOverride={snapshot.request}
         onCalculationStateChange={onCalculationStateChange}
       />

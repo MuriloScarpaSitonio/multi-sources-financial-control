@@ -17,24 +17,30 @@ import {
 
 type StrategyHeaderProps = {
   title: ReactNode;
-  subtitle: string;
+  subtitle?: string;
+  titleSize?: FontSizes;
   isActive: boolean;
   isMutating: boolean;
   onSelect: () => void;
   isDirty: boolean;
   onSave: () => void;
   actions?: ReactNode;
+  sticky?: boolean;
+  activeBadgeByTitle?: boolean;
 };
 
 const StrategyHeader = ({
   title,
   subtitle,
+  titleSize = FontSizes.LARGE,
   isActive,
   isMutating,
   onSelect,
   isDirty,
   onSave,
   actions,
+  sticky = false,
+  activeBadgeByTitle = false,
 }: StrategyHeaderProps) => (
   <>
     <Link
@@ -52,6 +58,18 @@ const StrategyHeader = ({
     </Link>
 
     <Stack
+      role={sticky ? "region" : undefined}
+      aria-label={sticky ? "Ações do cenário" : undefined}
+      sx={
+        sticky
+          ? {
+              position: "sticky",
+              top: { xs: 56, sm: 64 },
+              zIndex: 10,
+              backgroundColor: getColor(Colors.neutral900),
+            }
+          : undefined
+      }
       direction="row"
       justifyContent="space-between"
       alignItems="center"
@@ -59,12 +77,29 @@ const StrategyHeader = ({
       gap={1}
     >
       <Stack gap={0.5}>
-        <Text weight={FontWeights.SEMI_BOLD} size={FontSizes.LARGE}>
-          {title}
-        </Text>
-        <Text size={FontSizes.SMALL} color={Colors.neutral400}>
-          {subtitle}
-        </Text>
+        <Stack
+          data-testid="strategy-title"
+          direction="row"
+          alignItems="center"
+          gap={1}
+        >
+          <Text weight={FontWeights.SEMI_BOLD} size={titleSize}>
+            {title}
+          </Text>
+          {isActive && activeBadgeByTitle && (
+            <Chip
+              icon={<CheckCircleIcon />}
+              label="Estratégia ativa"
+              color="success"
+              size="small"
+            />
+          )}
+        </Stack>
+        {subtitle && (
+          <Text size={FontSizes.SMALL} color={Colors.neutral400}>
+            {subtitle}
+          </Text>
+        )}
       </Stack>
       <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
         {actions}
@@ -81,12 +116,14 @@ const StrategyHeader = ({
                 Salvar alterações
               </Button>
             )}
-            <Chip
-              icon={<CheckCircleIcon />}
-              label="Estratégia ativa"
-              color="success"
-              size="small"
-            />
+            {!activeBadgeByTitle && (
+              <Chip
+                icon={<CheckCircleIcon />}
+                label="Estratégia ativa"
+                color="success"
+                size="small"
+              />
+            )}
           </>
         ) : (
           <Button

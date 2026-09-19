@@ -128,9 +128,7 @@ const PlanningHub = () => {
         avgExpenses={avgExpenses}
         isLoading={isDataLoading || isReportsLoading || isFireAllocationLoading}
         withdrawalRate={firePreferences.withdrawal_rate}
-        onWithdrawalRateChange={() => {}}
         targetYears={firePreferences.target_years}
-        onTargetYearsChange={() => {}}
         portfolio={firePortfolio}
         samplingMethod={firePreferences.sampling_method}
         simulatedExpenses={firePreferences.monthly_expenses_override}

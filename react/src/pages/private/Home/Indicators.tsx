@@ -226,9 +226,7 @@ const Indicators = () => {
                     isLoading={isLoading || isExpensesIndicatorsLoading || isFireAllocationLoading}
                     dateOfBirth={dateOfBirth}
                     withdrawalRate={firePreferences.withdrawal_rate}
-                    onWithdrawalRateChange={() => {}}
                     targetYears={firePreferences.target_years}
-                    onTargetYearsChange={() => {}}
                     portfolio={firePortfolio}
                     samplingMethod={firePreferences.sampling_method}
                     fixedIncomeTotal={fixedIncomeTotal}
@@ -244,9 +242,7 @@ const Indicators = () => {
                     avgExpenses={expensesIndicators?.fire_avg ?? 0}
                     isLoading={isLoading || isExpensesIndicatorsLoading || isFireAllocationLoading}
                     withdrawalRate={firePreferences.withdrawal_rate}
-                    onWithdrawalRateChange={() => {}}
                     targetYears={firePreferences.target_years}
-                    onTargetYearsChange={() => {}}
                     portfolio={firePortfolio}
                     samplingMethod={firePreferences.sampling_method}
                     monthlySavings={monthlySavings}

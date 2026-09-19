@@ -42,6 +42,7 @@ export type FireScenarioPanelProps = {
   targetYears: number;
   samplingMethod: SamplingMethod;
   showAgeInBonds: boolean;
+  canRecalculate?: boolean;
   isCalculating: boolean;
   isPersisting: boolean;
   advancedOpen: boolean;
@@ -75,6 +76,7 @@ const FireScenarioPanel = ({
   targetYears,
   samplingMethod,
   showAgeInBonds,
+  canRecalculate = true,
   isCalculating,
   isPersisting,
   advancedOpen,
@@ -232,12 +234,16 @@ const FireScenarioPanel = ({
                 open={advancedOpen}
                 onOpenChange={onAdvancedOpenChange}
                 controlsRef={historicalControlsRef}
-                onApply={(overrides) =>
+                onApply={(overrides, fallbacks) => {
                   onHistoricalPreferenceChange(
                     "historical_series_overrides",
                     overrides,
-                  )
-                }
+                  );
+                  onHistoricalPreferenceChange(
+                    "historical_series_fallbacks",
+                    fallbacks,
+                  );
+                }}
               />
               <Stack direction="row" alignItems="center" gap={0.5}>
                 <FormControlLabel
@@ -318,7 +324,7 @@ const FireScenarioPanel = ({
           variant="contained"
           color="success"
           fullWidth
-          disabled={isCalculating}
+          disabled={isCalculating || isPersisting || !canRecalculate}
           onClick={onRecalculate}
         >
           {isCalculating ? "Recalculando…" : "Recalcular"}

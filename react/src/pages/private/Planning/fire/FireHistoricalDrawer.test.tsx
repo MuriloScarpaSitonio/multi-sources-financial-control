@@ -87,6 +87,7 @@ it("previews history and affected assets, cancels locally, and applies only on r
   await user.click(screen.getByRole("button", { name: "Aplicar" }));
   expect(onApply).toHaveBeenCalledWith(
     expect.objectContaining({ "FIXED_SELIC:IMA_S": "CDI" }),
+    {},
   );
 });
 
@@ -184,7 +185,7 @@ it("flags an unusual dataset without blocking it, and clears the warning for a m
     screen.getByText(/Escolha atípica: IMA-S representa renda fixa/),
   ).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Aplicar" }));
-  expect(onApply).toHaveBeenCalledWith({ "CRYPTO:default": "IMA_S" });
+  expect(onApply).toHaveBeenCalledWith({ "CRYPTO:default": "IMA_S" }, {});
   await user.click(select);
   await user.click(screen.getByRole("option", { name: /^CMBI 10/ }));
   expect(screen.queryByText(/Escolha atípica/)).not.toBeInTheDocument();
@@ -218,4 +219,39 @@ it("groups historical options and skips group headings during keyboard selection
   }
   await user.keyboard("{ArrowDown}{Enter}");
   expect(select).toHaveTextContent("SPY · S&P 500");
+});
+
+it("drafts an earlier dataset, previews its contribution, and applies or removes it explicitly", async () => {
+  const user = userEvent.setup();
+  const onApply = vi.fn();
+  render(
+    <FireHistoricalDrawer
+      allocation={allocation}
+      preferences={DEFAULT_FIRE_PREFERENCES}
+      onApply={onApply}
+      onClose={vi.fn()}
+    />,
+  );
+  await user.click(
+    screen.getAllByRole("button", {
+      name: "Complementar histórico anterior",
+    })[0],
+  );
+  await user.click(
+    screen.getByRole("combobox", {
+      name: "Histórico anterior para Renda fixa Selic",
+    }),
+  );
+  await user.click(screen.getByRole("option", { name: /^CDI ·/ }));
+  expect(screen.getByText(/complementado · .*principal/)).toBeVisible();
+  expect(onApply).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Aplicar" }));
+  expect(onApply).toHaveBeenLastCalledWith({}, { "FIXED_SELIC:IMA_S": "CDI" });
+  await user.click(
+    screen.getByRole("button", {
+      name: "Remover histórico anterior para Renda fixa Selic",
+    }),
+  );
+  await user.click(screen.getByRole("button", { name: "Aplicar" }));
+  expect(onApply).toHaveBeenLastCalledWith({}, {});
 });

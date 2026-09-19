@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import Alert from "@mui/material/Alert";
-import FormControlLabel from "@mui/material/FormControlLabel";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
-import Switch from "@mui/material/Switch";
 import Tooltip from "@mui/material/Tooltip";
-import LinearProgress, { linearProgressClasses } from "@mui/material/LinearProgress";
+import LinearProgress, {
+  linearProgressClasses,
+} from "@mui/material/LinearProgress";
 import { styled } from "@mui/material/styles";
 
 import {
@@ -29,11 +29,7 @@ import {
 } from "../../../design-system";
 import { useHideValues } from "../../../hooks/useHideValues";
 import { formatCurrency } from "../utils";
-import ExpenseSimulator from "./ExpenseSimulator";
 import FireSimulationResults from "./FireSimulationResults";
-import PatrimonySimulator from "./PatrimonySimulator";
-import PersistedSlider from "./PersistedSlider";
-import SavingsSimulator from "./SavingsSimulator";
 import type { PortfolioSlice } from "./firePortfolio";
 import type { BootstrapBand } from "./fireBootstrap";
 import type { FireSimulationRequest } from "./fireSimulation";
@@ -53,7 +49,9 @@ const ProgressBar = styled(LinearProgress)(({ value }) => ({
   [`& .${linearProgressClasses.bar}`]: {
     borderRadius: 10,
     backgroundColor:
-      value && value >= 100 ? getColor(Colors.brand) : getColor(Colors.danger200),
+      value && value >= 100
+        ? getColor(Colors.brand)
+        : getColor(Colors.danger200),
   },
 }));
 
@@ -103,7 +101,8 @@ const ChartTooltipContent = ({
       <p style={{ color: getColor(Colors.neutral300) }}>Ano {data.year}</p>
       {showPessimista && (
         <p style={{ color: getColor(Colors.danger200) }}>
-          Pessimista ({pessimistaPercentile}): {hideValues ? "***" : valueFormatter(pessimistaValue)}
+          Pessimista ({pessimistaPercentile}):{" "}
+          {hideValues ? "***" : valueFormatter(pessimistaValue)}
         </p>
       )}
       {showMediana && (
@@ -113,72 +112,8 @@ const ChartTooltipContent = ({
       )}
       {showOtimista && (
         <p style={{ color: getColor(Colors.brand) }}>
-          Otimista ({otimistaPercentile}): {hideValues ? "***" : valueFormatter(otimistaValue)}
-        </p>
-      )}
-    </Stack>
-  );
-};
-
-type DrawdownPoint = {
-  age: number;
-  year: number;
-  balanceP10: number;
-  balanceP50: number;
-  balanceP90: number;
-  withdrawalP10: number | null;
-  withdrawalP50: number | null;
-  withdrawalP90: number | null;
-};
-
-const DrawdownTooltipContent = ({
-  active,
-  payload,
-  hideValues,
-  showOtimista = true,
-  showMediana = true,
-  showPessimista = true,
-  xLabel = "Idade",
-}: {
-  active?: boolean;
-  payload?: { payload: DrawdownPoint }[];
-  hideValues?: boolean;
-  showOtimista?: boolean;
-  showMediana?: boolean;
-  showPessimista?: boolean;
-  xLabel?: string;
-}) => {
-  if (!active || !payload?.length) return null;
-  const data = payload[0].payload;
-  const fmtBal = (v: number) => (hideValues ? "***" : formatCurrency(v));
-  const fmtWd = (v: number | null) =>
-    v === null ? "—" : hideValues ? "***" : `${formatCurrency(v / 12)}/mês`;
-  return (
-    <Stack
-      spacing={0.5}
-      sx={{
-        border: "1px solid",
-        p: 1,
-        borderColor: getColor(Colors.brand400),
-        backgroundColor: getColor(Colors.neutral600),
-      }}
-    >
-      <p style={{ color: getColor(Colors.neutral300) }}>
-        {xLabel}: {xLabel === "Idade" ? data.age : data.year}
-      </p>
-      {showPessimista && (
-        <p style={{ color: getColor(Colors.danger200) }}>
-          Pessimista (p10): {fmtBal(data.balanceP10)} · {fmtWd(data.withdrawalP10)}
-        </p>
-      )}
-      {showMediana && (
-        <p style={{ color: getColor(Colors.brand200) }}>
-          Mediana (p50): {fmtBal(data.balanceP50)} · {fmtWd(data.withdrawalP50)}
-        </p>
-      )}
-      {showOtimista && (
-        <p style={{ color: getColor(Colors.brand) }}>
-          Otimista (p90): {fmtBal(data.balanceP90)} · {fmtWd(data.withdrawalP90)}
+          Otimista ({otimistaPercentile}):{" "}
+          {hideValues ? "***" : valueFormatter(otimistaValue)}
         </p>
       )}
     </Stack>
@@ -190,29 +125,16 @@ const ConstantDollarIndicator = ({
   avgExpenses,
   isLoading,
   withdrawalRate,
-  onWithdrawalRateChange,
   targetYears,
-  onTargetYearsChange,
   portfolio,
   samplingMethod,
-  onSamplingMethodChange,
-  historicalDataControls,
   monthlySavings = 0,
-  defaultMonthlySavings = 0,
-  onMonthlySavingsChange,
-  onMonthlySavingsReset,
-  isMonthlySavingsOverridden = false,
   dateOfBirth = null,
   compact = false,
   hideLabel = false,
-  persistEnabled = false,
-  isPersisting = false,
-  simulatedPatrimony: simulatedPatrimonyProp,
-  onSimulatedPatrimonyChange,
-  simulatedExpenses: simulatedExpensesProp,
-  onSimulatedExpensesChange,
+  simulatedPatrimony = null,
+  simulatedExpenses = null,
   onProgressClick,
-  presentation = "legacy",
   onCalculationStateChange,
   simulationRequestOverride,
 }: {
@@ -220,67 +142,23 @@ const ConstantDollarIndicator = ({
   avgExpenses: number;
   isLoading: boolean;
   withdrawalRate: number;
-  onWithdrawalRateChange: (value: number) => void;
   targetYears: number;
-  onTargetYearsChange: (value: number) => void;
   portfolio: readonly PortfolioSlice[];
   samplingMethod: SamplingMethod;
-  onSamplingMethodChange?: (value: SamplingMethod) => void;
-  historicalDataControls?: ReactNode;
   monthlySavings?: number;
-  defaultMonthlySavings?: number;
-  onMonthlySavingsChange?: (value: number) => void;
-  onMonthlySavingsReset?: () => void;
-  isMonthlySavingsOverridden?: boolean;
   dateOfBirth?: string | null;
   compact?: boolean;
   hideLabel?: boolean;
-  persistEnabled?: boolean;
-  isPersisting?: boolean;
-  // Optional lifted state. When both prop + setter are provided, the
-  // PatrimonySimulator/ExpenseSimulator become controlled and the indicator
-  // shares state with the page. Falls back to local state otherwise.
   simulatedPatrimony?: number | null;
-  onSimulatedPatrimonyChange?: (value: number | null) => void;
   simulatedExpenses?: number | null;
-  onSimulatedExpensesChange?: (value: number | null) => void;
   onProgressClick?: () => void;
-  presentation?: "legacy" | "studio";
   onCalculationStateChange?: (state: FireCalculationState) => void;
   simulationRequestOverride?: FireSimulationRequest | null;
 }) => {
   const { hideValues } = useHideValues();
-  const [localSimulatedPatrimony, setLocalSimulatedPatrimony] = useState<
-    number | null
-  >(null);
-  const simulatedPatrimony =
-    simulatedPatrimonyProp !== undefined
-      ? simulatedPatrimonyProp
-      : localSimulatedPatrimony;
-  const setSimulatedPatrimony = (value: number | null) => {
-    if (onSimulatedPatrimonyChange) onSimulatedPatrimonyChange(value);
-    else setLocalSimulatedPatrimony(value);
-  };
-  // Which percentile bands + reference lines to render in the accumulation
-  // chart. Defaults to all three; user can deselect via the toggle row.
   const [visibleScenarios, setVisibleScenarios] = useState<
     ("otimista" | "mediana" | "pessimista")[]
   >(["otimista", "mediana", "pessimista"]);
-  // What-if simulator for expenses. Drives the entire indicator (fireTarget,
-  // progress bar, accumulation chart, both drawdown charts) so the user can
-  // explore "what if my expenses are R$ X" coherently. Reset returns to the
-  // user's actual avg.
-  const [localSimulatedExpenses, setLocalSimulatedExpenses] = useState<
-    number | null
-  >(null);
-  const simulatedExpenses =
-    simulatedExpensesProp !== undefined
-      ? simulatedExpensesProp
-      : localSimulatedExpenses;
-  const setSimulatedExpenses = (value: number | null) => {
-    if (onSimulatedExpensesChange) onSimulatedExpensesChange(value);
-    else setLocalSimulatedExpenses(value);
-  };
   const effectiveMonthlyExpenses = simulatedExpenses ?? avgExpenses;
   const showOtimista = visibleScenarios.includes("otimista");
   const showMediana = visibleScenarios.includes("mediana");
@@ -302,36 +180,16 @@ const ConstantDollarIndicator = ({
     const today = new Date();
     let age = today.getFullYear() - birth.getFullYear();
     const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birth.getDate())
+    ) {
       age--;
     }
     return age;
   })();
 
   const annualExpenses = effectiveMonthlyExpenses * 12;
-  const annualWithdrawal = effectivePatrimony * (withdrawalRate / 100);
-  const monthlyWithdrawal = annualWithdrawal / 12;
-
-  const allocationLabel = useMemo(() => {
-    const fixed = portfolio
-      .filter((slice) => slice.category.startsWith("FIXED_"))
-      .reduce((sum, slice) => sum + slice.weight, 0);
-    const variable = portfolio
-      .filter(
-        (slice) =>
-          slice.category !== "CASH" && !slice.category.startsWith("FIXED_"),
-      )
-      .reduce((sum, slice) => sum + slice.weight, 0);
-    const cash = portfolio
-      .filter((slice) => slice.category === "CASH")
-      .reduce((sum, slice) => sum + slice.weight, 0);
-    const parts = [
-      `${(fixed * 100).toFixed(0)}% RF`,
-      `${(variable * 100).toFixed(0)}% RV`,
-    ];
-    if (cash > 0) parts.push(`${(cash * 100).toFixed(0)}% caixa`);
-    return parts.join(" / ");
-  }, [portfolio]);
 
   const annualSavings = Math.max(0, monthlySavings) * 12;
   const derivedSimulationRequest = useMemo<FireSimulationRequest>(
@@ -372,7 +230,6 @@ const ConstantDollarIndicator = ({
     simulationResult?.kind === "constant_dollar"
       ? simulationResult.output
       : null;
-  const showInlineControls = !compact && presentation === "legacy";
 
   useEffect(() => {
     onCalculationStateChange?.({
@@ -384,10 +241,10 @@ const ConstantDollarIndicator = ({
   if (isLoading) {
     return <Skeleton height={48} sx={{ borderRadius: "10px" }} />;
   }
-  if (presentation === "studio" && isCalculating) {
+  if (!compact && isCalculating) {
     return <FireResultsSkeleton />;
   }
-  if (presentation === "studio" && simulationError) {
+  if (!compact && simulationError) {
     return (
       <Alert severity="error">
         Não foi possível recalcular a simulação. Seus valores foram preservados;
@@ -404,7 +261,6 @@ const ConstantDollarIndicator = ({
 
   const {
     safeRate,
-    targetMultiplier,
     fireTarget,
     patrimonyInputs,
     bootstrap,
@@ -412,18 +268,12 @@ const ConstantDollarIndicator = ({
     accumulation,
   } = simulation;
 
-  const monthlyWithdrawalFormatted = hideValues ? "***" : formatCurrency(monthlyWithdrawal);
-  const monthlyExpensesFormatted = hideValues ? "***" : formatCurrency(effectiveMonthlyExpenses);
-  // Flag the chosen rate as aggressive only when it produces meaningfully
-  // worse historical success — not just barely above the 90% safe-rate
-  // threshold. The 85% cutoff buffers against rounding noise around the safe
-  // rate while still flagging genuinely risky picks.
-  const isAggressiveRate = rateBootstrap.successRate < 0.85;
   const tooltipTitle =
-    `Probabilidade histórica do patrimônio sustentar suas despesas (${monthlyExpensesFormatted}/mês, ` +
-    `ajustadas por inflação) por ${targetYears} anos com sua alocação. ` +
-    `Limite seguro p/ ${targetYears} anos: ${safeRate.toFixed(2)}% (90% sucesso). ` +
-    `Meta de FIRE pela regra ${withdrawalRate}%: ${targetMultiplier.toFixed(1)}× despesas anuais.`;
+    "Mostra quanto o patrimônio usado neste cenário representa da meta FIRE. " +
+    (hideValues
+      ? ""
+      : `${formatCurrency(effectivePatrimony)} ÷ ${formatCurrency(fireTarget)} × 100. `) +
+    "Usa o valor simulado de patrimônio quando você o altera. Esse percentual não é a probabilidade de sucesso da simulação.";
 
   const lifestyleSuccess = bootstrap.successRate;
   const fireProgress = patrimonyInputs.scenarioProgress;
@@ -437,202 +287,92 @@ const ConstantDollarIndicator = ({
       ? `${bootstrap.p10DepletionYear} anos`
       : `${targetYears}+ anos`;
 
-  return (
-    <Stack gap={0.5}>
-      <Tooltip title={tooltipTitle} arrow placement="top">
-        <div
-          role={onProgressClick ? "link" : undefined}
-          tabIndex={onProgressClick ? 0 : undefined}
-          onClick={onProgressClick}
-          onKeyDown={(event) => {
-            if (!onProgressClick) return;
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              onProgressClick();
-            }
-          }}
-          style={{
-            position: "relative",
-            cursor: onProgressClick ? "pointer" : undefined,
+  const progressBar = (
+    <Tooltip title={tooltipTitle} arrow placement="top">
+      <div
+        role={onProgressClick ? "link" : undefined}
+        tabIndex={onProgressClick ? 0 : undefined}
+        onClick={onProgressClick}
+        onKeyDown={(event) => {
+          if (!onProgressClick) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onProgressClick();
+          }
+        }}
+        style={{
+          position: "relative",
+          cursor: onProgressClick ? "pointer" : undefined,
+        }}
+      >
+        <ProgressBar
+          variant="determinate"
+          value={Math.min(fireProgress, 100)}
+        />
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: 0,
+            right: 0,
+            transform: "translateY(-50%)",
+            px: 1.5,
+            textShadow: "0 1px 2px rgba(0, 0, 0, 0.6)",
           }}
         >
-          <ProgressBar
-            variant="determinate"
-            value={Math.min(fireProgress, 100)}
-          />
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
-            sx={{
-              position: "absolute",
-              top: "50%",
-              left: 0,
-              right: 0,
-              transform: "translateY(-50%)",
-              px: 1.5,
-              textShadow: "0 1px 2px rgba(0, 0, 0, 0.6)",
-            }}
-          >
-            {!hideLabel && (
-              <Text
-                color={Colors.neutral0}
-                weight={FontWeights.MEDIUM}
-                size={FontSizes.SEMI_SMALL}
-              >
-                Retirada constante (FIRE)
-              </Text>
-            )}
-            {hideValues ? (
-              <Skeleton
-                sx={{
-                  bgcolor: getColor(Colors.neutral300),
-                  width: "60px",
-                }}
-                animation={false}
-              />
-            ) : (
-              <Text
-                color={Colors.neutral0}
-                weight={FontWeights.SEMI_BOLD}
-                size={FontSizes.SEMI_SMALL}
-              >
-                {fireProgress.toFixed(0)}%
-              </Text>
-            )}
-          </Stack>
-        </div>
-      </Tooltip>
-      <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          {(() => {
-            const compactTargetTail =
-              retirementProgress < 100 &&
-              annualSavings > 0 &&
-              accumulation.medianYearsToTarget !== null
-                ? ` (~${accumulation.medianYearsToTarget}a no ritmo atual)`
-                : "";
-            if (compact) {
-              return `Meta: ${hideValues ? "***" : formatCurrency(fireTarget)}${compactTargetTail}`;
-            }
-            const gap = monthlyWithdrawal - effectiveMonthlyExpenses;
-            const gapFormatted = hideValues ? "***" : formatCurrency(Math.abs(gap));
-            const sign = gap >= 0 ? "sobram" : "faltam";
-            const accumulationTail =
-              simulatedPatrimony === null &&
-              retirementProgress < 100 &&
-              annualSavings > 0 &&
-              accumulation.medianYearsToTarget !== null
-                ? ` em ~${accumulation.medianYearsToTarget}a no ritmo atual`
-                : "";
-            const targetSegment =
-              annualExpenses > 0
-                ? fireProgress < 100
-                  ? ` · Meta: ${hideValues ? "***" : formatCurrency(fireTarget)} (faltam ${hideValues ? "***" : formatCurrency(fireTarget - effectivePatrimony)}${accumulationTail})`
-                  : ` · Meta atingida: ${hideValues ? "***" : formatCurrency(fireTarget)}`
-                : "";
-            return `Retirada: ${monthlyWithdrawalFormatted}/mês · Despesas: ${monthlyExpensesFormatted}/mês (${sign}: ${gapFormatted}/mês${targetSegment})`;
-          })()}
-        </Text>
-      </Stack>
-      {showInlineControls && (
-        <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
-          <PersistedSlider
-            value={withdrawalRate}
-            onChange={onWithdrawalRateChange}
-            renderLabel={(v) => (
-              <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-                Taxa: {v}% a.a.
-              </Text>
-            )}
-            enabled={persistEnabled}
-            isPersisting={isPersisting}
-            min={2}
-            max={6}
-            step={0.5}
-            marks
-          />
-          <FormControlLabel
-            control={
-              <Switch
-                size="small"
-                checked={samplingMethod === "contiguous_12_month_blocks"}
-                onChange={(_, checked) =>
-                  onSamplingMethodChange?.(
-                    checked
-                      ? "contiguous_12_month_blocks"
-                      : "independent_months",
-                  )
-                }
-                disabled={isPersisting}
-              />
-            }
-            label="Preservar sequências históricas de 12 meses"
-          />
-          <PersistedSlider
-            value={targetYears}
-            onChange={onTargetYearsChange}
-            renderLabel={(v) => (
-              <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-                Horizonte: {v} anos
-              </Text>
-            )}
-            enabled={persistEnabled}
-            isPersisting={isPersisting}
-            min={20}
-            max={80}
-            step={5}
-            marks
-          />
-          <PatrimonySimulator
-            value={effectivePatrimony}
-            onChange={setSimulatedPatrimony}
-            onReset={() => setSimulatedPatrimony(null)}
-            patrimonyTotal={patrimonyTotal}
-            showReset={simulatedPatrimony !== null}
-            isPersisting={isPersisting}
-          />
-          <ExpenseSimulator
-            value={effectiveMonthlyExpenses}
-            onChange={setSimulatedExpenses}
-            onReset={() => setSimulatedExpenses(null)}
-            avgMonthlyExpenses={avgExpenses}
-            showReset={simulatedExpenses !== null}
-            enabled={persistEnabled}
-            isPersisting={isPersisting}
-          />
+          {!hideLabel && (
+            <Text
+              color={Colors.neutral0}
+              weight={FontWeights.MEDIUM}
+              size={FontSizes.SEMI_SMALL}
+            >
+              Retirada constante (FIRE)
+            </Text>
+          )}
+          {hideValues ? (
+            <Skeleton
+              sx={{
+                bgcolor: getColor(Colors.neutral300),
+                width: "60px",
+              }}
+              animation={false}
+            />
+          ) : (
+            <Text
+              color={Colors.neutral0}
+              weight={FontWeights.SEMI_BOLD}
+              size={FontSizes.SEMI_SMALL}
+            >
+              {fireProgress.toFixed(0)}%
+            </Text>
+          )}
         </Stack>
-      )}
-      {showInlineControls && historicalDataControls}
-      {showInlineControls && isCalculating && (
+      </div>
+    </Tooltip>
+  );
+
+  return (
+    <Stack gap={0.5}>
+      {compact && progressBar}
+      {compact && (
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Calculando simulação…
+          Meta: {hideValues ? "***" : formatCurrency(fireTarget)}
+          {retirementProgress < 100 &&
+          annualSavings > 0 &&
+          accumulation.medianYearsToTarget !== null
+            ? ` (~${accumulation.medianYearsToTarget}a no ritmo atual)`
+            : ""}
         </Text>
-      )}
-      {showInlineControls && simulationError && (
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.danger200}>
-          {simulationError}
-        </Text>
-      )}
-      {!compact && (
-        <Stack direction="row" alignItems="center" gap={2}>
-          <Text
-            size={FontSizes.EXTRA_SMALL}
-            color={isAggressiveRate ? Colors.danger200 : Colors.neutral400}
-            weight={isAggressiveRate ? FontWeights.MEDIUM : undefined}
-          >
-            {isAggressiveRate
-              ? `⚠ Taxa de ${withdrawalRate}% tem apenas ${(rateBootstrap.successRate * 100).toFixed(0)}% de sucesso histórico em ${targetYears} anos. Limite seguro: ${safeRate.toFixed(2)}% (90% sucesso).`
-              : `Limite seguro p/ ${targetYears} anos: ${safeRate.toFixed(2)}% a.a. (90% sucesso histórico).`}
-          </Text>
-        </Stack>
       )}
       {!compact && annualExpenses > 0 && (
         <FireSimulationResults
+          isPatrimonySimulated={simulatedPatrimony !== null}
           patrimony={effectivePatrimony}
           currentPatrimony={patrimonyTotal}
           monthlyExpenses={effectiveMonthlyExpenses}
-          monthlySavings={monthlySavings}
           annualExpenses={annualExpenses}
           withdrawalRate={withdrawalRate}
           targetYears={targetYears}
@@ -640,7 +380,6 @@ const ConstantDollarIndicator = ({
           fireTarget={fireTarget}
           fireProgress={fireProgress}
           retirementProgress={retirementProgress}
-          allocationLabel={allocationLabel}
           bootstrap={bootstrap}
           rateBootstrap={rateBootstrap}
           accumulation={accumulation}
@@ -655,7 +394,10 @@ const ConstantDollarIndicator = ({
       {!compact && annualExpenses > 0 && fireProgress >= 100 && (
         <Stack direction="row" alignItems="center" gap={2}>
           <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-            Sustentabilidade em {targetYears}a: {(lifestyleSuccess * 100).toFixed(0)}% · Sucesso da taxa {withdrawalRate}%: {(rateBootstrap.successRate * 100).toFixed(0)}% · Depleção p10: {p10DepletionLabel} · Mediana: {medianDepletionLabel}
+            Sustentabilidade em {targetYears}a:{" "}
+            {(lifestyleSuccess * 100).toFixed(0)}% · Sucesso da taxa{" "}
+            {withdrawalRate}%: {(rateBootstrap.successRate * 100).toFixed(0)}% ·
+            Depleção p10: {p10DepletionLabel} · Mediana: {medianDepletionLabel}
           </Text>
         </Stack>
       )}
@@ -668,14 +410,16 @@ const ConstantDollarIndicator = ({
             </Text>
           ) : accumulation.medianYearsToTarget === null ? (
             <Text size={FontSizes.EXTRA_SMALL} color={Colors.danger200}>
-              No ritmo de {hideValues ? "***" : formatCurrency(monthlySavings)}/mês,
-              improvável atingir a meta em 60 anos (sucesso histórico{" "}
+              No ritmo de {hideValues ? "***" : formatCurrency(monthlySavings)}
+              /mês, improvável atingir a meta em 60 anos (sucesso histórico{" "}
               {(accumulation.successRate * 100).toFixed(0)}%).
             </Text>
           ) : (
             <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-              No ritmo de {hideValues ? "***" : formatCurrency(monthlySavings)}/mês:
-              mediana <strong>{accumulation.medianYearsToTarget}a</strong>{" "}
+              No ritmo de {hideValues ? "***" : formatCurrency(monthlySavings)}
+              /mês: mediana <strong>
+                {accumulation.medianYearsToTarget}a
+              </strong>{" "}
               · otimista (p10) {accumulation.p10YearsToTarget}a · pessimista
               (p90) {accumulation.p90YearsToTarget}a · sucesso{" "}
               {(accumulation.successRate * 100).toFixed(0)}% em 60a
@@ -683,168 +427,163 @@ const ConstantDollarIndicator = ({
           )}
         </Stack>
       )}
-      {!compact && retirementProgress < 100 && accumulation.gapBands.length > 1 && (() => {
-        // Acumulação chart: gap-to-target shrinking. Past p90 crossing all
-        // bands are 0, so trim a few years after.
-        const accTrimEnd =
-          accumulation.p90YearsToTarget !== null
-            ? Math.min(
-                accumulation.gapBands.length,
-                accumulation.p90YearsToTarget + 3,
-              )
-            : accumulation.gapBands.length;
-        // X-axis uses age (consistent with the second chart) when DOB is set;
-        // falls back to year-from-now when not. Each gapBand entry gets an
-        // `age` field = currentAge + year for the chart to read.
-        const useAgeAxis = currentAge !== null;
-        const accData = accumulation.gapBands.slice(0, accTrimEnd).map((b) => ({
-          ...b,
-          age: useAgeAxis ? (currentAge as number) + b.year : b.year,
-        }));
-        const ageLabel = (years: number) =>
-          useAgeAxis
-            ? `aos ${(currentAge as number) + years}`
-            : `em ${years} anos`;
-        const refX = (years: number) =>
-          useAgeAxis ? (currentAge as number) + years : years;
-        return (
-          <>
-            <Stack gap={0.5} sx={{ mt: 2 }}>
-              <Text
-                size={FontSizes.SMALL}
-                weight={FontWeights.SEMI_BOLD}
-                color={Colors.neutral200}
-              >
-                Quando posso me aposentar?
-              </Text>
-              <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-                O gráfico mostra quanto ainda falta para atingir a meta FIRE em
-                cada ano. As linhas verticais marcam quando os cenários
-                otimista, mediano e pessimista cruzam a meta.
-              </Text>
-            </Stack>
-            {showInlineControls && onMonthlySavingsChange && onMonthlySavingsReset && (
-              <SavingsSimulator
-                value={Math.max(0, monthlySavings)}
-                onChange={onMonthlySavingsChange}
-                onReset={onMonthlySavingsReset}
-                avgMonthlySavings={Math.max(0, defaultMonthlySavings)}
-                showReset={isMonthlySavingsOverridden}
-                isPersisting={isPersisting}
-              />
-            )}
-            <ResponsiveContainer width="100%" height={240}>
-              <ComposedChart
-                data={accData}
-                margin={{ top: 50, right: 5, left: 5, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="5" vertical={false} />
-                <XAxis
-                  dataKey={useAgeAxis ? "age" : "year"}
-                  stroke={getColor(Colors.neutral0)}
-                  tickLine={false}
-                  tickFormatter={(v) => `${v}`}
-                />
-                <YAxis
-                  stroke={getColor(Colors.brand400)}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={numberTickFormatter}
-                  tickCount={hideValues ? 0 : undefined}
-                />
-                <RechartsTooltip
-                  cursor={false}
-                  content={
-                    <ChartTooltipContent
-                      hideValues={hideValues}
-                      showOtimista={showOtimista}
-                      showMediana={showMediana}
-                      showPessimista={showPessimista}
-                      invertLabels
-                    />
-                  }
-                />
-                {showOtimista && accumulation.p10YearsToTarget !== null && (
-                  <ReferenceLine
-                    x={refX(accumulation.p10YearsToTarget)}
-                    stroke={getColor(Colors.brand)}
-                    strokeDasharray="3 3"
-                    label={{
-                      value: `otimista · aposenta ${ageLabel(accumulation.p10YearsToTarget)}`,
-                      position: "top",
-                      dy: -34,
-                      fill: getColor(Colors.brand),
-                      fontSize: 12,
-                    }}
-                  />
-                )}
-                {showMediana && accumulation.medianYearsToTarget !== null && (
-                  <ReferenceLine
-                    x={refX(accumulation.medianYearsToTarget)}
-                    stroke={getColor(Colors.brand)}
-                    strokeDasharray="3 3"
-                    label={{
-                      value: `mediana · aposenta ${ageLabel(accumulation.medianYearsToTarget)}`,
-                      position: "top",
-                      dy: -18,
-                      fill: getColor(Colors.brand),
-                      fontSize: 12,
-                    }}
-                  />
-                )}
-                {showPessimista && accumulation.p90YearsToTarget !== null && (
-                  <ReferenceLine
-                    x={refX(accumulation.p90YearsToTarget)}
-                    stroke={getColor(Colors.danger200)}
-                    strokeDasharray="3 3"
-                    label={{
-                      value: `pessimista · aposenta ${ageLabel(accumulation.p90YearsToTarget)}`,
-                      position: "top",
-                      dy: -2,
-                      fill: getColor(Colors.danger200),
-                      fontSize: 12,
-                    }}
-                  />
-                )}
-                {/* For gap: smallest gap = best case = otimista → green → p10 */}
-                {showOtimista && (
-                  <Line
-                    type="monotone"
-                    dataKey="p10"
-                    stroke={getColor(Colors.brand)}
-                    strokeWidth={1.5}
-                    strokeDasharray="4 3"
-                    dot={false}
-                    name="p10 (otimista)"
-                  />
-                )}
-                {showMediana && (
-                  <Line
-                    type="monotone"
-                    dataKey="p50"
-                    stroke={getColor(Colors.brand200)}
-                    strokeWidth={2}
-                    dot={false}
-                    name="Mediana"
-                  />
-                )}
-                {showPessimista && (
-                  <Line
-                    type="monotone"
-                    dataKey="p90"
-                    stroke={getColor(Colors.danger200)}
-                    strokeWidth={1.5}
-                    strokeDasharray="4 3"
-                    dot={false}
-                    name="p90 (pessimista)"
-                  />
-                )}
-              </ComposedChart>
-            </ResponsiveContainer>
+      {!compact &&
+        retirementProgress < 100 &&
+        accumulation.gapBands.length > 1 &&
+        (() => {
+          // Acumulação chart: gap-to-target shrinking. Past p90 crossing all
+          // bands are 0, so trim a few years after.
+          const accTrimEnd =
+            accumulation.p90YearsToTarget !== null
+              ? Math.min(
+                  accumulation.gapBands.length,
+                  accumulation.p90YearsToTarget + 3,
+                )
+              : accumulation.gapBands.length;
+          // X-axis uses age (consistent with the second chart) when DOB is set;
+          // falls back to year-from-now when not. Each gapBand entry gets an
+          // `age` field = currentAge + year for the chart to read.
+          const useAgeAxis = currentAge !== null;
+          const accData = accumulation.gapBands
+            .slice(0, accTrimEnd)
+            .map((b) => ({
+              ...b,
+              age: useAgeAxis ? (currentAge as number) + b.year : b.year,
+            }));
+          const ageLabel = (years: number) =>
+            useAgeAxis
+              ? `aos ${(currentAge as number) + years}`
+              : `em ${years} anos`;
+          const refX = (years: number) =>
+            useAgeAxis ? (currentAge as number) + years : years;
+          return (
+            <>
+              <Stack gap={0.5} sx={{ mt: 2 }}>
+                <Text
+                  size={FontSizes.SMALL}
+                  weight={FontWeights.SEMI_BOLD}
+                  color={Colors.neutral200}
+                >
+                  Quando posso me aposentar?
+                </Text>
+                <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+                  O gráfico mostra quanto ainda falta para atingir a meta FIRE
+                  em cada ano. As linhas verticais marcam quando os cenários
+                  otimista, mediano e pessimista cruzam a meta.
+                </Text>
+              </Stack>
 
-          </>
-        );
-      })()}
+              <ResponsiveContainer width="100%" height={240}>
+                <ComposedChart
+                  data={accData}
+                  margin={{ top: 50, right: 5, left: 5, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="5" vertical={false} />
+                  <XAxis
+                    dataKey={useAgeAxis ? "age" : "year"}
+                    stroke={getColor(Colors.neutral0)}
+                    tickLine={false}
+                    tickFormatter={(v) => `${v}`}
+                  />
+                  <YAxis
+                    stroke={getColor(Colors.brand400)}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={numberTickFormatter}
+                    tickCount={hideValues ? 0 : undefined}
+                  />
+                  <RechartsTooltip
+                    cursor={false}
+                    content={
+                      <ChartTooltipContent
+                        hideValues={hideValues}
+                        showOtimista={showOtimista}
+                        showMediana={showMediana}
+                        showPessimista={showPessimista}
+                        invertLabels
+                      />
+                    }
+                  />
+                  {showOtimista && accumulation.p10YearsToTarget !== null && (
+                    <ReferenceLine
+                      x={refX(accumulation.p10YearsToTarget)}
+                      stroke={getColor(Colors.brand)}
+                      strokeDasharray="3 3"
+                      label={{
+                        value: `otimista · aposenta ${ageLabel(accumulation.p10YearsToTarget)}`,
+                        position: "top",
+                        dy: -34,
+                        fill: getColor(Colors.brand),
+                        fontSize: 12,
+                      }}
+                    />
+                  )}
+                  {showMediana && accumulation.medianYearsToTarget !== null && (
+                    <ReferenceLine
+                      x={refX(accumulation.medianYearsToTarget)}
+                      stroke={getColor(Colors.brand)}
+                      strokeDasharray="3 3"
+                      label={{
+                        value: `mediana · aposenta ${ageLabel(accumulation.medianYearsToTarget)}`,
+                        position: "top",
+                        dy: -18,
+                        fill: getColor(Colors.brand),
+                        fontSize: 12,
+                      }}
+                    />
+                  )}
+                  {showPessimista && accumulation.p90YearsToTarget !== null && (
+                    <ReferenceLine
+                      x={refX(accumulation.p90YearsToTarget)}
+                      stroke={getColor(Colors.danger200)}
+                      strokeDasharray="3 3"
+                      label={{
+                        value: `pessimista · aposenta ${ageLabel(accumulation.p90YearsToTarget)}`,
+                        position: "top",
+                        dy: -2,
+                        fill: getColor(Colors.danger200),
+                        fontSize: 12,
+                      }}
+                    />
+                  )}
+                  {/* For gap: smallest gap = best case = otimista → green → p10 */}
+                  {showOtimista && (
+                    <Line
+                      type="monotone"
+                      dataKey="p10"
+                      stroke={getColor(Colors.brand)}
+                      strokeWidth={1.5}
+                      strokeDasharray="4 3"
+                      dot={false}
+                      name="p10 (otimista)"
+                    />
+                  )}
+                  {showMediana && (
+                    <Line
+                      type="monotone"
+                      dataKey="p50"
+                      stroke={getColor(Colors.brand200)}
+                      strokeWidth={2}
+                      dot={false}
+                      name="Mediana"
+                    />
+                  )}
+                  {showPessimista && (
+                    <Line
+                      type="monotone"
+                      dataKey="p90"
+                      stroke={getColor(Colors.danger200)}
+                      strokeWidth={1.5}
+                      strokeDasharray="4 3"
+                      dot={false}
+                      name="p90 (pessimista)"
+                    />
+                  )}
+                </ComposedChart>
+              </ResponsiveContainer>
+            </>
+          );
+        })()}
     </Stack>
   );
 };

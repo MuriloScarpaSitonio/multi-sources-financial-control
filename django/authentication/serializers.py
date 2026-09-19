@@ -136,6 +136,11 @@ class IntegrationSecretSerializer(serializers.ModelSerializer):
 
 
 class FirePreferencesSerializer(serializers.Serializer):
+    simulated_patrimony = serializers.FloatField(
+        required=False,
+        allow_null=True,
+        min_value=0,
+    )
     withdrawal_rate = serializers.FloatField(
         required=False,
         min_value=2,
@@ -162,27 +167,30 @@ class FirePreferencesSerializer(serializers.Serializer):
         child=serializers.ChoiceField(choices=RETURN_CATEGORIES),
         required=False,
     )
+    HISTORICAL_SERIES = (
+        "IBOV",
+        "IFIX",
+        "SPY",
+        "VTI",
+        "VT",
+        "VWRL",
+        "BTC",
+        "CMBI10",
+        "CDI",
+        "IMA_S",
+        "IRF_M_1",
+        "IRF_M_1_PLUS",
+        "IMA_B_5",
+        "IMA_B_5_PLUS",
+        "IMA_GERAL_EX_C",
+        "CASH",
+    )
     historical_series_overrides = serializers.DictField(
-        child=serializers.ChoiceField(
-            choices=(
-                "IBOV",
-                "IFIX",
-                "SPY",
-                "VTI",
-                "VT",
-                "VWRL",
-                "BTC",
-                "CMBI10",
-                "CDI",
-                "IMA_S",
-                "IRF_M_1",
-                "IRF_M_1_PLUS",
-                "IMA_B_5",
-                "IMA_B_5_PLUS",
-                "IMA_GERAL_EX_C",
-                "CASH",
-            )
-        ),
+        child=serializers.ChoiceField(choices=HISTORICAL_SERIES),
+        required=False,
+    )
+    historical_series_fallbacks = serializers.DictField(
+        child=serializers.ChoiceField(choices=HISTORICAL_SERIES),
         required=False,
     )
 
@@ -203,6 +211,8 @@ class FirePreferencesSerializer(serializers.Serializer):
         if value.keys() - allowed:
             raise serializers.ValidationError("Grupo de ativos inválido.")
         return value
+
+    validate_historical_series_fallbacks = validate_historical_series_overrides
 
     exclude_ifix_from_sim = serializers.BooleanField(required=False, write_only=True)
 

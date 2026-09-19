@@ -91,3 +91,26 @@ export const buildFireStudioSnapshot = (
 };
 
 export const resubmitFireStudioSnapshot = buildFireStudioSnapshot;
+
+export const withoutHistoricalFallbacks = (
+  snapshot: FireStudioSnapshot,
+): FireStudioSnapshot => {
+  const portfolio = snapshot.portfolio.map((slice) => {
+    const primary = { ...slice };
+    delete primary.fallbackSeries;
+    return primary;
+  });
+  const request = snapshot.request;
+  if (!request) return { ...snapshot, portfolio, request: null };
+  return request.kind === "constant_dollar"
+    ? {
+        ...snapshot,
+        portfolio,
+        request: { ...request, input: { ...request.input, portfolio } },
+      }
+    : {
+        ...snapshot,
+        portfolio,
+        request: { ...request, input: { ...request.input, portfolio } },
+      };
+};

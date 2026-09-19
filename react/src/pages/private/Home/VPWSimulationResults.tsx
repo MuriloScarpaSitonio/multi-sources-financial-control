@@ -273,7 +273,7 @@ const VPWSimulationResults = ({
     >
       <Stack gap={0.75}>
         <Text size={FontSizes.SMALL} weight={FontWeights.SEMI_BOLD}>
-          Resultado da simulacao
+          Resultado da simulação
         </Text>
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
           VPW significa <em>Variable Percentage Withdrawal</em>, em portugues
