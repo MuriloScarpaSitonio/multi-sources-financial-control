@@ -1,13 +1,19 @@
 import { apiProvider } from "../../../api/methods";
 import type {
   CryptoProxy,
+  FireReturnSeriesKey,
   GlobalEquityProxy,
   ReturnCategory,
   SamplingMethod,
   UsEquityProxy,
 } from "../Home/fireReturnTypes";
 
-export type WithdrawalMethodKey = "fire" | "dividends_only" | "constant_withdrawal" | "one_over_n" | "vpw";
+export type WithdrawalMethodKey =
+  | "fire"
+  | "dividends_only"
+  | "constant_withdrawal"
+  | "one_over_n"
+  | "vpw";
 export type ActiveMethodKey = "fire" | "dividends_only" | "one_over_n" | "vpw";
 
 export type PlanningPreferences = {
@@ -29,6 +35,7 @@ export type FirePlanningPreferences = {
   global_equity_proxy?: GlobalEquityProxy;
   crypto_proxy?: CryptoProxy;
   excluded_return_categories?: ReturnCategory[];
+  historical_series_overrides?: Record<string, FireReturnSeriesKey>;
 };
 
 export const DEFAULT_FIRE_PREFERENCES = {
@@ -40,6 +47,7 @@ export const DEFAULT_FIRE_PREFERENCES = {
   global_equity_proxy: "VT",
   crypto_proxy: "BTC",
   excluded_return_categories: [],
+  historical_series_overrides: {},
 } satisfies Required<FirePlanningPreferences>;
 
 export const getFirePlanningPreferences = (

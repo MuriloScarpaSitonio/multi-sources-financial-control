@@ -7,7 +7,13 @@ import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 
-import { Colors, FontSizes, Text } from "../../../design-system";
+import {
+  Colors,
+  FontSizes,
+  getColor,
+  getFontSize,
+  Text,
+} from "../../../design-system";
 import { buildPortfolio, eligiblePeriod } from "../Home/firePortfolio";
 import { FIRE_RETURN_SERIES } from "../Home/fireReturns";
 import type {
@@ -26,7 +32,7 @@ type ProxyPreferenceKey =
   | "global_equity_proxy"
   | "crypto_proxy";
 
-const CATEGORY_LABELS: Record<ReturnCategory, string> = {
+export const CATEGORY_LABELS: Record<ReturnCategory, string> = {
   BR_EQUITY: "Renda variável BR",
   US_EQUITY: "Renda variável EUA",
   GLOBAL_EQUITY: "Renda variável Global",
@@ -124,6 +130,7 @@ const FireHistoricalDataControls = ({
   onChange,
   showShortPeriodWarning = true,
   controlsRef,
+  compact = false,
 }: {
   allocation: readonly FireAllocationBucket[];
   preferences: Preferences;
@@ -133,6 +140,7 @@ const FireHistoricalDataControls = ({
   ) => void;
   showShortPeriodWarning?: boolean;
   controlsRef?: Ref<HTMLDivElement>;
+  compact?: boolean;
 }) => {
   const owned = useMemo(() => {
     const byCategory = new Map<ReturnCategory, FireAllocationBucket[]>();
@@ -161,8 +169,15 @@ const FireHistoricalDataControls = ({
   };
 
   return (
-    <Stack gap={1.5} ref={controlsRef} tabIndex={controlsRef ? -1 : undefined}>
-      <Text size={FontSizes.SMALL}>Dados históricos</Text>
+    <Stack
+      gap={compact ? 1.25 : 1.5}
+      ref={controlsRef}
+      tabIndex={controlsRef ? -1 : undefined}
+      sx={{ minWidth: 0 }}
+    >
+      <Text size={compact ? FontSizes.EXTRA_SMALL : FontSizes.SMALL}>
+        Dados históricos
+      </Text>
       {owned.map(([category, buckets]) => {
         const selectable = category in PROXY_OPTIONS;
         const preferenceKey = selectable
@@ -182,15 +197,26 @@ const FireHistoricalDataControls = ({
         return (
           <Stack
             key={category}
-            direction="row"
-            alignItems="center"
-            gap={1}
+            direction={compact ? "column" : "row"}
+            alignItems={compact ? "stretch" : "center"}
+            gap={compact ? 0.25 : 1}
             flexWrap="wrap"
+            sx={{ minWidth: 0 }}
           >
             <FormControlLabel
+              sx={compact ? { m: 0, minWidth: 0 } : undefined}
               control={
                 <Checkbox
                   size="small"
+                  sx={
+                    compact
+                      ? {
+                          p: 0.25,
+                          mr: 0.75,
+                          "& .MuiSvgIcon-root": { fontSize: 16 },
+                        }
+                      : undefined
+                  }
                   checked={
                     !preferences.excluded_return_categories.includes(category)
                   }
@@ -199,11 +225,58 @@ const FireHistoricalDataControls = ({
                   }
                 />
               }
-              label={CATEGORY_LABELS[category]}
+              label={
+                compact ? (
+                  <Text size={FontSizes.EXTRA_SMALL}>
+                    {CATEGORY_LABELS[category]}
+                  </Text>
+                ) : (
+                  CATEGORY_LABELS[category]
+                )
+              }
             />
             {selectable && preferenceKey ? (
               <Select
                 size="small"
+                fullWidth={compact}
+                inputProps={{
+                  "aria-label": `Índice para ${CATEGORY_LABELS[category]}`,
+                }}
+                renderValue={
+                  compact
+                    ? (value) =>
+                        PROXY_OPTIONS[
+                          category as keyof typeof PROXY_OPTIONS
+                        ].find((option) => option.value === value)?.label ??
+                        value
+                    : undefined
+                }
+                sx={
+                  compact
+                    ? {
+                        minWidth: 0,
+                        fontSize: getFontSize(FontSizes.EXTRA_SMALL),
+                        "& .MuiSelect-select": { py: 0.5, minWidth: 0 },
+                        "& fieldset": {
+                          borderColor: getColor(Colors.neutral600),
+                        },
+                        "&.Mui-focused fieldset": {
+                          borderColor: getColor(Colors.brand200),
+                        },
+                      }
+                    : undefined
+                }
+                MenuProps={
+                  compact
+                    ? {
+                        slotProps: {
+                          paper: {
+                            sx: { maxWidth: "min(360px, calc(100vw - 32px))" },
+                          },
+                        },
+                      }
+                    : undefined
+                }
                 value={preferences[preferenceKey]}
                 onChange={(event) =>
                   onChange(
@@ -216,7 +289,18 @@ const FireHistoricalDataControls = ({
               >
                 {PROXY_OPTIONS[category as keyof typeof PROXY_OPTIONS].map(
                   (option) => (
-                    <MenuItem key={option.value} value={option.value}>
+                    <MenuItem
+                      key={option.value}
+                      value={option.value}
+                      sx={
+                        compact
+                          ? {
+                              whiteSpace: "normal",
+                              fontSize: getFontSize(FontSizes.EXTRA_SMALL),
+                            }
+                          : undefined
+                      }
+                    >
                       {option.label} — {option.detail}
                     </MenuItem>
                   ),
@@ -225,9 +309,10 @@ const FireHistoricalDataControls = ({
             ) : (
               <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
                 {fixedIncomeSeriesLabel(category, series)}
+                {compact && since !== null ? ` · desde ${since}` : ""}
               </Text>
             )}
-            {since !== null && (
+            {since !== null && (!compact || selectable) && (
               <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
                 desde {since}
               </Text>

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -115,7 +114,6 @@ const FireSimulationStudio = ({
     setPanelCollapsed(false);
     setMobilePanelOpen(true);
     setAdvancedOpen(true);
-    requestAnimationFrame(() => historicalControlsRef.current?.focus());
   };
 
   const scenarioPanel = (
@@ -146,6 +144,7 @@ const FireSimulationStudio = ({
       onShowAgeInBondsChange={onShowAgeInBondsChange}
       onHistoricalPreferenceChange={onHistoricalPreferenceChange}
       onRecalculate={handleRecalculate}
+      onCollapse={isMobile ? undefined : () => setPanelCollapsed(true)}
     />
   );
 
@@ -187,14 +186,6 @@ const FireSimulationStudio = ({
         </Paper>
       ) : (
         <Stack gap={1} sx={{ position: "sticky", top: 16 }}>
-          <Button
-            size="small"
-            variant="text"
-            startIcon={<ChevronLeftIcon />}
-            onClick={() => setPanelCollapsed(true)}
-          >
-            Recolher cenário
-          </Button>
           {scenarioPanel}
         </Stack>
       )}

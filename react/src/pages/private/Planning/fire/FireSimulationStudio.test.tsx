@@ -413,7 +413,9 @@ describe("studio result presentation", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Não foi possível recalcular a simulação",
     );
-    expect(screen.getByText("Taxa de retirada: 5% a.a.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: "Taxa de retirada" }),
+    ).toHaveValue("5% a.a.");
   });
 
   it("exposes the collapsed desktop state while giving space to results", async () => {
@@ -502,9 +504,11 @@ describe("studio result presentation", () => {
       "data-panel-collapsed",
       "false",
     );
-    expect(screen.getByText("Dados históricos")).toBeVisible();
-    await waitFor(() => {
-      expect(screen.getByText("Dados históricos").parentElement).toHaveFocus();
-    });
+    expect(
+      screen.getByRole("dialog", { name: "Configurar históricos" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("combobox", { name: "Histórico para Cripto" }),
+    ).toBeVisible();
   });
 });

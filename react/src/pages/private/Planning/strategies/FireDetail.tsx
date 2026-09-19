@@ -20,7 +20,7 @@ import type {
 import AgeInBondsExplainer from "../AgeInBondsExplainer";
 import { getFirePlanningPreferences, type PlanningPreferences } from "../api";
 import DefaultsPanel from "../DefaultsPanel";
-import FireHistoricalDataControls from "../FireHistoricalDataControls";
+import FireHistoricalSettings from "../fire/FireHistoricalSettings";
 import {
   useFireAllocation,
   type FireAllocationBucket,
@@ -86,6 +86,9 @@ const FireDetail = () => {
   const [excludedReturnCategories, setExcludedReturnCategories] = useState<
     ReturnCategory[]
   >(firePreferences.excluded_return_categories);
+  const [historicalSeriesOverrides, setHistoricalSeriesOverrides] = useState(
+    firePreferences.historical_series_overrides,
+  );
   const [showAgeInBonds, setShowAgeInBonds] = useState(
     preferences?.show_age_in_bonds ?? false,
   );
@@ -96,6 +99,7 @@ const FireDetail = () => {
   const [monthlySavingsOverride, setMonthlySavingsOverride] = useState<
     number | null
   >(null);
+  const [historicalDrawerOpen, setHistoricalDrawerOpen] = useState(false);
   const [view, setView] = useState<"legacy" | "new">("new");
 
   useLayoutEffect(() => {
@@ -107,7 +111,9 @@ const FireDetail = () => {
     setGlobalEquityProxy(firePreferences.global_equity_proxy);
     setCryptoProxy(firePreferences.crypto_proxy);
     setExcludedReturnCategories(firePreferences.excluded_return_categories);
+    setHistoricalSeriesOverrides(firePreferences.historical_series_overrides);
   }, [
+    firePreferences.historical_series_overrides,
     firePreferences.crypto_proxy,
     firePreferences.excluded_return_categories,
     firePreferences.global_equity_proxy,
@@ -158,9 +164,11 @@ const FireDetail = () => {
       global_equity_proxy: globalEquityProxy,
       crypto_proxy: cryptoProxy,
       excluded_return_categories: excludedReturnCategories,
+      historical_series_overrides: historicalSeriesOverrides,
     }),
     [
       cryptoProxy,
+      historicalSeriesOverrides,
       excludedReturnCategories,
       expensesOverride,
       globalEquityProxy,
@@ -179,7 +187,9 @@ const FireDetail = () => {
     () =>
       isActive &&
       !!planningData &&
-      (withdrawalRate !== firePreferences.withdrawal_rate ||
+      (JSON.stringify(historicalSeriesOverrides) !==
+        JSON.stringify(firePreferences.historical_series_overrides) ||
+        withdrawalRate !== firePreferences.withdrawal_rate ||
         targetYears !== firePreferences.target_years ||
         expensesOverride !== firePreferences.monthly_expenses_override ||
         samplingMethod !== firePreferences.sampling_method ||
@@ -193,7 +203,9 @@ const FireDetail = () => {
       isActive,
       planningData,
       cryptoProxy,
+      historicalSeriesOverrides,
       excludedReturnCategories,
+      firePreferences.historical_series_overrides,
       firePreferences.monthly_expenses_override,
       firePreferences.sampling_method,
       firePreferences.target_years,
@@ -227,6 +239,7 @@ const FireDetail = () => {
         global_equity_proxy: globalEquityProxy,
         crypto_proxy: cryptoProxy,
         excluded_return_categories: excludedReturnCategories,
+        historical_series_overrides: historicalSeriesOverrides,
       },
       show_age_in_bonds: showAgeInBonds,
     };
@@ -245,6 +258,8 @@ const FireDetail = () => {
     field: K,
     value: (typeof localFirePreferences)[K],
   ) => {
+    if (field === "historical_series_overrides")
+      setHistoricalSeriesOverrides(value as typeof historicalSeriesOverrides);
     if (field === "us_equity_proxy") {
       setUsEquityProxy(value as UsEquityProxy);
     }
@@ -258,10 +273,13 @@ const FireDetail = () => {
   };
 
   const historicalDataControls = (
-    <FireHistoricalDataControls
+    <FireHistoricalSettings
       allocation={allocation}
       preferences={localFirePreferences}
-      onChange={handleHistoricalPreferenceChange}
+      showAgeInBonds={showAgeInBonds}
+      open={historicalDrawerOpen}
+      onOpenChange={setHistoricalDrawerOpen}
+      onApply={setHistoricalSeriesOverrides}
     />
   );
 

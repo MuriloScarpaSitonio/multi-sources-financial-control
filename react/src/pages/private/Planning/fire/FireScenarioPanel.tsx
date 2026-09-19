@@ -1,25 +1,31 @@
-import type { RefObject } from "react";
-
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { useState, type RefObject } from "react";
 import Accordion from "@mui/material/Accordion";
-import AccordionDetails from "@mui/material/AccordionDetails";
 import AccordionSummary from "@mui/material/AccordionSummary";
-import Box from "@mui/material/Box";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+
 import Button from "@mui/material/Button";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 
-import { FontSizes, FontWeights, Text } from "../../../../design-system";
-import ExpenseSimulator from "../../Home/ExpenseSimulator";
-import PatrimonySimulator from "../../Home/PatrimonySimulator";
-import PersistedSlider from "../../Home/PersistedSlider";
-import SavingsSimulator from "../../Home/SavingsSimulator";
+import {
+  Colors,
+  getColor,
+  InfoIconTooltip,
+  FontSizes,
+  FontWeights,
+  Text,
+} from "../../../../design-system";
 import type { SamplingMethod } from "../../Home/fireReturnTypes";
 import type { FirePlanningPreferences } from "../api";
-import FireHistoricalDataControls from "../FireHistoricalDataControls";
 import type { FireAllocationBucket } from "../fireAllocation";
+
+import FireHistoricalSettings from "./FireHistoricalSettings";
+
+import FireScenarioNumberInput from "./FireScenarioNumberInput";
 
 type Preferences = Required<FirePlanningPreferences>;
 
@@ -53,17 +59,7 @@ export type FireScenarioPanelProps = {
     value: Preferences[K],
   ) => void;
   onRecalculate: () => void;
-};
-
-const compactSimulatorSx = {
-  "& > .MuiStack-root": {
-    alignItems: "stretch",
-    flexDirection: "column",
-    gap: 1,
-  },
-  "& .MuiTextField-root, & .MuiSlider-root": {
-    width: "100%",
-  },
+  onCollapse?: () => void;
 };
 
 const FireScenarioPanel = ({
@@ -93,7 +89,9 @@ const FireScenarioPanel = ({
   onShowAgeInBondsChange,
   onHistoricalPreferenceChange,
   onRecalculate,
+  onCollapse,
 }: FireScenarioPanelProps) => {
+  const [assumptionsExpanded, setAssumptionsExpanded] = useState(false);
   const effectivePatrimony = simulatedPatrimony ?? patrimonyTotal;
   const effectiveExpenses = expensesOverride ?? avgExpenses;
   const effectiveMonthlySavings =
@@ -103,128 +101,217 @@ const FireScenarioPanel = ({
     <Paper elevation={1} sx={{ p: 2, borderRadius: 2 }}>
       <Stack gap={2}>
         <Stack gap={0.25}>
-          <Text size={FontSizes.MEDIUM} weight={FontWeights.SEMI_BOLD}>
-            Seu cenário
-          </Text>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            gap={1}
+          >
+            <Text size={FontSizes.MEDIUM} weight={FontWeights.SEMI_BOLD}>
+              Seu cenário
+            </Text>
+            {onCollapse && (
+              <Button
+                variant="brand-text"
+                size="small"
+                aria-label="Recolher cenário"
+                onClick={onCollapse}
+                sx={{
+                  minWidth: 28,
+                  width: 28,
+                  height: 28,
+                  p: 0,
+                  flexShrink: 0,
+                }}
+              >
+                <ChevronLeftIcon fontSize="small" />
+              </Button>
+            )}
+          </Stack>
           <Text size={FontSizes.EXTRA_SMALL}>
             Edite os valores e recalcule quando estiver pronto.
           </Text>
         </Stack>
 
-        <Box sx={compactSimulatorSx}>
-          <PatrimonySimulator
-            value={effectivePatrimony}
-            onChange={onSimulatedPatrimonyChange}
-            onReset={() => onSimulatedPatrimonyChange(null)}
-            patrimonyTotal={patrimonyTotal}
-            showReset={simulatedPatrimony !== null}
-            isPersisting={isPersisting}
-          />
-        </Box>
-        <Box sx={compactSimulatorSx}>
-          <ExpenseSimulator
-            value={effectiveExpenses}
-            onChange={onExpensesChange}
-            onReset={() => onExpensesChange(null)}
-            avgMonthlyExpenses={avgExpenses}
-            showReset={expensesOverride !== null}
-            isPersisting={isPersisting}
-          />
-        </Box>
-        <Box sx={compactSimulatorSx}>
-          <SavingsSimulator
-            value={Math.max(0, effectiveMonthlySavings)}
-            onChange={onMonthlySavingsChange}
-            onReset={() => onMonthlySavingsChange(null)}
-            avgMonthlySavings={Math.max(0, derivedMonthlySavings)}
-            showReset={monthlySavingsOverride !== null}
-            isPersisting={isPersisting}
-          />
-        </Box>
-
-        <Stack gap={1}>
-          <PersistedSlider
-            value={withdrawalRate}
-            onChange={onWithdrawalRateChange}
-            renderLabel={(value) => (
-              <Text size={FontSizes.EXTRA_SMALL}>
-                Taxa de retirada: {value}% a.a.
-              </Text>
-            )}
-            min={2}
-            max={6}
-            step={0.5}
-            marks
-            isPersisting={isPersisting}
-          />
-        </Stack>
-
-        <Stack gap={1}>
-          <PersistedSlider
-            value={targetYears}
-            onChange={onTargetYearsChange}
-            renderLabel={(value) => (
-              <Text size={FontSizes.EXTRA_SMALL}>
-                Horizonte de aposentadoria: {value} anos
-              </Text>
-            )}
-            min={20}
-            max={80}
-            step={5}
-            marks
-            isPersisting={isPersisting}
-          />
-        </Stack>
-
-        <FormControlLabel
-          control={
-            <Switch
-              size="small"
-              checked={samplingMethod === "contiguous_12_month_blocks"}
-              onChange={(_, checked) =>
-                onSamplingMethodChange(
-                  checked ? "contiguous_12_month_blocks" : "independent_months",
-                )
-              }
-            />
+        <FireScenarioNumberInput
+          label="Patrimônio"
+          value={effectivePatrimony}
+          step={100_000}
+          prefix="R$ "
+          disabled={isPersisting}
+          onChange={onSimulatedPatrimonyChange}
+          onReset={
+            simulatedPatrimony !== null
+              ? () => onSimulatedPatrimonyChange(null)
+              : undefined
           }
-          label="Preservar sequências históricas de 12 meses"
+        />
+        <FireScenarioNumberInput
+          label="Despesas mensais"
+          value={effectiveExpenses}
+          step={500}
+          prefix="R$ "
+          disabled={isPersisting}
+          onChange={onExpensesChange}
+          onReset={
+            expensesOverride !== null ? () => onExpensesChange(null) : undefined
+          }
+        />
+        <FireScenarioNumberInput
+          label="Aportes mensais"
+          value={Math.max(0, effectiveMonthlySavings)}
+          step={500}
+          prefix="R$ "
+          disabled={isPersisting}
+          onChange={onMonthlySavingsChange}
+          onReset={
+            monthlySavingsOverride !== null
+              ? () => onMonthlySavingsChange(null)
+              : undefined
+          }
+        />
+        <FireScenarioNumberInput
+          label="Taxa de retirada"
+          value={withdrawalRate}
+          step={0.25}
+          min={2}
+          max={6}
+          suffix="% a.a."
+          disabled={isPersisting}
+          onChange={onWithdrawalRateChange}
+        />
+        <FireScenarioNumberInput
+          label="Horizonte"
+          value={targetYears}
+          step={1}
+          min={20}
+          max={80}
+          suffix=" anos"
+          decimalScale={0}
+          disabled={isPersisting}
+          onChange={onTargetYearsChange}
         />
 
         <Accordion
-          expanded={advancedOpen}
-          onChange={(_, expanded) => onAdvancedOpenChange(expanded)}
+          expanded={assumptionsExpanded || advancedOpen}
+          onChange={(_, expanded) => setAssumptionsExpanded(expanded)}
           disableGutters
           elevation={0}
+          sx={{
+            background: "transparent",
+            minWidth: 0,
+            "&::before": { display: "none" },
+          }}
         >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Text size={FontSizes.SMALL} weight={FontWeights.MEDIUM}>
-              Premissas avançadas
-            </Text>
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon fontSize="small" />}
+            sx={{
+              px: 0,
+              minHeight: 32,
+              "&.Mui-expanded": { minHeight: 32 },
+              "& .MuiAccordionSummary-content": { my: 0.5 },
+              "& .MuiAccordionSummary-content.Mui-expanded": { my: 0.5 },
+            }}
+          >
+            <Text size={FontSizes.EXTRA_SMALL}>Premissas avançadas</Text>
           </AccordionSummary>
-          {advancedOpen && (
-            <AccordionDetails>
-              <Stack gap={2}>
-                <FireHistoricalDataControls
-                  allocation={allocation}
-                  preferences={firePreferences}
-                  onChange={onHistoricalPreferenceChange}
-                  showShortPeriodWarning={false}
-                  controlsRef={historicalControlsRef}
-                />
+          <AccordionDetails
+            sx={{
+              mt: 0.5,
+              p: 1.5,
+              backgroundColor: getColor(Colors.neutral800),
+              border: `1px solid ${getColor(Colors.neutral600)}`,
+              borderRadius: 1.5,
+            }}
+          >
+            <Stack gap={1.5}>
+              <FireHistoricalSettings
+                allocation={allocation}
+                preferences={firePreferences}
+                showAgeInBonds={showAgeInBonds}
+                open={advancedOpen}
+                onOpenChange={onAdvancedOpenChange}
+                controlsRef={historicalControlsRef}
+                onApply={(overrides) =>
+                  onHistoricalPreferenceChange(
+                    "historical_series_overrides",
+                    overrides,
+                  )
+                }
+              />
+              <Stack direction="row" alignItems="center" gap={0.5}>
                 <FormControlLabel
                   control={
                     <Switch
                       size="small"
-                      checked={showAgeInBonds}
-                      onChange={(_, checked) => onShowAgeInBondsChange(checked)}
+                      checked={samplingMethod === "contiguous_12_month_blocks"}
+                      onChange={(_, checked) =>
+                        onSamplingMethodChange(
+                          checked
+                            ? "contiguous_12_month_blocks"
+                            : "independent_months",
+                        )
+                      }
                     />
                   }
-                  label="Alocação Idade em Renda Fixa"
+                  disableTypography
+                  sx={{
+                    m: 0,
+                    display: "flex",
+                    flexDirection: "row",
+                    flexWrap: "nowrap",
+                    alignItems: "center",
+                    gap: 0.5,
+                    "& .MuiSwitch-root": { flexShrink: 0 },
+                  }}
+                  label={
+                    <Text
+                      component="span"
+                      size={FontSizes.EXTRA_SMALL}
+                      extraStyle={{ minWidth: 0 }}
+                    >
+                      Preservar sequências históricas de 12 meses
+                    </Text>
+                  }
                 />
+                <Text
+                  component="span"
+                  size={FontSizes.EXTRA_SMALL}
+                  extraStyle={{ display: "inline-flex", flexShrink: 0 }}
+                >
+                  <InfoIconTooltip text="Usa trechos reais de 12 meses para manter sequências de altas e quedas na simulação. Do contrário, mistura meses isolados do histórico. Exemplo: pode sortear março de 2008 a fevereiro de 2009, mantendo os 12 meses nessa ordem. Sem essa opção, março de 2008 pode ser seguido por julho de 2015." />
+                </Text>
               </Stack>
-            </AccordionDetails>
-          )}
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={showAgeInBonds}
+                    onChange={(_, checked) => onShowAgeInBondsChange(checked)}
+                  />
+                }
+                disableTypography
+                sx={{
+                  m: 0,
+                  display: "flex",
+                  flexDirection: "row",
+                  flexWrap: "nowrap",
+                  alignItems: "center",
+                  gap: 0.5,
+                  "& .MuiSwitch-root": { flexShrink: 0 },
+                }}
+                label={
+                  <Text
+                    component="span"
+                    size={FontSizes.EXTRA_SMALL}
+                    extraStyle={{ minWidth: 0 }}
+                  >
+                    Alocação Idade em Renda Fixa
+                  </Text>
+                }
+              />
+            </Stack>
+          </AccordionDetails>
         </Accordion>
 
         <Button

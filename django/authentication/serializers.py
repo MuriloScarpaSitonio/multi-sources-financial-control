@@ -162,6 +162,48 @@ class FirePreferencesSerializer(serializers.Serializer):
         child=serializers.ChoiceField(choices=RETURN_CATEGORIES),
         required=False,
     )
+    historical_series_overrides = serializers.DictField(
+        child=serializers.ChoiceField(
+            choices=(
+                "IBOV",
+                "IFIX",
+                "SPY",
+                "VTI",
+                "VT",
+                "VWRL",
+                "BTC",
+                "CMBI10",
+                "CDI",
+                "IMA_S",
+                "IRF_M_1",
+                "IRF_M_1_PLUS",
+                "IMA_B_5",
+                "IMA_B_5_PLUS",
+                "IMA_GERAL_EX_C",
+                "CASH",
+            )
+        ),
+        required=False,
+    )
+
+    def validate_historical_series_overrides(self, value):
+        allowed = {
+            "BR_EQUITY:IBOV",
+            "US_EQUITY:default",
+            "GLOBAL_EQUITY:default",
+            "FII:IFIX",
+            "CRYPTO:default",
+            "FIXED_CDI:CDI",
+            "FIXED_SELIC:IMA_S",
+            "FIXED_PREFIXED:IRF_M_1",
+            "FIXED_PREFIXED:IRF_M_1_PLUS",
+            "FIXED_IPCA:IMA_B_5",
+            "FIXED_IPCA:IMA_B_5_PLUS",
+        }
+        if value.keys() - allowed:
+            raise serializers.ValidationError("Grupo de ativos inválido.")
+        return value
+
     exclude_ifix_from_sim = serializers.BooleanField(required=False, write_only=True)
 
     def to_representation(self, instance: dict) -> dict:

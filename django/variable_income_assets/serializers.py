@@ -783,7 +783,15 @@ class B3ImportResultSerializer(serializers.Serializer):
     reports = serializers.DictField()
 
 
+class FireAllocationAssetSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    code = serializers.CharField()
+    description = serializers.CharField(allow_blank=True)
+    total = serializers.DecimalField(max_digits=20, decimal_places=2)
+
+
 class FireAllocationBucketSerializer(serializers.Serializer):
+    assets = FireAllocationAssetSerializer(many=True)
     category = serializers.CharField()
     series = serializers.CharField(allow_null=True)
     total = serializers.DecimalField(max_digits=20, decimal_places=2)

@@ -10,6 +10,12 @@ export type FireAllocationBucket = {
   category: ReturnCategory | "CASH";
   series: FireReturnSeriesKey | null;
   total: number;
+  assets?: readonly {
+    id: number;
+    code: string;
+    description: string;
+    total: number;
+  }[];
 };
 
 export type FireAllocationResponse = {

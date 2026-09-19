@@ -23,16 +23,19 @@ pytestmark = pytest.mark.django_db
     ),
 )
 def test__classify_fixed_income(indexer, maturity, expected):
-    assert classify_return_bucket(
-        asset_type="FIXED_BR",
-        indexer=indexer,
-        maturity_date=maturity,
-        today=date(2026, 9, 17),
-    ) == expected
+    assert (
+        classify_return_bucket(
+            asset_type="FIXED_BR",
+            indexer=indexer,
+            maturity_date=maturity,
+            today=date(2026, 9, 17),
+        )
+        == expected
+    )
 
 
 @pytest.mark.freeze_time("2026-09-17 12:00:00")
-def test__fire_allocation_returns_current_brl_totals_and_cash(client, user):
+def test__fire_allocation_returns_current_brl_totals_and_cash(client, user, another_user):
     stock_metadata = AssetMetaData.objects.create(
         code="BBAS3",
         type="STOCK",
@@ -72,18 +75,29 @@ def test__fire_allocation_returns_current_brl_totals_and_cash(client, user):
         is_active=True,
     )
 
+    AssetReadModel.objects.create(
+        write_model_pk=3, user_id=another_user.id, code="BBAS3", type="STOCK",
+        currency="BRL", quantity_balance=Decimal("900"), metadata=stock_metadata,
+    )
+
     response = client.get("/api/v1/assets/fire_allocation")
 
     assert response.status_code == 200
     assert response.json() == {
         "as_of": "2026-09-17",
         "buckets": [
-            {"category": "BR_EQUITY", "series": "IBOV", "total": 1000.0},
+            {
+                "category": "BR_EQUITY",
+                "series": "IBOV",
+                "total": 1000.0,
+                "assets": [{"id": 1, "code": "BBAS3", "description": "", "total": 1000.0}],
+            },
             {
                 "category": "FIXED_IPCA",
                 "series": "IMA_B_5_PLUS",
                 "total": 2000.0,
+                "assets": [{"id": 2, "code": "NTNB", "description": "", "total": 2000.0}],
             },
-            {"category": "CASH", "series": "CASH", "total": 500.0},
+            {"category": "CASH", "series": "CASH", "total": 500.0, "assets": []},
         ],
     }

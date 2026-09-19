@@ -107,6 +107,7 @@ const mocks = vi.hoisted(() => ({
         global_equity_proxy: "VT" as const,
         crypto_proxy: "BTC" as const,
         excluded_return_categories: [],
+        historical_series_overrides: {},
       },
     },
     dateOfBirth: "1986-01-01",
@@ -124,9 +125,20 @@ vi.mock("../hooks", () => ({
   }),
 }));
 
-vi.mock("../fireAllocation", () => ({
+vi.mock("../fireAllocation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../fireAllocation")>()),
   useFireAllocation: () => ({
-    data: { as_of: "2026-09-18", buckets: [] },
+    data: {
+      as_of: "2026-09-18",
+      buckets: [
+        {
+          category: "FIXED_SELIC",
+          series: "IMA_S",
+          total: 1_000_000,
+          assets: [],
+        },
+      ],
+    },
     isPending: false,
   }),
 }));
@@ -203,10 +215,10 @@ describe("FireDetail presentation switch", () => {
     );
     expect(screen.getByTestId("fire-simulation-studio")).toBeInTheDocument();
 
-    const sliders = screen.getAllByRole("slider");
-    sliders[3].focus();
-    await user.keyboard("{ArrowRight}{ArrowRight}");
-    expect(screen.getByText("Taxa de retirada: 5% a.a.")).toBeInTheDocument();
+    const rate = screen.getByRole("textbox", { name: "Taxa de retirada" });
+    await user.clear(rate);
+    await user.type(rate, "5");
+    expect(rate).toHaveValue("5% a.a.");
 
     await user.click(screen.getByRole("button", { name: "Legacy" }));
     expect(
@@ -231,7 +243,9 @@ describe("FireDetail presentation switch", () => {
     });
 
     await user.click(screen.getByRole("button", { name: "New" }));
-    expect(screen.getByText("Taxa de retirada: 4.5% a.a.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: "Taxa de retirada" }),
+    ).toHaveValue("4,5% a.a.");
     expect(mocks.updatePreferences).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
@@ -246,21 +260,86 @@ describe("FireDetail presentation switch", () => {
         global_equity_proxy: "VT",
         crypto_proxy: "BTC",
         excluded_return_categories: [],
+        historical_series_overrides: {},
       },
       show_age_in_bonds: false,
     });
+  });
+
+  it("applies a dataset override to the next calculation and saves it only explicitly", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(FakeWorker.instances).toHaveLength(1));
+    await user.click(
+      screen.getByRole("button", { name: "Premissas avançadas" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Configurar históricos" }),
+    );
+    await user.click(
+      screen.getByRole("combobox", { name: "Histórico para Renda fixa Selic" }),
+    );
+    await user.click(screen.getByRole("option", { name: /^CDI/ }));
+    await user.click(screen.getByRole("button", { name: "Aplicar" }));
+    expect(mocks.updatePreferences).not.toHaveBeenCalled();
+    expect(FakeWorker.instances).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Recalcular" }));
+    await waitFor(() => expect(FakeWorker.instances).toHaveLength(2));
+    expect(FakeWorker.instances[1].messages[0].request.input.portfolio).toEqual(
+      [
+        {
+          category: "FIXED_SELIC",
+          series: "CDI",
+          weight: 1,
+          constrainsSample: true,
+        },
+      ],
+    );
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+    expect(mocks.updatePreferences).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fire: expect.objectContaining({
+          historical_series_overrides: { "FIXED_SELIC:IMA_S": "CDI" },
+        }),
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Legacy" }));
+    await user.click(
+      screen.getByRole("button", { name: "Configurar históricos" }),
+    );
+    expect(
+      screen.getByRole("combobox", { name: "Histórico para Renda fixa Selic" }),
+    ).toHaveTextContent("CDI");
+    await user.click(
+      screen.getByRole("combobox", { name: "Histórico para Renda fixa Selic" }),
+    );
+    await user.click(screen.getByRole("option", { name: /^IMA-S/ }));
+    await user.click(screen.getByRole("button", { name: "Aplicar" }));
+    await waitFor(() =>
+      expect(
+        FakeWorker.instances.at(-1)?.messages[0].request.input.portfolio,
+      ).toEqual([
+        {
+          category: "FIXED_SELIC",
+          series: "IMA_S",
+          weight: 1,
+          constrainsSample: true,
+        },
+      ]),
+    );
   });
 
   it("preserves simulated patrimony when age in bonds switches to Legacy", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    const patrimonySlider = screen.getAllByRole("slider")[0];
-    fireEvent.change(patrimonySlider, { target: { value: "500000" } });
+    const patrimony = screen.getByRole("textbox", { name: "Patrimônio" });
+    await user.clear(patrimony);
+    await user.type(patrimony, "500000");
     expect(screen.getAllByRole("textbox")[0]).toHaveValue("R$ 500.000");
 
     await user.click(
-      screen.getByRole("button", { name: /Premissas avançadas/ }),
+      screen.getByRole("button", { name: "Premissas avançadas" }),
     );
     await user.click(
       screen.getByRole("checkbox", {

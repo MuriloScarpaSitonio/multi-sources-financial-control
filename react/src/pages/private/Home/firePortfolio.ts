@@ -3,6 +3,9 @@ import type { FireAllocationBucket } from "../Planning/fireAllocation";
 import type { FireReturnSeriesKey, ReturnCategory } from "./fireReturnTypes";
 import { FIRE_RETURN_SERIES } from "./fireReturns";
 
+export const fireAllocationKey = (bucket: FireAllocationBucket) =>
+  `${bucket.category}:${bucket.series ?? "default"}`;
+
 export type PortfolioSlice = {
   category: ReturnCategory | "CASH";
   series: FireReturnSeriesKey;
@@ -52,11 +55,18 @@ export const buildPortfolio = (
     const excluded =
       bucket.category !== "CASH" &&
       preferences.excluded_return_categories.includes(bucket.category);
+    const override =
+      preferences.historical_series_overrides?.[fireAllocationKey(bucket)];
+    const series =
+      bucket.category === "CASH"
+        ? "CASH"
+        : (override ??
+          (excluded ? "CASH" : resolveSeries(bucket, preferences)));
     return {
       category: bucket.category,
-      series: excluded ? "CASH" : resolveSeries(bucket, preferences),
+      series,
       weight: bucket.total / total,
-      constrainsSample: bucket.category !== "CASH" && !excluded,
+      constrainsSample: series !== "CASH",
     };
   });
 };

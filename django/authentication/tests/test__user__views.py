@@ -676,6 +676,7 @@ def test__partial_update__planning_preferences__fire_proxy_fields(client, user):
                     "global_equity_proxy": "VWRL",
                     "crypto_proxy": "CMBI10",
                     "excluded_return_categories": ["FII", "FIXED_IPCA"],
+                    "historical_series_overrides": {"FIXED_SELIC:IMA_S": "CDI"},
                 },
             }
         },
@@ -689,6 +690,7 @@ def test__partial_update__planning_preferences__fire_proxy_fields(client, user):
         "global_equity_proxy": "VWRL",
         "crypto_proxy": "CMBI10",
         "excluded_return_categories": ["FII", "FIXED_IPCA"],
+        "historical_series_overrides": {"FIXED_SELIC:IMA_S": "CDI"},
     }
 
 

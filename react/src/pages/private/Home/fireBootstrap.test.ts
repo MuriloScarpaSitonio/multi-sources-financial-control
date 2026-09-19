@@ -24,6 +24,7 @@ const DEFAULT_FIRE_PREFERENCES = {
   global_equity_proxy: "VT",
   crypto_proxy: "BTC",
   excluded_return_categories: [],
+  historical_series_overrides: {},
 } satisfies Required<FirePlanningPreferences>;
 
 const sequenceRng = (values: readonly number[]) => {
