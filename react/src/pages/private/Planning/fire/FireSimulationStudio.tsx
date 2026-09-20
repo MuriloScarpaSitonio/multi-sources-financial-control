@@ -194,14 +194,11 @@ const FireSimulationStudio = ({
   return (
     <>
       {renderHeader?.(
-        <Button
-          size="small"
-          variant="brand"
-          disabled={!canRecalculate}
-          onClick={handleRecalculate}
-        >
-          {calculationState.isCalculating ? "Recalculando…" : "Recalcular"}
-        </Button>,
+        canRecalculate ? (
+          <Button size="small" variant="brand" onClick={handleRecalculate}>
+            Recalcular
+          </Button>
+        ) : null,
       )}
       <Box
         data-testid="fire-simulation-studio"

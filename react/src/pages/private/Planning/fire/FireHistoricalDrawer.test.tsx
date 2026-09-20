@@ -37,60 +37,6 @@ it("changes the historical dataset without changing category or weight", () => {
   });
 });
 
-it("previews history and affected assets, cancels locally, and applies only on request", async () => {
-  const user = userEvent.setup();
-  const onApply = vi.fn();
-  const onClose = vi.fn();
-  const { unmount } = render(
-    <FireHistoricalDrawer
-      allocation={allocation}
-      preferences={DEFAULT_FIRE_PREFERENCES}
-      onApply={onApply}
-      onClose={onClose}
-    />,
-  );
-  expect(screen.queryByText("Cripto")).not.toBeInTheDocument();
-  expect(screen.getByText(/Limitado por: IMA-S/)).toBeVisible();
-  await user.click(
-    screen.getAllByRole("button", { name: "1 ativo afetado" })[0],
-  );
-  expect(screen.getByText("Tesouro Selic 2029")).toBeVisible();
-  await user.click(
-    screen.getByRole("combobox", { name: "Histórico para Renda fixa Selic" }),
-  );
-  await user.click(
-    within(screen.getByRole("listbox")).getByRole("option", { name: /CDI/ }),
-  );
-  expect(screen.getByText(/Limitado por: CDI/)).toBeVisible();
-  expect(onApply).not.toHaveBeenCalled();
-  await user.click(screen.getByRole("button", { name: "Cancelar" }));
-  expect(onClose).toHaveBeenCalledOnce();
-  expect(onApply).not.toHaveBeenCalled();
-  unmount();
-  render(
-    <FireHistoricalDrawer
-      allocation={allocation}
-      preferences={DEFAULT_FIRE_PREFERENCES}
-      onApply={onApply}
-      onClose={onClose}
-    />,
-  );
-  expect(
-    screen.getByRole("combobox", { name: "Histórico para Renda fixa Selic" }),
-  ).toHaveTextContent("IMA-S");
-  await user.click(
-    screen.getByRole("combobox", { name: "Histórico para Renda fixa Selic" }),
-  );
-  await user.click(
-    within(screen.getByRole("listbox")).getByRole("option", { name: /CDI/ }),
-  );
-  await user.click(screen.getByRole("button", { name: "Aplicar" }));
-  expect(onApply).toHaveBeenCalledWith(
-    expect.objectContaining({ "FIXED_SELIC:IMA_S": "CDI" }),
-    {},
-  );
-});
-
 it("includes fallback history for age-in-bonds", () => {
   const equities = [
     { category: "BR_EQUITY", series: "IBOV", total: 1000 },
@@ -133,95 +79,49 @@ it("keeps separate maturity buckets and overrides legacy exclusions explicitly",
   ]);
 });
 
-it("orders buckets by descending portfolio share and shows asset code before description", async () => {
+it("uses portfolio tabs and locks the primary subgroup", async () => {
   const user = userEvent.setup();
   render(
     <FireHistoricalDrawer
-      allocation={[allocation[1], allocation[0]]}
+      allocation={allocation}
       preferences={DEFAULT_FIRE_PREFERENCES}
       onApply={vi.fn()}
       onClose={vi.fn()}
     />,
   );
-  expect(
-    screen
-      .getAllByRole("combobox")
-      .map((element) => element.getAttribute("aria-label")),
-  ).toEqual([
-    "Histórico para Renda fixa Selic",
-    "Histórico para Renda fixa CDI",
+  expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+    "Renda fixa",
   ]);
   await user.click(
-    screen.getAllByRole("button", { name: "1 ativo afetado" })[0],
+    screen.getByRole("button", {
+      name: "O que significa complementar histórico anterior?",
+    }),
   );
   expect(
-    screen
-      .getByText("LFT")
-      .compareDocumentPosition(screen.getByText("Tesouro Selic 2029")) &
-      Node.DOCUMENT_POSITION_FOLLOWING,
-  ).toBeTruthy();
-});
-
-it("flags an unusual dataset without blocking it, and clears the warning for a matching dataset", async () => {
-  const user = userEvent.setup();
-  const onApply = vi.fn();
-  render(
-    <FireHistoricalDrawer
-      allocation={[
-        { category: "CRYPTO", series: null, total: 1000, assets: [] },
-      ]}
-      preferences={DEFAULT_FIRE_PREFERENCES}
-      onApply={onApply}
-      onClose={vi.fn()}
-    />,
-  );
-  expect(screen.queryByText(/Escolha atípica/)).not.toBeInTheDocument();
-  const select = screen.getByRole("combobox", {
-    name: "Histórico para Cripto",
-  });
-  await user.click(select);
-  await user.click(screen.getByRole("option", { name: /^IMA-S/ }));
-  expect(
-    screen.getByText(/Escolha atípica: IMA-S representa renda fixa/),
+    screen.getByText(/um complemento pode acrescentar meses de janeiro/),
   ).toBeVisible();
-  await user.click(screen.getByRole("button", { name: "Aplicar" }));
-  expect(onApply).toHaveBeenCalledWith({ "CRYPTO:default": "IMA_S" }, {});
-  await user.click(select);
-  await user.click(screen.getByRole("option", { name: /^CMBI 10/ }));
-  expect(screen.queryByText(/Escolha atípica/)).not.toBeInTheDocument();
-});
-
-it("groups historical options and skips group headings during keyboard selection", async () => {
-  const user = userEvent.setup();
-  render(
-    <FireHistoricalDrawer
-      allocation={[{ category: "BR_EQUITY", series: "IBOV", total: 1000 }]}
-      preferences={DEFAULT_FIRE_PREFERENCES}
-      onApply={vi.fn()}
-      onClose={vi.fn()}
-    />,
+  const primary = within(
+    screen.getByRole("group", { name: "Histórico para Renda fixa Selic" }),
   );
-  const select = screen.getByRole("combobox", {
-    name: "Histórico para Renda variável BR",
-  });
-  await user.click(select);
-  const menu = within(screen.getByRole("listbox"));
-  for (const label of [
-    "Ações brasileiras",
-    "Ações americanas",
-    "Ações globais",
-    "Fundos imobiliários",
-    "Cripto",
-    "Renda fixa",
-    "Dinheiro",
-  ]) {
-    expect(menu.getByText(label)).toBeVisible();
-  }
-  await user.keyboard("{ArrowDown}{Enter}");
-  expect(select).toHaveTextContent("SPY · S&P 500");
+  expect(primary.getByRole("button", { name: "Pós-fixada" })).toBeDisabled();
+  expect(primary.getByRole("button", { name: "IMA-S" })).toBeEnabled();
+  expect(primary.getByRole("button", { name: "IMA-S" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  expect(screen.getByRole("button", { name: "Aplicar" })).toBeDisabled();
+  await user.click(
+    within(
+      screen.getByRole("group", { name: "Subgrupos da carteira" }),
+    ).getByRole("button", { name: "CDI" }),
+  );
+  expect(
+    screen.queryByRole("button", { name: "Complementar histórico anterior" }),
+  ).not.toBeInTheDocument();
 });
 
-it("drafts an earlier dataset, previews its contribution, and applies or removes it explicitly", async () => {
+it("expands only valid complement choices, drafts on index selection, and supports change/removal", async () => {
   const user = userEvent.setup();
   const onApply = vi.fn();
   render(
@@ -232,26 +132,163 @@ it("drafts an earlier dataset, previews its contribution, and applies or removes
       onClose={vi.fn()}
     />,
   );
+  expect(
+    screen.queryByRole("group", {
+      name: "Histórico anterior para Renda fixa Selic",
+    }),
+  ).not.toBeInTheDocument();
   await user.click(
-    screen.getAllByRole("button", {
-      name: "Complementar histórico anterior",
-    })[0],
+    screen.getByRole("button", { name: "Complementar histórico anterior" }),
   );
-  await user.click(
-    screen.getByRole("combobox", {
+  let earlier = within(
+    screen.getByRole("group", {
       name: "Histórico anterior para Renda fixa Selic",
     }),
   );
-  await user.click(screen.getByRole("option", { name: /^CDI ·/ }));
-  expect(screen.getByText(/complementado · .*principal/)).toBeVisible();
+  expect(
+    earlier.queryByRole("button", { name: "Cripto" }),
+  ).not.toBeInTheDocument();
+  await user.click(earlier.getByRole("button", { name: "Renda fixa" }));
+  expect(screen.getByRole("button", { name: "Aplicar" })).toBeDisabled();
+  await user.click(earlier.getByRole("button", { name: "Pós-fixada" }));
+  expect(
+    screen.queryByRole("group", {
+      name: "Histórico anterior para Renda fixa Selic",
+    }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByText("CDI · 01/1995–04/2004")).toBeVisible();
   expect(onApply).not.toHaveBeenCalled();
   await user.click(screen.getByRole("button", { name: "Aplicar" }));
-  expect(onApply).toHaveBeenLastCalledWith({}, { "FIXED_SELIC:IMA_S": "CDI" });
+  expect(onApply).toHaveBeenCalledWith({}, { "FIXED_SELIC:IMA_S": "CDI" });
+  await user.click(
+    screen.getByRole("button", {
+      name: "Alterar histórico anterior para Renda fixa Selic",
+    }),
+  );
+  earlier = within(
+    screen.getByRole("group", {
+      name: "Histórico anterior para Renda fixa Selic",
+    }),
+  );
+  await user.click(earlier.getByRole("button", { name: "Renda variável BR" }));
+  expect(screen.getByText("IBOV · 01/1995–04/2004")).toBeVisible();
+  await user.click(
+    screen.getByRole("button", {
+      name: "Remover histórico anterior para Renda fixa Selic",
+    }),
+  );
+  expect(screen.getByRole("button", { name: "Aplicar" })).toBeDisabled();
+});
+
+it("preserves saved primary overrides and allows removing an ineligible complement", async () => {
+  const user = userEvent.setup();
+  const onApply = vi.fn();
+  render(
+    <FireHistoricalDrawer
+      allocation={allocation}
+      preferences={{
+        ...DEFAULT_FIRE_PREFERENCES,
+        historical_series_overrides: { "FIXED_SELIC:IMA_S": "IBOV" },
+        historical_series_fallbacks: { "FIXED_SELIC:IMA_S": "CDI" },
+      }}
+      onApply={onApply}
+      onClose={vi.fn()}
+    />,
+  );
+  expect(
+    screen.queryByRole("button", { name: "Complementar histórico anterior" }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "IBOV" })).toBeDisabled();
   await user.click(
     screen.getByRole("button", {
       name: "Remover histórico anterior para Renda fixa Selic",
     }),
   );
   await user.click(screen.getByRole("button", { name: "Aplicar" }));
-  expect(onApply).toHaveBeenLastCalledWith({}, {});
+  expect(onApply).toHaveBeenCalledWith({ "FIXED_SELIC:IMA_S": "IBOV" }, {});
+});
+
+it("keeps drafts across tabs but discards them on cancellation", async () => {
+  const user = userEvent.setup();
+  const onApply = vi.fn();
+  const onClose = vi.fn();
+  const props = {
+    allocation,
+    preferences: DEFAULT_FIRE_PREFERENCES,
+    onApply,
+    onClose,
+  };
+  const page = render(<FireHistoricalDrawer {...props} />);
+  await user.click(
+    screen.getByRole("button", { name: "Complementar histórico anterior" }),
+  );
+  const earlier = within(
+    screen.getByRole("group", {
+      name: "Histórico anterior para Renda fixa Selic",
+    }),
+  );
+  await user.click(earlier.getByRole("button", { name: "Renda fixa" }));
+  await user.click(earlier.getByRole("button", { name: "Pós-fixada" }));
+  await user.click(
+    within(
+      screen.getByRole("group", { name: "Subgrupos da carteira" }),
+    ).getByRole("button", { name: "CDI" }),
+  );
+  await user.click(
+    within(
+      screen.getByRole("group", { name: "Subgrupos da carteira" }),
+    ).getByRole("button", { name: "Selic" }),
+  );
+  expect(screen.getByText("CDI · 01/1995–04/2004")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "1 ativo afetado" }));
+  expect(
+    screen
+      .getByText("LFT")
+      .compareDocumentPosition(screen.getByText("Tesouro Selic 2029")) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Cancelar" }));
+  expect(onClose).toHaveBeenCalled();
+  expect(onApply).not.toHaveBeenCalled();
+  page.unmount();
+  render(<FireHistoricalDrawer {...props} />);
+  expect(screen.getByRole("button", { name: "Aplicar" })).toBeDisabled();
+  expect(screen.queryByText("CDI · 01/1995–04/2004")).not.toBeInTheDocument();
+});
+
+it("groups portfolio subgroups under broad sidebar asset types", async () => {
+  const user = userEvent.setup();
+  render(
+    <FireHistoricalDrawer
+      allocation={[
+        ...allocation,
+        { category: "BR_EQUITY", series: "IBOV", total: 400000 },
+        { category: "FII", series: "IFIX", total: 100000 },
+        { category: "FIXED_IPCA", series: "IMA_B_5_PLUS", total: 90000 },
+      ]}
+      preferences={DEFAULT_FIRE_PREFERENCES}
+      onApply={vi.fn()}
+      onClose={vi.fn()}
+    />,
+  );
+  expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+    "Renda variável BR",
+    "Renda fixa",
+  ]);
+  const subgroups = within(
+    screen.getByRole("group", { name: "Subgrupos da carteira" }),
+  );
+  expect(subgroups.getByRole("button", { name: "Ações" })).toBeVisible();
+  await user.click(subgroups.getByRole("button", { name: "FII" }));
+  expect(
+    screen.getByRole("group", { name: "Histórico para FII" }),
+  ).toBeVisible();
+  screen.getByRole("tab", { name: "Renda variável BR" }).focus();
+  await user.keyboard("{ArrowDown}");
+  expect(screen.getByRole("tab", { name: "Renda fixa" })).toHaveFocus();
+  expect(
+    within(
+      screen.getByRole("group", { name: "Subgrupos da carteira" }),
+    ).getByRole("button", { name: /IPCA/ }),
+  ).toBeVisible();
 });

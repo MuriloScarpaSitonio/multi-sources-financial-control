@@ -214,7 +214,9 @@ describe("FireDetail presentation switch", () => {
       screen.getByRole("region", { name: "Ações do cenário" }),
     );
     await waitFor(() =>
-      expect(header.getByRole("button", { name: "Recalcular" })).toBeDisabled(),
+      expect(
+        header.queryByRole("button", { name: "Recalcular" }),
+      ).not.toBeInTheDocument(),
     );
     await user.click(
       screen.getByRole("button", { name: "Aumentar Patrimônio" }),
@@ -226,7 +228,9 @@ describe("FireDetail presentation switch", () => {
     await user.click(
       screen.getByRole("button", { name: "Resetar Patrimônio" }),
     );
-    expect(header.getByRole("button", { name: "Recalcular" })).toBeDisabled();
+    expect(
+      header.queryByRole("button", { name: "Recalcular" }),
+    ).not.toBeInTheDocument();
     expect(
       header.queryByRole("button", { name: "Salvar alterações" }),
     ).not.toBeInTheDocument();
@@ -235,13 +239,15 @@ describe("FireDetail presentation switch", () => {
     );
     await user.click(header.getByRole("button", { name: "Recalcular" }));
     await waitFor(() =>
-      expect(header.getByRole("button", { name: "Recalcular" })).toBeDisabled(),
+      expect(
+        header.queryByRole("button", { name: "Recalcular" }),
+      ).not.toBeInTheDocument(),
     );
     expect(
       header.getByRole("button", { name: "Salvar alterações" }),
     ).toBeEnabled();
     expect(screen.getAllByRole("button", { name: "Recalcular" })).toHaveLength(
-      2,
+      1,
     );
   });
 
@@ -307,7 +313,7 @@ describe("FireDetail presentation switch", () => {
     expect(screen.getByTestId("fire-simulation-studio")).toBeInTheDocument();
   });
 
-  it("applies a dataset override to the next calculation and saves it only explicitly", async () => {
+  it("applies a primary index change within its subgroup before explicit recalculation and saving", async () => {
     const user = userEvent.setup();
     renderPage();
     await waitFor(() => expect(FakeWorker.instances).toHaveLength(1));
@@ -317,25 +323,24 @@ describe("FireDetail presentation switch", () => {
     await user.click(
       screen.getByRole("button", { name: "Configurar históricos" }),
     );
-    await user.click(
-      screen.getByRole("combobox", { name: "Histórico para Renda fixa Selic" }),
+    const primary = within(
+      screen.getByRole("group", { name: "Histórico para Renda fixa Selic" }),
     );
-    await user.click(screen.getByRole("option", { name: /^CDI/ }));
+    expect(primary.getByRole("button", { name: "Pós-fixada" })).toBeDisabled();
+    expect(primary.getByRole("button", { name: "IMA-S" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "Aplicar" })).toBeDisabled();
+    await user.click(primary.getByRole("button", { name: "CDI" }));
     await user.click(screen.getByRole("button", { name: "Aplicar" }));
     expect(mocks.updatePreferences).not.toHaveBeenCalled();
     expect(FakeWorker.instances).toHaveLength(1);
     await user.click(screen.getAllByRole("button", { name: "Recalcular" })[0]);
     await waitFor(() => expect(FakeWorker.instances).toHaveLength(2));
-    expect(FakeWorker.instances[1].messages[0].request.input.portfolio).toEqual(
-      [
-        {
-          category: "FIXED_SELIC",
-          series: "CDI",
-          weight: 1,
-          constrainsSample: true,
-        },
-      ],
-    );
+    expect(
+      FakeWorker.instances[1].messages[0].request.input.portfolio[0],
+    ).toMatchObject({ series: "CDI", weight: 1 });
     await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
     expect(mocks.updatePreferences).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -359,12 +364,13 @@ describe("FireDetail presentation switch", () => {
     await user.click(
       screen.getByRole("button", { name: "Complementar histórico anterior" }),
     );
-    await user.click(
-      screen.getByRole("combobox", {
+    const earlier = within(
+      screen.getByRole("group", {
         name: "Histórico anterior para Renda fixa Selic",
       }),
     );
-    await user.click(screen.getByRole("option", { name: /^CDI ·/ }));
+    await user.click(earlier.getByRole("button", { name: "Renda fixa" }));
+    await user.click(earlier.getByRole("button", { name: "Pós-fixada" }));
     expect(mocks.updatePreferences).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Aplicar" }));
     expect(FakeWorker.instances).toHaveLength(1);

@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -259,15 +259,21 @@ describe("FireScenarioPanel", () => {
     expect(
       screen.getByRole("dialog", { name: "Configurar históricos" }),
     ).toBeVisible();
+    await user.click(screen.getByRole("tab", { name: "Cripto" }));
     await user.click(
-      screen.getByRole("combobox", { name: "Histórico para Cripto" }),
+      screen.getByRole("button", { name: "Complementar histórico anterior" }),
     );
-    await user.click(screen.getByRole("option", { name: /CMBI 10/ }));
+    const earlier = within(
+      screen.getByRole("group", { name: "Histórico anterior para Cripto" }),
+    );
+    await user.click(
+      earlier.getByRole("button", { name: "Renda variável BR" }),
+    );
     expect(baseProps.onHistoricalPreferenceChange).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Aplicar" }));
     expect(baseProps.onHistoricalPreferenceChange).toHaveBeenCalledWith(
-      "historical_series_overrides",
-      { "CRYPTO:default": "CMBI10" },
+      "historical_series_fallbacks",
+      { "CRYPTO:default": "IBOV" },
     );
     expect(baseProps.onRecalculate).not.toHaveBeenCalled();
 

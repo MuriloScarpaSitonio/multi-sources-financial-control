@@ -67,6 +67,8 @@ const StrategyHeader = ({
               top: { xs: 56, sm: 64 },
               zIndex: 10,
               backgroundColor: getColor(Colors.neutral900),
+              px: 2,
+              py: 1.5,
             }
           : undefined
       }
@@ -101,14 +103,31 @@ const StrategyHeader = ({
           </Text>
         )}
       </Stack>
-      <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
+      <Stack
+        direction="row"
+        gap={1}
+        alignItems="center"
+        flexWrap="wrap"
+        sx={
+          sticky
+            ? {
+                "& > .MuiButton-root": {
+                  width: 160,
+                  height: 36,
+                  px: 2,
+                  whiteSpace: "nowrap",
+                },
+              }
+            : undefined
+        }
+      >
         {actions}
         {isActive ? (
           <>
             {isDirty && (
               <Button
                 color="success"
-                variant="contained"
+                variant={sticky ? "brand" : "contained"}
                 size="small"
                 onClick={onSave}
                 disabled={isMutating}

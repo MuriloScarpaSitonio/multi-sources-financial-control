@@ -310,11 +310,28 @@ describe("studio result presentation", () => {
 
   it("discloses a fallback used only during age-in-bonds accumulation", async () => {
     vi.stubGlobal("Worker", FakeWorker);
-    renderStudio({ ...studioProps, draft: { ...studioDraft, showAgeInBonds: true, portfolio: [{ category: "US_EQUITY", series: "VTI", fallbackSeries: "SPY", weight: 1, constrainsSample: true }] } });
+    renderStudio({
+      ...studioProps,
+      draft: {
+        ...studioDraft,
+        showAgeInBonds: true,
+        portfolio: [
+          {
+            category: "US_EQUITY",
+            series: "VTI",
+            fallbackSeries: "SPY",
+            weight: 1,
+            constrainsSample: true,
+          },
+        ],
+      },
+    });
     await waitFor(() => expect(FakeWorker.instances).toHaveLength(1));
     act(() => FakeWorker.instances[0].respond(ageInBondsResult));
     expect(screen.getByText("Histórico complementado")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Comparar sem complemento" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Comparar sem complemento" }),
+    ).toBeEnabled();
   });
 
   it("compares the submitted portfolio without changing its fallback choices", async () => {
@@ -553,8 +570,9 @@ describe("studio result presentation", () => {
     expect(
       screen.getByRole("dialog", { name: "Configurar históricos" }),
     ).toBeVisible();
+    await user.click(screen.getByRole("tab", { name: "Cripto" }));
     expect(
-      screen.getByRole("combobox", { name: "Histórico para Cripto" }),
+      screen.getByRole("group", { name: "Histórico para Cripto" }),
     ).toBeVisible();
   });
 });

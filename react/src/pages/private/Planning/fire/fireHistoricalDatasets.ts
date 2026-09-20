@@ -77,26 +77,59 @@ export const datasetChoiceWarning = (
     ? "Escolha atípica: esses ativos serão simulados sem rendimento, perdendo poder de compra com a inflação."
     : CATEGORY_KINDS[category] === DATASET_KINDS[series]
       ? null
-      : `Escolha atípica: ${DATASET_LABELS[series]} representa ${DATASET_KINDS[series]}. A simulação usará esse comportamento para os ativos de ${CATEGORY_KINDS[category]}.`;
-
+      : null;
 export const DATASET_KEYS = Object.keys(
   DATASET_LABELS,
 ) as FireReturnSeriesKey[];
-const DATASET_GROUP_LABELS: Record<DatasetKind, string> = {
-  "ações brasileiras": "Ações brasileiras",
-  "ações americanas": "Ações americanas",
-  "ações globais": "Ações globais",
-  "fundos imobiliários": "Fundos imobiliários",
-  cripto: "Cripto",
-  "renda fixa": "Renda fixa",
-  "dinheiro sem rendimento": "Dinheiro",
+export const earlierDatasetsFor = (primary: FireReturnSeriesKey) => {
+  const start = FIRE_RETURN_SERIES[primary].months[0];
+  return start
+    ? DATASET_KEYS.filter((key) =>
+        FIRE_RETURN_SERIES[key].months.some((month) => month < start),
+      )
+    : [];
 };
-export const DATASET_GROUPS = Object.entries(DATASET_GROUP_LABELS).map(
-  ([kind, label]) => ({
-    label,
-    datasets: DATASET_KEYS.filter((key) => DATASET_KINDS[key] === kind),
-  }),
-);
+
+export const DATASET_GROUPS: {
+  label: string;
+  subgroups: { label: string; datasets: FireReturnSeriesKey[] }[];
+}[] = [
+  {
+    label: "Renda variável BR",
+    subgroups: [
+      { label: "Ações", datasets: ["IBOV"] },
+      { label: "FII", datasets: ["IFIX"] },
+    ],
+  },
+  {
+    label: "Renda variável EUA",
+    subgroups: [{ label: "Ações", datasets: ["SPY", "VTI"] }],
+  },
+  {
+    label: "Renda variável Global",
+    subgroups: [{ label: "Ações", datasets: ["VT", "VWRL"] }],
+  },
+  {
+    label: "Renda fixa",
+    subgroups: [
+      { label: "Pós-fixada", datasets: ["CDI", "IMA_S"] },
+      { label: "Prefixada", datasets: ["IRF_M_1", "IRF_M_1_PLUS"] },
+      { label: "IPCA", datasets: ["IMA_B_5", "IMA_B_5_PLUS"] },
+      { label: "Diversificada", datasets: ["IMA_GERAL_EX_C"] },
+    ],
+  },
+  {
+    label: "Cripto",
+    subgroups: [
+      { label: "Ativo individual", datasets: ["BTC"] },
+      { label: "Cesta de ativos", datasets: ["CMBI10"] },
+    ],
+  },
+  {
+    label: "Dinheiro",
+    subgroups: [{ label: "Sem rendimento", datasets: ["CASH"] }],
+  },
+];
 
 export const formatHistoricalMonth = (month: string | null | undefined) =>
   month ? `${month.slice(5, 7)}/${month.slice(0, 4)}` : "—";
