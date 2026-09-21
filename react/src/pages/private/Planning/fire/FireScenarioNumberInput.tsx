@@ -9,6 +9,7 @@ import TextField from "@mui/material/TextField";
 import {
   Colors,
   FontSizes,
+  InfoIconTooltip,
   getColor,
   getFontSize,
   Text,
@@ -24,6 +25,7 @@ const stepButtonSx = {
 
 type Props = {
   label: string;
+  tooltip?: string;
   value: number;
   step: number;
   min?: number;
@@ -38,6 +40,7 @@ type Props = {
 
 const FireScenarioNumberInput = ({
   label,
+  tooltip,
   value,
   step,
   min = 0,
@@ -68,14 +71,25 @@ const FireScenarioNumberInput = ({
         justifyContent="space-between"
         sx={{ minHeight: 20 }}
       >
-        <Text
-          component="label"
-          htmlFor={id}
-          size={FontSizes.EXTRA_SMALL}
-          color={Colors.neutral400}
-        >
-          {label}
-        </Text>
+        <Stack direction="row" alignItems="center" gap={0.5}>
+          <Text
+            component="label"
+            htmlFor={id}
+            size={FontSizes.EXTRA_SMALL}
+            color={Colors.neutral400}
+          >
+            {label}
+          </Text>
+          {tooltip && (
+            <Text
+              component="span"
+              size={FontSizes.EXTRA_SMALL}
+              extraStyle={{ display: "inline-flex", flexShrink: 0 }}
+            >
+              <InfoIconTooltip text={tooltip} />
+            </Text>
+          )}
+        </Stack>
         {onReset && (
           <Button
             variant="brand-text"

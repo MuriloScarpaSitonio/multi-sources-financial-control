@@ -16,12 +16,13 @@ import type { SamplingMethod } from "../../Home/fireReturnTypes";
 import type { FirePlanningPreferences } from "../api";
 import type { FireAllocationBucket } from "../fireAllocation";
 import { historicalPhases } from "./fireHistoricalDatasets";
+import FireComparisonPanel from "./FireComparisonPanel";
+import type { FireSimulationResult } from "../../Home/fireSimulation";
 import FireResultsPanel from "./FireResultsPanel";
 import type { FireCalculationState } from "./FireResultsSkeleton";
 import FireScenarioPanel from "./FireScenarioPanel";
 import {
   buildFireStudioSnapshot,
-  withoutHistoricalFallbacks,
   resubmitFireStudioSnapshot,
   type FireStudioDraft,
   type FireStudioSnapshot,
@@ -80,6 +81,8 @@ const FireSimulationStudio = ({
       isCalculating: draftSnapshot !== null && draftSnapshot.request !== null,
       error: null,
     });
+  const [baselineResult, setBaselineResult] =
+    useState<FireSimulationResult | null>(null);
   const [comparisonWithoutFallback, setComparisonWithoutFallback] =
     useState(false);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
@@ -109,13 +112,6 @@ const FireSimulationStudio = ({
     [],
   );
 
-  const displayedSnapshot = useMemo(
-    () =>
-      submittedSnapshot && comparisonWithoutFallback
-        ? withoutHistoricalFallbacks(submittedSnapshot)
-        : submittedSnapshot,
-    [submittedSnapshot, comparisonWithoutFallback],
-  );
   const hasFallbackHistory = useMemo(() => {
     if (!submittedSnapshot) return false;
     return historicalPhases(
@@ -258,38 +254,45 @@ const FireSimulationStudio = ({
               <Chip
                 size="small"
                 variant="brand"
-                label={
-                  comparisonWithoutFallback
-                    ? "Sem complemento"
-                    : "Histórico complementado"
-                }
+                label="Histórico complementado"
               />
               <Button
                 variant="brand-text"
                 size="small"
                 disabled={
-                  calculationState.isCalculating || !submittedSnapshot?.request
+                  !comparisonWithoutFallback &&
+                  (calculationState.isCalculating ||
+                    !baselineResult ||
+                    !submittedSnapshot?.request)
                 }
                 onClick={() => {
-                  setCalculationState({ isCalculating: true, error: null });
                   setComparisonWithoutFallback((current) => !current);
                 }}
               >
                 {comparisonWithoutFallback
-                  ? "Voltar ao histórico complementado"
+                  ? "Fechar comparação"
                   : "Comparar sem complemento"}
               </Button>
             </Stack>
           )}
-          <FireResultsPanel
-            snapshot={displayedSnapshot}
-            dateOfBirth={dateOfBirth}
-            fixedIncomeTotal={fixedIncomeTotal}
-            variableIncomeTotal={variableIncomeTotal}
-            calculationState={calculationState}
-            onCalculationStateChange={handleCalculationStateChange}
-            onAdjustHistoricalSources={handleAdjustHistoricalSources}
-          />
+          {comparisonWithoutFallback && submittedSnapshot && baselineResult && (
+            <FireComparisonPanel
+              snapshot={submittedSnapshot}
+              baseline={baselineResult}
+            />
+          )}
+          <Box sx={{ display: comparisonWithoutFallback ? "none" : "block" }}>
+            <FireResultsPanel
+              snapshot={submittedSnapshot}
+              onSimulationResult={setBaselineResult}
+              dateOfBirth={dateOfBirth}
+              fixedIncomeTotal={fixedIncomeTotal}
+              variableIncomeTotal={variableIncomeTotal}
+              calculationState={calculationState}
+              onCalculationStateChange={handleCalculationStateChange}
+              onAdjustHistoricalSources={handleAdjustHistoricalSources}
+            />
+          </Box>
         </Stack>
       </Box>
     </>

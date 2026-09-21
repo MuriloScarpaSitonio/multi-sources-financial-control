@@ -2,10 +2,15 @@ import {
   findSafeWithdrawalRate,
   findSafeWithdrawalRateWithVaryingWeights,
   runAccumulationBootstrap,
+  runExtendedAccumulationBootstrap,
   runBootstrap,
   runBootstrapWithVaryingWeights,
 } from "./fireBootstrap";
-import type { AccumulationResult, BootstrapResult } from "./fireBootstrap";
+import type {
+  AccumulationResult,
+  BootstrapResult,
+  ExtendedAccumulationResult,
+} from "./fireBootstrap";
 import {
   buildFirePatrimonyInputs,
   type FirePatrimonyInputs,
@@ -26,10 +31,12 @@ export type ConstantDollarSimulationInput = {
   patrimonyTotal: number;
   simulatedPatrimony: number | null;
   annualSavings: number;
+  extraAccumulationYears?: number;
 };
 
 export type ConstantDollarSimulationOutput = {
   targetYears: number;
+  extendedAccumulation?: ExtendedAccumulationResult;
   safeRate: number;
   baselineSafeRate: number;
   targetMultiplier: number;
@@ -68,10 +75,12 @@ export type AgeInBondsSimulationInput = {
   effectivePatrimony: number;
   annualExpenses: number;
   annualSavings: number;
+  extraAccumulationYears?: number;
   withdrawalRate: number;
 };
 
 export type AgeInBondsSimulationOutput = {
+  extendedAccumulation?: ExtendedAccumulationResult;
   lifestyleBootstrap: BootstrapResult;
   solverState: AgeInBondsFireState;
 };
@@ -134,6 +143,20 @@ const runConstantDollarSimulation = (
     fireTarget,
   });
 
+  const extendedAccumulation =
+    (input.extraAccumulationYears ?? 0) > 0
+      ? runExtendedAccumulationBootstrap({
+          startingBalance: patrimonyInputs.scenarioPatrimony,
+          annualContribution: input.annualSavings,
+          target: fireTarget,
+          extraYears: input.extraAccumulationYears!,
+          annualWithdrawal: input.annualExpenses,
+          horizon: input.targetYears,
+          portfolio: input.portfolio,
+          samplingMethod: input.samplingMethod,
+        })
+      : undefined;
+
   return {
     targetYears: input.targetYears,
     safeRate,
@@ -141,13 +164,16 @@ const runConstantDollarSimulation = (
     targetMultiplier,
     fireTarget,
     patrimonyInputs,
-    bootstrap: runBootstrap(
-      patrimonyInputs.scenarioPatrimony,
-      input.annualExpenses,
-      input.targetYears,
-      input.portfolio,
-      input.samplingMethod,
-    ),
+    ...(extendedAccumulation ? { extendedAccumulation } : {}),
+    bootstrap:
+      extendedAccumulation?.bootstrap ??
+      runBootstrap(
+        patrimonyInputs.scenarioPatrimony,
+        input.annualExpenses,
+        input.targetYears,
+        input.portfolio,
+        input.samplingMethod,
+      ),
     rateBootstrap: runBootstrap(
       1_000_000,
       1_000_000 * (input.withdrawalRate / 100),
@@ -255,7 +281,7 @@ const solveAgeInBondsFireState = (
   };
 
   const visited: SolverPass[] = [];
-  let nextAnchor = input.currentAge;
+  let nextAnchor = input.currentAge + (input.extraAccumulationYears ?? 0);
   let chosen: SolverPass | null = null;
   let status: SolverStatus = "max_iter";
 
@@ -299,7 +325,8 @@ const solveAgeInBondsFireState = (
     }
 
     visited.push(pass);
-    nextAnchor = input.currentAge + median;
+    nextAnchor =
+      input.currentAge + median + (input.extraAccumulationYears ?? 0);
     if (index === SOLVER_MAX_ITER - 1) {
       chosen = pickConservative([...visited, pass]);
       status = "max_iter";
@@ -329,16 +356,42 @@ const solveAgeInBondsFireState = (
 
 const runAgeInBondsSimulation = (
   input: AgeInBondsSimulationInput,
-): AgeInBondsSimulationOutput => ({
-  lifestyleBootstrap: runBootstrapWithVaryingWeights(
-    input.effectivePatrimony,
-    input.annualExpenses,
-    input.targetYears,
-    buildAgeInBondsPortfolioAt(input.currentAge, input.portfolio),
-    input.samplingMethod,
-  ),
-  solverState: solveAgeInBondsFireState(input),
-});
+): AgeInBondsSimulationOutput => {
+  const solverState = solveAgeInBondsFireState(input);
+  const extendedAccumulation =
+    (input.extraAccumulationYears ?? 0) > 0
+      ? runExtendedAccumulationBootstrap({
+          startingBalance: input.effectivePatrimony,
+          annualContribution: input.annualSavings,
+          target: solverState.fireTarget,
+          extraYears: input.extraAccumulationYears!,
+          annualWithdrawal: input.annualExpenses,
+          horizon: input.targetYears,
+          portfolio: input.portfolio,
+          samplingMethod: input.samplingMethod,
+          retirementPortfolioAt: (elapsed, year) =>
+            buildAgeInBondsPortfolioAt(
+              input.currentAge + elapsed,
+              input.portfolio,
+            )(year),
+        })
+      : undefined;
+  return {
+    ...(extendedAccumulation ? { extendedAccumulation } : {}),
+    lifestyleBootstrap:
+      extendedAccumulation?.bootstrap ??
+      runBootstrapWithVaryingWeights(
+        input.effectivePatrimony,
+        input.annualExpenses,
+        input.targetYears,
+        buildAgeInBondsPortfolioAt(input.currentAge, input.portfolio),
+        input.samplingMethod,
+      ),
+    solverState: extendedAccumulation
+      ? { ...solverState, drawdownAtTarget: extendedAccumulation.bootstrap }
+      : solverState,
+  };
+};
 
 export const runFireSimulation = (
   request: FireSimulationRequest,

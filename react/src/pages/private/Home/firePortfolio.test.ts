@@ -23,6 +23,7 @@ const assertDeepEqual = (
 const DEFAULT_FIRE_PREFERENCES = {
   withdrawal_rate: 4,
   target_years: 30,
+  extra_accumulation_years: 0,
   simulated_patrimony: null,
   monthly_expenses_override: null,
   sampling_method: "independent_months",

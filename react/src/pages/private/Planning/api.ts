@@ -30,6 +30,7 @@ export type FirePlanningPreferences = {
   simulated_patrimony?: number | null;
   withdrawal_rate?: number;
   target_years?: number;
+  extra_accumulation_years?: number;
   monthly_expenses_override?: number | null;
   sampling_method?: SamplingMethod;
   us_equity_proxy?: UsEquityProxy;
@@ -44,6 +45,7 @@ export const DEFAULT_FIRE_PREFERENCES = {
   simulated_patrimony: null,
   withdrawal_rate: 4,
   target_years: 30,
+  extra_accumulation_years: 0,
   monthly_expenses_override: null,
   sampling_method: "independent_months",
   us_equity_proxy: "SPY",

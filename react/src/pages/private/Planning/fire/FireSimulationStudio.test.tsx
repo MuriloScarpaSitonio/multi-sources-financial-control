@@ -1,4 +1,11 @@
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import type { ComponentProps } from "react";
@@ -332,10 +339,55 @@ describe("studio result presentation", () => {
     expect(
       screen.getByRole("button", { name: "Comparar sem complemento" }),
     ).toBeEnabled();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Comparar sem complemento" }),
+    );
+    await waitFor(() => expect(FakeWorker.instances).toHaveLength(2));
+    expect(FakeWorker.instances[1].messages[0].request.kind).toBe(
+      "age_in_bonds",
+    );
+    act(() =>
+      FakeWorker.instances[1].respond({
+        kind: "age_in_bonds",
+        output: {
+          ...ageInBondsResult.output,
+          solverState: {
+            ...ageInBondsResult.output.solverState,
+            fireTarget: 4_000_000,
+          },
+        },
+      }),
+    );
+    const comparison = within(
+      screen.getByRole("region", { name: "Comparação de históricos" }),
+    );
+    expect(comparison.getAllByText("Meta FIRE")).toHaveLength(2);
+    expect(comparison.getByText("R$ 4.000.000,00")).toBeVisible();
   });
 
   it("compares the submitted portfolio without changing its fallback choices", async () => {
     vi.stubGlobal("Worker", FakeWorker);
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    const chartResult = {
+      ...constantDollarResult,
+      output: {
+        ...constantDollarResult.output,
+        accumulation: {
+          ...constantDollarResult.output.accumulation,
+          gapBands: [
+            { year: 0, p10: 2_000_000, p50: 2_000_000, p90: 2_000_000 },
+            { year: 1, p10: 1_000_000, p50: 1_500_000, p90: 1_800_000 },
+          ],
+        },
+      },
+    };
     const user = userEvent.setup();
     const change = vi.fn();
     renderStudio({
@@ -355,7 +407,7 @@ describe("studio result presentation", () => {
       },
     });
     await waitFor(() => expect(FakeWorker.instances).toHaveLength(1));
-    act(() => FakeWorker.instances[0].respond(constantDollarResult));
+    act(() => FakeWorker.instances[0].respond(chartResult));
     expect(screen.getByText("Histórico complementado")).toBeVisible();
     await user.click(
       screen.getByRole("button", { name: "Comparar sem complemento" }),
@@ -364,16 +416,73 @@ describe("studio result presentation", () => {
     expect(
       FakeWorker.instances[1].messages[0].request.input.portfolio[0],
     ).not.toHaveProperty("fallbackSeries");
-    act(() => FakeWorker.instances[1].respond(constantDollarResult));
-    await user.click(
-      screen.getByRole("button", { name: "Voltar ao histórico complementado" }),
+    const comparison = within(
+      screen.getByRole("region", { name: "Comparação de históricos" }),
     );
-    await waitFor(() => expect(FakeWorker.instances).toHaveLength(3));
+    expect(comparison.getByText("Com complemento")).toBeVisible();
+    expect(comparison.getByText("Sem complemento")).toBeVisible();
     expect(
-      FakeWorker.instances[2].messages[0].request.input.portfolio[0]
-        .fallbackSeries,
-    ).toBe("IBOV");
+      comparison.getByLabelText("Calculando sem complemento"),
+    ).toBeVisible();
+    act(() =>
+      FakeWorker.instances[1].respond({
+        ...chartResult,
+        output: { ...chartResult.output, fireTarget: 4_000_000 },
+      }),
+    );
+    expect(comparison.getAllByText("Meta FIRE")).toHaveLength(2);
+    expect(comparison.getAllByText("Quando posso me aposentar?")).toHaveLength(
+      2,
+    );
+    expect(comparison.getByText("R$ 3.000.000,00")).toBeVisible();
+    expect(comparison.getByText("R$ 4.000.000,00")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Fechar comparação" }));
+    expect(
+      screen.queryByRole("region", { name: "Comparação de históricos" }),
+    ).not.toBeInTheDocument();
+    expect(FakeWorker.instances).toHaveLength(2);
+    expect(FakeWorker.instances[1].terminated).toBe(true);
     expect(change).not.toHaveBeenCalled();
+  });
+
+  it("preserves the baseline and allows closing when the comparison worker fails", async () => {
+    vi.stubGlobal("Worker", FakeWorker);
+    renderStudio({
+      ...studioProps,
+      draft: {
+        ...studioDraft,
+        portfolio: [
+          {
+            category: "FIXED_IPCA",
+            series: "IMA_B_5_PLUS",
+            fallbackSeries: "IBOV",
+            weight: 1,
+            constrainsSample: true,
+          },
+        ],
+      },
+    });
+    await waitFor(() => expect(FakeWorker.instances).toHaveLength(1));
+    act(() => FakeWorker.instances[0].respond(constantDollarResult));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Comparar sem complemento" }),
+    );
+    await waitFor(() => expect(FakeWorker.instances).toHaveLength(2));
+    act(() => FakeWorker.instances[1].onerror?.(new ErrorEvent("error")));
+    const comparison = within(
+      screen.getByRole("region", { name: "Comparação de históricos" }),
+    );
+    expect(comparison.getByRole("alert")).toHaveTextContent(
+      "Não foi possível calcular sem complemento",
+    );
+    expect(comparison.getByText("R$ 3.000.000,00")).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Fechar comparação" }),
+    );
+    expect(FakeWorker.instances).toHaveLength(2);
+    expect(
+      screen.getByRole("button", { name: "Comparar sem complemento" }),
+    ).toBeEnabled();
   });
 
   it("keeps draft edits out of the worker until recalculation", async () => {

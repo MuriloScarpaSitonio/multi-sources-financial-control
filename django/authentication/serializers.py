@@ -146,6 +146,11 @@ class FirePreferencesSerializer(serializers.Serializer):
         min_value=2,
         max_value=6,
     )
+    extra_accumulation_years = serializers.IntegerField(
+        required=False,
+        min_value=0,
+        max_value=60,
+    )
     target_years = serializers.IntegerField(
         required=False,
         min_value=20,

@@ -207,6 +207,38 @@ describe("FireDetail presentation switch", () => {
     vi.unstubAllGlobals();
   });
 
+  it("saves and recalculates extra accumulation years from advanced assumptions", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(FakeWorker.instances).toHaveLength(1));
+    const header = within(
+      screen.getByRole("region", { name: "Ações do cenário" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Premissas avançadas" }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Aumentar Anos extras de acumulação",
+      }),
+    );
+    expect(header.getByRole("button", { name: "Recalcular" })).toBeEnabled();
+    expect(
+      header.getByRole("button", { name: "Salvar alterações" }),
+    ).toBeEnabled();
+    await user.click(header.getByRole("button", { name: "Recalcular" }));
+    await waitFor(() => expect(FakeWorker.instances).toHaveLength(2));
+    expect(
+      FakeWorker.instances[1].messages[0].request.input.extraAccumulationYears,
+    ).toBe(1);
+    await user.click(header.getByRole("button", { name: "Salvar alterações" }));
+    expect(mocks.updatePreferences).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fire: expect.objectContaining({ extra_accumulation_years: 1 }),
+      }),
+    );
+  });
+
   it("keeps header actions synchronized with saved and calculated state", async () => {
     const user = userEvent.setup();
     renderPage();

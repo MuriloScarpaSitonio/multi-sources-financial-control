@@ -42,7 +42,9 @@ const FireHistoricalSettings = ({
           justifyContent="space-between"
           gap={1}
         >
-          <Text size={FontSizes.EXTRA_SMALL}>Dados históricos</Text>
+          <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+            Dados históricos
+          </Text>
           <Button
             variant="brand-text"
             size="small"

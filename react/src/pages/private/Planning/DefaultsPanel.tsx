@@ -19,11 +19,16 @@ import type { DefaultExplained } from "./strategyContent";
 type DefaultsPanelProps = {
   items: DefaultExplained[];
   extra?: ReactNode;
+  title?: string;
 };
 
-const DefaultsPanel = ({ items, extra }: DefaultsPanelProps) => {
+const DefaultsPanel = ({
+  items,
+  extra,
+  title = "Entenda esses valores",
+}: DefaultsPanelProps) => {
   const [expanded, setExpanded] = useState(false);
-  if (items.length === 0) return null;
+  if (items.length === 0 && !extra) return null;
   return (
     <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
       <Button
@@ -32,7 +37,7 @@ const DefaultsPanel = ({ items, extra }: DefaultsPanelProps) => {
         endIcon={expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
         sx={{ alignSelf: "flex-start", textTransform: "none" }}
       >
-        Entenda esses valores
+        {title}
       </Button>
       <Collapse in={expanded}>
         <Stack gap={2} mt={1}>
@@ -46,18 +51,21 @@ const DefaultsPanel = ({ items, extra }: DefaultsPanelProps) => {
               </Text>
             </Stack>
           ))}
-          {extra && (
-            <Stack
-              mt={2}
-              sx={{
-                pt: 2,
-                borderTop: "1px solid",
-                borderColor: getColor(Colors.neutral400),
-              }}
-            >
-              {extra}
-            </Stack>
-          )}
+          {extra &&
+            (items.length === 0 ? (
+              extra
+            ) : (
+              <Stack
+                mt={2}
+                sx={{
+                  pt: 2,
+                  borderTop: "1px solid",
+                  borderColor: getColor(Colors.neutral400),
+                }}
+              >
+                {extra}
+              </Stack>
+            ))}
         </Stack>
       </Collapse>
     </Paper>

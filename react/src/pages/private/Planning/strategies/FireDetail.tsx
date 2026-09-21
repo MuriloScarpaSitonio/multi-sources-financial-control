@@ -27,7 +27,6 @@ import {
   useSelectedMethod,
   useUpdatePlanningPreferences,
 } from "../hooks";
-import StrategyChrome from "../StrategyChrome";
 import StrategyHeader from "../StrategyHeader";
 import { AGE_IN_BONDS_TITLES, STRATEGY_CONTENT } from "../strategyContent";
 import { useStrategyCommonData } from "../useStrategyCommonData";
@@ -60,6 +59,9 @@ const FireDetail = () => {
 
   const [withdrawalRate, setWithdrawalRate] = useState(
     firePreferences.withdrawal_rate,
+  );
+  const [extraAccumulationYears, setExtraAccumulationYears] = useState(
+    firePreferences.extra_accumulation_years,
   );
   const [targetYears, setTargetYears] = useState(firePreferences.target_years);
   const [expensesOverride, setExpensesOverride] = useState<number | null>(
@@ -100,6 +102,7 @@ const FireDetail = () => {
     setSimulatedPatrimony(firePreferences.simulated_patrimony);
     setWithdrawalRate(firePreferences.withdrawal_rate);
     setTargetYears(firePreferences.target_years);
+    setExtraAccumulationYears(firePreferences.extra_accumulation_years);
     setExpensesOverride(firePreferences.monthly_expenses_override);
     setSamplingMethod(firePreferences.sampling_method);
     setUsEquityProxy(firePreferences.us_equity_proxy);
@@ -118,6 +121,7 @@ const FireDetail = () => {
     firePreferences.monthly_expenses_override,
     firePreferences.sampling_method,
     firePreferences.target_years,
+    firePreferences.extra_accumulation_years,
     firePreferences.us_equity_proxy,
     firePreferences.withdrawal_rate,
   ]);
@@ -156,6 +160,7 @@ const FireDetail = () => {
     () => ({
       withdrawal_rate: withdrawalRate,
       target_years: targetYears,
+      extra_accumulation_years: extraAccumulationYears,
       simulated_patrimony: simulatedPatrimony,
       monthly_expenses_override: expensesOverride,
       sampling_method: samplingMethod,
@@ -176,6 +181,7 @@ const FireDetail = () => {
       globalEquityProxy,
       samplingMethod,
       targetYears,
+      extraAccumulationYears,
       usEquityProxy,
       withdrawalRate,
     ],
@@ -196,6 +202,7 @@ const FireDetail = () => {
         simulatedPatrimony !== firePreferences.simulated_patrimony ||
         withdrawalRate !== firePreferences.withdrawal_rate ||
         targetYears !== firePreferences.target_years ||
+        extraAccumulationYears !== firePreferences.extra_accumulation_years ||
         expensesOverride !== firePreferences.monthly_expenses_override ||
         samplingMethod !== firePreferences.sampling_method ||
         usEquityProxy !== firePreferences.us_equity_proxy ||
@@ -217,6 +224,7 @@ const FireDetail = () => {
       firePreferences.monthly_expenses_override,
       firePreferences.sampling_method,
       firePreferences.target_years,
+      firePreferences.extra_accumulation_years,
       firePreferences.us_equity_proxy,
       firePreferences.global_equity_proxy,
       firePreferences.crypto_proxy,
@@ -226,6 +234,7 @@ const FireDetail = () => {
       preferences,
       withdrawalRate,
       targetYears,
+      extraAccumulationYears,
       simulatedPatrimony,
       expensesOverride,
       samplingMethod,
@@ -242,6 +251,7 @@ const FireDetail = () => {
       fire: {
         withdrawal_rate: withdrawalRate,
         target_years: targetYears,
+        extra_accumulation_years: extraAccumulationYears,
         simulated_patrimony: simulatedPatrimony,
         monthly_expenses_override: expensesOverride,
         sampling_method: samplingMethod,
@@ -267,6 +277,8 @@ const FireDetail = () => {
     field: K,
     value: (typeof localFirePreferences)[K],
   ) => {
+    if (field === "extra_accumulation_years")
+      setExtraAccumulationYears(value as number);
     if (field === "historical_series_fallbacks")
       setHistoricalSeriesFallbacks(value as typeof historicalSeriesFallbacks);
     if (field === "historical_series_overrides")
@@ -296,6 +308,7 @@ const FireDetail = () => {
       monthlySavingsOverride,
       withdrawalRate,
       targetYears,
+      extraAccumulationYears,
       samplingMethod,
       portfolio,
     }),
@@ -312,6 +325,7 @@ const FireDetail = () => {
       showAgeInBonds,
       simulatedPatrimony,
       targetYears,
+      extraAccumulationYears,
       withdrawalRate,
     ],
   );
@@ -332,7 +346,8 @@ const FireDetail = () => {
   );
 
   return (
-    <Stack spacing={3} pb={3}>
+    // Keep the narrower right gutter local to FIRE; the shared wrapper uses 64px.
+    <Stack spacing={3} pb={3} sx={{ mr: -6 }}>
       <FireSimulationStudio
         renderHeader={renderHeader}
         draft={studioDraft}
@@ -352,6 +367,7 @@ const FireDetail = () => {
         onHistoricalPreferenceChange={handleHistoricalPreferenceChange}
       />
       <DefaultsPanel
+        title="Como funciona a simulação"
         items={content.defaultsExplained}
         extra={<FireMethodologyWalkthrough />}
       />
@@ -364,11 +380,6 @@ const FireDetail = () => {
         />
       )}
 
-      <StrategyChrome
-        rationale={content.rationale}
-        pros={content.pros}
-        cons={content.cons}
-      />
     </Stack>
   );
 };

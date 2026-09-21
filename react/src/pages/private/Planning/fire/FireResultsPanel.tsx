@@ -2,6 +2,7 @@ import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import type { FireSimulationResult } from "../../Home/fireSimulation";
 import type { ReactNode } from "react";
 
 import ConstantDollarAgeInBondsIndicator from "../../Home/ConstantDollarAgeInBondsIndicator";
@@ -13,6 +14,7 @@ import type { FireStudioSnapshot } from "./fireStudioScenario";
 
 type Props = {
   snapshot: FireStudioSnapshot | null;
+  onSimulationResult?: (result: FireSimulationResult) => void;
   dateOfBirth: string | null;
   fixedIncomeTotal: number;
   variableIncomeTotal: number;
@@ -29,6 +31,7 @@ const ResultsSurface = ({ children }: { children: ReactNode }) => (
 
 const FireResultsPanel = ({
   snapshot,
+  onSimulationResult,
   dateOfBirth,
   fixedIncomeTotal,
   variableIncomeTotal,
@@ -75,6 +78,7 @@ const FireResultsPanel = ({
         simulatedExpenses={null}
         simulationRequestOverride={snapshot.request}
         onCalculationStateChange={onCalculationStateChange}
+        onSimulationResult={onSimulationResult}
       />
     );
   } else {
@@ -100,6 +104,7 @@ const FireResultsPanel = ({
         simulatedExpenses={null}
         simulationRequestOverride={snapshot.request}
         onCalculationStateChange={onCalculationStateChange}
+        onSimulationResult={onSimulationResult}
       />
     );
   }

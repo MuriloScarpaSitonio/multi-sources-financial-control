@@ -227,6 +227,25 @@ const FireScenarioPanel = ({
             }}
           >
             <Stack gap={1.5}>
+              <Stack gap={0.5}>
+                <FireScenarioNumberInput
+                  label="Anos extras de acumulação"
+                  tooltip="Após atingir a meta FIRE, continue aportando por esse período antes de começar as retiradas."
+                  value={firePreferences.extra_accumulation_years}
+                  step={1}
+                  min={0}
+                  max={60}
+                  suffix=" anos"
+                  decimalScale={0}
+                  disabled={isPersisting}
+                  onChange={(value) =>
+                    onHistoricalPreferenceChange(
+                      "extra_accumulation_years",
+                      value,
+                    )
+                  }
+                />
+              </Stack>
               <FireHistoricalSettings
                 allocation={allocation}
                 preferences={firePreferences}

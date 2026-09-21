@@ -43,20 +43,6 @@ const StrategyHeader = ({
   activeBadgeByTitle = false,
 }: StrategyHeaderProps) => (
   <>
-    <Link
-      to="/planning"
-      style={{ textDecoration: "none", alignSelf: "flex-start" }}
-    >
-      <Button
-        variant="text"
-        size="small"
-        startIcon={<ArrowBackIcon />}
-        sx={{ textTransform: "none", color: getColor(Colors.neutral400) }}
-      >
-        Voltar
-      </Button>
-    </Link>
-
     <Stack
       role={sticky ? "region" : undefined}
       aria-label={sticky ? "Ações do cenário" : undefined}
@@ -85,6 +71,23 @@ const StrategyHeader = ({
           alignItems="center"
           gap={1}
         >
+          <Link
+            to="/planning"
+            style={{
+              textDecoration: "none",
+              alignSelf: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Button
+              variant="text"
+              size="small"
+              startIcon={<ArrowBackIcon />}
+              sx={{ textTransform: "none", color: getColor(Colors.neutral400) }}
+            >
+              Voltar
+            </Button>
+          </Link>
           <Text weight={FontWeights.SEMI_BOLD} size={titleSize}>
             {title}
           </Text>

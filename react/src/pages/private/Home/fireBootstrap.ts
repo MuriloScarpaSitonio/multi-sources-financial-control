@@ -153,10 +153,14 @@ const preparePortfolio = (
   };
 };
 
-const legacyEligibleMonths = (weights: AllocationWeights): readonly string[] => {
+const legacyEligibleMonths = (
+  weights: AllocationWeights,
+): readonly string[] => {
   const keys = ["IBOV", "CDI"] as const;
   const first = FIRE_RETURN_SERIES[keys[0]].months;
-  const sets = keys.slice(1).map((key) => new Set(FIRE_RETURN_SERIES[key].months));
+  const sets = keys
+    .slice(1)
+    .map((key) => new Set(FIRE_RETURN_SERIES[key].months));
   if (weights.ifix >= MIN_WEIGHT_FOR_RETURN_SERIES) {
     sets.push(new Set(FIRE_RETURN_SERIES.IFIX.months));
   }
@@ -267,6 +271,22 @@ const runPreparedBootstrap = (
   const trials = Array.from({ length: numTrials }, () =>
     runTrial(startingBalance, annualWithdrawal, horizon, prepared, rng),
   );
+  return summarizeTrials(trials, horizon);
+};
+
+const summarizeTrials = (
+  trials: readonly Trial[],
+  horizon: number,
+): BootstrapResult => {
+  const numTrials = trials.length;
+  if (!numTrials)
+    return {
+      successRate: 0,
+      bands: [],
+      withdrawalBands: [],
+      medianDepletionYear: null,
+      p10DepletionYear: null,
+    };
   const successRate =
     trials.filter((t) => t.depletionYear === null).length / numTrials;
 
@@ -283,7 +303,9 @@ const runPreparedBootstrap = (
 
   const withdrawalBands: BootstrapBand[] = [];
   for (let y = 1; y <= horizon; y++) {
-    const sorted = trials.map((t) => t.withdrawals[y - 1]).sort((a, b) => a - b);
+    const sorted = trials
+      .map((t) => t.withdrawals[y - 1])
+      .sort((a, b) => a - b);
     withdrawalBands.push({
       year: y,
       p10: sorted[Math.floor(numTrials * 0.1)],
@@ -474,7 +496,9 @@ const runPreparedBootstrapWithVaryingWeights = (
 
   const withdrawalBands: BootstrapBand[] = [];
   for (let y = 1; y <= horizon; y++) {
-    const sorted = trials.map((t) => t.withdrawals[y - 1]).sort((a, b) => a - b);
+    const sorted = trials
+      .map((t) => t.withdrawals[y - 1])
+      .sort((a, b) => a - b);
     withdrawalBands.push({
       year: y,
       p10: sorted[Math.floor(numTrials * 0.1)],
@@ -544,7 +568,10 @@ export const findSafeWithdrawalRateWithVaryingWeights = (
 // Per-year, balance-dependent withdrawal callback.
 // `yearIndex` runs from 0 to horizon-1; `currentBalance` is the start-of-year
 // balance. Return the nominal withdrawal amount in currency units.
-export type WithdrawalAtFn = (yearIndex: number, currentBalance: number) => number;
+export type WithdrawalAtFn = (
+  yearIndex: number,
+  currentBalance: number,
+) => number;
 
 // Bands for strategies whose withdrawal is a function of the current balance.
 // Result shape differs from `BootstrapResult` on purpose: there's no
@@ -565,7 +592,7 @@ export type VaryingWithdrawalResult = {
 
 type VaryingWithdrawalTrial = {
   withdrawals: number[]; // length horizon
-  balances: number[];    // length horizon + 1 (start of each year + final)
+  balances: number[]; // length horizon + 1 (start of each year + final)
 };
 
 const runTrialVaryingWithdrawal = (
@@ -898,5 +925,113 @@ export const runAccumulationBootstrapVarying = (
     p10YearsToTarget: sorted[Math.floor(sorted.length * 0.1)],
     p90YearsToTarget: sorted[Math.floor(sorted.length * 0.9)],
     gapBands,
+  };
+};
+
+export type ExtendedAccumulationResult = {
+  extraYears: number;
+  retirementStartRate: number;
+  retirementTrialCount: number;
+  medianYearsToRetirement: number | null;
+  medianStartingBalance: number | null;
+  // Conditional on starting retirement; never-reached trials are reported separately.
+  bootstrap: BootstrapResult;
+};
+
+export const runExtendedAccumulationBootstrap = (params: {
+  startingBalance: number;
+  annualContribution: number;
+  target: number;
+  extraYears: number;
+  annualWithdrawal: number;
+  horizon: number;
+  portfolio: readonly PortfolioSlice[];
+  samplingMethod?: SamplingMethod;
+  maxYearsToTarget?: number;
+  numTrials?: number;
+  retirementPortfolioAt?: (
+    yearsToRetirement: number,
+    retirementYear: number,
+  ) => readonly PortfolioSlice[];
+}): ExtendedAccumulationResult => {
+  const { extraYears, horizon } = params;
+  if (!Number.isInteger(extraYears) || extraYears < 1 || extraYears > 60)
+    throw new Error("Extra accumulation years must be an integer from 1 to 60");
+  const numTrials = params.numTrials ?? 2000;
+  const maxYears = params.maxYearsToTarget ?? 60;
+  const method = params.samplingMethod ?? "independent_months";
+  const prepared = preparePortfolio(params.portfolio, method);
+  const retirementCache = new Map<number, PreparedPortfolio[]>();
+  const rng = mulberry32(FIXED_SEED);
+  const retired: { year: number; balance: number; trial: Trial }[] = [];
+  for (let trialIndex = 0; trialIndex < numTrials; trialIndex++) {
+    let balance = params.startingBalance;
+    let reached = params.target > 0 && balance >= params.target ? 0 : null;
+    const samples = prepared.sampleMonths(
+      (maxYears + extraYears) * MONTHS_PER_YEAR,
+      rng,
+    );
+    let year = 0;
+    while (year < maxYears + extraYears) {
+      if (reached !== null && year >= reached + extraYears) break;
+      if (reached === null && year >= maxYears) break;
+      for (let month = 0; month < MONTHS_PER_YEAR; month++) {
+        balance =
+          (balance + params.annualContribution / MONTHS_PER_YEAR) *
+          (1 + prepared.returns[samples[year * MONTHS_PER_YEAR + month]]);
+      }
+      year++;
+      if (reached === null && params.target > 0 && balance >= params.target)
+        reached = year;
+    }
+    if (reached === null || year < reached + extraYears) continue;
+    let trial: Trial;
+    if (balance <= 0) {
+      trial = {
+        depletionYear: params.annualWithdrawal > 0 ? 0 : null,
+        balances: Array(horizon + 1).fill(0),
+        withdrawals: Array(horizon).fill(0),
+      };
+    } else if (params.retirementPortfolioAt) {
+      let preparedYears = retirementCache.get(year);
+      if (!preparedYears) {
+        const portfolioAt = params.retirementPortfolioAt;
+        preparedYears = Array.from({ length: horizon }, (_, index) =>
+          preparePortfolio(portfolioAt(year, index), method),
+        );
+        retirementCache.set(year, preparedYears);
+      }
+      trial = runTrialVaryingWeights(
+        balance,
+        params.annualWithdrawal,
+        horizon,
+        preparedYears,
+        rng,
+      );
+    } else {
+      trial = runTrial(
+        balance,
+        params.annualWithdrawal,
+        horizon,
+        prepared,
+        rng,
+      );
+    }
+    retired.push({ year, balance, trial });
+  }
+  const median = (values: number[]) =>
+    values.length
+      ? values.sort((a, b) => a - b)[Math.floor(values.length / 2)]
+      : null;
+  return {
+    extraYears,
+    retirementStartRate: retired.length / numTrials,
+    retirementTrialCount: retired.length,
+    medianYearsToRetirement: median(retired.map((item) => item.year)),
+    medianStartingBalance: median(retired.map((item) => item.balance)),
+    bootstrap: summarizeTrials(
+      retired.map((item) => item.trial),
+      horizon,
+    ),
   };
 };

@@ -1,3 +1,4 @@
+import FireAccumulationExtensionNotice from "./FireAccumulationExtensionNotice";
 import { useEffect, useMemo, useState } from "react";
 
 import Alert from "@mui/material/Alert";
@@ -32,7 +33,10 @@ import {
 import { useHideValues } from "../../../hooks/useHideValues";
 import { formatCurrency } from "../utils";
 import type { BootstrapBand } from "./fireBootstrap";
-import type { FireSimulationRequest } from "./fireSimulation";
+import type {
+  FireSimulationRequest,
+  FireSimulationResult,
+} from "./fireSimulation";
 import type { SamplingMethod } from "./fireReturnTypes";
 import type { PortfolioSlice } from "./firePortfolio";
 import { useFireSimulationWorker } from "./useFireSimulationWorker";
@@ -217,6 +221,7 @@ const ConstantDollarAgeInBondsIndicator = ({
   hideLabel = false,
   onCalculationStateChange,
   simulationRequestOverride,
+  onSimulationResult,
 }: {
   patrimonyTotal: number;
   avgExpenses: number;
@@ -236,6 +241,7 @@ const ConstantDollarAgeInBondsIndicator = ({
   hideLabel?: boolean;
   onCalculationStateChange?: (state: FireCalculationState) => void;
   simulationRequestOverride?: FireSimulationRequest | null;
+  onSimulationResult?: (result: FireSimulationResult) => void;
 }) => {
   const { hideValues } = useHideValues();
   const [visibleScenarios, setVisibleScenarios] = useState<
@@ -308,6 +314,12 @@ const ConstantDollarAgeInBondsIndicator = ({
     });
   }, [isCalculating, onCalculationStateChange, simulationError]);
 
+  useEffect(() => {
+    if (!isCalculating && !simulationError && simulationResult) {
+      onSimulationResult?.(simulationResult);
+    }
+  }, [isCalculating, simulationError, simulationResult, onSimulationResult]);
+
   if (isLoading) {
     return <Skeleton height={48} sx={{ borderRadius: "10px" }} />;
   }
@@ -354,6 +366,14 @@ const ConstantDollarAgeInBondsIndicator = ({
     return <Skeleton height={48} sx={{ borderRadius: "10px" }} />;
   }
 
+  if (simulation.extendedAccumulation?.retirementStartRate === 0)
+    return (
+      <FireAccumulationExtensionNotice
+        result={simulation.extendedAccumulation}
+        hideValues={hideValues}
+        horizon={targetYears}
+      />
+    );
   const bootstrap = simulation.lifestyleBootstrap;
   const solverState = simulation.solverState;
   const {
@@ -393,6 +413,13 @@ const ConstantDollarAgeInBondsIndicator = ({
 
   return (
     <Stack gap={0.5}>
+      {simulation.extendedAccumulation && (
+        <FireAccumulationExtensionNotice
+          result={simulation.extendedAccumulation}
+          hideValues={hideValues}
+          horizon={targetYears}
+        />
+      )}
       <Tooltip title={tooltipTitle} arrow placement="top">
         <div
           role={onProgressClick ? "link" : undefined}
@@ -687,7 +714,7 @@ const ConstantDollarAgeInBondsIndicator = ({
                       stroke={getColor(Colors.brand)}
                       strokeDasharray="3 3"
                       label={{
-                        value: `otimista · aposenta ${ageLabel(accumulation.p10YearsToTarget)}`,
+                        value: `otimista · meta ${ageLabel(accumulation.p10YearsToTarget)}`,
                         position: "top",
                         dy: -34,
                         fill: getColor(Colors.brand),
@@ -701,7 +728,7 @@ const ConstantDollarAgeInBondsIndicator = ({
                       stroke={getColor(Colors.brand)}
                       strokeDasharray="3 3"
                       label={{
-                        value: `mediana · aposenta ${ageLabel(accumulation.medianYearsToTarget)}`,
+                        value: `mediana · meta ${ageLabel(accumulation.medianYearsToTarget)}`,
                         position: "top",
                         dy: -18,
                         fill: getColor(Colors.brand),
@@ -715,7 +742,7 @@ const ConstantDollarAgeInBondsIndicator = ({
                       stroke={getColor(Colors.danger200)}
                       strokeDasharray="3 3"
                       label={{
-                        value: `pessimista · aposenta ${ageLabel(accumulation.p90YearsToTarget)}`,
+                        value: `pessimista · meta ${ageLabel(accumulation.p90YearsToTarget)}`,
                         position: "top",
                         dy: -2,
                         fill: getColor(Colors.danger200),
@@ -765,8 +792,8 @@ const ConstantDollarAgeInBondsIndicator = ({
                     weight={FontWeights.MEDIUM}
                     color={Colors.neutral200}
                   >
-                    Aposentadoria · trajetória do patrimônio depois de atingir a
-                    meta
+                    Aposentadoria · trajetória do patrimônio durante as
+                    retiradas
                   </Text>
                   <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
                     Sucesso em {targetYears}a:{" "}
@@ -793,7 +820,13 @@ const ConstantDollarAgeInBondsIndicator = ({
                     // drawdownAtTarget — read it directly so the preview's age
                     // axis is guaranteed to match the glide path the bootstrap
                     // actually traced.
-                    const retirementAge = solverState.anchorAge;
+                    const retirementAge =
+                      simulation.extendedAccumulation
+                        ?.medianYearsToRetirement != null
+                        ? currentAge +
+                          simulation.extendedAccumulation
+                            .medianYearsToRetirement
+                        : solverState.anchorAge;
                     const drawdownData = drawdownAtTarget.bands.map((b, i) => {
                       const wb =
                         i === 0

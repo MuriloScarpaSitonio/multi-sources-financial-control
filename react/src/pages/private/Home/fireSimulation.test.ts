@@ -65,3 +65,72 @@ describe("runFireSimulation", () => {
     expect(result.output.lifestyleBootstrap.bands).toHaveLength(0);
   });
 });
+
+it("keeps zero extension identical to the existing calculation", () => {
+  const input = {
+    targetYears: 1,
+    portfolio: [
+      {
+        category: "FIXED_CDI",
+        series: "CDI",
+        weight: 1,
+        constrainsSample: true,
+      },
+    ],
+    samplingMethod: "independent_months",
+    annualExpenses: 12000,
+    withdrawalRate: 4,
+    patrimonyTotal: 400000,
+    simulatedPatrimony: null,
+    annualSavings: 12000,
+  } as const;
+  expect(
+    runFireSimulation({
+      kind: "constant_dollar",
+      input: { ...input, extraAccumulationYears: 0 },
+    }),
+  ).toEqual(runFireSimulation({ kind: "constant_dollar", input }));
+  const ageInput = { ...input, currentAge: 40, effectivePatrimony: 400000 };
+  expect(
+    runFireSimulation({
+      kind: "age_in_bonds",
+      input: { ...ageInput, extraAccumulationYears: 0 },
+    }),
+  ).toEqual(runFireSimulation({ kind: "age_in_bonds", input: ageInput }));
+});
+
+it("uses the projected retirement balances for either strategy", () => {
+  const input = {
+    targetYears: 1,
+    portfolio: [
+      {
+        category: "FIXED_CDI",
+        series: "CDI",
+        weight: 1,
+        constrainsSample: true,
+      },
+    ],
+    samplingMethod: "independent_months",
+    annualExpenses: 12000,
+    withdrawalRate: 4,
+    patrimonyTotal: 400000,
+    simulatedPatrimony: null,
+    annualSavings: 12000,
+    extraAccumulationYears: 2,
+  } as const;
+  const result = runFireSimulation({ kind: "constant_dollar", input });
+  if (result.kind !== "constant_dollar") throw new Error("wrong strategy");
+  expect(result.output.extendedAccumulation?.medianYearsToRetirement).toBe(2);
+  expect(result.output.bootstrap.bands[0].p50).toBe(
+    result.output.extendedAccumulation?.medianStartingBalance,
+  );
+  const age = runFireSimulation({
+    kind: "age_in_bonds",
+    input: { ...input, currentAge: 40, effectivePatrimony: 400000 },
+  });
+  if (age.kind !== "age_in_bonds") throw new Error("wrong strategy");
+  expect(age.output.solverState.anchorAge).toBe(42);
+  expect(age.output.lifestyleBootstrap).toEqual(
+    age.output.extendedAccumulation?.bootstrap,
+  );
+});

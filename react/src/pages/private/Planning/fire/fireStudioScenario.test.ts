@@ -36,6 +36,7 @@ describe("buildFireStudioSnapshot", () => {
         patrimonyTotal: 1_000_000,
         simulatedPatrimony: null,
         annualSavings: 60_000,
+        extraAccumulationYears: 0,
       },
     });
   });
@@ -78,6 +79,7 @@ describe("buildFireStudioSnapshot", () => {
         effectivePatrimony: 1_000_000,
         annualExpenses: 120_000,
         annualSavings: 60_000,
+        extraAccumulationYears: 0,
         withdrawalRate: 4,
       },
     });
@@ -145,3 +147,18 @@ it.each([false, true])(
     expect(comparison.samplingMethod).toBe(original.samplingMethod);
   },
 );
+
+it("sends extra accumulation years to either strategy and preserves them in comparisons", () => {
+  for (const showAgeInBonds of [false, true]) {
+    const snapshot = buildFireStudioSnapshot({
+      ...baseDraft,
+      showAgeInBonds,
+      extraAccumulationYears: 3,
+    });
+    expect(snapshot?.request?.input.extraAccumulationYears).toBe(3);
+    expect(
+      withoutHistoricalFallbacks(snapshot!).request?.input
+        .extraAccumulationYears,
+    ).toBe(3);
+  }
+});

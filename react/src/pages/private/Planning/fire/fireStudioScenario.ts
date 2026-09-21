@@ -14,6 +14,7 @@ export type FireStudioDraft = {
   monthlySavingsOverride: number | null;
   withdrawalRate: number;
   targetYears: number;
+  extraAccumulationYears?: number;
   samplingMethod: SamplingMethod;
   portfolio: readonly PortfolioSlice[];
 };
@@ -27,6 +28,7 @@ export type FireStudioSnapshot = {
   monthlySavings: number;
   withdrawalRate: number;
   targetYears: number;
+  extraAccumulationYears?: number;
   samplingMethod: SamplingMethod;
   showAgeInBonds: boolean;
   currentAge: number | null;
@@ -58,6 +60,7 @@ export const buildFireStudioSnapshot = (
             effectivePatrimony,
             annualExpenses,
             annualSavings,
+            extraAccumulationYears: draft.extraAccumulationYears ?? 0,
             withdrawalRate: draft.withdrawalRate,
           },
         }
@@ -72,6 +75,7 @@ export const buildFireStudioSnapshot = (
           patrimonyTotal: draft.patrimonyTotal,
           simulatedPatrimony: draft.simulatedPatrimony,
           annualSavings,
+          extraAccumulationYears: draft.extraAccumulationYears ?? 0,
         },
       };
 
@@ -84,6 +88,7 @@ export const buildFireStudioSnapshot = (
     monthlySavings,
     withdrawalRate: draft.withdrawalRate,
     targetYears: draft.targetYears,
+    extraAccumulationYears: draft.extraAccumulationYears ?? 0,
     samplingMethod: draft.samplingMethod,
     showAgeInBonds: draft.showAgeInBonds,
     currentAge: draft.currentAge,
