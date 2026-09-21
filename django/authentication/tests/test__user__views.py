@@ -13,6 +13,8 @@ from rest_framework.status import (
     HTTP_404_NOT_FOUND,
 )
 
+from authentication import serializers as serializer_module
+from authentication.serializers import FirePreferencesSerializer, PlanningPreferencesSerializer
 from config.settings.base import BASE_API_URL
 
 from ..choices import SubscriptionStatus
@@ -963,3 +965,70 @@ def test__partial_update__planning_preferences__rejects_negative_fire_patrimony(
     }, content_type="application/json")
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert "simulated_patrimony" in response.data["planning_preferences"]["fire"]
+
+
+@pytest.mark.parametrize("years", [0, 1, 3, 60])
+def test_extra_accumulation_years_round_trip(years):
+    serializer = FirePreferencesSerializer(data={"extra_accumulation_years": years})
+    assert serializer.is_valid(), serializer.errors
+    assert serializer.data["extra_accumulation_years"] == years
+
+
+@pytest.mark.parametrize("years", [-1, 61, 1.5, None, "invalid"])
+def test_extra_accumulation_years_reject_invalid_values(years):
+    serializer = FirePreferencesSerializer(data={"extra_accumulation_years": years})
+    assert not serializer.is_valid()
+
+
+def test_old_preferences_remain_valid():
+    serializer = FirePreferencesSerializer(data={"withdrawal_rate": 4})
+    assert serializer.is_valid(), serializer.errors
+    assert "extra_accumulation_years" not in serializer.data
+
+
+def test__historical_dataset_override_round_trips():
+    value = {"historical_series_overrides": {"FIXED_SELIC:IMA_S": "CDI"}}
+    serializer = FirePreferencesSerializer(data=value)
+    assert serializer.is_valid(), serializer.errors
+    assert serializer.data == value
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"FIXED_SELIC:IMA_S": "UNKNOWN"},
+        {"not-a-bucket": "CDI"},
+        {"CASH:CASH": "CDI"},
+    ],
+)
+def test__invalid_historical_dataset_override_is_rejected(overrides):
+    serializer = FirePreferencesSerializer(data={"historical_series_overrides": overrides})
+    assert not serializer.is_valid()
+
+
+def test__historical_fallback_round_trips_and_can_be_removed():
+    for fallbacks in ({"FIXED_IPCA:IMA_B_5_PLUS": "IBOV"}, {}):
+        value = {"historical_series_fallbacks": fallbacks}
+        serializer = FirePreferencesSerializer(data=value)
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.data == value
+
+
+@pytest.mark.parametrize("fallbacks", [{"not-a-bucket": "IBOV"}, {"FIXED_SELIC:IMA_S": "UNKNOWN"}])
+def test__invalid_historical_fallback_is_rejected(fallbacks):
+    serializer = FirePreferencesSerializer(data={"historical_series_fallbacks": fallbacks})
+    assert not serializer.is_valid()
+
+
+@pytest.mark.parametrize(
+    "serializer_name",
+    (
+        "FirePreferencesSerializer",
+        "DividendsOnlyPreferencesSerializer",
+        "OneOverNPreferencesSerializer",
+        "VPWPreferencesSerializer",
+    ),
+)
+def test__planning_preference_serializers_live_at_module_scope(serializer_name):
+    assert hasattr(serializer_module, serializer_name)
+    assert not hasattr(PlanningPreferencesSerializer, serializer_name)
