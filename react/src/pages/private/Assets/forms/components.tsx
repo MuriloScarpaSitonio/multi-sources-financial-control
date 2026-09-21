@@ -1,6 +1,7 @@
 import { type Dispatch, type SetStateAction, useMemo } from "react";
 
 import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
+import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormHelperText from "@mui/material/FormHelperText";
@@ -15,6 +16,7 @@ import { Controller } from "react-hook-form";
 
 import {
   FormFeedbackError,
+  DateInput,
   Colors,
   Text,
   getColor,
@@ -27,6 +29,7 @@ import {
   AssetsObjectivesMapping,
   AssetsTypesMapping,
   LiquidityTypesOptions,
+  FixedIncomeIndexers,
 } from "../consts";
 import {
   AssetCodeAutoCompleteProps,
@@ -398,27 +401,44 @@ export const LiquidityTypeInput = ({
 export const MaturityDateInput = ({
   control,
   isFieldInvalid,
-  getFieldHasError,
+  getErrorMessage,
+}: ReactHookFormsInputCustomProps) => (
+  <DateInput
+    name="maturity_date"
+    label="Data de Vencimento"
+    control={control}
+    required={false}
+    dateOnly
+    error={isFieldInvalid({ name: "maturity_date" })}
+    helperText={getErrorMessage("maturity_date")}
+  />
+);
+
+export const FixedIncomeIndexerInput = ({
+  control,
+  isFieldInvalid,
   getErrorMessage,
 }: ReactHookFormsInputCustomProps) => (
   <Controller
-    name="maturity_date"
+    name="indexer"
     control={control}
     render={({ field }) => (
-      <Stack spacing={0.5}>
-        <TextField
-          {...field}
-          value={field.value || ""}
-          label="Data de Vencimento"
-          type="date"
-          variant="standard"
-          error={isFieldInvalid(field)}
-          InputLabelProps={{ shrink: true }}
-        />
-        {getFieldHasError("maturity_date") && (
-          <FormFeedbackError message={getErrorMessage("maturity_date")} />
-        )}
-      </Stack>
+      <TextField
+        {...field}
+        value={field.value ?? ""}
+        select
+        required
+        label="Indexador"
+        variant="standard"
+        error={isFieldInvalid(field)}
+        helperText={getErrorMessage(field.name)}
+      >
+        {Object.entries(FixedIncomeIndexers).map(([value, label]) => (
+          <MenuItem key={value} value={value}>
+            {label}
+          </MenuItem>
+        ))}
+      </TextField>
     )}
   />
 );

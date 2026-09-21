@@ -1,3 +1,4 @@
+import { format, isValid, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale/pt-BR";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFnsV3";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -11,9 +12,17 @@ const DateInput = ({
   control,
   name = "operation_date",
   label = "Data",
+  required = true,
+  dateOnly = false,
+  error,
+  helperText,
 }: Pick<ReactHookFormsInputCustomProps, "control"> & {
   name?: string;
   label?: string;
+  required?: boolean;
+  dateOnly?: boolean;
+  error?: boolean;
+  helperText?: string;
 }) => (
   <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
     <Controller
@@ -22,9 +31,29 @@ const DateInput = ({
       render={({ field }) => (
         <DatePicker
           {...field}
+          value={
+            dateOnly
+              ? field.value
+                ? parseISO(field.value)
+                : null
+              : field.value
+          }
+          onChange={(value) =>
+            field.onChange(
+              dateOnly
+                ? value === null
+                  ? null
+                  : isValid(value)
+                    ? format(value, "yyyy-MM-dd")
+                    : "Invalid Date"
+                : value,
+            )
+          }
           label={label}
           format="dd/MM/yyyy"
-          slotProps={{ textField: { required: true, variant: "standard" } }}
+          slotProps={{
+            textField: { required, variant: "standard", error, helperText },
+          }}
         />
       )}
     />

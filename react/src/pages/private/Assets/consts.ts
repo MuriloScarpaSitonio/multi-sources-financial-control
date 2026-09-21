@@ -71,3 +71,12 @@ export const LiquidityTypesOptions = [
   { label: "Liquidez Diária", value: LiquidityTypes.DAILY },
   { label: "Somente no Vencimento", value: LiquidityTypes.AT_MATURITY },
 ];
+
+export const FixedIncomeIndexers = {
+  CDI: "CDI",
+  SELIC: "Selic",
+  IPCA: "IPCA",
+  PREFIXED: "Prefixado",
+} as const;
+
+export type FixedIncomeIndexer = keyof typeof FixedIncomeIndexers;

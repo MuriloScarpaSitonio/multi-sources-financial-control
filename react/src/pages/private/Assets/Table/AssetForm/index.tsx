@@ -1,6 +1,7 @@
 import type { Asset } from "../../api/models";
 
 import { useState } from "react";
+import { isAxiosError } from "axios";
 
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -20,6 +21,9 @@ import {
   AssetsObjectivesValueToLabelMapping,
   AssetsTypesMapping,
   LiquidityTypes,
+  LiquidityTypesOptions,
+  FixedIncomeIndexers,
+  type FixedIncomeIndexer,
 } from "../../consts";
 import {
   AssetCurrenciesInput,
@@ -27,20 +31,32 @@ import {
   AssetTypeAutoComplete,
   LiquidityTypeInput,
   MaturityDateInput,
+  FixedIncomeIndexerInput,
 } from "../../forms/components";
 import { useInvalidateAssetsReportsQueries } from "../../Reports/hooks";
 import { ASSETS_QUERY_KEY } from "../consts";
 import DeleteAssetDialog from "./DeleteAssetDialog";
 import { GroupBy, Kinds } from "../../Reports/types";
 
-type AssetData = Omit<Asset, "type" | "objective"> & {
+type AssetData = Omit<Asset, "type" | "objective" | "indexer"> & {
   type: { value: string; label: string };
   objective: keyof typeof AssetsObjectivesValueToLabelMapping;
   liquidity_type: LiquidityTypes | null;
   maturity_date: string | null;
+  indexer: FixedIncomeIndexer | null;
 };
 
 const schema = yup.object().shape({
+  indexer: yup
+    .string()
+    .nullable()
+    .test(
+      "IndexerRequired",
+      "O indexador é obrigatório para ativos de renda fixa",
+      function (value) {
+        return this.parent.type?.value !== "FIXED_BR" || !!value;
+      },
+    ),
   code: yup.string().required("O código é obrigatório"),
   type: yup
     .object()
@@ -67,8 +83,16 @@ const AssetsForm = ({ asset }: { asset: Asset }) => {
     ...asset,
     objective: AssetsObjectivesMapping[asset.objective]?.value,
     type: { label: asset.type, value: assetTypeValue },
-    liquidity_type: asset.liquidity_type,
+    liquidity_type:
+      LiquidityTypesOptions.find(
+        ({ value, label }) =>
+          value === asset.liquidity_type || label === asset.liquidity_type,
+      )?.value ?? null,
     maturity_date: asset.maturity_date,
+    indexer:
+      Object.entries(FixedIncomeIndexers).find(
+        ([, label]) => label === asset.indexer,
+      )?.[0] ?? null,
   };
   const {
     control,
@@ -88,6 +112,21 @@ const AssetsForm = ({ asset }: { asset: Asset }) => {
       updateCachedData(data);
       reset(data);
       enqueueSnackbar("Ativo atualizado com sucesso", { variant: "success" });
+    },
+    onError: (error) => {
+      const data = isAxiosError(error) ? error.response?.data : undefined;
+      const messages =
+        data && typeof data === "object"
+          ? Object.values(data)
+              .flat()
+              .filter((value): value is string => typeof value === "string")
+          : [];
+      enqueueSnackbar(
+        messages.length
+          ? messages.join(" ")
+          : "Não foi possível salvar as alterações. Tente novamente.",
+        { variant: "error" },
+      );
     },
     schema,
     defaultValues: parsedValues,
@@ -123,6 +162,12 @@ const AssetsForm = ({ asset }: { asset: Asset }) => {
                 ...asset,
                 code: data.code,
                 description: data.description,
+                indexer:
+                  data.type.value === "FIXED_BR" && data.indexer
+                    ? FixedIncomeIndexers[data.indexer]
+                    : null,
+                maturity_date:
+                  data.type.value === "FIXED_BR" ? data.maturity_date : null,
                 type: data.type.label,
                 objective: AssetsObjectivesValueToLabelMapping[data.objective],
               }
@@ -154,76 +199,91 @@ const AssetsForm = ({ asset }: { asset: Asset }) => {
 
   return (
     <form>
-      <Stack spacing={2} sx={{ width: "30%", p: 2 }}>
-        <Controller
-          name="code"
-          control={control}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              label="Código"
-              required
-              error={isFieldInvalid(field)}
-              helperText={getErrorMessage(field.name)}
-              inputProps={{ sx: { textTransform: "uppercase" } }}
-              variant="standard"
-            />
-          )}
-        />
-        <Controller
-          name="description"
-          control={control}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              label="Descrição"
-              error={isFieldInvalid(field)}
-              helperText={getErrorMessage(field.name)}
-              variant="standard"
-            />
-          )}
-        />
-        <AssetObjectives
-          prefix="edit"
-          control={control}
-          isFieldInvalid={() => false}
-          getFieldHasError={() => false}
-          getErrorMessage={() => ""}
-        />
-        <AssetTypeAutoComplete
-          control={control}
-          setIsCrypto={setIsCrypto}
-          setIsFixedBR={setIsFixedBR}
-          isFieldInvalid={() => false}
-          getFieldHasError={() => false}
-          getErrorMessage={() => ""}
-        />
-        {isCrypto && (
-          <AssetCurrenciesInput
-            prefix="edit"
-            control={control}
-            isFieldInvalid={() => false}
-            getFieldHasError={() => false}
-            getErrorMessage={() => ""}
-          />
-        )}
-        {isFixedBR && (
-          <>
-            <LiquidityTypeInput
+      <Stack spacing={2} sx={{ p: 2 }}>
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={4}
+          alignItems="stretch"
+        >
+          <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
+            <Controller
+              name="code"
               control={control}
-              isFieldInvalid={isFieldInvalid}
-              getFieldHasError={() => false}
-              getErrorMessage={getErrorMessage}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Código"
+                  required
+                  error={isFieldInvalid(field)}
+                  helperText={getErrorMessage(field.name)}
+                  inputProps={{ sx: { textTransform: "uppercase" } }}
+                  variant="standard"
+                />
+              )}
             />
-            <MaturityDateInput
+            <Controller
+              name="description"
               control={control}
-              isFieldInvalid={isFieldInvalid}
-              getFieldHasError={() => false}
-              getErrorMessage={getErrorMessage}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Descrição"
+                  error={isFieldInvalid(field)}
+                  helperText={getErrorMessage(field.name)}
+                  variant="standard"
+                />
+              )}
             />
-          </>
-        )}
-
+            <AssetObjectives
+              prefix="edit"
+              control={control}
+              isFieldInvalid={() => false}
+              getFieldHasError={() => false}
+              getErrorMessage={() => ""}
+            />
+          </Stack>
+          <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
+            <AssetTypeAutoComplete
+              control={control}
+              setIsCrypto={setIsCrypto}
+              setIsFixedBR={setIsFixedBR}
+              isFieldInvalid={() => false}
+              getFieldHasError={() => false}
+              getErrorMessage={() => ""}
+            />
+            {isCrypto && (
+              <AssetCurrenciesInput
+                prefix="edit"
+                control={control}
+                isFieldInvalid={() => false}
+                getFieldHasError={() => false}
+                getErrorMessage={() => ""}
+              />
+            )}
+            {isFixedBR && (
+              <>
+                <FixedIncomeIndexerInput
+                  control={control}
+                  isFieldInvalid={isFieldInvalid}
+                  getFieldHasError={() => false}
+                  getErrorMessage={getErrorMessage}
+                />
+                <LiquidityTypeInput
+                  control={control}
+                  isFieldInvalid={isFieldInvalid}
+                  getFieldHasError={() => false}
+                  getErrorMessage={getErrorMessage}
+                />
+                <MaturityDateInput
+                  control={control}
+                  isFieldInvalid={isFieldInvalid}
+                  getFieldHasError={() => false}
+                  getErrorMessage={getErrorMessage}
+                />
+              </>
+            )}
+          </Stack>
+        </Stack>
         <Stack direction="row" justifyContent="flex-end" gap={1}>
           <Button
             variant="danger-text"
@@ -251,6 +311,7 @@ const AssetsForm = ({ asset }: { asset: Asset }) => {
                   currency: data.currency,
                   objective: data.objective,
                   type: data.type.value,
+                  indexer: isFixedBR ? data.indexer : null,
                   liquidity_type: data.liquidity_type,
                   maturity_date: formatDateForBackend(data.maturity_date),
                 },

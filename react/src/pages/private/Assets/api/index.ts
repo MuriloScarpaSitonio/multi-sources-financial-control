@@ -18,9 +18,7 @@ const RESOURCE = "assets";
 const B3_IMPORT_TIMEOUT_MS = 120_000;
 
 // Pass FormData directly; axios derives the multipart boundary itself.
-export const importB3 = async (
-  formData: FormData,
-): Promise<B3ImportResponse> =>
+export const importB3 = async (formData: FormData): Promise<B3ImportResponse> =>
   (
     await apiProvider.post(`${RESOURCE}/b3_import`, formData, {
       timeout: B3_IMPORT_TIMEOUT_MS,
@@ -99,7 +97,7 @@ export const editAsset = async ({
   data,
 }: {
   id: number;
-  data: Omit<AssetWrite, "id">;
+  data: Omit<AssetWrite, "id" | "indexer"> & { indexer: string | null };
 }): Promise<AssetWrite> =>
   (await apiProvider.put(`${RESOURCE}/${id}`, data)).data;
 
@@ -112,6 +110,7 @@ export const createAsset = async (data: {
   description?: string;
   liquidity_type?: string | null;
   maturity_date?: string | null;
+  indexer?: string | null;
 }): Promise<AssetWrite> => (await apiProvider.post(RESOURCE, data)).data;
 
 export const getAssetTransactions = async ({
