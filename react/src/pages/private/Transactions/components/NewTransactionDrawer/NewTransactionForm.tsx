@@ -46,6 +46,7 @@ import {
   TransactionQuantity,
   LiquidityTypeInput,
   MaturityDateInput,
+  FixedIncomeIndexerInput,
 } from "../../../Assets/forms/components";
 import { useOnFormSuccess } from "./hooks";
 
@@ -151,6 +152,16 @@ const assetShape = {
         return true;
       },
     ),
+  indexer: yup
+    .string()
+    .nullable()
+    .test(
+      "IndexerRequired",
+      "O indexador é obrigatório para ativos de renda fixa",
+      function (value) {
+        return this.parent.type?.value !== "FIXED_BR" || !!value;
+      },
+    ),
   maturity_date: yup.string().nullable(),
 };
 
@@ -178,6 +189,7 @@ const createTransactionAndAsset = async (
     asset_description: description,
     liquidity_type,
     maturity_date,
+    indexer,
     ...transaction
   } = data;
   const assetCurrency = currency ?? (getCurrencyFromType(type.value) as string);
@@ -191,6 +203,7 @@ const createTransactionAndAsset = async (
     ...(is_held_in_self_custody ? {} : { code }),
     ...(isFixedBR
       ? {
+          indexer,
           liquidity_type,
           maturity_date: formatDateForBackend(maturity_date),
         }
@@ -418,6 +431,12 @@ const NewTransactionForm = ({
           />
           {assetType?.value === AssetsTypesMapping["Renda fixa BR"].value && (
             <>
+              <FixedIncomeIndexerInput
+                control={control}
+                isFieldInvalid={isFieldInvalid}
+                getFieldHasError={getFieldHasError}
+                getErrorMessage={getErrorMessage}
+              />
               <LiquidityTypeInput
                 control={control}
                 isFieldInvalid={isFieldInvalid}

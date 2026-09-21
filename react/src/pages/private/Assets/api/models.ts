@@ -5,6 +5,7 @@ import {
   AssetsObjectivesMapping,
   AssetsTypesMapping,
   LiquidityTypes,
+  FixedIncomeIndexers,
 } from "../consts";
 
 export type Asset = {
@@ -26,6 +27,9 @@ export type Asset = {
   is_held_in_self_custody: boolean;
   liquidity_type: LiquidityTypes | null;
   maturity_date: RawDateString | null;
+  indexer:
+    | (typeof FixedIncomeIndexers)[keyof typeof FixedIncomeIndexers]
+    | null;
 };
 
 export type AssetWrite = Omit<

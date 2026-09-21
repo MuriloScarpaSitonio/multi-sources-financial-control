@@ -42,7 +42,11 @@ export const useFormPlus = ({
     onError: (error: any) => {
       setApiErrors(
         Object.fromEntries(
-          Object.entries(error.response.data).map(([key, value]) => [
+          Object.entries(
+            error?.response?.data && typeof error.response.data === "object"
+              ? error.response.data
+              : {},
+          ).map(([key, value]) => [
             key,
             Array.isArray(value)
               ? (value as string[]).join("; ")
