@@ -34,6 +34,7 @@ from ..choices import (
     AssetSectors,
     AssetTypes,
     Currencies,
+    FixedIncomeIndexers,
     LiquidityTypes,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
@@ -55,6 +56,14 @@ from ..service_layer.tasks import create_asset_closed_operation, upsert_asset_re
 
 
 class AssetFactory(DjangoModelFactory):
+    indexer = factory.LazyAttribute(
+        lambda asset: (
+            FixedIncomeIndexers.cdi
+            if getattr(asset, "type", None) == AssetTypes.fixed_br
+            else ""
+        )
+    )
+
     class Meta:
         model = Asset
 

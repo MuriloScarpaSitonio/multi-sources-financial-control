@@ -1,0 +1,403 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`FIRE deterministic outputs: contiguous_12_month_blocks > preserves accumulation after early target crossing 1`] = `
+{
+  "gapBands": [
+    {
+      "p10": 60000,
+      "p50": 60000,
+      "p90": 60000,
+      "year": 0,
+    },
+    {
+      "p10": 38539.22294120178,
+      "p50": 49779.09917661011,
+      "p90": 58696.25991439466,
+      "year": 1,
+    },
+    {
+      "p10": 23677.62012197665,
+      "p50": 39373.18420688571,
+      "p90": 52073.24473587975,
+      "year": 2,
+    },
+    {
+      "p10": 8053.622628809448,
+      "p50": 29386.606205298915,
+      "p90": 44762.72482019292,
+      "year": 3,
+    },
+    {
+      "p10": 0,
+      "p50": 18496.532532665966,
+      "p90": 37871.61914931744,
+      "year": 4,
+    },
+    {
+      "p10": 0,
+      "p50": 8260.780037608056,
+      "p90": 31057.442760313497,
+      "year": 5,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 23380.086419437983,
+      "year": 6,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 16658.668723642244,
+      "year": 7,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 9450.356737636088,
+      "year": 8,
+    },
+  ],
+  "medianYearsToTarget": 6,
+  "p10YearsToTarget": 4,
+  "p90YearsToTarget": 8,
+  "successRate": 0.829,
+}
+`;
+
+exports[`FIRE deterministic outputs: contiguous_12_month_blocks > preserves all chart values and RNG consumption after depletion 1`] = `
+{
+  "bands": [
+    {
+      "p10": 100000,
+      "p50": 100000,
+      "p90": 100000,
+      "year": 0,
+    },
+    {
+      "p10": 11471.225099214458,
+      "p50": 20448.044867894725,
+      "p90": 31839.252088982674,
+      "year": 1,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "year": 2,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "year": 3,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "year": 4,
+    },
+  ],
+  "medianDepletionYear": 2,
+  "p10DepletionYear": 2,
+  "successRate": 0,
+  "withdrawalBands": [
+    {
+      "p10": 80000,
+      "p50": 80000,
+      "p90": 80000,
+      "year": 1,
+    },
+    {
+      "p10": 11546.176915843938,
+      "p50": 20578.716947962574,
+      "p90": 32457.521417980555,
+      "year": 2,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "year": 3,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "year": 4,
+    },
+  ],
+}
+`;
+
+exports[`FIRE deterministic outputs: contiguous_12_month_blocks > preserves cash, exclusions, bond fallback, and changing yearly windows 1`] = `
+{
+  "bands": [
+    {
+      "p10": 100000,
+      "p50": 100000,
+      "p90": 100000,
+      "year": 0,
+    },
+    {
+      "p10": 55449.60661244653,
+      "p50": 62077.50951494399,
+      "p90": 66822.42452844844,
+      "year": 1,
+    },
+    {
+      "p10": 15969.290034844113,
+      "p50": 23257.533926404736,
+      "p90": 28420.926183192318,
+      "year": 2,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "year": 3,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "year": 4,
+    },
+  ],
+  "medianDepletionYear": 3,
+  "p10DepletionYear": 3,
+  "successRate": 0,
+  "withdrawalBands": [
+    {
+      "p10": 40000,
+      "p50": 40000,
+      "p90": 40000,
+      "year": 1,
+    },
+    {
+      "p10": 40000,
+      "p50": 40000,
+      "p90": 40000,
+      "year": 2,
+    },
+    {
+      "p10": 16101.775245723744,
+      "p50": 23446.297007264577,
+      "p90": 28832.430686921314,
+      "year": 3,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "year": 4,
+    },
+  ],
+}
+`;
+
+exports[`FIRE deterministic outputs: contiguous_12_month_blocks > preserves the full 20-iteration safe-rate search 1`] = `1.8915290832519533`;
+
+exports[`FIRE deterministic outputs: contiguous_12_month_blocks > preserves the varying-allocation safe-rate search 1`] = `8.342299938201906`;
+
+exports[`FIRE deterministic outputs: independent_months > preserves accumulation after early target crossing 1`] = `
+{
+  "gapBands": [
+    {
+      "p10": 60000,
+      "p50": 60000,
+      "p90": 60000,
+      "year": 0,
+    },
+    {
+      "p10": 41883.70025799547,
+      "p50": 49183.20998159431,
+      "p90": 56480.250280922715,
+      "year": 1,
+    },
+    {
+      "p10": 27221.96056691496,
+      "p50": 37907.13016031741,
+      "p90": 49050.38055942267,
+      "year": 2,
+    },
+    {
+      "p10": 12356.852258285478,
+      "p50": 26987.061280416005,
+      "p90": 41020.58594255969,
+      "year": 3,
+    },
+    {
+      "p10": 0,
+      "p50": 16218.985175838228,
+      "p90": 32874.576904001384,
+      "year": 4,
+    },
+    {
+      "p10": 0,
+      "p50": 5297.007839489583,
+      "p90": 24665.797309969348,
+      "year": 5,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 16354.234029878047,
+      "year": 6,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 8099.54328804664,
+      "year": 7,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "year": 8,
+    },
+  ],
+  "medianYearsToTarget": 6,
+  "p10YearsToTarget": 4,
+  "p90YearsToTarget": 8,
+  "successRate": 0.9145,
+}
+`;
+
+exports[`FIRE deterministic outputs: independent_months > preserves all chart values and RNG consumption after depletion 1`] = `
+{
+  "bands": [
+    {
+      "p10": 100000,
+      "p50": 100000,
+      "p90": 100000,
+      "year": 0,
+    },
+    {
+      "p10": 10366.652978838978,
+      "p50": 21598.293046028808,
+      "p90": 33936.51151337934,
+      "year": 1,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "year": 2,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "year": 3,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "year": 4,
+    },
+  ],
+  "medianDepletionYear": 2,
+  "p10DepletionYear": 2,
+  "successRate": 0,
+  "withdrawalBands": [
+    {
+      "p10": 80000,
+      "p50": 80000,
+      "p90": 80000,
+      "year": 1,
+    },
+    {
+      "p10": 10380.089389031775,
+      "p50": 21731.290563124603,
+      "p90": 34293.42667709522,
+      "year": 2,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "year": 3,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "year": 4,
+    },
+  ],
+}
+`;
+
+exports[`FIRE deterministic outputs: independent_months > preserves cash, exclusions, bond fallback, and changing yearly windows 1`] = `
+{
+  "bands": [
+    {
+      "p10": 100000,
+      "p50": 100000,
+      "p90": 100000,
+      "year": 0,
+    },
+    {
+      "p10": 58591.81059681641,
+      "p50": 61776.94320532519,
+      "p90": 64931.7620414171,
+      "year": 1,
+    },
+    {
+      "p10": 19114.48796179579,
+      "p50": 22858.83429715675,
+      "p90": 26485.25022037338,
+      "year": 2,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "year": 3,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "year": 4,
+    },
+  ],
+  "medianDepletionYear": 3,
+  "p10DepletionYear": 3,
+  "successRate": 0,
+  "withdrawalBands": [
+    {
+      "p10": 40000,
+      "p50": 40000,
+      "p90": 40000,
+      "year": 1,
+    },
+    {
+      "p10": 40000,
+      "p50": 40000,
+      "p90": 40000,
+      "year": 2,
+    },
+    {
+      "p10": 19294.03173665863,
+      "p50": 23082.584956069255,
+      "p90": 26851.006827702742,
+      "year": 3,
+    },
+    {
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "year": 4,
+    },
+  ],
+}
+`;
+
+exports[`FIRE deterministic outputs: independent_months > preserves the full 20-iteration safe-rate search 1`] = `1.5680541992187502`;
+
+exports[`FIRE deterministic outputs: independent_months > preserves the varying-allocation safe-rate search 1`] = `9.021512031555176`;

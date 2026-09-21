@@ -11,6 +11,7 @@ from ...choices import (
     AssetObjectives,
     AssetTypes,
     Currencies,
+    FixedIncomeIndexers,
     LiquidityTypes,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
@@ -21,67 +22,197 @@ from ...integrations.b3.handlers import (
     import_b3_negociacoes,
     import_b3_proventos,
     import_b3_renda_fixa_positions,
+    normalize_fixed_income_indexer,
 )
-from ...models import Asset, AssetMetaData, AssetReadModel, PassiveIncome, Transaction
+from ...models import (
+    Asset,
+    AssetClosedOperation,
+    AssetMetaData,
+    AssetReadModel,
+    PassiveIncome,
+    Transaction,
+)
+from ...service_layer.tasks import upsert_asset_read_model
 from ..conftest import AssetFactory, AssetMetaDataFactory
 
 pytestmark = pytest.mark.django_db
 
 POSICAO_HEADER = [
-    "Produto", "Instituição", "Emissor", "Código", "Indexador", "Tipo de regime",
-    "Data de Emissão", "Vencimento", "Quantidade", "Quantidade Disponível",
-    "Quantidade Indisponível", "Motivo", "Contraparte",
-    "Preço Atualizado MTM", "Valor Atualizado MTM",
-    "Preço Atualizado CURVA", "Valor Atualizado CURVA",
-    "Preço Atualizado FECHAMENTO", "Valor Atualizado FECHAMENTO",
+    "Produto",
+    "Instituição",
+    "Emissor",
+    "Código",
+    "Indexador",
+    "Tipo de regime",
+    "Data de Emissão",
+    "Vencimento",
+    "Quantidade",
+    "Quantidade Disponível",
+    "Quantidade Indisponível",
+    "Motivo",
+    "Contraparte",
+    "Preço Atualizado MTM",
+    "Valor Atualizado MTM",
+    "Preço Atualizado CURVA",
+    "Valor Atualizado CURVA",
+    "Preço Atualizado FECHAMENTO",
+    "Valor Atualizado FECHAMENTO",
 ]
 
 TD_POSICAO_HEADER = [
-    "Produto", "Instituição", "Código ISIN", "Indexador", "Vencimento",
-    "Quantidade", "Quantidade Disponível", "Quantidade Indisponível", "Motivo",
-    "Valor Aplicado", "Valor bruto", "Valor líquido", "Valor Atualizado",
+    "Produto",
+    "Instituição",
+    "Código ISIN",
+    "Indexador",
+    "Vencimento",
+    "Quantidade",
+    "Quantidade Disponível",
+    "Quantidade Indisponível",
+    "Motivo",
+    "Valor Aplicado",
+    "Valor bruto",
+    "Valor líquido",
+    "Valor Atualizado",
 ]
 
 ACOES_HEADER = [
-    "Produto", "Instituição", "Conta", "Código de Negociação", "CNPJ da Empresa",
-    "Código ISIN / Distribuição", "Tipo", "Escriturador", "Quantidade",
-    "Quantidade Disponível", "Quantidade Indisponível", "Motivo",
-    "Preço de Fechamento", "Valor Atualizado",
+    "Produto",
+    "Instituição",
+    "Conta",
+    "Código de Negociação",
+    "CNPJ da Empresa",
+    "Código ISIN / Distribuição",
+    "Tipo",
+    "Escriturador",
+    "Quantidade",
+    "Quantidade Disponível",
+    "Quantidade Indisponível",
+    "Motivo",
+    "Preço de Fechamento",
+    "Valor Atualizado",
 ]
 
 FII_HEADER = [
-    "Produto", "Instituição", "Conta", "Código de Negociação", "CNPJ do Fundo",
-    "Código ISIN / Distribuição", "Tipo", "Administrador", "Quantidade",
-    "Quantidade Disponível", "Quantidade Indisponível", "Motivo",
-    "Preço de Fechamento", "Valor Atualizado",
+    "Produto",
+    "Instituição",
+    "Conta",
+    "Código de Negociação",
+    "CNPJ do Fundo",
+    "Código ISIN / Distribuição",
+    "Tipo",
+    "Administrador",
+    "Quantidade",
+    "Quantidade Disponível",
+    "Quantidade Indisponível",
+    "Motivo",
+    "Preço de Fechamento",
+    "Valor Atualizado",
 ]
 
 NEGOCIACAO_HEADER = [
-    "Data do Negócio", "Tipo de Movimentação", "Mercado", "Prazo/Vencimento",
-    "Instituição", "Código de Negociação", "Quantidade", "Preço", "Valor",
+    "Data do Negócio",
+    "Tipo de Movimentação",
+    "Mercado",
+    "Prazo/Vencimento",
+    "Instituição",
+    "Código de Negociação",
+    "Quantidade",
+    "Preço",
+    "Valor",
 ]
 
 MOV_HEADER = [
-    "Entrada/Saída", "Data", "Movimentação", "Produto", "Instituição",
-    "Quantidade", "Preço unitário", "Valor da Operação",
+    "Entrada/Saída",
+    "Data",
+    "Movimentação",
+    "Produto",
+    "Instituição",
+    "Quantidade",
+    "Preço unitário",
+    "Valor da Operação",
 ]
 
 POSICAO_FILENAME = "posicao-2026-04-29-12-00-00.xlsx"
 WORKBOOK_DT = datetime(2026, 4, 29, 12, 0, 0)
 
 
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    (
+        ("DI", FixedIncomeIndexers.cdi),
+        ("CDI", FixedIncomeIndexers.cdi),
+        ("SELIC", FixedIncomeIndexers.selic),
+        ("IPCA", FixedIncomeIndexers.ipca),
+        ("PREFIXADO", FixedIncomeIndexers.prefixed),
+        ("PREFIXED", FixedIncomeIndexers.prefixed),
+        (" desconhecido ", None),
+        (None, None),
+    ),
+)
+def test__normalizes_b3_indexer(raw, expected):
+    assert normalize_fixed_income_indexer(raw) == expected
+
+
 def _cdb_position_row(*, code: str = "CDB426DGCVL", issuer: str = "BANCO BMG S/A"):
     return [
-        f"CDB - {issuer}", "INTER DTVM", issuer, code, "PREFIXADO", "DEPOSITADO",
-        "29/04/2026", "30/04/2029", "10", "10", "-", "-", "-",
-        "-", "-", "1100", "11000", "-", "-",
+        f"CDB - {issuer}",
+        "INTER DTVM",
+        issuer,
+        code,
+        "PREFIXADO",
+        "DEPOSITADO",
+        "29/04/2026",
+        "30/04/2029",
+        "10",
+        "10",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "1100",
+        "11000",
+        "-",
+        "-",
     ]
 
 
 def _cdb_movimentacao_row(*, code: str = "CDB426DGCVL"):
     return [
-        "Credito", "29/04/2026", "COMPRA / VENDA", f"CDB - {code}",
-        "INTER DTVM", 10, 1000, 10000,
+        "Credito",
+        "29/04/2026",
+        "COMPRA / VENDA",
+        f"CDB - {code}",
+        "INTER DTVM",
+        10,
+        1000,
+        10000,
+    ]
+
+
+def _fixed_income_maturity_row(*, code: str = "25L03967955", operation_date: str = "29/06/2026"):
+    return [
+        "Debito",
+        operation_date,
+        "VENCIMENTO",
+        f"LCI - {code} - BANCO INTER S/A",
+        "INTER DTVM",
+        1000000,
+        "0.01",
+        10000,
+    ]
+
+
+def _fixed_income_interest_row(*, code: str = "25L03967955"):
+    return [
+        "Credito",
+        "29/06/2026",
+        "PAGAMENTO DE JUROS",
+        f"LCI - {code} - BANCO INTER S/A",
+        "INTER DTVM",
+        1000000,
+        "0.00062816",
+        "628.16",
     ]
 
 
@@ -159,7 +290,9 @@ def fixed_br_asset(user):
     return asset
 
 
-def test_existing_asset_stale_price_is_updated(tmp_path, user, fixed_br_asset):
+def test_existing_asset_stale_price_is_updated(
+    tmp_path, user, fixed_br_asset, sync_assets_read_model
+):
     posicao_path = _build_posicao(tmp_path, [_cdb_position_row()])
     movimentacao_path = _build_movimentacao(tmp_path, [])
 
@@ -175,6 +308,12 @@ def test_existing_asset_stale_price_is_updated(tmp_path, user, fixed_br_asset):
     assert report["actions"][0]["new_price"] == "1100"
     metadata = AssetMetaData.objects.get(code="CDB426DGCVL")
     assert metadata.current_price == Decimal("1100")
+    fixed_br_asset.refresh_from_db()
+    assert fixed_br_asset.indexer == FixedIncomeIndexers.cdi
+    assert fixed_br_asset.maturity_date is None
+    read_model = AssetReadModel.objects.get(write_model_pk=fixed_br_asset.pk)
+    assert read_model.indexer == FixedIncomeIndexers.cdi
+    assert read_model.maturity_date is None
 
 
 def test_existing_asset_fresh_price_is_skipped(tmp_path, user, fixed_br_asset):
@@ -215,6 +354,8 @@ def test_missing_asset_with_movimentacao_creates_asset_and_transaction(
     assert asset.type == AssetTypes.fixed_br
     assert asset.description == "CDB - BANCO BMG - venc 30/04/2029"
     assert asset.liquidity_type == LiquidityTypes.at_maturity
+    assert asset.indexer == FixedIncomeIndexers.prefixed
+    assert asset.maturity_date == date(2029, 4, 30)
     transaction = Transaction.objects.get(asset=asset)
     assert transaction.price == Decimal("1000")
     assert transaction.quantity == Decimal("10")
@@ -223,9 +364,125 @@ def test_missing_asset_with_movimentacao_creates_asset_and_transaction(
     assert metadata.current_price == Decimal("1100")
 
 
-def test_missing_asset_is_skipped_when_create_missing_off(
-    tmp_path, user, sync_assets_read_model
+def test_existing_matured_asset_absent_from_position_imports_redemption_and_interest(
+    tmp_path, user
 ):
+    from ..conftest import TransactionFactory
+
+    asset = AssetFactory(
+        code="25L03967955",
+        type=AssetTypes.fixed_br,
+        currency=Currencies.real,
+        objective=AssetObjectives.growth,
+        user=user,
+        liquidity_type=LiquidityTypes.at_maturity,
+        maturity_date=date(2026, 6, 29),
+        indexer=FixedIncomeIndexers.prefixed,
+    )
+    AssetMetaDataFactory(
+        code=asset.code,
+        type=AssetTypes.fixed_br,
+        currency=Currencies.real,
+        current_price=Decimal("0.01"),
+        current_price_updated_at=timezone.now(),
+    )
+    TransactionFactory(
+        asset=asset,
+        action="BUY",
+        operation_date=date(2025, 12, 26),
+        quantity=Decimal("1000000"),
+        price=Decimal("0.01"),
+    )
+    upsert_asset_read_model(asset_id=asset.id)
+    posicao_path = _build_posicao(tmp_path, [])
+    movimentacao_path = _build_movimentacao(
+        tmp_path,
+        [_fixed_income_interest_row(), _fixed_income_maturity_row()],
+    )
+
+    first_report = import_b3_fixed_income_positions(
+        user_id=user.id,
+        dry_run=False,
+        posicao_path=posicao_path,
+        movimentacao_path=movimentacao_path,
+    )
+    second_report = import_b3_fixed_income_positions(
+        user_id=user.id,
+        dry_run=False,
+        posicao_path=posicao_path,
+        movimentacao_path=movimentacao_path,
+    )
+
+    redemption = Transaction.objects.get(asset=asset, action="SELL")
+    assert redemption.operation_date == date(2026, 6, 29)
+    assert redemption.quantity == Decimal("1000000")
+    assert redemption.price == Decimal("0.01")
+    interest = PassiveIncome.objects.get(asset=asset)
+    assert interest.type == PassiveIncomeTypes.interest
+    assert interest.event_type == PassiveIncomeEventTypes.credited
+    assert interest.operation_date == date(2026, 6, 29)
+    assert interest.amount == Decimal("628.16")
+    assert any(a["action"] == "transaction_created" for a in first_report["actions"])
+    assert any(a["action"] == "income_created" for a in first_report["actions"])
+    assert Transaction.objects.filter(asset=asset, action="SELL").count() == 1
+    assert PassiveIncome.objects.filter(asset=asset).count() == 1
+    assert AssetClosedOperation.objects.get(asset=asset).credited_incomes == Decimal("628.16")
+    assert not any(a["action"].endswith("_created") for a in second_report["actions"])
+
+
+def test_existing_maturity_sell_with_different_price_is_not_duplicated(tmp_path, user):
+    from ..conftest import TransactionFactory
+
+    asset = AssetFactory(
+        code="25H03552378",
+        type=AssetTypes.fixed_br,
+        currency=Currencies.real,
+        objective=AssetObjectives.growth,
+        user=user,
+        liquidity_type=LiquidityTypes.at_maturity,
+        maturity_date=date(2026, 2, 19),
+        indexer=FixedIncomeIndexers.prefixed,
+    )
+    AssetMetaDataFactory(
+        code=asset.code,
+        type=AssetTypes.fixed_br,
+        currency=Currencies.real,
+        current_price=Decimal("0.01"),
+        current_price_updated_at=timezone.now(),
+    )
+    TransactionFactory(
+        asset=asset,
+        action="BUY",
+        operation_date=date(2025, 8, 18),
+        quantity=Decimal("1000000"),
+        price=Decimal("0.01"),
+    )
+    TransactionFactory(
+        asset=asset,
+        action="SELL",
+        operation_date=date(2026, 2, 19),
+        quantity=Decimal("1000000"),
+        price=Decimal("0.01064189"),
+    )
+    upsert_asset_read_model(asset_id=asset.id)
+    posicao_path = _build_posicao(tmp_path, [])
+    movimentacao_path = _build_movimentacao(
+        tmp_path,
+        [_fixed_income_maturity_row(code=asset.code, operation_date="19/02/2026")],
+    )
+
+    report = import_b3_fixed_income_positions(
+        user_id=user.id,
+        dry_run=False,
+        posicao_path=posicao_path,
+        movimentacao_path=movimentacao_path,
+    )
+
+    assert Transaction.objects.filter(asset=asset, action="SELL").count() == 1
+    assert not any(a["action"] == "transaction_created" for a in report["actions"])
+
+
+def test_missing_asset_is_skipped_when_create_missing_off(tmp_path, user, sync_assets_read_model):
     posicao_path = _build_posicao(tmp_path, [_cdb_position_row()])
     movimentacao_path = _build_movimentacao(tmp_path, [_cdb_movimentacao_row()])
 
@@ -299,15 +556,32 @@ def test_dry_run_rolls_back(tmp_path, user, sync_assets_read_model):
 
 def _td_position_row(*, name: str = "Tesouro IPCA+ 2032", isin: str = "BRSTNCNTB7T1"):
     return [
-        name, "INTER DTVM", isin, "IPCA", "15/08/2032",
-        15.48, 15.48, 0, "-", 44942.46, 45390.59, 45263.94, 45390.59,
+        name,
+        "INTER DTVM",
+        isin,
+        "IPCA",
+        "15/08/2032",
+        15.48,
+        15.48,
+        0,
+        "-",
+        44942.46,
+        45390.59,
+        45263.94,
+        45390.59,
     ]
 
 
 def _td_movimentacao_row(*, name: str = "Tesouro IPCA+ 2032"):
     return [
-        "Credito", "30/04/2026", "Compra", name,
-        "INTER DTVM", 2.02, 2959.59, 5978.37,
+        "Credito",
+        "30/04/2026",
+        "Compra",
+        name,
+        "INTER DTVM",
+        2.02,
+        2959.59,
+        5978.37,
     ]
 
 
@@ -398,6 +672,9 @@ def test_existing_td_asset_stale_price_is_updated(tmp_path, user, td_asset):
     assert report["actions"][0]["code"] == "BRSTNCNTB7T1"
     metadata = AssetMetaData.objects.get(code="BRSTNCNTB7T1")
     assert metadata.current_price == Decimal("2932.2086563307")
+    td_asset.refresh_from_db()
+    assert td_asset.indexer == FixedIncomeIndexers.cdi
+    assert td_asset.maturity_date is None
 
 
 def test_missing_td_asset_with_movimentacao_creates_asset_and_transaction(
@@ -418,6 +695,8 @@ def test_missing_td_asset_with_movimentacao_creates_asset_and_transaction(
     asset = Asset.objects.get(user=user, code="BRSTNCNTB7T1")
     assert asset.type == AssetTypes.fixed_br
     assert asset.description == "Tesouro IPCA+ 2032 - venc 15/08/2032"
+    assert asset.indexer == FixedIncomeIndexers.ipca
+    assert asset.maturity_date == date(2032, 8, 15)
     transaction = Transaction.objects.get(asset=asset)
     assert transaction.price == Decimal("2959.59")
     assert transaction.quantity == Decimal("2.02")
@@ -445,27 +724,39 @@ def test_missing_td_asset_without_movimentacao_is_skipped(tmp_path, user):
 
 def _negotiation_row(*, code: str = "BBAS3"):
     return [
-        "02/04/2026", "Compra", "Mercado à Vista", "-", "INTER DTVM",
-        code, 100, 23.39, 2339,
+        "02/04/2026",
+        "Compra",
+        "Mercado à Vista",
+        "-",
+        "INTER DTVM",
+        code,
+        100,
+        23.39,
+        2339,
     ]
 
 
 def test_negociacao_creates_transaction_for_existing_asset(tmp_path, user):
     AssetFactory(
-        code="BBAS3", type=AssetTypes.stock, currency=Currencies.real,
-        objective=AssetObjectives.growth, user=user,
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        objective=AssetObjectives.growth,
+        user=user,
     )
     AssetMetaDataFactory(
-        code="BBAS3", type=AssetTypes.stock, currency=Currencies.real,
-        current_price=Decimal("21.71"), current_price_updated_at=timezone.now(),
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        current_price=Decimal("21.71"),
+        current_price_updated_at=timezone.now(),
     )
     from ...management.commands.sync_assets_cqrs import Command as Sync
+
     Sync().handle(user_ids=[user.id])
     negociacao_path = _build_negociacao(tmp_path, [_negotiation_row()])
 
-    report = import_b3_negociacoes(
-        user_id=user.id, dry_run=False, negociacao_path=negociacao_path
-    )
+    report = import_b3_negociacoes(user_id=user.id, dry_run=False, negociacao_path=negociacao_path)
 
     assert len(report["actions"]) == 1
     assert report["actions"][0]["action"] == "transaction_created"
@@ -477,9 +768,7 @@ def test_negociacao_creates_transaction_for_existing_asset(tmp_path, user):
 def test_negociacao_skips_when_asset_not_in_db(tmp_path, user):
     negociacao_path = _build_negociacao(tmp_path, [_negotiation_row()])
 
-    report = import_b3_negociacoes(
-        user_id=user.id, dry_run=False, negociacao_path=negociacao_path
-    )
+    report = import_b3_negociacoes(user_id=user.id, dry_run=False, negociacao_path=negociacao_path)
 
     assert report["actions"][0]["action"] == "skipped"
     assert "ativo não cadastrado" in report["actions"][0]["reason"]
@@ -490,38 +779,53 @@ def test_negociacao_dedupes_already_imported_transactions(tmp_path, user):
     from ..conftest import TransactionFactory
 
     asset = AssetFactory(
-        code="BBAS3", type=AssetTypes.stock, currency=Currencies.real,
-        objective=AssetObjectives.growth, user=user,
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        objective=AssetObjectives.growth,
+        user=user,
     )
     TransactionFactory(
-        asset=asset, action="BUY",
+        asset=asset,
+        action="BUY",
         operation_date=date(2026, 4, 2),
-        quantity=Decimal("100"), price=Decimal("23.39"),
+        quantity=Decimal("100"),
+        price=Decimal("23.39"),
     )
     negociacao_path = _build_negociacao(tmp_path, [_negotiation_row()])
 
-    report = import_b3_negociacoes(
-        user_id=user.id, dry_run=False, negociacao_path=negociacao_path
-    )
+    report = import_b3_negociacoes(user_id=user.id, dry_run=False, negociacao_path=negociacao_path)
 
     assert all(a["action"] != "transaction_created" for a in report["actions"])
     assert Transaction.objects.filter(asset=asset).count() == 1
 
 
-def test_negociacao_creates_asset_when_missing_with_posicao(
-    tmp_path, user, sync_assets_read_model
-):
+def test_negociacao_creates_asset_when_missing_with_posicao(tmp_path, user, sync_assets_read_model):
     acoes_row = [
-        "BBAS3 - BCO BRASIL S.A.", "INTER DTVM", "4038379", "BBAS3",
-        "00000000000191", "BRBBASACNOR3 - 337", "ON", "BANCO DO BRASIL S/A",
-        971, 971, "-", "-", 21.71, 21080.41,
+        "BBAS3 - BCO BRASIL S.A.",
+        "INTER DTVM",
+        "4038379",
+        "BBAS3",
+        "00000000000191",
+        "BRBBASACNOR3 - 337",
+        "ON",
+        "BANCO DO BRASIL S/A",
+        971,
+        971,
+        "-",
+        "-",
+        21.71,
+        21080.41,
     ]
     posicao_path = _build_posicao(tmp_path, [], acoes_rows=[acoes_row])
     negociacao_path = _build_negociacao(tmp_path, [_negotiation_row(code="BBAS3")])
 
     report = import_b3_negociacoes(
-        user_id=user.id, dry_run=False, create_missing_assets=True,
-        negociacao_path=negociacao_path, posicao_path=posicao_path,
+        user_id=user.id,
+        dry_run=False,
+        create_missing_assets=True,
+        negociacao_path=negociacao_path,
+        posicao_path=posicao_path,
     )
 
     actions = [a["action"] for a in report["actions"]]
@@ -534,9 +838,7 @@ def test_negociacao_creates_asset_when_missing_with_posicao(
 def test_negociacao_skips_when_missing_and_no_posicao(tmp_path, user):
     negociacao_path = _build_negociacao(tmp_path, [_negotiation_row()])
 
-    report = import_b3_negociacoes(
-        user_id=user.id, dry_run=False, negociacao_path=negociacao_path
-    )
+    report = import_b3_negociacoes(user_id=user.id, dry_run=False, negociacao_path=negociacao_path)
 
     assert report["actions"][0]["action"] == "skipped"
     assert "Criar ativos ausentes" in report["actions"][0]["reason"]
@@ -544,20 +846,25 @@ def test_negociacao_skips_when_missing_and_no_posicao(tmp_path, user):
 
 def test_negociacao_dry_run_rolls_back(tmp_path, user):
     AssetFactory(
-        code="BBAS3", type=AssetTypes.stock, currency=Currencies.real,
-        objective=AssetObjectives.growth, user=user,
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        objective=AssetObjectives.growth,
+        user=user,
     )
     AssetMetaDataFactory(
-        code="BBAS3", type=AssetTypes.stock, currency=Currencies.real,
-        current_price=Decimal("21.71"), current_price_updated_at=timezone.now(),
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        current_price=Decimal("21.71"),
+        current_price_updated_at=timezone.now(),
     )
     from ...management.commands.sync_assets_cqrs import Command as Sync
+
     Sync().handle(user_ids=[user.id])
     negociacao_path = _build_negociacao(tmp_path, [_negotiation_row()])
 
-    report = import_b3_negociacoes(
-        user_id=user.id, dry_run=True, negociacao_path=negociacao_path
-    )
+    report = import_b3_negociacoes(user_id=user.id, dry_run=True, negociacao_path=negociacao_path)
 
     assert report["dry_run"] is True
     assert report["actions"][0]["action"] == "transaction_created"
@@ -610,9 +917,7 @@ def test_price_update_is_scoped_by_type_and_currency(tmp_path, user, fixed_br_as
     assert decoy.current_price == Decimal("999")  # untouched
 
 
-def test_price_update_skips_self_custody_metadata(
-    tmp_path, user, another_user, fixed_br_asset
-):
+def test_price_update_skips_self_custody_metadata(tmp_path, user, another_user, fixed_br_asset):
     # A same code/type/currency metadata row linked to a user's self-custody asset
     # (asset_id set) must NOT be touched — B3 updates only the global B3 row.
     custody_asset = AssetFactory(
@@ -643,18 +948,22 @@ def test_price_update_skips_self_custody_metadata(
 
     custody_meta.refresh_from_db()
     assert custody_meta.current_price == Decimal("888")  # untouched
-    assert (
-        AssetMetaData.objects.get(
-            code="CDB426DGCVL", type=AssetTypes.fixed_br, asset__isnull=True
-        ).current_price
-        == Decimal("1100")
-    )
+    assert AssetMetaData.objects.get(
+        code="CDB426DGCVL", type=AssetTypes.fixed_br, asset__isnull=True
+    ).current_price == Decimal("1100")
 
 
 def _neg_row(*, date: str, action: str, code: str, qty, price):
     return [
-        date, action, "Mercado à Vista", "-", "INTER DTVM",
-        code, qty, price, float(qty) * float(price),
+        date,
+        action,
+        "Mercado à Vista",
+        "-",
+        "INTER DTVM",
+        code,
+        qty,
+        price,
+        float(qty) * float(price),
     ]
 
 
@@ -663,12 +972,18 @@ def test_negociacoes_applied_chronologically_when_file_is_descending(tmp_path, u
     # the BUY (earlier date), as B3 reports do (most-recent-first). Without
     # chronological ordering the domain would reject the sell.
     AssetFactory(
-        code="BBAS3", type=AssetTypes.stock, currency=Currencies.real,
-        objective=AssetObjectives.growth, user=user,
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        objective=AssetObjectives.growth,
+        user=user,
     )
     AssetMetaDataFactory(
-        code="BBAS3", type=AssetTypes.stock, currency=Currencies.real,
-        current_price=Decimal("21.71"), current_price_updated_at=timezone.now(),
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        current_price=Decimal("21.71"),
+        current_price_updated_at=timezone.now(),
     )
     from ...management.commands.sync_assets_cqrs import Command as Sync
 
@@ -682,15 +997,11 @@ def test_negociacoes_applied_chronologically_when_file_is_descending(tmp_path, u
         ],
     )
 
-    report = import_b3_negociacoes(
-        user_id=user.id, dry_run=False, negociacao_path=negociacao_path
-    )
+    report = import_b3_negociacoes(user_id=user.id, dry_run=False, negociacao_path=negociacao_path)
 
     created = [a for a in report["actions"] if a["action"] == "transaction_created"]
     assert len(created) == 2
-    assert (
-        Transaction.objects.filter(asset__user=user, asset__code="BBAS3").count() == 2
-    )
+    assert Transaction.objects.filter(asset__user=user, asset__code="BBAS3").count() == 2
 
 
 def test_negociacoes_oversell_is_reported_not_aborted(tmp_path, user):
@@ -698,12 +1009,18 @@ def test_negociacoes_oversell_is_reported_not_aborted(tmp_path, user):
     # The domain rejects it, but the import must report it as an error and keep
     # going, not abort the whole run.
     AssetFactory(
-        code="BBAS3", type=AssetTypes.stock, currency=Currencies.real,
-        objective=AssetObjectives.growth, user=user,
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        objective=AssetObjectives.growth,
+        user=user,
     )
     AssetMetaDataFactory(
-        code="BBAS3", type=AssetTypes.stock, currency=Currencies.real,
-        current_price=Decimal("21.71"), current_price_updated_at=timezone.now(),
+        code="BBAS3",
+        type=AssetTypes.stock,
+        currency=Currencies.real,
+        current_price=Decimal("21.71"),
+        current_price_updated_at=timezone.now(),
     )
     from ...management.commands.sync_assets_cqrs import Command as Sync
 
@@ -714,16 +1031,12 @@ def test_negociacoes_oversell_is_reported_not_aborted(tmp_path, user):
         [_neg_row(date="01/04/2026", action="Venda", code="BBAS3", qty=10, price=20)],
     )
 
-    report = import_b3_negociacoes(
-        user_id=user.id, dry_run=False, negociacao_path=negociacao_path
-    )
+    report = import_b3_negociacoes(user_id=user.id, dry_run=False, negociacao_path=negociacao_path)
 
     errors = [a for a in report["actions"] if a["action"] == "error"]
     assert len(errors) == 1
     assert "vender" in errors[0]["reason"].lower()
-    assert not Transaction.objects.filter(
-        asset__user=user, asset__code="BBAS3"
-    ).exists()
+    assert not Transaction.objects.filter(asset__user=user, asset__code="BBAS3").exists()
 
 
 PROVENTOS_HEADER = [
@@ -771,8 +1084,13 @@ def test_proventos_creates_income_dedupes_and_skips_unknown(tmp_path, user):
     d = yesterday.strftime("%d/%m/%Y")
     rows = [
         [
-            "BBAS3 - BANCO DO BRASIL S/A", d, "Juros Sobre Capital Próprio",
-            "INTER", "100", 1, "221.58",
+            "BBAS3 - BANCO DO BRASIL S/A",
+            d,
+            "Juros Sobre Capital Próprio",
+            "INTER",
+            "100",
+            1,
+            "221.58",
         ],
         ["FOO11 - NAO CADASTRADO", d, "Rendimento", "INTER", "10", 1, "5.00"],
         # unmapped event type -> reported as skipped, doesn't abort the import
@@ -784,9 +1102,7 @@ def test_proventos_creates_income_dedupes_and_skips_unknown(tmp_path, user):
 
     created = [a for a in report["actions"] if a["action"] == "income_created"]
     assert len(created) == 1 and created[0]["code"] == "BBAS3"
-    assert any(
-        a["action"] == "skipped" and a["code"] == "FOO11" for a in report["actions"]
-    )
+    assert any(a["action"] == "skipped" and a["code"] == "FOO11" for a in report["actions"])
     assert any(
         a["action"] == "unsupported_event"
         and a["code"] == "DEBENTURE"
@@ -806,15 +1122,8 @@ def test_proventos_creates_income_dedupes_and_skips_unknown(tmp_path, user):
 
     # re-running dedupes: BBAS3 is reported as already_exists, no new income
     report2 = import_b3_proventos(user_id=user.id, dry_run=False, proventos_path=proventos_path)
-    assert any(
-        a["action"] == "already_exists" and a["code"] == "BBAS3"
-        for a in report2["actions"]
-    )
-    assert all(
-        a["action"] != "income_created"
-        for a in report2["actions"]
-        if a["code"] == "BBAS3"
-    )
+    assert any(a["action"] == "already_exists" and a["code"] == "BBAS3" for a in report2["actions"])
+    assert all(a["action"] != "income_created" for a in report2["actions"] if a["code"] == "BBAS3")
     assert PassiveIncome.objects.filter(asset__user=user, asset__code="BBAS3").count() == 1
     read_model.refresh_from_db()
     assert read_model.credited_incomes == Decimal("221.58")  # unchanged

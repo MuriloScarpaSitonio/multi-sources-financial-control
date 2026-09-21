@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from django.contrib.auth import get_user_model, password_validation
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.transaction import atomic
@@ -11,6 +13,33 @@ from .models import IntegrationSecret
 from .services.token_generator import token_generator
 
 UserModel = get_user_model()
+
+RETURN_CATEGORIES = (
+    "BR_EQUITY",
+    "US_EQUITY",
+    "GLOBAL_EQUITY",
+    "FII",
+    "CRYPTO",
+    "FIXED_CDI",
+    "FIXED_SELIC",
+    "FIXED_PREFIXED",
+    "FIXED_IPCA",
+)
+
+
+def normalize_planning_preferences(value: dict | None) -> tuple[dict, bool]:
+    original = value or {}
+    normalized = deepcopy(original)
+    fire = normalized.get("fire")
+    if not isinstance(fire, dict):
+        return normalized, normalized != original
+
+    legacy = fire.pop("exclude_ifix_from_sim", None)
+    excluded = list(dict.fromkeys(fire.get("excluded_return_categories", [])))
+    if legacy is True and "FII" not in excluded:
+        excluded.append("FII")
+    fire["excluded_return_categories"] = excluded
+    return normalized, normalized != original
 
 
 class IntegrationSecretSerializer(serializers.ModelSerializer):
@@ -106,6 +135,173 @@ class IntegrationSecretSerializer(serializers.ModelSerializer):
         return value
 
 
+class FirePreferencesSerializer(serializers.Serializer):
+    simulated_patrimony = serializers.FloatField(
+        required=False,
+        allow_null=True,
+        min_value=0,
+    )
+    withdrawal_rate = serializers.FloatField(
+        required=False,
+        min_value=2,
+        max_value=6,
+    )
+    extra_accumulation_years = serializers.IntegerField(
+        required=False,
+        min_value=0,
+        max_value=60,
+    )
+    target_years = serializers.IntegerField(
+        required=False,
+        min_value=20,
+        max_value=80,
+    )
+    monthly_expenses_override = serializers.FloatField(
+        required=False,
+        allow_null=True,
+        min_value=0,
+    )
+    sampling_method = serializers.ChoiceField(
+        choices=("independent_months", "contiguous_12_month_blocks"),
+        required=False,
+    )
+    us_equity_proxy = serializers.ChoiceField(choices=("SPY", "VTI"), required=False)
+    global_equity_proxy = serializers.ChoiceField(choices=("VT", "VWRL"), required=False)
+    crypto_proxy = serializers.ChoiceField(choices=("BTC", "CMBI10"), required=False)
+    excluded_return_categories = serializers.ListField(
+        child=serializers.ChoiceField(choices=RETURN_CATEGORIES),
+        required=False,
+    )
+    HISTORICAL_SERIES = (
+        "IBOV",
+        "IFIX",
+        "SPY",
+        "VTI",
+        "VT",
+        "VWRL",
+        "BTC",
+        "CMBI10",
+        "CDI",
+        "IMA_S",
+        "IRF_M_1",
+        "IRF_M_1_PLUS",
+        "IMA_B_5",
+        "IMA_B_5_PLUS",
+        "IMA_GERAL_EX_C",
+        "CASH",
+    )
+    historical_series_overrides = serializers.DictField(
+        child=serializers.ChoiceField(choices=HISTORICAL_SERIES),
+        required=False,
+    )
+    historical_series_fallbacks = serializers.DictField(
+        child=serializers.ChoiceField(choices=HISTORICAL_SERIES),
+        required=False,
+    )
+
+    def validate_historical_series_overrides(self, value):
+        allowed = {
+            "BR_EQUITY:IBOV",
+            "US_EQUITY:default",
+            "GLOBAL_EQUITY:default",
+            "FII:IFIX",
+            "CRYPTO:default",
+            "FIXED_CDI:CDI",
+            "FIXED_SELIC:IMA_S",
+            "FIXED_PREFIXED:IRF_M_1",
+            "FIXED_PREFIXED:IRF_M_1_PLUS",
+            "FIXED_IPCA:IMA_B_5",
+            "FIXED_IPCA:IMA_B_5_PLUS",
+        }
+        if value.keys() - allowed:
+            raise serializers.ValidationError("Grupo de ativos inválido.")
+        return value
+
+    validate_historical_series_fallbacks = validate_historical_series_overrides
+
+    exclude_ifix_from_sim = serializers.BooleanField(required=False, write_only=True)
+
+    def to_representation(self, instance: dict) -> dict:
+        representation = super().to_representation(instance)
+        return {key: value for key, value in representation.items() if key in instance}
+
+
+class DividendsOnlyPreferencesSerializer(serializers.Serializer):
+    yield_override = serializers.FloatField(
+        required=False,
+        allow_null=True,
+        min_value=1,
+        max_value=15,
+    )
+    monthly_savings_override = serializers.FloatField(
+        required=False,
+        allow_null=True,
+        min_value=0,
+    )
+    monthly_expenses_override = serializers.FloatField(
+        required=False,
+        allow_null=True,
+        min_value=0,
+    )
+
+
+class OneOverNPreferencesSerializer(serializers.Serializer):
+    target_depletion_age = serializers.IntegerField(
+        required=False,
+        min_value=70,
+        max_value=105,
+    )
+    real_return = serializers.FloatField(
+        required=False,
+        min_value=1,
+        max_value=8,
+    )
+    monthly_savings_override = serializers.FloatField(
+        required=False,
+        allow_null=True,
+        min_value=0,
+    )
+    monthly_expenses_override = serializers.FloatField(
+        required=False,
+        allow_null=True,
+        min_value=0,
+    )
+
+
+class VPWPreferencesSerializer(serializers.Serializer):
+    target_age = serializers.IntegerField(
+        required=False,
+        min_value=70,
+        max_value=105,
+    )
+    stock_return = serializers.FloatField(
+        required=False,
+        min_value=3,
+        max_value=15,
+    )
+    bond_return = serializers.FloatField(
+        required=False,
+        min_value=1,
+        max_value=8,
+    )
+    stock_allocation_override = serializers.FloatField(
+        required=False,
+        allow_null=True,
+        min_value=0,
+        max_value=100,
+    )
+    monthly_savings_override = serializers.FloatField(
+        required=False,
+        allow_null=True,
+        min_value=0,
+    )
+    monthly_expenses_override = serializers.FloatField(
+        required=False,
+        allow_null=True,
+        min_value=0,
+    )
+
+
 class PlanningPreferencesSerializer(serializers.Serializer):
     selected_method = serializers.ChoiceField(
         choices=[
@@ -119,104 +315,9 @@ class PlanningPreferencesSerializer(serializers.Serializer):
     )
     show_galeno = serializers.BooleanField(required=False, default=False)
     show_age_in_bonds = serializers.BooleanField(required=False)
-
-    class FirePreferencesSerializer(serializers.Serializer):
-        withdrawal_rate = serializers.FloatField(
-            required=False,
-            min_value=2,
-            max_value=6,
-        )
-        target_years = serializers.IntegerField(
-            required=False,
-            min_value=20,
-            max_value=80,
-        )
-        monthly_expenses_override = serializers.FloatField(
-            required=False,
-            allow_null=True,
-            min_value=0,
-        )
-        exclude_ifix_from_sim = serializers.BooleanField(required=False)
-
     fire = FirePreferencesSerializer(required=False)
-
-    class DividendsOnlyPreferencesSerializer(serializers.Serializer):
-        yield_override = serializers.FloatField(
-            required=False,
-            allow_null=True,
-            min_value=1,
-            max_value=15,
-        )
-        monthly_savings_override = serializers.FloatField(
-            required=False,
-            allow_null=True,
-            min_value=0,
-        )
-        monthly_expenses_override = serializers.FloatField(
-            required=False,
-            allow_null=True,
-            min_value=0,
-        )
-
     dividends_only = DividendsOnlyPreferencesSerializer(required=False)
-
-    class OneOverNPreferencesSerializer(serializers.Serializer):
-        target_depletion_age = serializers.IntegerField(
-            required=False,
-            min_value=70,
-            max_value=105,
-        )
-        real_return = serializers.FloatField(
-            required=False,
-            min_value=1,
-            max_value=8,
-        )
-        monthly_savings_override = serializers.FloatField(
-            required=False,
-            allow_null=True,
-            min_value=0,
-        )
-        monthly_expenses_override = serializers.FloatField(
-            required=False,
-            allow_null=True,
-            min_value=0,
-        )
-
     one_over_n = OneOverNPreferencesSerializer(required=False)
-
-    class VPWPreferencesSerializer(serializers.Serializer):
-        target_age = serializers.IntegerField(
-            required=False,
-            min_value=70,
-            max_value=105,
-        )
-        stock_return = serializers.FloatField(
-            required=False,
-            min_value=3,
-            max_value=15,
-        )
-        bond_return = serializers.FloatField(
-            required=False,
-            min_value=1,
-            max_value=8,
-        )
-        stock_allocation_override = serializers.FloatField(
-            required=False,
-            allow_null=True,
-            min_value=0,
-            max_value=100,
-        )
-        monthly_savings_override = serializers.FloatField(
-            required=False,
-            allow_null=True,
-            min_value=0,
-        )
-        monthly_expenses_override = serializers.FloatField(
-            required=False,
-            allow_null=True,
-            min_value=0,
-        )
-
     vpw = VPWPreferencesSerializer(required=False)
 
 
@@ -324,7 +425,9 @@ class UserSerializer(serializers.ModelSerializer):
 
         if "planning_preferences" in validated_data:
             incoming_preferences = validated_data["planning_preferences"]
-            current_preferences = instance.planning_preferences or {}
+            current_preferences, _ = normalize_planning_preferences(
+                instance.planning_preferences
+            )
             merged = {
                 **current_preferences,
                 **incoming_preferences,
@@ -405,11 +508,18 @@ class UserSerializer(serializers.ModelSerializer):
                         }
                     }
                 )
-            validated_data["planning_preferences"] = merged
+            validated_data["planning_preferences"], _ = normalize_planning_preferences(merged)
 
         validated_data.pop("password", None)
         validated_data.pop("password2", None)
         return super().update(instance=instance, validated_data=validated_data)
+
+    def to_representation(self, instance: UserModel) -> dict:
+        normalized, changed = normalize_planning_preferences(instance.planning_preferences)
+        if changed and instance.pk:
+            instance.planning_preferences = normalized
+            instance.save(update_fields=("planning_preferences",))
+        return super().to_representation(instance)
 
 
 class _ResetPasswordSerializer(serializers.Serializer):

@@ -1,11 +1,15 @@
-import { useMemo, useState } from "react";
+import FireAccumulationExtensionNotice from "./FireAccumulationExtensionNotice";
+import { useEffect, useMemo, useState } from "react";
 
+import Alert from "@mui/material/Alert";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
-import LinearProgress, { linearProgressClasses } from "@mui/material/LinearProgress";
+import LinearProgress, {
+  linearProgressClasses,
+} from "@mui/material/LinearProgress";
 import { styled } from "@mui/material/styles";
 
 import {
@@ -28,352 +32,17 @@ import {
 } from "../../../design-system";
 import { useHideValues } from "../../../hooks/useHideValues";
 import { formatCurrency } from "../utils";
-import ExpenseSimulator from "./ExpenseSimulator";
-import PatrimonySimulator from "./PatrimonySimulator";
-import PersistedSlider from "./PersistedSlider";
-import SavingsSimulator from "./SavingsSimulator";
-import {
-  computeWeights,
-  findSafeWithdrawalRateWithVaryingWeights,
-  isIfixRestrictedSampleForVaryingWeights,
-  runAccumulationBootstrap,
-  runBootstrapWithVaryingWeights,
-  type AccumulationResult,
-  type AllocationWeights,
-  type BootstrapBand,
-  type BootstrapResult,
-  type WeightsAtFn,
-} from "./fireBootstrap";
-
-// === Idade-em-RF fixed-point solver ===
-//
-// The FIRE target depends on `safeRate`, which depends on the post-retirement
-// glide path, which depends on retirement age, which depends on accumulation,
-// which depends on the FIRE target. For a pre-FIRE user this is a self-
-// consistency problem: if I anchor `weightsAt` at `currentAge`, I'm sizing the
-// target against an "if I retired today" glide that the user won't actually
-// live. We iterate until the loop closes — then a single anchor age drives
-// `fireTarget`, the tooltip multiplier, the "agressivo" warning, and the
-// Aposentadoria preview.
-//
-// Convergence guards (in the order they're checked inside the loop):
-// 1. **Converged** — stop on `medianYearsToTarget` unchanged from prior
-//    iterate (the next anchor would equal the current one; this iterate is
-//    a fixed point).
-// 2. **Cycle** — if the current median appeared in any earlier (non-
-//    immediately-prior) iterate, we have a 2+ cycle. Pick the most
-//    conservative member across all visited iterates plus the current pass:
-//    largest `fireTarget`, with later `medianYearsToTarget` as a secondary
-//    tie-break. **Cycle is checked before target_delta** because a 2-cycle
-//    like 8 → 10 → 8 can produce a sub-1% fireTarget swing on the third
-//    pass, which would otherwise exit as `target_delta` and silently bypass
-//    `pickConservative`.
-// 3. **Target-delta** — only after ≥3 iterates exist and cycle didn't fire,
-//    stop on `|ΔfireTarget| / fireTarget < 1%`. Single-step sub-1% moves
-//    can be coincidental; requiring three iterates makes it a stability
-//    signal.
-// 4. **Max-iter** — hard cap at SOLVER_MAX_ITER. The mapping is
-//    bootstrap-quantized and not provably contractive (or even monotonic),
-//    so a cap is load-bearing. Return `pickConservative([...visited, pass])`
-//    — the last iterate is **not** necessarily the highest-`fireTarget`
-//    one, so returning it would silently understate the target.
-// 5. **Unreachable** — if any pass produces `medianYearsToTarget === null`,
-//    return immediately with `drawdownAtTarget: null` and
-//    status "unreachable". Don't fall back to a current-age anchor that
-//    would coherent-look an unreachable case.
-
-type SolverStatus =
-  | "converged"
-  | "target_delta"
-  | "cycle"
-  | "max_iter"
-  | "unreachable";
-
-type AgeInBondsFireState = {
-  fireTarget: number;
-  targetMultiplier: number;
-  horizonFactor: number;
-  safeRate: number;
-  baselineSafeRate: number;
-  rateBootstrap: BootstrapResult;
-  accumulation: AccumulationResult;
-  drawdownAtTarget: BootstrapResult | null;
-  anchorAge: number;
-  status: SolverStatus;
-};
-
-const SOLVER_MAX_ITER = 5;
-const SOLVER_TARGET_DELTA_THRESHOLD = 0.01; // 1%
-
-// Sentinel returned by the solver memo when `currentAge` is null (DOB not set).
-// The component renders a placeholder in that branch and never reads these
-// values; this exists to avoid running ~5 expensive bootstrap calls just to
-// discard them.
-const EMPTY_AGE_IN_BONDS_FIRE_STATE: AgeInBondsFireState = {
-  fireTarget: 0,
-  targetMultiplier: 0,
-  horizonFactor: 1,
-  safeRate: 0,
-  baselineSafeRate: 0,
-  rateBootstrap: {
-    successRate: 0,
-    bands: [],
-    withdrawalBands: [],
-    medianDepletionYear: null,
-    p10DepletionYear: null,
-  },
-  accumulation: {
-    successRate: 0,
-    medianYearsToTarget: null,
-    p10YearsToTarget: null,
-    p90YearsToTarget: null,
-    gapBands: [],
-  },
-  drawdownAtTarget: null,
-  anchorAge: 0,
-  status: "unreachable",
-};
-
-// `excludeIfix` overrides the IFIX slot to 0 each year *without* renormalizing.
-// equityRatio still reflects the real portfolio (so we don't redistribute the
-// IFIX fraction onto equity), and the per-year weights then sum to less than 1
-// during the stock-heavy retirement years; the missing fraction is "treat IFIX
-// as cash earning 0% real". Sample window unlocks because every year's
-// `weights.ifix` is 0 < MIN_WEIGHT_FOR_RETURN_SERIES.
-const buildAgeInBondsWeightsAt = (
-  anchorAge: number,
-  equityTotal: number,
-  ifixTotal: number,
-  excludeIfix: boolean = false,
-): WeightsAtFn => {
-  const equityIfixTotal = equityTotal + ifixTotal;
-  const equityRatio = equityIfixTotal > 0 ? equityTotal / equityIfixTotal : 1;
-  const ifixRatio = equityIfixTotal > 0 ? ifixTotal / equityIfixTotal : 0;
-  return (yearIndex: number): AllocationWeights => {
-    const age = anchorAge + yearIndex;
-    const bondPct = Math.min(age, 100) / 100;
-    const stockPct = 1 - bondPct;
-    return {
-      equity: stockPct * equityRatio,
-      ifix: excludeIfix ? 0 : stockPct * ifixRatio,
-      fixedIncome: bondPct,
-    };
-  };
-};
-
-type SolverPass = {
-  anchorAge: number;
-  safeRate: number;
-  baselineSafeRate: number;
-  horizonFactor: number;
-  targetMultiplier: number;
-  fireTarget: number;
-  rateBootstrap: BootstrapResult;
-  accumulation: AccumulationResult;
-};
-
-const pickConservative = (candidates: SolverPass[]): SolverPass =>
-  candidates.reduce((best, cur) => {
-    if (cur.fireTarget > best.fireTarget) return cur;
-    if (cur.fireTarget === best.fireTarget) {
-      const bestMedian = best.accumulation.medianYearsToTarget ?? -1;
-      const curMedian = cur.accumulation.medianYearsToTarget ?? -1;
-      return curMedian > bestMedian ? cur : best;
-    }
-    return best;
-  });
-
-const solveAgeInBondsFireState = (params: {
-  currentAge: number;
-  equityTotal: number;
-  ifixTotal: number;
-  effectivePatrimony: number;
-  annualExpenses: number;
-  annualSavings: number;
-  withdrawalRate: number;
-  targetYears: number;
-  accumulationWeights: AllocationWeights;
-  excludeIfix: boolean;
-}): AgeInBondsFireState => {
-  const {
-    currentAge,
-    equityTotal,
-    ifixTotal,
-    effectivePatrimony,
-    annualExpenses,
-    annualSavings,
-    withdrawalRate,
-    targetYears,
-    accumulationWeights,
-    excludeIfix,
-  } = params;
-  const baseMultiplier = withdrawalRate > 0 ? 100 / withdrawalRate : 0;
-
-  const runOnePass = (anchorAge: number): SolverPass => {
-    const weightsAt = buildAgeInBondsWeightsAt(
-      anchorAge,
-      equityTotal,
-      ifixTotal,
-      excludeIfix,
-    );
-    const safeRate = findSafeWithdrawalRateWithVaryingWeights(
-      targetYears,
-      weightsAt,
-    );
-    const baselineSafeRate = findSafeWithdrawalRateWithVaryingWeights(
-      30,
-      weightsAt,
-    );
-    const horizonFactor =
-      safeRate > 0 && baselineSafeRate > 0
-        ? Math.max(1, baselineSafeRate / safeRate)
-        : 1;
-    const targetMultiplier = baseMultiplier * horizonFactor;
-    const fireTarget = annualExpenses * targetMultiplier;
-    const rateBootstrap = runBootstrapWithVaryingWeights(
-      1_000_000,
-      1_000_000 * (withdrawalRate / 100),
-      targetYears,
-      weightsAt,
-    );
-    const accumulation = runAccumulationBootstrap({
-      startingBalance: effectivePatrimony,
-      annualContribution: annualSavings,
-      target: fireTarget,
-      weights: accumulationWeights,
-    });
-    return {
-      anchorAge,
-      safeRate,
-      baselineSafeRate,
-      horizonFactor,
-      targetMultiplier,
-      fireTarget,
-      rateBootstrap,
-      accumulation,
-    };
-  };
-
-  const visited: SolverPass[] = [];
-  let nextAnchor = currentAge;
-  let chosen: SolverPass | null = null;
-  let status: SolverStatus = "max_iter";
-
-  for (let i = 0; i < SOLVER_MAX_ITER; i++) {
-    const pass = runOnePass(nextAnchor);
-
-    // Unreachable: stop immediately, skip the preview chart. Don't fall back
-    // to the current-age anchor — that would dress an unreachable scenario
-    // up as a coherent-looking projection.
-    if (pass.accumulation.medianYearsToTarget === null) {
-      return {
-        fireTarget: pass.fireTarget,
-        targetMultiplier: pass.targetMultiplier,
-        horizonFactor: pass.horizonFactor,
-        safeRate: pass.safeRate,
-        baselineSafeRate: pass.baselineSafeRate,
-        rateBootstrap: pass.rateBootstrap,
-        accumulation: pass.accumulation,
-        drawdownAtTarget: null,
-        anchorAge: pass.anchorAge,
-        status: "unreachable",
-      };
-    }
-
-    const median = pass.accumulation.medianYearsToTarget;
-
-    // Convergence: median equal to the prior iterate's median means the next
-    // iteration's anchor would be identical to this one's, so this pass is a
-    // fixed point.
-    if (visited.length > 0) {
-      const prev = visited[visited.length - 1];
-      if (prev.accumulation.medianYearsToTarget === median) {
-        chosen = pass;
-        status = "converged";
-        break;
-      }
-    }
-
-    // Cycle: median appears in any prior iterate. The convergence check above
-    // already handles the immediately-prior case (1-cycle), so a hit here is
-    // a 2+ cycle. Pick the most conservative member across all visited
-    // iterates plus the current pass.
-    //
-    // **Cycle is checked before target_delta** on purpose. A 2-cycle like
-    // 8 → 10 → 8 can produce a sub-1% fireTarget swing on the third pass,
-    // which would otherwise exit as `target_delta` and bypass
-    // `pickConservative`. Cycle detection must take precedence.
-    if (
-      visited.some((v) => v.accumulation.medianYearsToTarget === median)
-    ) {
-      chosen = pickConservative([...visited, pass]);
-      status = "cycle";
-      break;
-    }
-
-    // Target-delta stop: only after at least 3 iterates exist (i >= 2 means
-    // pass is iterate index 2 with prior iterates 0 and 1). A single-step
-    // sub-1% move can be coincidental; requiring three iterates makes it a
-    // stability signal rather than a single-pass artifact. Safe to evaluate
-    // here only because we already ruled out cycles above.
-    if (i >= 2) {
-      const prev = visited[visited.length - 1];
-      const delta = Math.abs(pass.fireTarget - prev.fireTarget) / prev.fireTarget;
-      if (delta < SOLVER_TARGET_DELTA_THRESHOLD) {
-        chosen = pass;
-        status = "target_delta";
-        break;
-      }
-    }
-
-    visited.push(pass);
-    nextAnchor = currentAge + median;
-
-    // No early stop, last iteration → max_iter. The mapping isn't proven
-    // monotonic (or even contractive), so the last pass isn't necessarily
-    // the conservative answer — pick the largest-fireTarget iterate across
-    // all visited (including the just-completed pass).
-    if (i === SOLVER_MAX_ITER - 1) {
-      chosen = pickConservative([...visited, pass]);
-      status = "max_iter";
-      break;
-    }
-  }
-
-  // chosen is set in every break path above; the loop only exits via break.
-  // Fallback for type safety only.
-  if (chosen === null) chosen = visited[visited.length - 1];
-
-  // Drawdown preview uses the same anchor as the chosen pass (i.e. the same
-  // glide path that produced the converged fireTarget). This is the central
-  // payoff of the solver — one anchor across target, tooltip, warning, and
-  // preview.
-  const finalWeightsAt = buildAgeInBondsWeightsAt(
-    chosen.anchorAge,
-    equityTotal,
-    ifixTotal,
-    excludeIfix,
-  );
-  const drawdownAtTarget = runBootstrapWithVaryingWeights(
-    chosen.fireTarget,
-    annualExpenses,
-    targetYears,
-    finalWeightsAt,
-  );
-
-  return {
-    fireTarget: chosen.fireTarget,
-    targetMultiplier: chosen.targetMultiplier,
-    horizonFactor: chosen.horizonFactor,
-    safeRate: chosen.safeRate,
-    baselineSafeRate: chosen.baselineSafeRate,
-    rateBootstrap: chosen.rateBootstrap,
-    accumulation: chosen.accumulation,
-    drawdownAtTarget,
-    anchorAge: chosen.anchorAge,
-    status,
-  };
-};
+import type { BootstrapBand } from "./fireBootstrap";
+import type {
+  FireSimulationRequest,
+  FireSimulationResult,
+} from "./fireSimulation";
+import type { SamplingMethod } from "./fireReturnTypes";
+import type { PortfolioSlice } from "./firePortfolio";
+import { useFireSimulationWorker } from "./useFireSimulationWorker";
+import FireResultsSkeleton, {
+  type FireCalculationState,
+} from "../Planning/fire/FireResultsSkeleton";
 
 const ProgressBar = styled(LinearProgress)(({ value }) => ({
   height: 24,
@@ -384,7 +53,9 @@ const ProgressBar = styled(LinearProgress)(({ value }) => ({
   [`& .${linearProgressClasses.bar}`]: {
     borderRadius: 10,
     backgroundColor:
-      value && value >= 100 ? getColor(Colors.brand) : getColor(Colors.danger200),
+      value && value >= 100
+        ? getColor(Colors.brand)
+        : getColor(Colors.danger200),
   },
 }));
 
@@ -445,7 +116,8 @@ const ChartTooltipContent = ({
       <p style={{ color: getColor(Colors.neutral300) }}>Ano {data.year}</p>
       {showPessimista && (
         <p style={{ color: getColor(Colors.danger200) }}>
-          Pessimista ({pessimistaPercentile}): {hideValues ? "***" : valueFormatter(pessimistaValue)}
+          Pessimista ({pessimistaPercentile}):{" "}
+          {hideValues ? "***" : valueFormatter(pessimistaValue)}
         </p>
       )}
       {showMediana && (
@@ -455,7 +127,8 @@ const ChartTooltipContent = ({
       )}
       {showOtimista && (
         <p style={{ color: getColor(Colors.brand) }}>
-          Otimista ({otimistaPercentile}): {hideValues ? "***" : valueFormatter(otimistaValue)}
+          Otimista ({otimistaPercentile}):{" "}
+          {hideValues ? "***" : valueFormatter(otimistaValue)}
         </p>
       )}
     </Stack>
@@ -510,7 +183,8 @@ const DrawdownTooltipContent = ({
       </p>
       {showPessimista && (
         <p style={{ color: getColor(Colors.danger200) }}>
-          Pessimista (p10): {fmtBal(data.balanceP10)} · {fmtWd(data.withdrawalP10)}
+          Pessimista (p10): {fmtBal(data.balanceP10)} ·{" "}
+          {fmtWd(data.withdrawalP10)}
         </p>
       )}
       {showMediana && (
@@ -520,7 +194,8 @@ const DrawdownTooltipContent = ({
       )}
       {showOtimista && (
         <p style={{ color: getColor(Colors.brand) }}>
-          Otimista (p90): {fmtBal(data.balanceP90)} · {fmtWd(data.withdrawalP90)}
+          Otimista (p90): {fmtBal(data.balanceP90)} ·{" "}
+          {fmtWd(data.withdrawalP90)}
         </p>
       )}
     </Stack>
@@ -533,71 +208,45 @@ const ConstantDollarAgeInBondsIndicator = ({
   isLoading,
   dateOfBirth,
   withdrawalRate,
-  onWithdrawalRateChange,
   targetYears,
-  onTargetYearsChange,
+  portfolio,
+  samplingMethod,
   fixedIncomeTotal,
   variableIncomeTotal,
-  equityTotal,
-  ifixTotal,
   monthlySavings = 0,
-  defaultMonthlySavings = 0,
-  onMonthlySavingsChange,
-  onMonthlySavingsReset,
-  isMonthlySavingsOverridden = false,
-  simulatedExpenses: simulatedExpensesProp,
-  onSimulatedExpensesChange,
-  excludeIfixFromSim: excludeIfixFromSimProp,
-  onExcludeIfixFromSimChange,
+  simulatedExpenses = null,
+  simulatedPatrimony = null,
   onProgressClick,
   compact = false,
   hideLabel = false,
-  persistEnabled = false,
-  isPersisting = false,
+  onCalculationStateChange,
+  simulationRequestOverride,
+  onSimulationResult,
 }: {
   patrimonyTotal: number;
   avgExpenses: number;
   isLoading: boolean;
   dateOfBirth: string | null;
   withdrawalRate: number;
-  onWithdrawalRateChange: (value: number) => void;
   targetYears: number;
-  onTargetYearsChange: (value: number) => void;
+  portfolio: readonly PortfolioSlice[];
+  samplingMethod: SamplingMethod;
   fixedIncomeTotal: number;
   variableIncomeTotal: number;
-  equityTotal: number;
-  ifixTotal: number;
   monthlySavings?: number;
-  defaultMonthlySavings?: number;
-  onMonthlySavingsChange?: (value: number) => void;
-  onMonthlySavingsReset?: () => void;
-  isMonthlySavingsOverridden?: boolean;
   simulatedExpenses?: number | null;
-  onSimulatedExpensesChange?: (value: number | null) => void;
-  excludeIfixFromSim?: boolean;
-  onExcludeIfixFromSimChange?: (value: boolean) => void;
+  simulatedPatrimony?: number | null;
   onProgressClick?: () => void;
   compact?: boolean;
   hideLabel?: boolean;
-  persistEnabled?: boolean;
-  isPersisting?: boolean;
+  onCalculationStateChange?: (state: FireCalculationState) => void;
+  simulationRequestOverride?: FireSimulationRequest | null;
+  onSimulationResult?: (result: FireSimulationResult) => void;
 }) => {
   const { hideValues } = useHideValues();
-  const [simulatedPatrimony, setSimulatedPatrimony] = useState<number | null>(null);
   const [visibleScenarios, setVisibleScenarios] = useState<
     ("otimista" | "mediana" | "pessimista")[]
   >(["otimista", "mediana", "pessimista"]);
-  const [localSimulatedExpenses, setLocalSimulatedExpenses] = useState<
-    number | null
-  >(null);
-  const simulatedExpenses =
-    simulatedExpensesProp !== undefined
-      ? simulatedExpensesProp
-      : localSimulatedExpenses;
-  const setSimulatedExpenses = (value: number | null) => {
-    if (onSimulatedExpensesChange) onSimulatedExpensesChange(value);
-    else setLocalSimulatedExpenses(value);
-  };
   const effectiveMonthlyExpenses = simulatedExpenses ?? avgExpenses;
   const showOtimista = visibleScenarios.includes("otimista");
   const showMediana = visibleScenarios.includes("mediana");
@@ -606,24 +255,13 @@ const ConstantDollarAgeInBondsIndicator = ({
   const effectivePatrimony = simulatedPatrimony ?? patrimonyTotal;
   const currentAge = dateOfBirth ? computeAge(dateOfBirth) : null;
 
-  // "Excluir FII" toggle. See ConstantDollarIndicator for the same flag and
-  // the buildAgeInBondsWeightsAt comment above for how it propagates through
-  // the glide path (per-year `weights.ifix = 0` without redistributing to
-  // equity, weights sum to <1, missing fraction earns 0% real).
-  const [localExcludeIfixFromSim, setLocalExcludeIfixFromSim] = useState(false);
-  const excludeIfixFromSim =
-    excludeIfixFromSimProp ?? localExcludeIfixFromSim;
-  const setExcludeIfixFromSim = (value: boolean) => {
-    if (onExcludeIfixFromSimChange) onExcludeIfixFromSimChange(value);
-    else setLocalExcludeIfixFromSim(value);
-  };
-
   const annualExpenses = effectiveMonthlyExpenses * 12;
   const annualWithdrawal = effectivePatrimony * (withdrawalRate / 100);
   const monthlyWithdrawal = annualWithdrawal / 12;
 
   const investmentTotal = fixedIncomeTotal + variableIncomeTotal;
-  const currentBondPct = investmentTotal > 0 ? (fixedIncomeTotal / investmentTotal) * 100 : 0;
+  const currentBondPct =
+    investmentTotal > 0 ? (fixedIncomeTotal / investmentTotal) * 100 : 0;
   const targetBondPct = currentAge !== null ? Math.min(currentAge, 100) : 0;
   const isOnTarget = Math.abs(currentBondPct - targetBondPct) <= 5;
   const rebalanceAmount =
@@ -631,99 +269,71 @@ const ConstantDollarAgeInBondsIndicator = ({
       ? (targetBondPct / 100) * investmentTotal - fixedIncomeTotal
       : 0;
 
-  // Lifestyle bootstrap (post-FIRE): "starting from today's patrimony, can I
-  // sustain my actual expenses for `targetYears`?" Anchored at currentAge
-  // because a post-FIRE user is retiring *now* — that anchor is the right one
-  // for the post-FIRE drawdown chart and depletion labels. Pre-FIRE this is
-  // hypothetical and only the depletion labels read from it.
-  const lifestyleWeightsAt: WeightsAtFn = useMemo(
-    () =>
-      buildAgeInBondsWeightsAt(
-        currentAge ?? 0,
-        equityTotal,
-        ifixTotal,
-        excludeIfixFromSim,
-      ),
-    [currentAge, equityTotal, ifixTotal, excludeIfixFromSim],
-  );
-
-  const bootstrap = useMemo(
-    () =>
-      runBootstrapWithVaryingWeights(
+  const annualSavings = Math.max(0, monthlySavings) * 12;
+  const derivedSimulationRequest = useMemo<FireSimulationRequest | null>(() => {
+    if (currentAge === null) return null;
+    return {
+      kind: "age_in_bonds",
+      input: {
+        currentAge,
+        targetYears,
+        portfolio,
+        samplingMethod,
         effectivePatrimony,
         annualExpenses,
-        targetYears,
-        lifestyleWeightsAt,
-      ),
-    [effectivePatrimony, annualExpenses, targetYears, lifestyleWeightsAt],
-  );
-
-  // Accumulation uses *current* static allocation (the user is still working,
-  // hasn't started rebalancing toward bonds). Glide path kicks in only at
-  // retirement — the solver and post-FIRE bootstrap handle that.
-  const annualSavings = Math.max(0, monthlySavings) * 12;
-  const rawAccumulationWeights = useMemo(
-    () => computeWeights(equityTotal, ifixTotal, fixedIncomeTotal),
-    [equityTotal, ifixTotal, fixedIncomeTotal],
-  );
-  // Same "treat IFIX as cash 0%" override applied to the static accumulation
-  // weights. Sum drops to 1 - rawIfixWeight; the IFIX fraction earns 0% real
-  // during accumulation just like during the glide.
-  const accumulationWeights = useMemo<AllocationWeights>(
-    () =>
-      excludeIfixFromSim
-        ? { ...rawAccumulationWeights, ifix: 0 }
-        : rawAccumulationWeights,
-    [rawAccumulationWeights, excludeIfixFromSim],
-  );
-
-  // Fixed-point solver: produces one coherent {fireTarget, targetMultiplier,
-  // horizonFactor, safeRate, baselineSafeRate, rateBootstrap, accumulation,
-  // drawdownAtTarget, anchorAge, status} object whose glide-path anchor is
-  // the projected retirement age (not currentAge). See the solver comment
-  // above and the fire-bootstrap-methodology skill for rationale.
-  //
-  // When `currentAge` is null (no DOB on profile), the component returns the
-  // "configure sua data de nascimento" placeholder a few lines below, so the
-  // result would be discarded anyway. Short-circuit with an empty state to
-  // skip ~5 expensive bootstrap calls per render in that branch.
-  const solverState = useMemo<AgeInBondsFireState>(() => {
-    if (currentAge === null) return EMPTY_AGE_IN_BONDS_FIRE_STATE;
-    return solveAgeInBondsFireState({
-      currentAge,
-      equityTotal,
-      ifixTotal,
-      effectivePatrimony,
-      annualExpenses,
-      annualSavings,
-      withdrawalRate,
-      targetYears,
-      accumulationWeights,
-      excludeIfix: excludeIfixFromSim,
-    });
+        annualSavings,
+        withdrawalRate,
+      },
+    };
   }, [
     currentAge,
-    equityTotal,
-    ifixTotal,
-    effectivePatrimony,
     annualExpenses,
     annualSavings,
-    withdrawalRate,
+    effectivePatrimony,
+    portfolio,
+    samplingMethod,
     targetYears,
-    accumulationWeights,
-    excludeIfixFromSim,
+    withdrawalRate,
   ]);
+  const simulationRequest =
+    simulationRequestOverride === undefined
+      ? derivedSimulationRequest
+      : simulationRequestOverride;
   const {
-    fireTarget,
-    targetMultiplier,
-    safeRate,
-    rateBootstrap,
-    accumulation,
-    drawdownAtTarget,
-  } = solverState;
+    result: simulationResult,
+    isCalculating,
+    error: simulationError,
+  } = useFireSimulationWorker(simulationRequest);
+  const simulation =
+    simulationResult?.kind === "age_in_bonds" ? simulationResult.output : null;
+
+  useEffect(() => {
+    onCalculationStateChange?.({
+      isCalculating,
+      error: simulationError,
+    });
+  }, [isCalculating, onCalculationStateChange, simulationError]);
+
+  useEffect(() => {
+    if (!isCalculating && !simulationError && simulationResult) {
+      onSimulationResult?.(simulationResult);
+    }
+  }, [isCalculating, simulationError, simulationResult, onSimulationResult]);
 
   if (isLoading) {
     return <Skeleton height={48} sx={{ borderRadius: "10px" }} />;
+  }
+
+  if (!compact && isCalculating) {
+    return <FireResultsSkeleton />;
+  }
+  if (!compact && simulationError) {
+    return (
+      <Alert severity="error">
+        Não foi possível recalcular a simulação. Seus valores foram preservados;
+        tente novamente.
+      </Alert>
+    );
   }
 
   if (!dateOfBirth || currentAge === null) {
@@ -742,23 +352,56 @@ const ConstantDollarAgeInBondsIndicator = ({
           size={FontSizes.SEMI_SMALL}
           weight={FontWeights.MEDIUM}
         >
-          Retirada constante (Idade em RF) — configure sua data de nascimento no perfil
+          Retirada constante (Idade em RF) — configure sua data de nascimento no
+          perfil
         </Text>
       </Stack>
     );
   }
 
-  const monthlyWithdrawalFormatted = hideValues ? "***" : formatCurrency(monthlyWithdrawal);
-  const monthlyExpensesFormatted = hideValues ? "***" : formatCurrency(effectiveMonthlyExpenses);
+  if (simulationError && simulation === null) {
+    return <Text color={Colors.danger200}>{simulationError}</Text>;
+  }
+  if (simulation === null) {
+    return <Skeleton height={48} sx={{ borderRadius: "10px" }} />;
+  }
+
+  if (simulation.extendedAccumulation?.retirementStartRate === 0)
+    return (
+      <FireAccumulationExtensionNotice
+        result={simulation.extendedAccumulation}
+        hideValues={hideValues}
+        horizon={targetYears}
+      />
+    );
+  const bootstrap = simulation.lifestyleBootstrap;
+  const solverState = simulation.solverState;
+  const {
+    fireTarget,
+    safeRate,
+    rateBootstrap,
+    accumulation,
+    drawdownAtTarget,
+  } = solverState;
+
+  const monthlyWithdrawalFormatted = hideValues
+    ? "***"
+    : formatCurrency(monthlyWithdrawal);
+  const monthlyExpensesFormatted = hideValues
+    ? "***"
+    : formatCurrency(effectiveMonthlyExpenses);
   const isAggressiveRate = rateBootstrap.successRate < 0.85;
   const tooltipTitle =
-    `Probabilidade histórica do patrimônio sustentar suas despesas (${monthlyExpensesFormatted}/mês, ` +
-    `ajustadas por inflação) por ${targetYears} anos com alocação Idade em RF (RF% = idade). ` +
-    `Limite seguro p/ ${targetYears} anos: ${safeRate.toFixed(2)}% (90% sucesso). ` +
-    `Meta de FIRE pela regra ${withdrawalRate}%: ${targetMultiplier.toFixed(1)}× despesas anuais.`;
+    "Mostra quanto o patrimônio usado neste cenário representa da meta FIRE. " +
+    (hideValues
+      ? ""
+      : `${formatCurrency(effectivePatrimony)} ÷ ${formatCurrency(fireTarget)} × 100. `) +
+    "100% significa atingir a meta; 121% significa ter 21% a mais que o necessário para ela. " +
+    "Usa o valor simulado de patrimônio quando você o altera. Esse percentual não é a probabilidade de sucesso da simulação.";
 
   const lifestyleSuccess = bootstrap.successRate;
-  const fireProgress = fireTarget > 0 ? (effectivePatrimony / fireTarget) * 100 : 0;
+  const fireProgress =
+    fireTarget > 0 ? (effectivePatrimony / fireTarget) * 100 : 0;
   const medianDepletionLabel =
     bootstrap.medianDepletionYear !== null
       ? `${bootstrap.medianDepletionYear} anos`
@@ -770,6 +413,13 @@ const ConstantDollarAgeInBondsIndicator = ({
 
   return (
     <Stack gap={0.5}>
+      {simulation.extendedAccumulation && (
+        <FireAccumulationExtensionNotice
+          result={simulation.extendedAccumulation}
+          hideValues={hideValues}
+          horizon={targetYears}
+        />
+      )}
       <Tooltip title={tooltipTitle} arrow placement="top">
         <div
           role={onProgressClick ? "link" : undefined}
@@ -847,7 +497,9 @@ const ConstantDollarAgeInBondsIndicator = ({
               return `Meta: ${hideValues ? "***" : formatCurrency(fireTarget)}${compactTargetTail}`;
             }
             const gap = monthlyWithdrawal - effectiveMonthlyExpenses;
-            const gapFormatted = hideValues ? "***" : formatCurrency(Math.abs(gap));
+            const gapFormatted = hideValues
+              ? "***"
+              : formatCurrency(Math.abs(gap));
             const sign = gap >= 0 ? "sobram" : "faltam";
             const accumulationTail =
               fireProgress < 100 &&
@@ -867,7 +519,11 @@ const ConstantDollarAgeInBondsIndicator = ({
       </Stack>
       <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          <span style={{ color: getColor(isOnTarget ? Colors.brand : Colors.danger200) }}>
+          <span
+            style={{
+              color: getColor(isOnTarget ? Colors.brand : Colors.danger200),
+            }}
+          >
             RF: {currentBondPct.toFixed(0)}% (meta {targetBondPct}%)
           </span>
           {Math.abs(rebalanceAmount) > 0 && !hideValues && (
@@ -880,57 +536,7 @@ const ConstantDollarAgeInBondsIndicator = ({
           )}
         </Text>
       </Stack>
-      {!compact && (
-        <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
-          <PersistedSlider
-            value={withdrawalRate}
-            onChange={onWithdrawalRateChange}
-            renderLabel={(v) => (
-              <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-                Taxa: {v}% a.a.
-              </Text>
-            )}
-            enabled={persistEnabled}
-            isPersisting={isPersisting}
-            min={2}
-            max={6}
-            step={0.5}
-            marks
-          />
-          <PersistedSlider
-            value={targetYears}
-            onChange={onTargetYearsChange}
-            renderLabel={(v) => (
-              <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-                Horizonte: {v} anos
-              </Text>
-            )}
-            enabled={persistEnabled}
-            isPersisting={isPersisting}
-            min={20}
-            max={80}
-            step={5}
-            marks
-          />
-          <PatrimonySimulator
-            value={effectivePatrimony}
-            onChange={setSimulatedPatrimony}
-            onReset={() => setSimulatedPatrimony(null)}
-            patrimonyTotal={patrimonyTotal}
-            showReset={simulatedPatrimony !== null}
-            isPersisting={isPersisting}
-          />
-          <ExpenseSimulator
-            value={effectiveMonthlyExpenses}
-            onChange={setSimulatedExpenses}
-            onReset={() => setSimulatedExpenses(null)}
-            avgMonthlyExpenses={avgExpenses}
-            showReset={simulatedExpenses !== null}
-            enabled={persistEnabled}
-            isPersisting={isPersisting}
-          />
-        </Stack>
-      )}
+
       {!compact && (
         <Stack direction="row" alignItems="center" gap={2}>
           <Text
@@ -944,47 +550,13 @@ const ConstantDollarAgeInBondsIndicator = ({
           </Text>
         </Stack>
       )}
-      {!compact &&
-        // Gate on the *raw* glide (excludeIfix=false) so the checkbox stays
-        // visible after the user toggles "Excluir FII" — otherwise the toggle
-        // would hide itself and the user couldn't toggle back.
-        isIfixRestrictedSampleForVaryingWeights(
-          buildAgeInBondsWeightsAt(
-            solverState.anchorAge,
-            equityTotal,
-            ifixTotal,
-            false,
-          ),
-          targetYears,
-        ) && (
-          <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
-            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-              <em>
-                {excludeIfixFromSim
-                  ? "FII excluído da simulação (modelado como caixa, 0% real). Amostra mensal: 1995–2025 (372 meses)."
-                  : "Amostra histórica mensal: 2011–2025 (180 meses) — sua exposição a FII restringe a janela. Não compare diretamente com SWRs Trinity baseados em séries longas (US 1926+)."}
-              </em>
-            </Text>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  size="small"
-                  checked={excludeIfixFromSim}
-                  onChange={(e) => setExcludeIfixFromSim(e.target.checked)}
-                />
-              }
-              label={
-                <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-                  Excluir FII da simulação
-                </Text>
-              }
-            />
-          </Stack>
-        )}
       {!compact && annualExpenses > 0 && fireProgress >= 100 && (
         <Stack direction="row" alignItems="center" gap={2}>
           <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-            Sustentabilidade em {targetYears}a: {(lifestyleSuccess * 100).toFixed(0)}% · Sucesso da taxa {withdrawalRate}%: {(rateBootstrap.successRate * 100).toFixed(0)}% · Depleção p10: {p10DepletionLabel} · Mediana: {medianDepletionLabel}
+            Sustentabilidade em {targetYears}a:{" "}
+            {(lifestyleSuccess * 100).toFixed(0)}% · Sucesso da taxa{" "}
+            {withdrawalRate}%: {(rateBootstrap.successRate * 100).toFixed(0)}% ·
+            Depleção p10: {p10DepletionLabel} · Mediana: {medianDepletionLabel}
           </Text>
         </Stack>
       )}
@@ -997,14 +569,16 @@ const ConstantDollarAgeInBondsIndicator = ({
             </Text>
           ) : accumulation.medianYearsToTarget === null ? (
             <Text size={FontSizes.EXTRA_SMALL} color={Colors.danger200}>
-              No ritmo de {hideValues ? "***" : formatCurrency(monthlySavings)}/mês,
-              improvável atingir a meta em 60 anos (sucesso histórico{" "}
+              No ritmo de {hideValues ? "***" : formatCurrency(monthlySavings)}
+              /mês, improvável atingir a meta em 60 anos (sucesso histórico{" "}
               {(accumulation.successRate * 100).toFixed(0)}%).
             </Text>
           ) : (
             <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-              No ritmo de {hideValues ? "***" : formatCurrency(monthlySavings)}/mês:
-              mediana <strong>{accumulation.medianYearsToTarget}a</strong>{" "}
+              No ritmo de {hideValues ? "***" : formatCurrency(monthlySavings)}
+              /mês: mediana <strong>
+                {accumulation.medianYearsToTarget}a
+              </strong>{" "}
               · otimista (p10) {accumulation.p10YearsToTarget}a · pessimista
               (p90) {accumulation.p90YearsToTarget}a · sucesso{" "}
               {(accumulation.successRate * 100).toFixed(0)}% em 60a
@@ -1012,321 +586,336 @@ const ConstantDollarAgeInBondsIndicator = ({
           )}
         </Stack>
       )}
-      {!compact && fireProgress < 100 && accumulation.gapBands.length > 1 && (() => {
-        const toggleScenario = (
-          scenario: "otimista" | "mediana" | "pessimista",
-          checked: boolean,
-        ) => {
-          setVisibleScenarios((prev) =>
-            checked
-              ? [...prev, scenario]
-              : prev.filter((v) => v !== scenario),
-          );
-        };
-        const onlyOne = visibleScenarios.length === 1;
-        return (
-          <Stack direction="row" justifyContent="flex-end">
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={showOtimista}
-                  onChange={(_, checked) => toggleScenario("otimista", checked)}
-                  disabled={onlyOne && showOtimista}
-                />
-              }
-              label="Otimista"
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={showMediana}
-                  onChange={(_, checked) => toggleScenario("mediana", checked)}
-                  disabled={onlyOne && showMediana}
-                />
-              }
-              label="Mediana"
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={showPessimista}
-                  onChange={(_, checked) =>
-                    toggleScenario("pessimista", checked)
-                  }
-                  disabled={onlyOne && showPessimista}
-                />
-              }
-              label="Pessimista"
-            />
-          </Stack>
-        );
-      })()}
-      {!compact && fireProgress < 100 && accumulation.gapBands.length > 1 && (() => {
-        const accTrimEnd =
-          accumulation.p90YearsToTarget !== null
-            ? Math.min(
-                accumulation.gapBands.length,
-                accumulation.p90YearsToTarget + 3,
-              )
-            : accumulation.gapBands.length;
-        const useAgeAxis = currentAge !== null;
-        const accData = accumulation.gapBands.slice(0, accTrimEnd).map((b) => ({
-          ...b,
-          age: useAgeAxis ? (currentAge as number) + b.year : b.year,
-        }));
-        const ageLabel = (years: number) =>
-          useAgeAxis
-            ? `aos ${(currentAge as number) + years}`
-            : `em ${years} anos`;
-        const refX = (years: number) =>
-          useAgeAxis ? (currentAge as number) + years : years;
-        return (
-          <>
-            <Text
-              size={FontSizes.EXTRA_SMALL}
-              weight={FontWeights.MEDIUM}
-              color={Colors.neutral200}
-            >
-              Acumulação · quantos reais ainda preciso acumular para atingir minha meta de FIRE em cada idade
-            </Text>
-            {onMonthlySavingsChange && onMonthlySavingsReset && (
-              <SavingsSimulator
-                value={Math.max(0, monthlySavings)}
-                onChange={onMonthlySavingsChange}
-                onReset={onMonthlySavingsReset}
-                avgMonthlySavings={Math.max(0, defaultMonthlySavings)}
-                showReset={isMonthlySavingsOverridden}
-                isPersisting={isPersisting}
+      {!compact &&
+        fireProgress < 100 &&
+        accumulation.gapBands.length > 1 &&
+        (() => {
+          const toggleScenario = (
+            scenario: "otimista" | "mediana" | "pessimista",
+            checked: boolean,
+          ) => {
+            setVisibleScenarios((prev) =>
+              checked
+                ? [...prev, scenario]
+                : prev.filter((v) => v !== scenario),
+            );
+          };
+          const onlyOne = visibleScenarios.length === 1;
+          return (
+            <Stack direction="row" justifyContent="flex-end">
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={showOtimista}
+                    onChange={(_, checked) =>
+                      toggleScenario("otimista", checked)
+                    }
+                    disabled={onlyOne && showOtimista}
+                  />
+                }
+                label="Otimista"
               />
-            )}
-            <ResponsiveContainer width="100%" height={240}>
-              <ComposedChart
-                data={accData}
-                margin={{ top: 50, right: 5, left: 5, bottom: 0 }}
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={showMediana}
+                    onChange={(_, checked) =>
+                      toggleScenario("mediana", checked)
+                    }
+                    disabled={onlyOne && showMediana}
+                  />
+                }
+                label="Mediana"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={showPessimista}
+                    onChange={(_, checked) =>
+                      toggleScenario("pessimista", checked)
+                    }
+                    disabled={onlyOne && showPessimista}
+                  />
+                }
+                label="Pessimista"
+              />
+            </Stack>
+          );
+        })()}
+      {!compact &&
+        fireProgress < 100 &&
+        accumulation.gapBands.length > 1 &&
+        (() => {
+          const accTrimEnd =
+            accumulation.p90YearsToTarget !== null
+              ? Math.min(
+                  accumulation.gapBands.length,
+                  accumulation.p90YearsToTarget + 3,
+                )
+              : accumulation.gapBands.length;
+          const useAgeAxis = currentAge !== null;
+          const accData = accumulation.gapBands
+            .slice(0, accTrimEnd)
+            .map((b) => ({
+              ...b,
+              age: useAgeAxis ? (currentAge as number) + b.year : b.year,
+            }));
+          const ageLabel = (years: number) =>
+            useAgeAxis
+              ? `aos ${(currentAge as number) + years}`
+              : `em ${years} anos`;
+          const refX = (years: number) =>
+            useAgeAxis ? (currentAge as number) + years : years;
+          return (
+            <>
+              <Text
+                size={FontSizes.EXTRA_SMALL}
+                weight={FontWeights.MEDIUM}
+                color={Colors.neutral200}
               >
-                <CartesianGrid strokeDasharray="5" vertical={false} />
-                <XAxis
-                  dataKey={useAgeAxis ? "age" : "year"}
-                  stroke={getColor(Colors.neutral0)}
-                  tickLine={false}
-                  tickFormatter={(v) => `${v}`}
-                />
-                <YAxis
-                  stroke={getColor(Colors.brand400)}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={numberTickFormatter}
-                  tickCount={hideValues ? 0 : undefined}
-                />
-                <RechartsTooltip
-                  cursor={false}
-                  content={
-                    <ChartTooltipContent
-                      hideValues={hideValues}
-                      showOtimista={showOtimista}
-                      showMediana={showMediana}
-                      showPessimista={showPessimista}
-                      invertLabels
-                    />
-                  }
-                />
-                {showOtimista && accumulation.p10YearsToTarget !== null && (
-                  <ReferenceLine
-                    x={refX(accumulation.p10YearsToTarget)}
-                    stroke={getColor(Colors.brand)}
-                    strokeDasharray="3 3"
-                    label={{
-                      value: `otimista · aposenta ${ageLabel(accumulation.p10YearsToTarget)}`,
-                      position: "top",
-                      dy: -34,
-                      fill: getColor(Colors.brand),
-                      fontSize: 12,
-                    }}
-                  />
-                )}
-                {showMediana && accumulation.medianYearsToTarget !== null && (
-                  <ReferenceLine
-                    x={refX(accumulation.medianYearsToTarget)}
-                    stroke={getColor(Colors.brand)}
-                    strokeDasharray="3 3"
-                    label={{
-                      value: `mediana · aposenta ${ageLabel(accumulation.medianYearsToTarget)}`,
-                      position: "top",
-                      dy: -18,
-                      fill: getColor(Colors.brand),
-                      fontSize: 12,
-                    }}
-                  />
-                )}
-                {showPessimista && accumulation.p90YearsToTarget !== null && (
-                  <ReferenceLine
-                    x={refX(accumulation.p90YearsToTarget)}
-                    stroke={getColor(Colors.danger200)}
-                    strokeDasharray="3 3"
-                    label={{
-                      value: `pessimista · aposenta ${ageLabel(accumulation.p90YearsToTarget)}`,
-                      position: "top",
-                      dy: -2,
-                      fill: getColor(Colors.danger200),
-                      fontSize: 12,
-                    }}
-                  />
-                )}
-                {showOtimista && (
-                  <Line
-                    type="monotone"
-                    dataKey="p10"
-                    stroke={getColor(Colors.brand)}
-                    strokeWidth={1.5}
-                    strokeDasharray="4 3"
-                    dot={false}
-                    name="p10 (otimista)"
-                  />
-                )}
-                {showMediana && (
-                  <Line
-                    type="monotone"
-                    dataKey="p50"
-                    stroke={getColor(Colors.brand200)}
-                    strokeWidth={2}
-                    dot={false}
-                    name="Mediana"
-                  />
-                )}
-                {showPessimista && (
-                  <Line
-                    type="monotone"
-                    dataKey="p90"
-                    stroke={getColor(Colors.danger200)}
-                    strokeWidth={1.5}
-                    strokeDasharray="4 3"
-                    dot={false}
-                    name="p90 (pessimista)"
-                  />
-                )}
-              </ComposedChart>
-            </ResponsiveContainer>
+                Acumulação · quantos reais ainda preciso acumular para atingir
+                minha meta de FIRE em cada idade
+              </Text>
 
-            {drawdownAtTarget !== null && (
-              <>
-                <Text
-                  size={FontSizes.EXTRA_SMALL}
-                  weight={FontWeights.MEDIUM}
-                  color={Colors.neutral200}
+              <ResponsiveContainer width="100%" height={240}>
+                <ComposedChart
+                  data={accData}
+                  margin={{ top: 50, right: 5, left: 5, bottom: 0 }}
                 >
-                  Aposentadoria · trajetória do patrimônio depois de atingir a meta
-                </Text>
-                <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-                  Sucesso em {targetYears}a:{" "}
-                  <strong>{(drawdownAtTarget.successRate * 100).toFixed(0)}%</strong>
-                  {" · "}
-                  Depleção mediana:{" "}
-                  <strong>
-                    {drawdownAtTarget.medianDepletionYear !== null
-                      ? `${drawdownAtTarget.medianDepletionYear} anos`
-                      : "nunca"}
-                  </strong>
-                  {" · "}
-                  Depleção pessimista (p10):{" "}
-                  <strong>
-                    {drawdownAtTarget.p10DepletionYear !== null
-                      ? `${drawdownAtTarget.p10DepletionYear} anos`
-                      : "nunca"}
-                  </strong>
-                </Text>
-                {(() => {
-                  // The solver returns the same anchor age it used to compute
-                  // drawdownAtTarget — read it directly so the preview's age
-                  // axis is guaranteed to match the glide path the bootstrap
-                  // actually traced.
-                  const retirementAge = solverState.anchorAge;
-                  const drawdownData = drawdownAtTarget.bands.map((b, i) => {
-                    const wb =
-                      i === 0 ? null : drawdownAtTarget.withdrawalBands[i - 1];
-                    return {
-                      age: retirementAge + b.year,
-                      year: b.year,
-                      balanceP10: b.p10,
-                      balanceP50: b.p50,
-                      balanceP90: b.p90,
-                      withdrawalP10: wb?.p10 ?? null,
-                      withdrawalP50: wb?.p50 ?? null,
-                      withdrawalP90: wb?.p90 ?? null,
-                    };
-                  });
-                  return (
-                    <ResponsiveContainer width="100%" height={200}>
-                      <ComposedChart
-                        data={drawdownData}
-                        margin={{ top: 10, right: 5, left: 5, bottom: 0 }}
-                      >
-                        <CartesianGrid strokeDasharray="5" vertical={false} />
-                        <XAxis
-                          dataKey="age"
-                          stroke={getColor(Colors.neutral0)}
-                          tickLine={false}
-                          tickFormatter={(v) => `${v}`}
-                        />
-                        <YAxis
-                          stroke={getColor(Colors.brand400)}
-                          tickLine={false}
-                          axisLine={false}
-                          tickFormatter={numberTickFormatter}
-                          tickCount={hideValues ? 0 : undefined}
-                        />
-                        <RechartsTooltip
-                          cursor={false}
-                          content={
-                            <DrawdownTooltipContent
-                              hideValues={hideValues}
-                              showOtimista={showOtimista}
-                              showMediana={showMediana}
-                              showPessimista={showPessimista}
-                              xLabel="Idade"
+                  <CartesianGrid strokeDasharray="5" vertical={false} />
+                  <XAxis
+                    dataKey={useAgeAxis ? "age" : "year"}
+                    stroke={getColor(Colors.neutral0)}
+                    tickLine={false}
+                    tickFormatter={(v) => `${v}`}
+                  />
+                  <YAxis
+                    stroke={getColor(Colors.brand400)}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={numberTickFormatter}
+                    tickCount={hideValues ? 0 : undefined}
+                  />
+                  <RechartsTooltip
+                    cursor={false}
+                    content={
+                      <ChartTooltipContent
+                        hideValues={hideValues}
+                        showOtimista={showOtimista}
+                        showMediana={showMediana}
+                        showPessimista={showPessimista}
+                        invertLabels
+                      />
+                    }
+                  />
+                  {showOtimista && accumulation.p10YearsToTarget !== null && (
+                    <ReferenceLine
+                      x={refX(accumulation.p10YearsToTarget)}
+                      stroke={getColor(Colors.brand)}
+                      strokeDasharray="3 3"
+                      label={{
+                        value: `otimista · meta ${ageLabel(accumulation.p10YearsToTarget)}`,
+                        position: "top",
+                        dy: -34,
+                        fill: getColor(Colors.brand),
+                        fontSize: 12,
+                      }}
+                    />
+                  )}
+                  {showMediana && accumulation.medianYearsToTarget !== null && (
+                    <ReferenceLine
+                      x={refX(accumulation.medianYearsToTarget)}
+                      stroke={getColor(Colors.brand)}
+                      strokeDasharray="3 3"
+                      label={{
+                        value: `mediana · meta ${ageLabel(accumulation.medianYearsToTarget)}`,
+                        position: "top",
+                        dy: -18,
+                        fill: getColor(Colors.brand),
+                        fontSize: 12,
+                      }}
+                    />
+                  )}
+                  {showPessimista && accumulation.p90YearsToTarget !== null && (
+                    <ReferenceLine
+                      x={refX(accumulation.p90YearsToTarget)}
+                      stroke={getColor(Colors.danger200)}
+                      strokeDasharray="3 3"
+                      label={{
+                        value: `pessimista · meta ${ageLabel(accumulation.p90YearsToTarget)}`,
+                        position: "top",
+                        dy: -2,
+                        fill: getColor(Colors.danger200),
+                        fontSize: 12,
+                      }}
+                    />
+                  )}
+                  {showOtimista && (
+                    <Line
+                      type="monotone"
+                      dataKey="p10"
+                      stroke={getColor(Colors.brand)}
+                      strokeWidth={1.5}
+                      strokeDasharray="4 3"
+                      dot={false}
+                      name="p10 (otimista)"
+                    />
+                  )}
+                  {showMediana && (
+                    <Line
+                      type="monotone"
+                      dataKey="p50"
+                      stroke={getColor(Colors.brand200)}
+                      strokeWidth={2}
+                      dot={false}
+                      name="Mediana"
+                    />
+                  )}
+                  {showPessimista && (
+                    <Line
+                      type="monotone"
+                      dataKey="p90"
+                      stroke={getColor(Colors.danger200)}
+                      strokeWidth={1.5}
+                      strokeDasharray="4 3"
+                      dot={false}
+                      name="p90 (pessimista)"
+                    />
+                  )}
+                </ComposedChart>
+              </ResponsiveContainer>
+
+              {drawdownAtTarget !== null && (
+                <>
+                  <Text
+                    size={FontSizes.EXTRA_SMALL}
+                    weight={FontWeights.MEDIUM}
+                    color={Colors.neutral200}
+                  >
+                    Aposentadoria · trajetória do patrimônio durante as
+                    retiradas
+                  </Text>
+                  <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+                    Sucesso em {targetYears}a:{" "}
+                    <strong>
+                      {(drawdownAtTarget.successRate * 100).toFixed(0)}%
+                    </strong>
+                    {" · "}
+                    Depleção mediana:{" "}
+                    <strong>
+                      {drawdownAtTarget.medianDepletionYear !== null
+                        ? `${drawdownAtTarget.medianDepletionYear} anos`
+                        : "nunca"}
+                    </strong>
+                    {" · "}
+                    Depleção pessimista (p10):{" "}
+                    <strong>
+                      {drawdownAtTarget.p10DepletionYear !== null
+                        ? `${drawdownAtTarget.p10DepletionYear} anos`
+                        : "nunca"}
+                    </strong>
+                  </Text>
+                  {(() => {
+                    // The solver returns the same anchor age it used to compute
+                    // drawdownAtTarget — read it directly so the preview's age
+                    // axis is guaranteed to match the glide path the bootstrap
+                    // actually traced.
+                    const retirementAge =
+                      simulation.extendedAccumulation
+                        ?.medianYearsToRetirement != null
+                        ? currentAge +
+                          simulation.extendedAccumulation
+                            .medianYearsToRetirement
+                        : solverState.anchorAge;
+                    const drawdownData = drawdownAtTarget.bands.map((b, i) => {
+                      const wb =
+                        i === 0
+                          ? null
+                          : drawdownAtTarget.withdrawalBands[i - 1];
+                      return {
+                        age: retirementAge + b.year,
+                        year: b.year,
+                        balanceP10: b.p10,
+                        balanceP50: b.p50,
+                        balanceP90: b.p90,
+                        withdrawalP10: wb?.p10 ?? null,
+                        withdrawalP50: wb?.p50 ?? null,
+                        withdrawalP90: wb?.p90 ?? null,
+                      };
+                    });
+                    return (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <ComposedChart
+                          data={drawdownData}
+                          margin={{ top: 10, right: 5, left: 5, bottom: 0 }}
+                        >
+                          <CartesianGrid strokeDasharray="5" vertical={false} />
+                          <XAxis
+                            dataKey="age"
+                            stroke={getColor(Colors.neutral0)}
+                            tickLine={false}
+                            tickFormatter={(v) => `${v}`}
+                          />
+                          <YAxis
+                            stroke={getColor(Colors.brand400)}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={numberTickFormatter}
+                            tickCount={hideValues ? 0 : undefined}
+                          />
+                          <RechartsTooltip
+                            cursor={false}
+                            content={
+                              <DrawdownTooltipContent
+                                hideValues={hideValues}
+                                showOtimista={showOtimista}
+                                showMediana={showMediana}
+                                showPessimista={showPessimista}
+                                xLabel="Idade"
+                              />
+                            }
+                          />
+                          {showPessimista && (
+                            <Line
+                              type="monotone"
+                              dataKey="balanceP10"
+                              stroke={getColor(Colors.danger200)}
+                              strokeWidth={1.5}
+                              strokeDasharray="4 3"
+                              dot={false}
+                              name="p10 (pessimista)"
                             />
-                          }
-                        />
-                        {showPessimista && (
-                          <Line
-                            type="monotone"
-                            dataKey="balanceP10"
-                            stroke={getColor(Colors.danger200)}
-                            strokeWidth={1.5}
-                            strokeDasharray="4 3"
-                            dot={false}
-                            name="p10 (pessimista)"
-                          />
-                        )}
-                        {showMediana && (
-                          <Line
-                            type="monotone"
-                            dataKey="balanceP50"
-                            stroke={getColor(Colors.brand200)}
-                            strokeWidth={2}
-                            dot={false}
-                            name="Mediana"
-                          />
-                        )}
-                        {showOtimista && (
-                          <Line
-                            type="monotone"
-                            dataKey="balanceP90"
-                            stroke={getColor(Colors.brand)}
-                            strokeWidth={1.5}
-                            strokeDasharray="4 3"
-                            dot={false}
-                            name="p90 (otimista)"
-                          />
-                        )}
-                      </ComposedChart>
-                    </ResponsiveContainer>
-                  );
-                })()}
-              </>
-            )}
-          </>
-        );
-      })()}
+                          )}
+                          {showMediana && (
+                            <Line
+                              type="monotone"
+                              dataKey="balanceP50"
+                              stroke={getColor(Colors.brand200)}
+                              strokeWidth={2}
+                              dot={false}
+                              name="Mediana"
+                            />
+                          )}
+                          {showOtimista && (
+                            <Line
+                              type="monotone"
+                              dataKey="balanceP90"
+                              stroke={getColor(Colors.brand)}
+                              strokeWidth={1.5}
+                              strokeDasharray="4 3"
+                              dot={false}
+                              name="p90 (otimista)"
+                            />
+                          )}
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    );
+                  })()}
+                </>
+              )}
+            </>
+          );
+        })()}
       {!compact && fireProgress >= 100 && bootstrap.bands.length > 1 && (
         <ResponsiveContainer width="100%" height={200}>
           <ComposedChart

@@ -111,7 +111,10 @@ const transactionShape = {
           if (asset?.currency) return asset.currency !== AssetCurrencies.USD;
           if (type?.value === AssetsTypesMapping.Cripto.value)
             return currency !== AssetCurrencies.USD;
-          return type?.value !== AssetsTypesMapping["Ação EUA"].value;
+          return ![
+            AssetsTypesMapping["Renda variável EUA"].value,
+            AssetsTypesMapping["Renda variável Global"].value,
+          ].includes(type?.value);
         }
         return true;
       },

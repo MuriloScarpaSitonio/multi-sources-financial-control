@@ -81,6 +81,20 @@ class AssetHeldInSelfCustodyButNotFixedException(ValidationError):
         super().__init__(field="type")
 
 
+class FixedIncomeIndexerRequiredException(ValidationError):
+    default_message = "Ativos de renda fixa precisam de um indexador"
+
+    def __init__(self) -> None:
+        super().__init__(field="indexer")
+
+
+class FixedIncomeMaturityRequiredException(ValidationError):
+    default_message = "Ativos IPCA e prefixados precisam de data de vencimento"
+
+    def __init__(self) -> None:
+        super().__init__(field="maturity_date")
+
+
 class AssetNotHeldInSelfCustodyWithoutQuantityException(ValidationError):
     default_message = (
         "Apenas ativos de renda fixa custodiados fora da b3 podem "

@@ -54,6 +54,7 @@ from .models.managers import (
 from .permissions import InvestmentsModulePermission
 from .service_layer import messagebus
 from .service_layer.unit_of_work import DjangoUnitOfWork
+from .services import build_fire_allocation
 
 if TYPE_CHECKING:  # pragma: no cover
     from datetime import date
@@ -137,6 +138,17 @@ class AssetViewSet(
             {**qs, "total_diff_percentage": total_diff_percentage}
         )
         return Response(serializer.data, status=HTTP_200_OK)
+
+    @extend_schema(responses=serializers.FireAllocationResponseSerializer)
+    @action(methods=("GET",), detail=False, url_path="fire_allocation")
+    def fire_allocation(self, request: Request) -> Response:
+        response_serializer = serializers.FireAllocationResponseSerializer(
+            {
+                "as_of": timezone.localdate(),
+                "buckets": build_fire_allocation(user_id=request.user.id),
+            }
+        )
+        return Response(response_serializer.data, status=HTTP_200_OK)
 
     @action(
         methods=("POST",),

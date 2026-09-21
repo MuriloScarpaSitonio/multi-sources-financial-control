@@ -10,6 +10,7 @@ from ...choices import (
     AssetSectors,
     AssetTypes,
     Currencies,
+    FixedIncomeIndexers,
     LiquidityTypes,
     TransactionActions,
 )
@@ -28,6 +29,7 @@ def test__create__fixed__held_custody__e2e(client, user):
         "description": "CDB Inter liquidez diária",
         "is_held_in_self_custody": True,
         "liquidity_type": LiquidityTypes.daily,
+        "indexer": FixedIncomeIndexers.cdi,
     }
     transactions_data = {
         "action": TransactionActions.buy,
@@ -116,6 +118,7 @@ def test__create__fixed__held_custody__another_user__e2e(
         "description": fixed_asset_held_in_self_custody.description,
         "is_held_in_self_custody": True,
         "liquidity_type": LiquidityTypes.daily,
+        "indexer": FixedIncomeIndexers.cdi,
     }
     transactions_data = {
         "action": TransactionActions.buy,

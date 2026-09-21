@@ -32,6 +32,7 @@ from variable_income_assets.choices import (
     AssetSectors,
     AssetTypes,
     Currencies,
+    FixedIncomeIndexers,
     LiquidityTypes,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
@@ -788,6 +789,7 @@ class Command(BaseCommand):
             objective=AssetObjectives.growth,
             liquidity_type=liquidity_type or "",
             maturity_date=maturity_date,
+            indexer=FixedIncomeIndexers.cdi,
         )
         # Note: NOT linking metadata to asset to avoid self-custody
 

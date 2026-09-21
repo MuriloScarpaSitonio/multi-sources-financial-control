@@ -1,35 +1,49 @@
+import type { ReactNode } from "react";
+import { FontSizes } from "../../../../design-system";
 import { useLayoutEffect, useMemo, useState } from "react";
 
-import FormControlLabel from "@mui/material/FormControlLabel";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import Switch from "@mui/material/Switch";
 
-import ConstantDollarAgeInBondsIndicator from "../../Home/ConstantDollarAgeInBondsIndicator";
-import ConstantDollarIndicator from "../../Home/ConstantDollarIndicator";
-import { useAssetsIndicators } from "../../Assets/Indicators/hooks";
-import { useAssetsReports } from "../../Assets/Reports/AssetAggregationReports/hooks";
-import { GroupBy, Kinds } from "../../Assets/Reports/types";
-import type { ReportAggregatedByTypeDataItem } from "../../Assets/Reports/types";
-import { useBankAccountsSummary } from "../../Expenses/hooks";
+import { buildPortfolio } from "../../Home/firePortfolio";
+import type {
+  CryptoProxy,
+  GlobalEquityProxy,
+  ReturnCategory,
+  SamplingMethod,
+  UsEquityProxy,
+} from "../../Home/fireReturnTypes";
 import AgeInBondsExplainer from "../AgeInBondsExplainer";
-import {
-  getFirePlanningPreferences,
-  type PlanningPreferences,
-} from "../api";
+import { getFirePlanningPreferences, type PlanningPreferences } from "../api";
 import DefaultsPanel from "../DefaultsPanel";
+import {
+  useFireAllocation,
+  type FireAllocationBucket,
+} from "../fireAllocation";
 import FireMethodologyWalkthrough from "../FireMethodologyWalkthrough";
+import FireSimulationStudio from "../fire/FireSimulationStudio";
+import type { FireStudioDraft } from "../fire/fireStudioScenario";
 import {
   usePlanningPreferences,
   useSelectedMethod,
   useUpdatePlanningPreferences,
 } from "../hooks";
-import StrategyChrome from "../StrategyChrome";
 import StrategyHeader from "../StrategyHeader";
 import { AGE_IN_BONDS_TITLES, STRATEGY_CONTENT } from "../strategyContent";
 import { useStrategyCommonData } from "../useStrategyCommonData";
 
 const METHOD = "fire" as const;
+
+const ageFromDateOfBirth = (dateOfBirth: string | null): number | null => {
+  if (!dateOfBirth) return null;
+  const birth = new Date(`${dateOfBirth}T00:00:00`);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age -= 1;
+  }
+  return age;
+};
 
 const FireDetail = () => {
   const content = STRATEGY_CONTENT[METHOD];
@@ -43,32 +57,72 @@ const FireDetail = () => {
   const { mutate: updatePreferences, isPending: isUpdating } =
     useUpdatePlanningPreferences();
 
-  const [withdrawalRate, setWithdrawalRate] = useState(firePreferences.withdrawal_rate);
+  const [withdrawalRate, setWithdrawalRate] = useState(
+    firePreferences.withdrawal_rate,
+  );
+  const [extraAccumulationYears, setExtraAccumulationYears] = useState(
+    firePreferences.extra_accumulation_years,
+  );
   const [targetYears, setTargetYears] = useState(firePreferences.target_years);
   const [expensesOverride, setExpensesOverride] = useState<number | null>(
     firePreferences.monthly_expenses_override,
   );
-  const [excludeIfixFromSim, setExcludeIfixFromSim] = useState(
-    firePreferences.exclude_ifix_from_sim,
+  const [samplingMethod, setSamplingMethod] = useState<SamplingMethod>(
+    firePreferences.sampling_method,
+  );
+  const [usEquityProxy, setUsEquityProxy] = useState<UsEquityProxy>(
+    firePreferences.us_equity_proxy,
+  );
+  const [globalEquityProxy, setGlobalEquityProxy] = useState<GlobalEquityProxy>(
+    firePreferences.global_equity_proxy,
+  );
+  const [cryptoProxy, setCryptoProxy] = useState<CryptoProxy>(
+    firePreferences.crypto_proxy,
+  );
+  const [excludedReturnCategories, setExcludedReturnCategories] = useState<
+    ReturnCategory[]
+  >(firePreferences.excluded_return_categories);
+  const [historicalSeriesOverrides, setHistoricalSeriesOverrides] = useState(
+    firePreferences.historical_series_overrides,
+  );
+  const [historicalSeriesFallbacks, setHistoricalSeriesFallbacks] = useState(
+    firePreferences.historical_series_fallbacks,
   );
   const [showAgeInBonds, setShowAgeInBonds] = useState(
     preferences?.show_age_in_bonds ?? false,
   );
-  // Local what-if state — never persisted (no FIRE monthly_savings field).
-  const [simulatedPatrimony, setSimulatedPatrimony] = useState<number | null>(null);
-  const [monthlySavingsOverride, setMonthlySavingsOverride] = useState<number | null>(
-    null,
+  const [simulatedPatrimony, setSimulatedPatrimony] = useState<number | null>(
+    firePreferences.simulated_patrimony,
   );
+  const [monthlySavingsOverride, setMonthlySavingsOverride] = useState<
+    number | null
+  >(null);
 
   useLayoutEffect(() => {
+    setSimulatedPatrimony(firePreferences.simulated_patrimony);
     setWithdrawalRate(firePreferences.withdrawal_rate);
     setTargetYears(firePreferences.target_years);
+    setExtraAccumulationYears(firePreferences.extra_accumulation_years);
     setExpensesOverride(firePreferences.monthly_expenses_override);
-    setExcludeIfixFromSim(firePreferences.exclude_ifix_from_sim);
+    setSamplingMethod(firePreferences.sampling_method);
+    setUsEquityProxy(firePreferences.us_equity_proxy);
+    setGlobalEquityProxy(firePreferences.global_equity_proxy);
+    setCryptoProxy(firePreferences.crypto_proxy);
+    setExcludedReturnCategories(firePreferences.excluded_return_categories);
+    setHistoricalSeriesOverrides(firePreferences.historical_series_overrides);
+    setHistoricalSeriesFallbacks(firePreferences.historical_series_fallbacks);
   }, [
-    firePreferences.exclude_ifix_from_sim,
+    firePreferences.simulated_patrimony,
+    firePreferences.historical_series_overrides,
+    firePreferences.historical_series_fallbacks,
+    firePreferences.crypto_proxy,
+    firePreferences.excluded_return_categories,
+    firePreferences.global_equity_proxy,
     firePreferences.monthly_expenses_override,
+    firePreferences.sampling_method,
     firePreferences.target_years,
+    firePreferences.extra_accumulation_years,
+    firePreferences.us_equity_proxy,
     firePreferences.withdrawal_rate,
   ]);
 
@@ -81,58 +135,110 @@ const FireDetail = () => {
     derivedMonthlySavings,
     isLoading: isCommonLoading,
   } = useStrategyCommonData();
-  const { data: assetsIndicators, isPending: isAssetsLoading } = useAssetsIndicators({
-    includeYield: true,
-  });
-  const { data: { total: bankAmount } = { total: 0 }, isPending: isBankLoading } =
-    useBankAccountsSummary();
-  const { data: assetsReportData, isPending: isReportsLoading } = useAssetsReports({
-    kind: Kinds.TOTAL_INVESTED,
-    group_by: GroupBy.TYPE,
-    current: true,
-    percentage: false,
-  });
+  const { data: allocationData, isPending: isAllocationLoading } =
+    useFireAllocation();
+  const allocation = useMemo<FireAllocationBucket[]>(
+    () => allocationData?.buckets ?? [],
+    [allocationData?.buckets],
+  );
+  const patrimonyTotal = allocation.reduce(
+    (sum, bucket) => sum + bucket.total,
+    0,
+  );
+  const isDataLoading = isCommonLoading || isAllocationLoading;
+  const fixedIncomeTotal = allocation
+    .filter((bucket) => bucket.category.startsWith("FIXED_"))
+    .reduce((sum, bucket) => sum + bucket.total, 0);
+  const variableIncomeTotal = allocation
+    .filter(
+      (bucket) =>
+        bucket.category !== "CASH" && !bucket.category.startsWith("FIXED_"),
+    )
+    .reduce((sum, bucket) => sum + bucket.total, 0);
 
-  const patrimonyTotal = (assetsIndicators?.total ?? 0) + bankAmount;
-  const isDataLoading =
-    isAssetsLoading || isBankLoading || isCommonLoading || isReportsLoading;
-
-  const { fixedIncomeTotal, variableIncomeTotal, equityTotal, ifixTotal } = useMemo(() => {
-    const data = (assetsReportData ?? []) as ReportAggregatedByTypeDataItem[];
-    const fixed = data.find((d) => d.type === "Renda fixa BR")?.total ?? 0;
-    const ifix = data.find((d) => d.type === "FII")?.total ?? 0;
-    const equity = data
-      .filter((d) => ["Ação BR", "Ação EUA", "Cripto"].includes(d.type))
-      .reduce((sum, d) => sum + d.total, 0);
-    return {
-      fixedIncomeTotal: fixed,
-      variableIncomeTotal: equity + ifix,
-      equityTotal: equity,
-      ifixTotal: ifix,
-    };
-  }, [assetsReportData]);
+  const localFirePreferences = useMemo(
+    () => ({
+      withdrawal_rate: withdrawalRate,
+      target_years: targetYears,
+      extra_accumulation_years: extraAccumulationYears,
+      simulated_patrimony: simulatedPatrimony,
+      monthly_expenses_override: expensesOverride,
+      sampling_method: samplingMethod,
+      us_equity_proxy: usEquityProxy,
+      global_equity_proxy: globalEquityProxy,
+      crypto_proxy: cryptoProxy,
+      excluded_return_categories: excludedReturnCategories,
+      historical_series_overrides: historicalSeriesOverrides,
+      historical_series_fallbacks: historicalSeriesFallbacks,
+    }),
+    [
+      cryptoProxy,
+      historicalSeriesOverrides,
+      historicalSeriesFallbacks,
+      excludedReturnCategories,
+      simulatedPatrimony,
+      expensesOverride,
+      globalEquityProxy,
+      samplingMethod,
+      targetYears,
+      extraAccumulationYears,
+      usEquityProxy,
+      withdrawalRate,
+    ],
+  );
+  const portfolio = useMemo(
+    () => buildPortfolio(allocation, localFirePreferences),
+    [allocation, localFirePreferences],
+  );
 
   const isDirty = useMemo(
     () =>
       isActive &&
       !!planningData &&
-      (withdrawalRate !== firePreferences.withdrawal_rate ||
+      (JSON.stringify(historicalSeriesFallbacks) !==
+        JSON.stringify(firePreferences.historical_series_fallbacks) ||
+        JSON.stringify(historicalSeriesOverrides) !==
+          JSON.stringify(firePreferences.historical_series_overrides) ||
+        simulatedPatrimony !== firePreferences.simulated_patrimony ||
+        withdrawalRate !== firePreferences.withdrawal_rate ||
         targetYears !== firePreferences.target_years ||
+        extraAccumulationYears !== firePreferences.extra_accumulation_years ||
         expensesOverride !== firePreferences.monthly_expenses_override ||
-        excludeIfixFromSim !== firePreferences.exclude_ifix_from_sim ||
+        samplingMethod !== firePreferences.sampling_method ||
+        usEquityProxy !== firePreferences.us_equity_proxy ||
+        globalEquityProxy !== firePreferences.global_equity_proxy ||
+        cryptoProxy !== firePreferences.crypto_proxy ||
+        JSON.stringify(excludedReturnCategories) !==
+          JSON.stringify(firePreferences.excluded_return_categories) ||
         showAgeInBonds !== (preferences?.show_age_in_bonds ?? false)),
     [
       isActive,
       planningData,
-      firePreferences.exclude_ifix_from_sim,
+      cryptoProxy,
+      historicalSeriesOverrides,
+      historicalSeriesFallbacks,
+      excludedReturnCategories,
+      firePreferences.historical_series_overrides,
+      firePreferences.historical_series_fallbacks,
+      firePreferences.simulated_patrimony,
       firePreferences.monthly_expenses_override,
+      firePreferences.sampling_method,
       firePreferences.target_years,
+      firePreferences.extra_accumulation_years,
+      firePreferences.us_equity_proxy,
+      firePreferences.global_equity_proxy,
+      firePreferences.crypto_proxy,
+      firePreferences.excluded_return_categories,
+      globalEquityProxy,
       firePreferences.withdrawal_rate,
       preferences,
       withdrawalRate,
       targetYears,
+      extraAccumulationYears,
+      simulatedPatrimony,
       expensesOverride,
-      excludeIfixFromSim,
+      samplingMethod,
+      usEquityProxy,
       showAgeInBonds,
     ],
   );
@@ -145,8 +251,16 @@ const FireDetail = () => {
       fire: {
         withdrawal_rate: withdrawalRate,
         target_years: targetYears,
+        extra_accumulation_years: extraAccumulationYears,
+        simulated_patrimony: simulatedPatrimony,
         monthly_expenses_override: expensesOverride,
-        exclude_ifix_from_sim: excludeIfixFromSim,
+        sampling_method: samplingMethod,
+        us_equity_proxy: usEquityProxy,
+        global_equity_proxy: globalEquityProxy,
+        crypto_proxy: cryptoProxy,
+        excluded_return_categories: excludedReturnCategories,
+        historical_series_overrides: historicalSeriesOverrides,
+        historical_series_fallbacks: historicalSeriesFallbacks,
       },
       show_age_in_bonds: showAgeInBonds,
     };
@@ -157,98 +271,106 @@ const FireDetail = () => {
     ? (AGE_IN_BONDS_TITLES[METHOD]?.title ?? content.title)
     : content.title;
 
-  const monthlySavings = monthlySavingsOverride ?? derivedMonthlySavings;
+  const handleHistoricalPreferenceChange = <
+    K extends keyof typeof localFirePreferences,
+  >(
+    field: K,
+    value: (typeof localFirePreferences)[K],
+  ) => {
+    if (field === "extra_accumulation_years")
+      setExtraAccumulationYears(value as number);
+    if (field === "historical_series_fallbacks")
+      setHistoricalSeriesFallbacks(value as typeof historicalSeriesFallbacks);
+    if (field === "historical_series_overrides")
+      setHistoricalSeriesOverrides(value as typeof historicalSeriesOverrides);
+    if (field === "us_equity_proxy") {
+      setUsEquityProxy(value as UsEquityProxy);
+    }
+    if (field === "global_equity_proxy") {
+      setGlobalEquityProxy(value as GlobalEquityProxy);
+    }
+    if (field === "crypto_proxy") setCryptoProxy(value as CryptoProxy);
+    if (field === "excluded_return_categories") {
+      setExcludedReturnCategories(value as ReturnCategory[]);
+    }
+  };
 
-  const indicator = showAgeInBonds ? (
-    <ConstantDollarAgeInBondsIndicator
-      patrimonyTotal={patrimonyTotal}
-      avgExpenses={avgExpenses}
-      isLoading={isDataLoading}
-      persistEnabled={isActive}
-      isPersisting={isUpdating}
-      dateOfBirth={dateOfBirth}
-      withdrawalRate={withdrawalRate}
-      onWithdrawalRateChange={setWithdrawalRate}
-      targetYears={targetYears}
-      onTargetYearsChange={setTargetYears}
-      fixedIncomeTotal={fixedIncomeTotal}
-      variableIncomeTotal={variableIncomeTotal}
-      equityTotal={equityTotal}
-      ifixTotal={ifixTotal}
-      monthlySavings={monthlySavings}
-      defaultMonthlySavings={derivedMonthlySavings}
-      onMonthlySavingsChange={setMonthlySavingsOverride}
-      onMonthlySavingsReset={() => setMonthlySavingsOverride(null)}
-      isMonthlySavingsOverridden={monthlySavingsOverride !== null}
-      simulatedExpenses={expensesOverride}
-      onSimulatedExpensesChange={setExpensesOverride}
-      excludeIfixFromSim={excludeIfixFromSim}
-      onExcludeIfixFromSimChange={setExcludeIfixFromSim}
-    />
-  ) : (
-    <ConstantDollarIndicator
-      patrimonyTotal={patrimonyTotal}
-      avgExpenses={avgExpenses}
-      isLoading={isDataLoading}
-      persistEnabled={isActive}
-      isPersisting={isUpdating}
-      withdrawalRate={withdrawalRate}
-      onWithdrawalRateChange={setWithdrawalRate}
-      targetYears={targetYears}
-      onTargetYearsChange={setTargetYears}
-      equityTotal={equityTotal}
-      ifixTotal={ifixTotal}
-      fixedIncomeTotal={fixedIncomeTotal + bankAmount}
-      monthlySavings={monthlySavings}
-      defaultMonthlySavings={derivedMonthlySavings}
-      onMonthlySavingsChange={setMonthlySavingsOverride}
-      onMonthlySavingsReset={() => setMonthlySavingsOverride(null)}
-      isMonthlySavingsOverridden={monthlySavingsOverride !== null}
-      dateOfBirth={dateOfBirth}
-      simulatedPatrimony={simulatedPatrimony}
-      onSimulatedPatrimonyChange={setSimulatedPatrimony}
-      simulatedExpenses={expensesOverride}
-      onSimulatedExpensesChange={setExpensesOverride}
-      excludeIfixFromSim={excludeIfixFromSim}
-      onExcludeIfixFromSimChange={setExcludeIfixFromSim}
+  const studioDraft = useMemo<FireStudioDraft>(
+    () => ({
+      isReady: !isDataLoading,
+      showAgeInBonds,
+      currentAge: ageFromDateOfBirth(dateOfBirth),
+      patrimonyTotal,
+      simulatedPatrimony,
+      avgExpenses,
+      expensesOverride,
+      derivedMonthlySavings,
+      monthlySavingsOverride,
+      withdrawalRate,
+      targetYears,
+      extraAccumulationYears,
+      samplingMethod,
+      portfolio,
+    }),
+    [
+      avgExpenses,
+      dateOfBirth,
+      derivedMonthlySavings,
+      expensesOverride,
+      isDataLoading,
+      monthlySavingsOverride,
+      patrimonyTotal,
+      portfolio,
+      samplingMethod,
+      showAgeInBonds,
+      simulatedPatrimony,
+      targetYears,
+      extraAccumulationYears,
+      withdrawalRate,
+    ],
+  );
+
+  const renderHeader = (recalculate?: ReactNode) => (
+    <StrategyHeader
+      sticky
+      title={displayTitle}
+      titleSize={FontSizes.REGULAR}
+      isActive={isActive}
+      isMutating={isUpdating}
+      onSelect={handleSelect}
+      isDirty={isDirty}
+      onSave={handleSave}
+      activeBadgeByTitle
+      actions={recalculate}
     />
   );
 
   return (
-    <Stack spacing={3} pb={3}>
-      <StrategyHeader
-        title={displayTitle}
-        subtitle={content.subtitle}
-        isActive={isActive}
-        isMutating={isUpdating}
-        onSelect={handleSelect}
-        isDirty={isDirty}
-        onSave={handleSave}
+    // Keep the narrower right gutter local to FIRE; the shared wrapper uses 64px.
+    <Stack spacing={3} pb={3} sx={{ mr: -6 }}>
+      <FireSimulationStudio
+        renderHeader={renderHeader}
+        draft={studioDraft}
+        allocation={allocation}
+        firePreferences={localFirePreferences}
+        dateOfBirth={dateOfBirth}
+        fixedIncomeTotal={fixedIncomeTotal}
+        variableIncomeTotal={variableIncomeTotal}
+        isPersisting={isUpdating}
+        onSimulatedPatrimonyChange={setSimulatedPatrimony}
+        onExpensesChange={setExpensesOverride}
+        onMonthlySavingsChange={setMonthlySavingsOverride}
+        onWithdrawalRateChange={setWithdrawalRate}
+        onTargetYearsChange={setTargetYears}
+        onSamplingMethodChange={setSamplingMethod}
+        onShowAgeInBondsChange={setShowAgeInBonds}
+        onHistoricalPreferenceChange={handleHistoricalPreferenceChange}
       />
-
-      <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>{indicator}</Paper>
-
-      {showAgeInBonds && (
-        <DefaultsPanel
-          items={content.defaultsExplained}
-          extra={<FireMethodologyWalkthrough />}
-        />
-      )}
-
-      <Stack gap={1}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={showAgeInBonds}
-              onChange={(_, value) => setShowAgeInBonds(value)}
-              disabled={isUpdating}
-              size="small"
-            />
-          }
-          label="Alocação Idade em Renda Fixa"
-          slotProps={{ typography: { variant: "caption" } }}
-        />
-      </Stack>
+      <DefaultsPanel
+        title="Como funciona a simulação"
+        items={content.defaultsExplained}
+        extra={<FireMethodologyWalkthrough />}
+      />
 
       {showAgeInBonds && (
         <AgeInBondsExplainer
@@ -258,11 +380,6 @@ const FireDetail = () => {
         />
       )}
 
-      <StrategyChrome
-        rationale={content.rationale}
-        pros={content.pros}
-        cons={content.cons}
-      />
     </Stack>
   );
 };

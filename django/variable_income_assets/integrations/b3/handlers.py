@@ -17,6 +17,7 @@ from ...choices import (
     AssetObjectives,
     AssetTypes,
     Currencies,
+    FixedIncomeIndexers,
     LiquidityTypes,
     PassiveIncomeEventTypes,
     PassiveIncomeTypes,
@@ -27,7 +28,7 @@ from ...serializers import AssetSerializer, TransactionListSerializer
 from ...service_layer import messagebus
 from ...service_layer.unit_of_work import DjangoUnitOfWork
 from ._workbook import WorkbookSource
-from .movimentacao import parse_movements
+from .movimentacao import parse_interest_payments, parse_movements
 from .negociacao import (
     parse_fii_positions,
     parse_negotiations,
@@ -38,6 +39,7 @@ from .parser import parse_positions
 from .proventos import parse_proventos, resolve_proventos_path
 from .schemas import (
     B3FixedIncomeAction,
+    B3FixedIncomeInterest,
     B3FixedIncomeMovement,
     B3FixedIncomePosition,
     B3ProventoType,
@@ -60,6 +62,22 @@ class B3ImportError(Exception):
 
 class _DryRunRollback(Exception):
     pass
+
+
+_INDEXER_ALIASES = {
+    "DI": FixedIncomeIndexers.cdi,
+    "CDI": FixedIncomeIndexers.cdi,
+    "SELIC": FixedIncomeIndexers.selic,
+    "IPCA": FixedIncomeIndexers.ipca,
+    "PREFIXADO": FixedIncomeIndexers.prefixed,
+    "PREFIXED": FixedIncomeIndexers.prefixed,
+}
+
+
+def normalize_fixed_income_indexer(raw: str | None) -> str | None:
+    if raw is None:
+        return None
+    return _INDEXER_ALIASES.get(raw.strip().upper())
 
 
 def _parse_workbook_dt(path: Path) -> datetime:
@@ -136,6 +154,17 @@ def _bulk_fetch_existing_transactions(asset_ids) -> dict[int, set]:
         asset_id__in=asset_ids
     ).values_list("asset_id", "action", "operation_date", "quantity", "price"):
         existing[asset_id].add((action, operation_date, quantity, price))
+    return existing
+
+
+def _bulk_fetch_existing_fixed_income_interests(asset_ids) -> dict[int, set]:
+    existing: dict[int, set] = defaultdict(set)
+    for asset_id, operation_date, amount in PassiveIncome.objects.filter(
+        asset_id__in=asset_ids,
+        type=PassiveIncomeTypes.interest,
+        event_type=PassiveIncomeEventTypes.credited,
+    ).values_list("asset_id", "operation_date", "amount"):
+        existing[asset_id].add((operation_date, amount))
     return existing
 
 
@@ -228,6 +257,7 @@ def _create_asset_and_transactions(
             "description": description,
             "objective": AssetObjectives.growth,
             "liquidity_type": LiquidityTypes.at_maturity,
+            "indexer": normalize_fixed_income_indexer(position.indexer),
             "maturity_date": (
                 position.maturity_date.strftime("%d/%m/%Y") if position.maturity_date else None
             ),
@@ -296,6 +326,7 @@ def _create_tesouro_asset_and_transactions(
             "description": description,
             "objective": AssetObjectives.growth,
             "liquidity_type": LiquidityTypes.at_maturity,
+            "indexer": normalize_fixed_income_indexer(position.indexer),
             "maturity_date": (
                 position.maturity_date.strftime("%d/%m/%Y") if position.maturity_date else None
             ),
@@ -367,23 +398,37 @@ def _renda_fixa_actions(
 ) -> list[dict]:
     positions = parse_positions(posicao_path_resolved)
     movements = parse_movements(movimentacao_path_resolved)
+    interest_payments = parse_interest_payments(movimentacao_path_resolved)
 
     movements_by_code: dict[str, list[B3FixedIncomeMovement]] = defaultdict(list)
     for movement in movements:
         movements_by_code[movement.code].append(movement)
+    interests_by_code: dict[str, list[B3FixedIncomeInterest]] = defaultdict(list)
+    for payment in interest_payments:
+        interests_by_code[payment.code].append(payment)
 
-    # Bulk-load which codes already exist + their metadata (2 queries) instead of
-    # one lookup per position; price writes are batched via bulk_update at the end.
+    # Movements can contain matured assets that no longer appear in Posição.
+    # Load both position and event codes so those redemptions are still imported.
     position_codes = {p.code for p in positions if p.code}
-    existing_codes = set(
-        Asset.objects.filter(
-            user_id=user_id, type=AssetTypes.fixed_br, code__in=position_codes
-        ).values_list("code", flat=True)
+    event_codes = set(movements_by_code) | set(interests_by_code)
+    involved_codes = position_codes | event_codes
+    existing_assets_by_code = {
+        asset.code: asset
+        for asset in Asset.objects.filter(
+            user_id=user_id, type=AssetTypes.fixed_br, code__in=involved_codes
+        )
+    }
+    metadata_by_code = _bulk_fetch_fixed_br_metadata(existing_assets_by_code)
+    existing_tx_by_asset = _bulk_fetch_existing_transactions(
+        [asset.id for asset in existing_assets_by_code.values()]
     )
-    metadata_by_code = _bulk_fetch_fixed_br_metadata(existing_codes)
+    existing_interest_by_asset = _bulk_fetch_existing_fixed_income_interests(
+        [asset.id for asset in existing_assets_by_code.values()]
+    )
     price_updates: list[AssetMetaData] = []
 
     actions: list[dict] = []
+    processed_codes: set[str] = set()
     for position in positions:
         if not position.code:
             actions.append(
@@ -395,8 +440,10 @@ def _renda_fixa_actions(
                 }
             )
             continue
+        processed_codes.add(position.code)
 
-        if position.code in existing_codes:
+        existing_asset = existing_assets_by_code.get(position.code)
+        if existing_asset is not None:
             actions.append(
                 _update_existing_price(
                     code=position.code,
@@ -405,6 +452,16 @@ def _renda_fixa_actions(
                     metadata=metadata_by_code.get(position.code),
                     updates=price_updates,
                     description=_build_description(position),
+                )
+            )
+            actions.extend(
+                _create_fixed_income_events(
+                    user=user,
+                    asset=existing_asset,
+                    movements=movements_by_code.get(position.code, []),
+                    interest_payments=interests_by_code.get(position.code, []),
+                    existing_transactions=existing_tx_by_asset[existing_asset.id],
+                    existing_interests=existing_interest_by_asset[existing_asset.id],
                 )
             )
             continue
@@ -442,13 +499,45 @@ def _renda_fixa_actions(
                 continue
             code_movements = [fallback]
 
-        actions.append(
-            _create_asset_and_transactions(
+        created_action = _create_asset_and_transactions(
+            user=user,
+            code=position.code,
+            position=position,
+            movements=code_movements,
+            workbook_dt=workbook_dt,
+        )
+        actions.append(created_action)
+        created_asset = Asset.objects.get(pk=created_action["asset_pk"])
+        actions.extend(
+            _create_fixed_income_events(
                 user=user,
-                code=position.code,
-                position=position,
-                movements=code_movements,
-                workbook_dt=workbook_dt,
+                asset=created_asset,
+                movements=[],
+                interest_payments=interests_by_code.get(position.code, []),
+                existing_transactions=set(),
+                existing_interests=set(),
+            )
+        )
+
+    for code in sorted(event_codes - processed_codes):
+        existing_asset = existing_assets_by_code.get(code)
+        if existing_asset is None:
+            actions.append(
+                {
+                    "code": code,
+                    "action": "skipped",
+                    "reason": "movimentação de ativo não cadastrado",
+                }
+            )
+            continue
+        actions.extend(
+            _create_fixed_income_events(
+                user=user,
+                asset=existing_asset,
+                movements=movements_by_code.get(code, []),
+                interest_payments=interests_by_code.get(code, []),
+                existing_transactions=existing_tx_by_asset[existing_asset.id],
+                existing_interests=existing_interest_by_asset[existing_asset.id],
             )
         )
 
@@ -465,8 +554,19 @@ def _create_missing_transactions(
     context = {"request": _RequestContext(user)}
     created: list[dict] = []
     for movement in sorted(movements, key=lambda m: m.operation_date):
-        key = (movement.action.value, movement.operation_date, movement.quantity, movement.unit_price)
-        if key in existing:
+        key = (
+            movement.action.value,
+            movement.operation_date,
+            movement.quantity,
+            movement.unit_price,
+        )
+        maturity_already_exists = getattr(movement, "is_maturity", False) and any(
+            action == B3FixedIncomeAction.SELL.value
+            and operation_date == movement.operation_date
+            and quantity == movement.quantity
+            for action, operation_date, quantity, _ in existing
+        )
+        if key in existing or maturity_already_exists:
             continue
 
         tx_serializer = TransactionListSerializer(
@@ -481,6 +581,7 @@ def _create_missing_transactions(
         )
         tx_serializer.is_valid(raise_exception=True)
         tx_serializer.save()
+        existing.add(key)
         created.append(
             {
                 "code": asset.code,
@@ -496,6 +597,65 @@ def _create_missing_transactions(
             }
         )
     return created
+
+
+def _create_fixed_income_events(
+    *,
+    user,
+    asset: Asset,
+    movements: list[B3FixedIncomeMovement],
+    interest_payments: list[B3FixedIncomeInterest],
+    existing_transactions: set,
+    existing_interests: set,
+) -> list[dict]:
+    ordered_events = [
+        (payment.operation_date, 0, "interest", payment) for payment in interest_payments
+    ] + [(movement.operation_date, 1, "transaction", movement) for movement in movements]
+    actions: list[dict] = []
+    for _, _, event_kind, event in sorted(ordered_events, key=lambda item: item[:2]):
+        if event_kind == "transaction":
+            actions.extend(
+                _create_missing_transactions(
+                    user=user,
+                    asset=asset,
+                    movements=[event],
+                    existing=existing_transactions,
+                )
+            )
+            continue
+
+        key = (event.operation_date, event.amount)
+        if key in existing_interests:
+            continue
+        income = PassiveIncome.objects.create(
+            asset=asset,
+            type=PassiveIncomeTypes.interest,
+            event_type=PassiveIncomeEventTypes.credited,
+            operation_date=event.operation_date,
+            amount=event.amount,
+            current_currency_conversion_rate=Decimal("1"),
+        )
+        existing_interests.add(key)
+        with DjangoUnitOfWork(asset_pk=asset.id) as uow:
+            messagebus.handle(
+                message=events.PassiveIncomeCreated(asset_pk=asset.id),
+                uow=uow,
+            )
+        actions.append(
+            {
+                "code": asset.code,
+                "description": asset.description,
+                "action": "income_created",
+                "asset_pk": asset.id,
+                "income_pk": income.id,
+                "income": {
+                    "type": PassiveIncomeTypes.interest,
+                    "amount": str(event.amount),
+                    "operation_date": event.operation_date.isoformat(),
+                },
+            }
+        )
+    return actions
 
 
 def _tesouro_actions(
@@ -648,9 +808,7 @@ def _create_negociacao_asset(*, user, position: B3StockPosition) -> int:
     return asset_serializer.save().id
 
 
-def _create_transaction(
-    *, user, asset_pk: int, negotiation: B3StockNegotiation
-) -> None:
+def _create_transaction(*, user, asset_pk: int, negotiation: B3StockNegotiation) -> None:
     tx_serializer = TransactionListSerializer(
         data={
             "asset_pk": asset_pk,
@@ -679,21 +837,15 @@ def _negociacao_actions(
 
     position_by_code: dict[str, B3StockPosition] = {}
     if posicao_path_resolved is not None:
-        for position in parse_stock_positions(
-            posicao_path_resolved, asset_type=AssetTypes.stock
-        ):
+        for position in parse_stock_positions(posicao_path_resolved, asset_type=AssetTypes.stock):
             position_by_code[position.code] = position
-        for position in parse_fii_positions(
-            posicao_path_resolved, asset_type=AssetTypes.fii
-        ):
+        for position in parse_fii_positions(posicao_path_resolved, asset_type=AssetTypes.fii):
             position_by_code[position.code] = position
 
     # Bulk-load the existing assets (by code) and their transactions (for dedup)
     # up front instead of one query per code.
     assets_by_code: dict[str, Asset] = {}
-    for asset in Asset.objects.filter(
-        user_id=user_id, code__in=set(by_code)
-    ).order_by("id"):
+    for asset in Asset.objects.filter(user_id=user_id, code__in=set(by_code)).order_by("id"):
         assets_by_code.setdefault(asset.code, asset)
     existing_tx_by_asset = _bulk_fetch_existing_transactions(
         [asset.id for asset in assets_by_code.values()]
@@ -956,9 +1108,7 @@ def _proventos_actions(*, user_id: int, proventos_path_resolved) -> list[dict]:
     # total) instead of querying per row; persist with a single bulk_create.
     assets_by_code = {
         asset.code: asset
-        for asset in Asset.objects.filter(
-            user_id=user_id, code__in={p.code for p in proventos}
-        )
+        for asset in Asset.objects.filter(user_id=user_id, code__in={p.code for p in proventos})
     }
     existing = set(
         PassiveIncome.objects.filter(
@@ -993,9 +1143,7 @@ def _proventos_actions(*, user_id: int, proventos_path_resolved) -> list[dict]:
 
         key = (asset.id, income_type, provento.payment_date, provento.amount)
         if key in existing:
-            actions.append(
-                {**base, "action": "already_exists", "reason": "provento já cadastrado"}
-            )
+            actions.append({**base, "action": "already_exists", "reason": "provento já cadastrado"})
             continue
         if provento.payment_date > today:
             actions.append(

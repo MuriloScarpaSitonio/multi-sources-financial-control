@@ -4,11 +4,18 @@ from pathlib import Path
 
 from ._workbook import WorkbookSource, open_workbook
 from .parser import PROJECT_ROOT, B3ParserError
-from .schemas import B3FixedIncomeAction, B3FixedIncomeKind, B3FixedIncomeMovement
+from .schemas import (
+    B3FixedIncomeAction,
+    B3FixedIncomeInterest,
+    B3FixedIncomeKind,
+    B3FixedIncomeMovement,
+)
 
 SHEET_NAME = "Movimentação"
 GLOB_PATTERN = "movimentacao-*.xlsx"
 BUY_SELL_LABEL = "COMPRA / VENDA"
+MATURITY_LABEL = "VENCIMENTO"
+INTEREST_LABEL = "PAGAMENTO DE JUROS"
 RENDA_FIXA_PREFIXES = (B3FixedIncomeKind.CDB, B3FixedIncomeKind.LCI, B3FixedIncomeKind.LIG)
 ACTION_BY_FLOW = {"Credito": B3FixedIncomeAction.BUY, "Debito": B3FixedIncomeAction.SELL}
 
@@ -125,7 +132,8 @@ def parse_movements(path: WorkbookSource | None = None) -> list[B3FixedIncomeMov
                 continue
 
             movement_label = row[h["Movimentação"]] if h["Movimentação"] < len(row) else None
-            if str(movement_label or "").strip() != BUY_SELL_LABEL:
+            movement_label = str(movement_label or "").strip()
+            if movement_label not in (BUY_SELL_LABEL, MATURITY_LABEL):
                 continue
 
             split = _split_produto(str(produto_raw).strip())
@@ -133,12 +141,16 @@ def parse_movements(path: WorkbookSource | None = None) -> list[B3FixedIncomeMov
                 continue
             kind, code = split
 
-            flow = _to_required_str(row[h["Entrada/Saída"]], column="Entrada/Saída", row_index=row_index)
-            action = ACTION_BY_FLOW.get(flow)
+            flow = _to_required_str(
+                row[h["Entrada/Saída"]], column="Entrada/Saída", row_index=row_index
+            )
+            action = (
+                B3FixedIncomeAction.SELL
+                if movement_label == MATURITY_LABEL and flow == "Debito"
+                else ACTION_BY_FLOW.get(flow)
+            )
             if action is None:
-                raise B3ParserError(
-                    f"row {row_index}: unexpected Entrada/Saída value {flow!r}"
-                )
+                raise B3ParserError(f"row {row_index}: unexpected Entrada/Saída value {flow!r}")
 
             movements.append(
                 B3FixedIncomeMovement(
@@ -154,9 +166,66 @@ def parse_movements(path: WorkbookSource | None = None) -> list[B3FixedIncomeMov
                     unit_price=_to_required_decimal(
                         row[h["Preço unitário"]], column="Preço unitário", row_index=row_index
                     ),
+                    is_maturity=movement_label == MATURITY_LABEL,
                 )
             )
 
         return movements
+    finally:
+        workbook.close()
+
+
+def parse_interest_payments(path: WorkbookSource | None = None) -> list[B3FixedIncomeInterest]:
+    workbook = open_workbook(_resolve_path(path))
+    try:
+        if SHEET_NAME not in workbook.sheetnames:
+            raise B3ParserError(f"sheet {SHEET_NAME!r} not found")
+
+        rows = workbook[SHEET_NAME].iter_rows(values_only=True)
+        try:
+            header_row = next(rows)
+        except StopIteration as exc:
+            raise B3ParserError(f"empty sheet {SHEET_NAME!r}") from exc
+
+        h = _build_header_index(header_row)
+        if "Valor da Operação" not in h:
+            raise B3ParserError("missing column: Valor da Operação")
+
+        payments: list[B3FixedIncomeInterest] = []
+        for row_index, row in enumerate(rows, start=2):
+            movement_label = row[h["Movimentação"]] if h["Movimentação"] < len(row) else None
+            if str(movement_label or "").strip() != INTEREST_LABEL:
+                continue
+
+            produto_raw = row[h["Produto"]] if h["Produto"] < len(row) else None
+            if _is_blank(produto_raw):
+                continue
+            split = _split_produto(str(produto_raw).strip())
+            if split is None:
+                continue
+            kind, code = split
+
+            flow = _to_required_str(
+                row[h["Entrada/Saída"]], column="Entrada/Saída", row_index=row_index
+            )
+            if flow != "Credito":
+                raise B3ParserError(f"row {row_index}: unexpected Entrada/Saída value {flow!r}")
+
+            payments.append(
+                B3FixedIncomeInterest(
+                    kind=kind,
+                    code=code,
+                    operation_date=_to_required_date(
+                        row[h["Data"]], column="Data", row_index=row_index
+                    ),
+                    amount=_to_required_decimal(
+                        row[h["Valor da Operação"]],
+                        column="Valor da Operação",
+                        row_index=row_index,
+                    ),
+                )
+            )
+
+        return payments
     finally:
         workbook.close()

@@ -1,7 +1,10 @@
+import type { ReactNode } from "react";
+import LinearProgress from "@mui/material/LinearProgress";
 import Box from "@mui/material/Box";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 
 import {
   CartesianGrid,
@@ -23,17 +26,17 @@ import {
 import { formatCurrency } from "../utils";
 import type { AccumulationResult, BootstrapResult } from "./fireBootstrap";
 import {
-  buildFireRetirementTimingLabel,
   buildFireScenarioRows,
   buildFireSummary,
   type FireSuccessBand,
 } from "./fireResultPresentation";
 
 type Props = {
+  comparisonColumn?: 1 | 2;
+  comparisonStacked?: boolean;
   patrimony: number;
   currentPatrimony: number;
   monthlyExpenses: number;
-  monthlySavings: number;
   annualExpenses: number;
   withdrawalRate: number;
   targetYears: number;
@@ -41,11 +44,12 @@ type Props = {
   fireTarget: number;
   fireProgress: number;
   retirementProgress: number;
-  allocationLabel: string;
   bootstrap: BootstrapResult;
   rateBootstrap: BootstrapResult;
   accumulation: AccumulationResult;
   currentAge: number | null;
+  yearsToRetirement?: number | null;
+  trialCount?: number;
   showOtimista: boolean;
   showMediana: boolean;
   showPessimista: boolean;
@@ -125,8 +129,7 @@ const DrawdownTooltipContent = ({
       )}
       {showMediana && (
         <p style={{ color: getColor(Colors.brand200) }}>
-          Mediana (p50): {fmtBal(data.balanceP50)} ·{" "}
-          {fmtWd(data.withdrawalP50)}
+          Mediana (p50): {fmtBal(data.balanceP50)} · {fmtWd(data.withdrawalP50)}
         </p>
       )}
       {showOtimista && (
@@ -143,51 +146,69 @@ const MetricBlock = ({
   label,
   value,
   sub,
+  children,
   tone = "good",
   hideValues = false,
+  position,
 }: {
+  position?: { gridColumn: number; gridRow: number };
   label: string;
   value: string;
-  sub?: string;
+  sub?: ReactNode;
+  children?: ReactNode;
   tone?: FireSuccessBand;
   hideValues?: boolean;
 }) => (
   <Stack
     gap={0.5}
     sx={{
-      minWidth: 160,
-      flex: "1 1 160px",
+      ...position,
+      minWidth: 0,
       border: "1px solid",
       borderColor: getColor(Colors.neutral600),
       borderRadius: 1,
       px: 1.5,
-      py: 1.25,
+      py: 1,
       backgroundColor: getColor(Colors.neutral900),
     }}
   >
-    <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+    <Text
+      size={FontSizes.EXTRA_SMALL}
+      color={Colors.neutral400}
+      extraStyle={{ lineHeight: 1.4 }}
+    >
       {label}
     </Text>
     <Text
-      size={FontSizes.SEMI_REGULAR}
+      size={FontSizes.SMALL}
       weight={FontWeights.SEMI_BOLD}
-      extraStyle={{ color: toneColor(tone), lineHeight: 1.2 }}
+      extraStyle={{
+        color: toneColor(tone),
+        lineHeight: 1.2,
+        whiteSpace: "nowrap",
+      }}
     >
       {valueOrHidden(hideValues, value)}
     </Text>
     {sub && (
-      <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+      <Text
+        size={FontSizes.EXTRA_SMALL}
+        color={Colors.neutral400}
+        extraStyle={{ lineHeight: 1.4 }}
+      >
         {sub}
       </Text>
     )}
+    {children}
   </Stack>
 );
 
 const FireSimulationResults = ({
+  comparisonColumn,
+  comparisonStacked = false,
   patrimony,
   currentPatrimony,
   monthlyExpenses,
-  monthlySavings,
   annualExpenses,
   withdrawalRate,
   targetYears,
@@ -195,11 +216,12 @@ const FireSimulationResults = ({
   fireTarget,
   fireProgress,
   retirementProgress,
-  allocationLabel,
   bootstrap,
   rateBootstrap,
   accumulation,
   currentAge,
+  yearsToRetirement,
+  trialCount = 2000,
   showOtimista,
   showMediana,
   showPessimista,
@@ -213,16 +235,20 @@ const FireSimulationResults = ({
     safeWithdrawalRate: safeRate,
     successRate: bootstrap.successRate,
     targetYears,
-    trialCount: 2000,
+    trialCount,
   });
   const scenarioRows = buildFireScenarioRows(bootstrap.bands).filter((row) => {
     if (row.key === "p10") return showPessimista;
     if (row.key === "p50") return showMediana;
     return showOtimista;
   });
+  const retirementDelay =
+    yearsToRetirement === undefined
+      ? accumulation.medianYearsToTarget
+      : yearsToRetirement;
   const retirementAge =
-    currentAge !== null && accumulation.medianYearsToTarget !== null
-      ? currentAge + accumulation.medianYearsToTarget
+    currentAge !== null && retirementDelay !== null
+      ? currentAge + retirementDelay
       : null;
   const retirementChartData = bootstrap.bands.map((b, i) => {
     const wb = i === 0 ? null : bootstrap.withdrawalBands[i - 1];
@@ -243,33 +269,21 @@ const FireSimulationResults = ({
     summary.monthlyGap >= 0
       ? `Sobra ${formatCurrency(monthlyGapAbs)}/mes`
       : `Falta ${formatCurrency(monthlyGapAbs)}/mes`;
-  const retirementTiming = buildFireRetirementTimingLabel({
-    fireProgress: retirementProgress,
-    medianYearsToTarget: accumulation.medianYearsToTarget,
-    p10YearsToTarget: accumulation.p10YearsToTarget,
-    p90YearsToTarget: accumulation.p90YearsToTarget,
-  });
   const onlyOneScenario =
     [showOtimista, showMediana, showPessimista].filter(Boolean).length === 1;
 
+  const position = (row: number) =>
+    comparisonColumn
+      ? {
+          gridColumn: comparisonStacked ? 1 : comparisonColumn,
+          gridRow: comparisonStacked ? (row - 1) * 2 + comparisonColumn : row,
+        }
+      : undefined;
   return (
-    <Stack
-      gap={2}
-      sx={{
-        mt: 2,
-        pt: 2,
-        borderTop: "1px solid",
-        borderColor: getColor(Colors.neutral600),
-      }}
-    >
-      <Stack gap={0.75}>
+    <Stack gap={2} sx={comparisonColumn ? { display: "contents" } : undefined}>
+      <Stack gap={0.75} sx={position(1)}>
         <Text size={FontSizes.SMALL} weight={FontWeights.SEMI_BOLD}>
-          Resultado da simulacao
-        </Text>
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          A leitura abaixo usa seus dados atuais e os mesmos retornos historicos
-          da simulacao. Ela responde primeiro se o plano sustenta seus gastos,
-          depois mostra o que acontece com o patrimonio nos cenarios centrais.
+          Resultado da simulação
         </Text>
       </Stack>
 
@@ -284,6 +298,7 @@ const FireSimulationResults = ({
           px: 2,
           backgroundColor: getColor(Colors.neutral900),
           textAlign: "center",
+          ...position(2),
         }}
       >
         <Text
@@ -305,91 +320,133 @@ const FireSimulationResults = ({
           por {targetYears} anos se a aposentadoria comecasse hoje:{" "}
           {summary.failedLabel}.
         </Text>
+      </Stack>
+
+      <Stack
+        gap={1.25}
+        sx={comparisonColumn ? { display: "contents" } : undefined}
+      >
         <Box
           sx={{
-            width: "100%",
-            maxWidth: 520,
-            height: 12,
-            borderRadius: 1,
-            overflow: "hidden",
-            backgroundColor: getColor(Colors.neutral600),
+            display: comparisonColumn ? "contents" : "grid",
+            gap: 1.25,
+            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
           }}
         >
-          <Box
-            sx={{
-              height: "100%",
-              width: `${Math.min(bootstrap.successRate * 100, 100)}%`,
-              backgroundColor: toneColor(summary.band),
-            }}
+          <MetricBlock
+            position={position(3)}
+            label="Patrimonio atual"
+            value={formatCurrency(currentPatrimony)}
+            hideValues={hideValues}
+          >
+            <Tooltip
+              arrow
+              describeChild
+              title={`Mostra quanto da meta FIRE já é coberto pelo seu patrimônio atual. O cálculo usa o patrimônio da carteira e a meta calculada para este cenário: ${valueOrHidden(hideValues, formatCurrency(fireTarget))}.`}
+            >
+              <Box tabIndex={0} sx={{ position: "relative", mt: 0.5 }}>
+                <LinearProgress
+                  variant="determinate"
+                  value={Math.min(100, Math.max(0, retirementProgress))}
+                  aria-label="Progresso do patrimônio atual até a meta FIRE"
+                  aria-valuetext={`${retirementProgress.toFixed(0)}% da meta FIRE`}
+                  sx={{
+                    height: 14,
+                    borderRadius: "4px",
+                    backgroundColor: getColor(Colors.neutral600),
+                    "& .MuiLinearProgress-bar": {
+                      backgroundColor: getColor(
+                        retirementProgress >= 100
+                          ? Colors.brand
+                          : Colors.danger200,
+                      ),
+                      borderRadius: "4px",
+                    },
+                  }}
+                />
+                <Text
+                  aria-hidden
+                  style={{ fontSize: 14 }}
+                  size={FontSizes.EXTRA_SMALL}
+                  weight={FontWeights.SEMI_BOLD}
+                  color={Colors.neutral0}
+                  extraStyle={{
+                    position: "absolute",
+                    top: "50%",
+                    right: 6,
+                    transform: "translateY(-50%)",
+                    lineHeight: 1,
+                    textShadow: "0 1px 2px rgba(0, 0, 0, 0.6)",
+                  }}
+                >
+                  {retirementProgress.toFixed(0)}%
+                </Text>
+              </Box>
+            </Tooltip>
+          </MetricBlock>
+          <MetricBlock
+            position={position(4)}
+            label="Meta FIRE"
+            value={formatCurrency(fireTarget)}
+            hideValues={hideValues}
+          >
+            <Text noWrap size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+              {hideValues
+                ? "***"
+                : fireProgress > 100
+                  ? `${(fireProgress - 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% acima da meta`
+                  : fireProgress === 100
+                    ? "Meta atingida"
+                    : `${(100 - fireProgress).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% abaixo da meta`}
+            </Text>
+          </MetricBlock>
+          <MetricBlock
+            position={position(5)}
+            label="Multiplo atual"
+            value={
+              summary.expenseMultiple === null
+                ? "-"
+                : `${summary.expenseMultiple.toFixed(1)}x`
+            }
+            sub="patrimonio / despesa anual"
+            hideValues={hideValues}
+          />
+        </Box>
+
+        <Box
+          sx={{
+            display: comparisonColumn ? "contents" : "grid",
+            gap: 1.25,
+            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+          }}
+        >
+          <MetricBlock
+            position={position(6)}
+            label="Gasto seguro estimado"
+            value={`${formatCurrency(summary.safeMonthlySpend)}/mes`}
+            sub={`${safeRate.toFixed(2)}% a.a. para 90% de sucesso`}
+            hideValues={hideValues}
+          />
+          <MetricBlock
+            position={position(7)}
+            label={`Retirada a ${withdrawalRate}%`}
+            value={`${formatCurrency(summary.chosenMonthlyWithdrawal)}/mes`}
+            sub={`sucesso historico da taxa: ${(rateBootstrap.successRate * 100).toFixed(0)}%`}
+            tone={rateBootstrap.successRate >= 0.85 ? "good" : "bad"}
+            hideValues={hideValues}
+          />
+          <MetricBlock
+            position={position(8)}
+            label="Folga do gasto seguro"
+            value={gapLabel}
+            tone={gapTone}
+            hideValues={hideValues}
           />
         </Box>
       </Stack>
 
-      <Stack direction="row" gap={1.25} flexWrap="wrap">
-        <MetricBlock
-          label="Patrimonio usado"
-          value={formatCurrency(patrimony)}
-          hideValues={hideValues}
-        />
-        <MetricBlock
-          label="Gasto desejado"
-          value={`${formatCurrency(monthlyExpenses)}/mes`}
-          hideValues={hideValues}
-        />
-        <MetricBlock
-          label="Aporte mensal"
-          value={`${formatCurrency(Math.max(0, monthlySavings))}/mes`}
-          sub={`com patrimonio atual: ${retirementTiming}`}
-          hideValues={hideValues}
-        />
-        <MetricBlock
-          label="Patrimonio atual"
-          value={formatCurrency(currentPatrimony)}
-          sub={`${retirementProgress.toFixed(0)}% da meta FIRE`}
-          hideValues={hideValues}
-        />
-        <MetricBlock
-          label="Horizonte"
-          value={`${targetYears} anos`}
-          sub={`${allocationLabel}`}
-        />
-        <MetricBlock
-          label="Multiplo atual"
-          value={
-            summary.expenseMultiple === null
-              ? "-"
-              : `${summary.expenseMultiple.toFixed(1)}x`
-          }
-          sub="patrimonio / despesa anual"
-          hideValues={hideValues}
-        />
-      </Stack>
-
-      <Stack direction="row" gap={1.25} flexWrap="wrap">
-        <MetricBlock
-          label="Gasto seguro estimado"
-          value={`${formatCurrency(summary.safeMonthlySpend)}/mes`}
-          sub={`${safeRate.toFixed(2)}% a.a. para 90% de sucesso`}
-          hideValues={hideValues}
-        />
-        <MetricBlock
-          label={`Retirada a ${withdrawalRate}%`}
-          value={`${formatCurrency(summary.chosenMonthlyWithdrawal)}/mes`}
-          sub={`sucesso historico da taxa: ${(rateBootstrap.successRate * 100).toFixed(0)}%`}
-          tone={rateBootstrap.successRate >= 0.85 ? "good" : "bad"}
-          hideValues={hideValues}
-        />
-        <MetricBlock
-          label="Folga vs. gasto"
-          value={gapLabel}
-          sub={`meta FIRE: ${formatCurrency(fireTarget)} (${fireProgress.toFixed(0)}%)`}
-          tone={gapTone}
-          hideValues={hideValues}
-        />
-      </Stack>
-
       {scenarioRows.length > 0 && (
-        <Stack gap={1.75}>
+        <Stack gap={1.75} sx={{ ...position(9), minWidth: 0 }}>
           <Stack
             direction="row"
             alignItems="center"
@@ -478,7 +535,9 @@ const FireSimulationResults = ({
                   <td style={{ color: toneColor(row.tone), fontWeight: 700 }}>
                     {row.label}
                   </td>
-                  <td>{valueOrHidden(hideValues, formatCurrency(row.value))}</td>
+                  <td>
+                    {valueOrHidden(hideValues, formatCurrency(row.value))}
+                  </td>
                   <td>{row.meaning}</td>
                 </tr>
               ))}
@@ -579,10 +638,13 @@ const FireSimulationResults = ({
         </Stack>
       )}
 
-      <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-        Dados mensais: IBOV/CDI/IPCA 1995-2025; IFIX 2011-2025 quando ha
-        exposicao material a FII. Resultados sao historicos/simulados, nao
-        promessa de retorno.
+      <Text
+        size={FontSizes.EXTRA_SMALL}
+        color={Colors.neutral400}
+        extraStyle={position(10)}
+      >
+        Dados mensais reais alinhados pelo período histórico resultante.
+        Resultados são históricos/simulados, não promessa de retorno.
       </Text>
     </Stack>
   );

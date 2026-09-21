@@ -83,7 +83,14 @@ const VPWDetail = () => {
     const fixed = data.find((d) => d.type === "Renda fixa BR")?.total ?? 0;
     const ifix = data.find((d) => d.type === "FII")?.total ?? 0;
     const equity = data
-      .filter((d) => ["Ação BR", "Ação EUA", "Cripto"].includes(d.type))
+      .filter((d) =>
+        [
+          "Renda variável BR",
+          "Renda variável EUA",
+          "Renda variável Global",
+          "Cripto",
+        ].includes(d.type),
+      )
       .reduce((sum, d) => sum + d.total, 0);
     return { equityTotal: equity, ifixTotal: ifix, fixedIncomeTotal: fixed };
   }, [assetsReportData]);

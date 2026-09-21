@@ -1,16 +1,12 @@
-// Shared primitives for the FIRE-strategy interactive walkthroughs
-// (`BootstrapWalkthrough` for the SWR finder, `FireTargetWalkthrough` for
-// the FIRE goal calculation). Both demos use the same fixed example
-// portfolio (70% equity / 30% fixed income, no IFIX → full 31-year IBOV/CDI
-// sample) so their numbers are directly comparable to Trinity-style
-// references. The kernel keeps the demo math in one place: simulation
-// rules can change without two files drifting apart.
-
+// Fixed educational portfolio. Sampling and search evaluation use the production
+// engine; the trace exposes monthly draws and annual balances for the charts.
+import { runBootstrap, sampleMonthKeys } from "../Home/fireBootstrap";
 import {
-  EQUITY_REAL_RETURNS,
-  FIRE_RETURNS_YEARS,
-  FIXED_INCOME_REAL_RETURNS,
-} from "../Home/fireReturns";
+  eligibleMonths,
+  returnForMonth,
+  type PortfolioSlice,
+} from "../Home/firePortfolio";
+import type { SamplingMethod } from "../Home/fireReturnTypes";
 
 export const EXAMPLE_EQUITY_WEIGHT = 0.7;
 export const EXAMPLE_FI_WEIGHT = 0.3;
@@ -19,89 +15,87 @@ export const DEFAULT_HORIZON = 30;
 export const HORIZON_MIN = 20;
 export const HORIZON_MAX = 80;
 export const TRIALS_PER_SEARCH_TEST = 1000;
+const portfolio: PortfolioSlice[] = [
+  {
+    category: "BR_EQUITY",
+    series: "IBOV",
+    weight: EXAMPLE_EQUITY_WEIGHT,
+    constrainsSample: true,
+  },
+  {
+    category: "FIXED_CDI",
+    series: "CDI",
+    weight: EXAMPLE_FI_WEIGHT,
+    constrainsSample: true,
+  },
+];
+export const EXAMPLE_MONTHS = eligibleMonths(portfolio);
+const returns = new Map(
+  EXAMPLE_MONTHS.map((month) => [
+    month,
+    portfolio.reduce(
+      (sum, slice) => sum + slice.weight * returnForMonth(slice, month),
+      0,
+    ),
+  ]),
+);
 
-// Mulberry32 PRNG — matches `fireBootstrap.ts`'s production PRNG so the
-// walkthroughs behave deterministically across reloads with the same seed.
-export const mulberry32 = (seed: number) => () => {
+const mulberry32 = (seed: number) => () => {
   let t = (seed = (seed + 0x6d2b79f5) | 0);
   t = Math.imul(t ^ (t >>> 15), t | 1);
   t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 };
 
-// One historical calendar year's blended real return at the example weights.
-// Aligned-year sampling — same calendar year used across asset classes,
-// matching `drawAlignedYearReturn` in `fireBootstrap.ts`. The example
-// portfolio has zero IFIX so the full 31-year IBOV/CDI window is available.
-export const drawYearReturn = (yearIdx: number) =>
-  EXAMPLE_EQUITY_WEIGHT * EQUITY_REAL_RETURNS[yearIdx] +
-  EXAMPLE_FI_WEIGHT * FIXED_INCOME_REAL_RETURNS[yearIdx];
-
-// Indices into FIRE_RETURNS_YEARS that one trial's `horizon` years draw,
-// given a seed. Independent draws (size-1 blocks); year-to-year
-// autocorrelation is dropped, cross-asset correlation is preserved by
-// downstream alignment.
-export const sampleTrialYears = (seed: number, horizon: number): number[] => {
-  const rng = mulberry32(seed);
-  const out: number[] = [];
-  for (let y = 0; y < horizon; y++) {
-    out.push(Math.floor(rng() * FIRE_RETURNS_YEARS.length));
-  }
-  return out;
-};
+export const sampleTrialMonths = (
+  seed: number,
+  horizon: number,
+  method: SamplingMethod,
+) =>
+  sampleMonthKeys({
+    eligible: EXAMPLE_MONTHS,
+    method,
+    count: horizon * 12,
+    rng: mulberry32(seed),
+  });
 
 export type TrialResult = {
-  balances: number[]; // length horizon + 1
-  yearIndices: number[]; // length horizon
+  balances: number[];
+  months: string[];
+  yearReturns: number[];
   busted: boolean;
 };
-
-// Simulate one retiree withdrawing `rate × STARTING_BALANCE` per year for
-// `horizon` years. End-of-year withdrawal (Trinity convention) — grow the
-// balance, then withdraw, then check for depletion.
 export const simulateTrial = (
   rate: number,
   seed: number,
   horizon: number,
+  method: SamplingMethod = "independent_months",
 ): TrialResult => {
-  const yearIndices = sampleTrialYears(seed, horizon);
-  const annualWithdrawal = STARTING_BALANCE * rate;
-  const balances: number[] = [STARTING_BALANCE];
+  const months = sampleTrialMonths(seed, horizon, method);
+  const balances = [STARTING_BALANCE];
+  const yearReturns: number[] = [];
+  const monthlyWithdrawal = (STARTING_BALANCE * rate) / 12;
   let balance = STARTING_BALANCE;
+  let compounded = 1;
   let busted = false;
-  for (const idx of yearIndices) {
-    if (balance <= 0) {
-      balances.push(0);
-      continue;
+  months.forEach((month, index) => {
+    const monthlyReturn = returns.get(month)!;
+    compounded *= 1 + monthlyReturn;
+    if (balance > 0) {
+      const grown = balance * (1 + monthlyReturn);
+      balance = grown - Math.min(monthlyWithdrawal, Math.max(0, grown));
+      if (balance <= 0) {
+        balance = 0;
+        busted = true;
+      }
     }
-    const grown = balance * (1 + drawYearReturn(idx));
-    const withdrawal = Math.min(annualWithdrawal, Math.max(0, grown));
-    balance = grown - withdrawal;
-    if (balance <= 0) {
-      busted = true;
-      balance = 0;
+    if ((index + 1) % 12 === 0) {
+      balances.push(balance);
+      yearReturns.push(compounded - 1);
+      compounded = 1;
     }
-    balances.push(balance);
-  }
-  return { balances, yearIndices, busted };
-};
-
-// Fraction of `TRIALS_PER_SEARCH_TEST` simulated retirees who survive `horizon`
-// years at `rate`. Same cohort across rate tests — `seedBase` reseeds
-// `mulberry32` from the same constant, so iteration `i` of the binary search
-// always sees the same dice rolls. Mirrors production's
-// `findSafeWithdrawalRate`.
-export const simulateSuccessRate = (
-  rate: number,
-  seedBase: number,
-  horizon: number,
-): number => {
-  let survivors = 0;
-  for (let i = 0; i < TRIALS_PER_SEARCH_TEST; i++) {
-    const t = simulateTrial(rate, seedBase + i, horizon);
-    if (!t.busted) survivors++;
-  }
-  return survivors / TRIALS_PER_SEARCH_TEST;
+  });
+  return { balances, months, yearReturns, busted };
 };
 
 export type SearchIteration = {
@@ -112,39 +106,27 @@ export type SearchIteration = {
   successRate: number;
   passes: boolean;
 };
-
-// Binary-search the highest withdrawal rate that clears 90% success.
-// Returns the full per-iteration history (used by the SWR animation step
-// in BootstrapWalkthrough) plus the converged final rate (used by the
-// FIRE-target walkthrough's horizon-stretch math).
 export const runBinarySearch = (
-  seedBase: number,
   horizon: number,
+  method: SamplingMethod = "independent_months",
 ): SearchIteration[] => {
   const iterations: SearchIteration[] = [];
   let lo = 0.005;
   let hi = 0.1;
-  const TARGET = 0.9;
-  for (let i = 0; i < 20; i++) {
+  for (let iter = 0; iter < 20; iter++) {
     const mid = (lo + hi) / 2;
-    const successRate = simulateSuccessRate(mid, seedBase, horizon);
-    const passes = successRate >= TARGET;
-    iterations.push({ iter: i, lo, hi, mid, successRate, passes });
+    const { successRate } = runBootstrap(
+      STARTING_BALANCE,
+      STARTING_BALANCE * mid,
+      horizon,
+      portfolio,
+      method,
+      TRIALS_PER_SEARCH_TEST,
+    );
+    const passes = successRate >= 0.9;
+    iterations.push({ iter, lo, hi, mid, successRate, passes });
     if (passes) lo = mid;
     else hi = mid;
   }
   return iterations;
-};
-
-// Convenience: run the search and return only the converged rate, mirroring
-// production's `findSafeWithdrawalRate` which discards the iteration history.
-// Used by the FIRE-target walkthrough's Step 2 to compute the horizon stretch
-// (SWR(30) ÷ SWR(chosen horizon)).
-export const findExampleSafeRate = (
-  seedBase: number,
-  horizon: number,
-): number => {
-  const iters = runBinarySearch(seedBase, horizon);
-  const last = iters[iters.length - 1];
-  return last.passes ? last.mid : last.lo;
 };

@@ -61,7 +61,7 @@ def fetch_asset_current_price(code: str, asset_type: AssetTypes, currency: Curre
     kwargs = {"codes": (code,)}
     if asset_type in (AssetTypes.stock, AssetTypes.fii):
         coro = get_b3_prices
-    elif asset_type == AssetTypes.stock_usa:
+    elif asset_type in (AssetTypes.stock_usa, AssetTypes.equity_global):
         coro = get_stocks_usa_prices
     elif asset_type == AssetTypes.crypto:
         coro = get_crypto_prices
@@ -102,7 +102,7 @@ def fetch_asset_close_price(
     kwargs = {"codes": (code,), "operation_date": operation_date}
     if asset_type in (AssetTypes.stock, AssetTypes.fii):
         coro = get_b3_close_prices
-    elif asset_type == AssetTypes.stock_usa:
+    elif asset_type in (AssetTypes.stock_usa, AssetTypes.equity_global):
         coro = get_stocks_usa_close_prices
     elif asset_type == AssetTypes.crypto:
         coro = get_crypto_close_prices

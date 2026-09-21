@@ -3,12 +3,7 @@ import type { ReactNode } from "react";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 
-import {
-  Colors,
-  FontSizes,
-  FontWeights,
-  Text,
-} from "../../../design-system";
+import { Colors, FontSizes, FontWeights, Text } from "../../../design-system";
 import type { ProConItem } from "./strategyContent";
 
 type StrategyChromeProps = {
@@ -25,26 +20,28 @@ const StrategyChrome = ({
   cons,
 }: StrategyChromeProps) => (
   <>
-    <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
-      <Stack gap={2}>
-        <Text weight={FontWeights.SEMI_BOLD} size={FontSizes.MEDIUM}>
-          Entenda a estratégia
-        </Text>
-        <Text size={FontSizes.SMALL} color={Colors.neutral400}>
-          {rationale}
-        </Text>
-        {extraRationale.map((text, i) => (
-          <Text
-            key={`extra-${i}`}
-            size={FontSizes.SMALL}
-            color={Colors.neutral400}
-            style={{ fontStyle: "italic" }}
-          >
-            {text}
+    {(rationale != null || extraRationale.length > 0) && (
+      <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
+        <Stack gap={2}>
+          <Text weight={FontWeights.SEMI_BOLD} size={FontSizes.MEDIUM}>
+            Entenda a estratégia
           </Text>
-        ))}
-      </Stack>
-    </Paper>
+          <Text size={FontSizes.SMALL} color={Colors.neutral400}>
+            {rationale}
+          </Text>
+          {extraRationale.map((text, i) => (
+            <Text
+              key={`extra-${i}`}
+              size={FontSizes.SMALL}
+              color={Colors.neutral400}
+              style={{ fontStyle: "italic" }}
+            >
+              {text}
+            </Text>
+          ))}
+        </Stack>
+      </Paper>
+    )}
 
     <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
       <Stack direction="row" gap={4}>

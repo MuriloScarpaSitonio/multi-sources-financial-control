@@ -1,9 +1,57 @@
+from datetime import date
+from decimal import Decimal
+
 import pytest
 
-from ...models import AssetReadModel
+from ...choices import AssetTypes, Currencies, LiquidityTypes
+from ...models import Asset, AssetMetaData, AssetReadModel
 from ...service_layer.tasks import upsert_asset_read_model
 
 pytestmark = pytest.mark.django_db
+
+
+def test__fixed_income_indexer_reaches_read_model(user):
+    # Omitting indexer from CQRS synchronization must make this fail.
+    asset = Asset.objects.create(
+        user=user,
+        code="CDB-TEST",
+        type=AssetTypes.fixed_br,
+        currency=Currencies.real,
+        indexer="IPCA",
+        maturity_date=date(2035, 5, 15),
+    )
+    AssetMetaData.objects.create(
+        code=asset.code,
+        type=asset.type,
+        currency=asset.currency,
+        current_price=Decimal("1"),
+    )
+
+    upsert_asset_read_model(asset.id)
+
+    assert AssetReadModel.objects.get(write_model_pk=asset.id).indexer == "IPCA"
+
+
+def test__to_domain_preserves_fixed_income_facts(user):
+    # Dropping any canonical fixed-income fact in to_domain() must make this fail.
+    maturity = date(2035, 5, 15)
+    asset = Asset.objects.create(
+        user=user,
+        code="CDB-DOMAIN",
+        type=AssetTypes.fixed_br,
+        currency=Currencies.real,
+        liquidity_type=LiquidityTypes.at_maturity,
+        maturity_date=maturity,
+        indexer="PREFIXED",
+    )
+
+    domain = asset.to_domain()
+
+    assert (domain.liquidity_type, domain.maturity_date, domain.indexer) == (
+        LiquidityTypes.at_maturity,
+        maturity,
+        "PREFIXED",
+    )
 
 
 @pytest.mark.usefixtures(

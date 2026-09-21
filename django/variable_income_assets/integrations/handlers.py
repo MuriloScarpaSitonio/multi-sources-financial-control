@@ -23,6 +23,7 @@ async def _fetch_prices(
     crypto_brl_codes: list[str] = []
     crypto_usd_codes: list[str] = []
     usa_stocks_codes: list[str] = []
+    global_equity_codes: list[str] = []
     assets_map: dict[str, AssetMetaData] = {}
     async for asset in qs:
         assets_map["-".join((asset.code, asset.type, asset.currency))] = asset
@@ -32,6 +33,8 @@ async def _fetch_prices(
             fii_codes.append(asset.code)
         elif asset.type == AssetTypes.stock_usa:
             usa_stocks_codes.append(asset.code)
+        elif asset.type == AssetTypes.equity_global:
+            global_equity_codes.append(asset.code)
         elif asset.type == AssetTypes.crypto:
             if asset.currency == Currencies.real:
                 crypto_brl_codes.append(asset.code)
@@ -43,6 +46,7 @@ async def _fetch_prices(
         get_crypto_prices(codes=crypto_usd_codes, currency=Currencies.dollar),
         get_crypto_prices(codes=crypto_brl_codes, currency=Currencies.real),
         get_stocks_usa_prices(codes=usa_stocks_codes),
+        get_stocks_usa_prices(codes=global_equity_codes),
     ]
     task_metadata = [
         {"type": AssetTypes.stock, "currency": Currencies.real},
@@ -50,6 +54,7 @@ async def _fetch_prices(
         {"type": AssetTypes.crypto, "currency": Currencies.dollar},
         {"type": AssetTypes.crypto, "currency": Currencies.real},
         {"type": AssetTypes.stock_usa, "currency": Currencies.dollar},
+        {"type": AssetTypes.equity_global, "currency": Currencies.dollar},
     ]
     prices = []
 

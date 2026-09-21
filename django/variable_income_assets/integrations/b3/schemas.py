@@ -66,6 +66,16 @@ class B3FixedIncomeMovement(BaseModel):
     operation_date: date
     quantity: Decimal
     unit_price: Decimal
+    is_maturity: bool = False
+
+    model_config = ConfigDict(frozen=True)
+
+
+class B3FixedIncomeInterest(BaseModel):
+    kind: B3FixedIncomeKind
+    code: str
+    operation_date: date
+    amount: Decimal
 
     model_config = ConfigDict(frozen=True)
 
@@ -84,9 +94,7 @@ class B3TesouroPosition(BaseModel):
     def current_price(self) -> Decimal | None:
         if self.current_value is None or self.quantity == 0:
             return None
-        return (self.current_value / self.quantity).quantize(
-            _PRICE_QUANTUM, rounding=ROUND_HALF_UP
-        )
+        return (self.current_value / self.quantity).quantize(_PRICE_QUANTUM, rounding=ROUND_HALF_UP)
 
 
 class B3TesouroMovement(BaseModel):

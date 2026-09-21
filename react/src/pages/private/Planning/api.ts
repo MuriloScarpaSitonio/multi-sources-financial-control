@@ -1,6 +1,19 @@
 import { apiProvider } from "../../../api/methods";
+import type {
+  CryptoProxy,
+  FireReturnSeriesKey,
+  GlobalEquityProxy,
+  ReturnCategory,
+  SamplingMethod,
+  UsEquityProxy,
+} from "../Home/fireReturnTypes";
 
-export type WithdrawalMethodKey = "fire" | "dividends_only" | "constant_withdrawal" | "one_over_n" | "vpw";
+export type WithdrawalMethodKey =
+  | "fire"
+  | "dividends_only"
+  | "constant_withdrawal"
+  | "one_over_n"
+  | "vpw";
 export type ActiveMethodKey = "fire" | "dividends_only" | "one_over_n" | "vpw";
 
 export type PlanningPreferences = {
@@ -14,17 +27,33 @@ export type PlanningPreferences = {
 };
 
 export type FirePlanningPreferences = {
+  simulated_patrimony?: number | null;
   withdrawal_rate?: number;
   target_years?: number;
+  extra_accumulation_years?: number;
   monthly_expenses_override?: number | null;
-  exclude_ifix_from_sim?: boolean;
+  sampling_method?: SamplingMethod;
+  us_equity_proxy?: UsEquityProxy;
+  global_equity_proxy?: GlobalEquityProxy;
+  crypto_proxy?: CryptoProxy;
+  excluded_return_categories?: ReturnCategory[];
+  historical_series_overrides?: Record<string, FireReturnSeriesKey>;
+  historical_series_fallbacks?: Record<string, FireReturnSeriesKey>;
 };
 
 export const DEFAULT_FIRE_PREFERENCES = {
+  simulated_patrimony: null,
   withdrawal_rate: 4,
   target_years: 30,
+  extra_accumulation_years: 0,
   monthly_expenses_override: null,
-  exclude_ifix_from_sim: false,
+  sampling_method: "independent_months",
+  us_equity_proxy: "SPY",
+  global_equity_proxy: "VT",
+  crypto_proxy: "BTC",
+  excluded_return_categories: [],
+  historical_series_overrides: {},
+  historical_series_fallbacks: {},
 } satisfies Required<FirePlanningPreferences>;
 
 export const getFirePlanningPreferences = (

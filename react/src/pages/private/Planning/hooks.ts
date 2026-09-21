@@ -1,10 +1,10 @@
+import { enqueueSnackbar } from "notistack";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   getPlanningPreferences,
   updatePlanningPreferences,
   type ActiveMethodKey,
-  type WithdrawalMethodKey,
 } from "./api";
 
 const QUERY_KEY = "planning-preferences";
@@ -15,7 +15,12 @@ export const usePlanningPreferences = () =>
     queryFn: getPlanningPreferences,
   });
 
-const VALID_METHODS: ActiveMethodKey[] = ["fire", "dividends_only", "one_over_n", "vpw"];
+const VALID_METHODS: ActiveMethodKey[] = [
+  "fire",
+  "dividends_only",
+  "one_over_n",
+  "vpw",
+];
 
 export const useSelectedMethod = (): {
   selectedMethod: ActiveMethodKey;
@@ -23,9 +28,10 @@ export const useSelectedMethod = (): {
 } => {
   const { data, isPending } = usePlanningPreferences();
   const saved = data?.preferences.selected_method;
-  const selectedMethod = saved && VALID_METHODS.includes(saved as ActiveMethodKey)
-    ? (saved as ActiveMethodKey)
-    : "fire";
+  const selectedMethod =
+    saved && VALID_METHODS.includes(saved as ActiveMethodKey)
+      ? (saved as ActiveMethodKey)
+      : "fire";
   return { selectedMethod, isLoading: isPending };
 };
 
@@ -33,7 +39,14 @@ export const useUpdatePlanningPreferences = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: updatePlanningPreferences,
+    onError: () => {
+      enqueueSnackbar(
+        "Não foi possível salvar as alterações. Tente novamente.",
+        { variant: "error" },
+      );
+    },
     onSuccess: () => {
+      enqueueSnackbar("Alterações salvas.", { variant: "success" });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
     },
   });

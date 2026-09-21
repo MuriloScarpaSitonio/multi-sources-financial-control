@@ -37,7 +37,8 @@ grep -v '\\restrict\|\\unrestrict' "$DUMP_FILE" | \
 PGPASSWORD="${POSTGRES_PASSWORD:-postgres}" psql \
     -h "${POSTGRES_HOST:-postgres}" \
     -U "${POSTGRES_USER:-postgres}" \
-    -d "${POSTGRES_DB:-test_db}"
+    -d "${POSTGRES_DB:-test_db}" \
+    -v ON_ERROR_STOP=1
 
 echo ""
 echo "Step 4: Verifying..."

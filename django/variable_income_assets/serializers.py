@@ -274,6 +274,9 @@ class AssetSerializer(MinimalAssetSerializer):
     liquidity_type = CustomChoiceField(
         choices=choices.LiquidityTypes.choices, required=False, allow_null=True
     )
+    indexer = CustomChoiceField(
+        choices=choices.FixedIncomeIndexers.choices, required=False, allow_null=True
+    )
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     code = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
 
@@ -293,6 +296,7 @@ class AssetSerializer(MinimalAssetSerializer):
             "is_held_in_self_custody",
             "liquidity_type",
             "maturity_date",
+            "indexer",
         )
         extra_kwargs = {"description": {"default": ""}}
 
@@ -324,11 +328,34 @@ class AssetSerializer(MinimalAssetSerializer):
                 )
 
         # Validate liquidity fields for FIXED_BR assets
-        asset_type = attrs.get("type", getattr(self.instance, "type", None))
-        liquidity_type = attrs.get("liquidity_type")
-        maturity_date = attrs.get("maturity_date")
+        if self.instance is None:
+            asset_type = attrs.get("type")
+            liquidity_type = attrs.get("liquidity_type")
+            maturity_date = attrs.get("maturity_date")
+            indexer = attrs.get("indexer")
+        else:
+            asset_type = attrs.get("type", self.instance.type)
+            liquidity_type = attrs.get("liquidity_type", self.instance.liquidity_type)
+            maturity_date = attrs.get("maturity_date", self.instance.maturity_date)
+            indexer = attrs.get("indexer", self.instance.indexer)
 
         if asset_type == choices.AssetTypes.fixed_br:
+            if not indexer:
+                raise serializers.ValidationError(
+                    {"indexer": "Este campo é obrigatório para ativos de renda fixa."}
+                )
+            if (
+                indexer
+                in (choices.FixedIncomeIndexers.ipca, choices.FixedIncomeIndexers.prefixed)
+                and maturity_date is None
+            ):
+                raise serializers.ValidationError(
+                    {
+                        "maturity_date": (
+                            "Este campo é obrigatório para ativos IPCA e prefixados."
+                        )
+                    }
+                )
             # For new FIXED_BR assets, liquidity_type is required
             if self.instance is None and not liquidity_type:
                 raise serializers.ValidationError(
@@ -356,6 +383,7 @@ class AssetSerializer(MinimalAssetSerializer):
             # Clear liquidity fields for non-FIXED_BR assets
             attrs["liquidity_type"] = ""
             attrs["maturity_date"] = None
+            attrs["indexer"] = ""
 
         return super().validate(attrs)
 
@@ -440,6 +468,12 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
     liquidity_type = CustomChoiceField(
         read_only=True, choices=choices.LiquidityTypes.choices, default="", allow_blank=True
     )
+    indexer = CustomChoiceField(
+        read_only=True,
+        choices=choices.FixedIncomeIndexers.choices,
+        default="",
+        allow_blank=True,
+    )
     normalized_total_invested = serializers.DecimalField(decimal_places=4, max_digits=20)
     normalized_roi = serializers.DecimalField(decimal_places=4, max_digits=20)
     roi_percentage = serializers.DecimalField(decimal_places=3, max_digits=20)
@@ -472,6 +506,7 @@ class AssetReadModelSerializer(serializers.ModelSerializer):
             "is_held_in_self_custody",
             "liquidity_type",
             "maturity_date",
+            "indexer",
         )
 
     def get_percentage_invested(self, obj: AssetReadModel) -> Decimal:
@@ -746,3 +781,22 @@ class B3ImportResultSerializer(serializers.Serializer):
     # reports maps each requested operation -> that handler's report dict
     # (heterogeneous, already JSON-serializable); passed through as-is.
     reports = serializers.DictField()
+
+
+class FireAllocationAssetSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    code = serializers.CharField()
+    description = serializers.CharField(allow_blank=True)
+    total = serializers.DecimalField(max_digits=20, decimal_places=2)
+
+
+class FireAllocationBucketSerializer(serializers.Serializer):
+    assets = FireAllocationAssetSerializer(many=True)
+    category = serializers.CharField()
+    series = serializers.CharField(allow_null=True)
+    total = serializers.DecimalField(max_digits=20, decimal_places=2)
+
+
+class FireAllocationResponseSerializer(serializers.Serializer):
+    as_of = serializers.DateField()
+    buckets = FireAllocationBucketSerializer(many=True)
