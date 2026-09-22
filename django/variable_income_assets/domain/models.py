@@ -204,7 +204,10 @@ class Asset:
                     # então devemos encerrar a operação
                     self.events.append(AssetOperationClosed(asset_pk=self.id))
             else:
-                if transaction.quantity != dto.quantity and dto.quantity > self.quantity_balance:
+                if (
+                    transaction.quantity != dto.quantity
+                    and dto.quantity > self.quantity_balance + transaction.quantity
+                ):
                     raise NegativeQuantityNotAllowedException
 
                 if transaction.action != dto.action and (

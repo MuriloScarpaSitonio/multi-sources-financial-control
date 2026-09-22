@@ -209,7 +209,7 @@ def test__create__sell_transaction_and_no_transactions(client, stock_asset):
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"action": "Você não pode vender mais ativos que possui"}
+    assert response.json() == {"quantity": "Você não pode vender mais ativos que possui"}
     assert not Transaction.objects.exists()
 
 
@@ -228,7 +228,7 @@ def test__create__sell__first_transaction(client, stock_asset):
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"action": "Você não pode vender mais ativos que possui"}
+    assert response.json() == {"quantity": "Você não pode vender mais ativos que possui"}
     assert not Transaction.objects.exists()
 
 
@@ -248,7 +248,7 @@ def test__create__sell__first_transaction__asset_held_in_self_custody(
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"action": "Você não pode vender mais ativos que possui"}
+    assert response.json() == {"quantity": "Você não pode vender mais ativos que possui"}
     assert not Transaction.objects.exists()
 
 
@@ -525,7 +525,7 @@ def test__update__should_raise_error_if_sell_transaction_and_no_transactions(
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"action": "Você não pode vender mais ativos que possui"}
+    assert response.json() == {"quantity": "Você não pode vender mais ativos que possui"}
 
     assert Transaction.objects.filter(action=TransactionActions.buy).count() == 1
     assert not Transaction.objects.filter(action=TransactionActions.sell).exists()
@@ -546,7 +546,33 @@ def test__update__sell__should_raise_error_if_negative_quantity(client, sell_tra
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"action": "Você não pode vender mais ativos que possui"}
+    assert response.json() == {"quantity": "Você não pode vender mais ativos que possui"}
+
+
+@pytest.mark.usefixtures("buy_transaction")
+def test__update__sell__should_allow_increasing_quantity_up_to_balance(
+    client, stock_asset, mocker
+):
+    # GIVEN
+    # buy 50 (fixture) + sell 10 -> balance 40
+    sell_transaction = TransactionFactory(
+        action=TransactionActions.sell, price=20, asset=stock_asset, quantity=10
+    )
+    mocker.patch("variable_income_assets.service_layer.handlers.upsert_asset_read_model")
+    data = {
+        "action": sell_transaction.action,
+        "price": sell_transaction.price,
+        "quantity": 50,  # sell everything: valid, would leave balance at 0
+        "operation_date": sell_transaction.operation_date.strftime("%d/%m/%Y"),
+    }
+
+    # WHEN
+    response = client.put(f"{URL}/{sell_transaction.pk}", data=data)
+
+    # THEN
+    assert response.status_code == HTTP_200_OK, response.json()
+    sell_transaction.refresh_from_db()
+    assert sell_transaction.quantity == 50
 
 
 def test__update__asset_held_in_self_custody(
@@ -972,7 +998,7 @@ def test__delete__error__negative_qty(client, buy_transaction, mocker):
     assert mocked_task.call_count == 0
 
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"action": "Você não pode vender mais ativos que possui"}
+    assert response.json() == {"quantity": "Você não pode vender mais ativos que possui"}
     assert Transaction.objects.count() == 2
 
 
@@ -1061,7 +1087,7 @@ def test__delete__asset_held_in_self_custody__negative_qty(
 
     # THEN
     assert response.status_code == HTTP_400_BAD_REQUEST
-    assert response.json() == {"action": "Você não pode vender mais ativos que possui"}
+    assert response.json() == {"quantity": "Você não pode vender mais ativos que possui"}
 
 
 def test__list__sanity_check(client, buy_transaction):

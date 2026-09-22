@@ -31,7 +31,7 @@ class NegativeQuantityNotAllowedException(ValidationError):
     default_message = "Você não pode vender mais ativos que possui"
 
     def __init__(self) -> None:
-        super().__init__(field="action")
+        super().__init__(field="quantity")
 
 
 class CurrencyConversionRateNullOrOneForNonBrlAssets(ValidationError):
