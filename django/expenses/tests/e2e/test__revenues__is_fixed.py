@@ -26,7 +26,42 @@ URL = f"/{BASE_API_URL}" + "revenues"
 
 
 @pytest.mark.parametrize("perform", (True, False))
-def test__create(client, bank_account, perform):
+@pytest.mark.parametrize("revenue_index", (2, 3))
+def test__update__is_fixed__category(
+    client, fixed_revenues, bank_account, default_revenue_categories, perform, revenue_index
+):
+    revenue = fixed_revenues[revenue_index]
+    original_category, new_category = default_revenue_categories[:2]
+    Revenue.objects.filter(recurring_id=revenue.recurring_id).update(
+        category=original_category.name, expanded_category=original_category
+    )
+
+    response = client.put(
+        f"{URL}/{revenue.pk}?perform_actions_on_future_fixed_entities={perform}",
+        data={
+            "value": revenue.value,
+            "description": revenue.description,
+            "created_at": revenue.created_at.strftime("%d/%m/%Y"),
+            "is_fixed": True,
+            "category": new_category.name,
+            "bank_account_description": bank_account.description,
+        },
+    )
+
+    assert response.status_code == HTTP_200_OK
+    for index, entry in enumerate(fixed_revenues):
+        entry.refresh_from_db()
+        expected_category = (
+            new_category
+            if index == revenue_index or (perform and index > revenue_index)
+            else original_category
+        )
+        assert entry.category == expected_category.name
+        assert entry.expanded_category_id == expected_category.pk
+
+
+@pytest.mark.parametrize("perform", (True, False))
+def test__create(client, bank_account, default_revenue_categories_map, perform):
     # GIVEN
     data = {
         "value": 1200,
@@ -48,7 +83,12 @@ def test__create(client, bank_account, perform):
     assert previous_bank_account_amount == bank_account.amount
 
     assert Revenue.objects.filter(
-        recurring_id__isnull=False, value=1200, description="Test", is_fixed=True
+        recurring_id__isnull=False,
+        value=1200,
+        description="Test",
+        is_fixed=True,
+        category="Outros",
+        expanded_category_id=default_revenue_categories_map["Outros"],
     ).count() == (12 if perform else 1)
     assert Revenue.objects.only("created_at").latest("created_at").created_at == date(
         year=2021, month=(12 if perform else 1), day=1
