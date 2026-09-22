@@ -903,6 +903,20 @@ def test__minimal_data_endpoint(client, filters):
     assert response.json() == list(qs.values("code", "currency", "pk").order_by("code"))
 
 
+@pytest.mark.usefixtures("buy_transaction", "stock_asset_metadata", "sync_assets_read_model")
+def test__minimal_data_endpoint__includes_quantity_balance(client, stock_asset):
+    # GIVEN
+    read_model = AssetReadModel.objects.get(write_model_pk=stock_asset.pk)
+
+    # WHEN
+    response = client.get(f"{URL}/minimal_data")
+
+    # THEN
+    assert response.status_code == HTTP_200_OK
+    assert response.json()[0]["pk"] == stock_asset.pk
+    assert Decimal(response.json()[0]["quantity_balance"]) == read_model.quantity_balance == 50
+
+
 def test__minimal_data_endpoint__includes_asset_type(client, fixed_asset_held_in_self_custody):
     response = client.get(f"{URL}/minimal_data")
 

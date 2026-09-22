@@ -1,6 +1,7 @@
 import { type Dispatch, type SetStateAction, useMemo } from "react";
 
 import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
+import Button from "@mui/material/Button";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
@@ -67,6 +68,7 @@ export const AssetCodeAutoComplete = ({
         currency: asset.currency,
         type: asset.type,
         is_held_in_self_custody: asset.is_held_in_self_custody,
+        quantity_balance: asset.quantity_balance,
       })) ?? [],
     [assets],
   );
@@ -101,6 +103,7 @@ export const AssetCodeAutoComplete = ({
                     currency,
                     type,
                     is_held_in_self_custody,
+                    quantity_balance,
                     inputValue,
                   } = asset;
                   setNewCode(inputValue);
@@ -110,6 +113,7 @@ export const AssetCodeAutoComplete = ({
                     currency,
                     type,
                     is_held_in_self_custody,
+                    quantity_balance,
                   });
                 }}
                 filterOptions={
@@ -304,9 +308,11 @@ export const TransactionQuantity = ({
   getFieldHasError,
   getErrorMessage,
   isHeldInSelfCustody = false,
+  onSellAll,
 }: ReactHookFormsInputCustomProps & {
   required?: boolean;
   isHeldInSelfCustody?: boolean;
+  onSellAll?: () => void;
 }) => (
   <Controller
     name="quantity"
@@ -327,6 +333,16 @@ export const TransactionQuantity = ({
         />
         {getFieldHasError("quantity") && (
           <FormFeedbackError message={getErrorMessage("quantity")} />
+        )}
+        {onSellAll && (
+          <Button
+            size="small"
+            variant="danger-text"
+            onClick={onSellAll}
+            sx={{ alignSelf: "flex-end", p: 0, minWidth: 0 }}
+          >
+            Vender tudo
+          </Button>
         )}
         {isHeldInSelfCustody && (
           <Stack>

@@ -315,6 +315,7 @@ const NewTransactionForm = ({
   useEffect(() => setIsSubmitting(isPending), [isPending, setIsSubmitting]);
 
   const assetObj = watch("asset");
+  const action = watch("action");
   const assetType = watch("type");
   const assetCurrency = watch("currency");
   const isNewAssetHeldInSelfCustody = watch(
@@ -513,6 +514,14 @@ const NewTransactionForm = ({
           getErrorMessage={getErrorMessage}
           isHeldInSelfCustody={
             isNewAssetHeldInSelfCustody || !!assetObj?.is_held_in_self_custody
+          }
+          onSellAll={
+            action === "SELL" &&
+            !newCode &&
+            !assetObj?.is_held_in_self_custody &&
+            assetObj?.quantity_balance != null
+              ? () => setValue("quantity", assetObj.quantity_balance)
+              : undefined
           }
         />
       </Stack>

@@ -193,10 +193,19 @@ const Table = ({ externalFilters }: TableProps) => {
         accessorKey: "quantity_balance",
         enableSorting: false,
         size: 40,
-        Cell: ({ row: { original } }) =>
-          original.is_held_in_self_custody
-            ? "-"
-            : original.quantity_balance.toLocaleString("pt-br"),
+        Cell: ({ row: { original } }) => {
+          if (original.is_held_in_self_custody) return "-";
+          const shown = original.quantity_balance.toLocaleString("pt-br");
+          const full = original.quantity_balance.toLocaleString("pt-br", {
+            maximumFractionDigits: 8,
+          });
+          if (shown === full) return shown;
+          return (
+            <Tooltip title={full}>
+              <span>{shown}…</span>
+            </Tooltip>
+          );
+        },
       },
       {
         header: "Total investido",

@@ -31,6 +31,7 @@ import {
   AssetCodeTextField,
   TransactionQuantity,
 } from "../../../Assets/forms/components";
+import { useAssetsMinimalData } from "../../../Assets/forms/hooks";
 import { TRANSACTIONS_QUERY_KEY } from "../../consts";
 import { Transaction } from "../../types";
 import { ApiListResponse } from "../../../../../types";
@@ -202,6 +203,8 @@ const EditTransactionForm = ({
     getFieldHasError,
     getErrorMessage,
     getValues,
+    watch,
+    setValue,
   } = useFormPlus({
     mutationFn: editTransactionMutation,
     schema,
@@ -227,6 +230,20 @@ const EditTransactionForm = ({
     () => (asset?.currency ? AssetCurrencyMap[asset.currency]?.symbol : ""),
     [asset?.currency],
   );
+
+  const currentAction = watch("action");
+  const originalQuantity = initialData?.quantity;
+  const { data: assetsMinimalData } = useAssetsMinimalData();
+  const sellAllQuantity = useMemo(() => {
+    const balance = assetsMinimalData?.find(
+      (a) => a.pk === asset?.id,
+    )?.quantity_balance;
+    if (balance == null || originalQuantity == null) return undefined;
+    // balance already accounts for this transaction: undo its effect first
+    return action === "Venda"
+      ? balance + originalQuantity
+      : balance - originalQuantity;
+  }, [action, asset?.id, assetsMinimalData, originalQuantity]);
 
   return (
     <Stack
@@ -282,6 +299,13 @@ const EditTransactionForm = ({
           getFieldHasError={getFieldHasError}
           getErrorMessage={getErrorMessage}
           isHeldInSelfCustody={asset?.is_held_in_self_custody}
+          onSellAll={
+            currentAction === "SELL" &&
+            !asset?.is_held_in_self_custody &&
+            sellAllQuantity != null
+              ? () => setValue("quantity", sellAllQuantity)
+              : undefined
+          }
         />
       </Stack>
       {currencySymbol === AssetCurrencyMap.USD.symbol && (

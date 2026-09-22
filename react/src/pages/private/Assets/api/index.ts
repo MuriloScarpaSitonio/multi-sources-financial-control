@@ -150,6 +150,7 @@ export const getAssetsMinimalData = async (params?: {
     pk: number;
     type: string;
     is_held_in_self_custody: boolean;
+    quantity_balance: number;
   }[]
 > =>
   (
