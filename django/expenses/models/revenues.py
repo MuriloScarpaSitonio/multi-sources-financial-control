@@ -86,4 +86,6 @@ class Revenue(models.Model):
             is_fixed=self.is_fixed,
             recurring_id=self.recurring_id,
             bank_account_id=self.bank_account_id,
+            category=self.category,
+            expanded_category_id=self.expanded_category_id,
         )
