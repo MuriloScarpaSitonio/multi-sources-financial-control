@@ -1,8 +1,17 @@
+import { useFireSimulationWorker } from "./useFireSimulationWorker";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import VPWIndicator from "./VPWIndicator";
 import { DEFAULT_VPW_PREFERENCES } from "../Planning/api";
+vi.mock("./useFireSimulationWorker", () => ({
+  useFireSimulationWorker: vi.fn(() => ({
+    result: null,
+    isCalculating: false,
+    error: null,
+  })),
+}));
 afterEach(() => {
+  vi.clearAllMocks();
   cleanup();
   vi.useRealTimers();
 });
@@ -58,4 +67,25 @@ it("keeps initial coverage available when saved accumulation requires future con
   );
   expect(screen.getByText(/cobertura inicial/)).toBeVisible();
   expect(screen.queryByText(/aporte mensal positivo/)).toBeNull();
+});
+
+it("shows progress toward the simulated target in compact mode", () => {
+  vi.mocked(useFireSimulationWorker).mockReturnValueOnce({
+    result: { kind: "vpw", output: { targetPatrimony: 2000000 } },
+    isCalculating: false,
+    error: null,
+  } as ReturnType<typeof useFireSimulationWorker>);
+  render(<VPWIndicator {...props} compact hideLabel />);
+  expect(screen.getByRole("progressbar")).toHaveAttribute(
+    "aria-valuenow",
+    "50",
+  );
+  expect(screen.getByText("50%")).toBeVisible();
+  expect(screen.getByText("Meta: R$ 2.000.000,00")).toBeVisible();
+  expect(screen.queryByText(/cobertura inicial/)).not.toBeInTheDocument();
+});
+it("waits for the simulated target in compact mode", () => {
+  render(<VPWIndicator {...props} compact />);
+  expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  expect(screen.queryByText(/Meta:/)).not.toBeInTheDocument();
 });
