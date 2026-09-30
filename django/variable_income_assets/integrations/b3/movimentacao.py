@@ -14,9 +14,15 @@ from .schemas import (
 SHEET_NAME = "Movimentação"
 GLOB_PATTERN = "movimentacao-*.xlsx"
 BUY_SELL_LABEL = "COMPRA / VENDA"
+DEBENTURE_BUY_SELL_LABEL = "COMPRA/VENDA DEFINITIVA/CESSAO"
 MATURITY_LABEL = "VENCIMENTO"
 INTEREST_LABEL = "PAGAMENTO DE JUROS"
-RENDA_FIXA_PREFIXES = (B3FixedIncomeKind.CDB, B3FixedIncomeKind.LCI, B3FixedIncomeKind.LIG)
+RENDA_FIXA_PREFIXES = (
+    B3FixedIncomeKind.CDB,
+    B3FixedIncomeKind.LCI,
+    B3FixedIncomeKind.LIG,
+    B3FixedIncomeKind.DEB,
+)
 ACTION_BY_FLOW = {"Credito": B3FixedIncomeAction.BUY, "Debito": B3FixedIncomeAction.SELL}
 
 REQUIRED_HEADERS = (
@@ -133,7 +139,7 @@ def parse_movements(path: WorkbookSource | None = None) -> list[B3FixedIncomeMov
 
             movement_label = row[h["Movimentação"]] if h["Movimentação"] < len(row) else None
             movement_label = str(movement_label or "").strip()
-            if movement_label not in (BUY_SELL_LABEL, MATURITY_LABEL):
+            if movement_label not in (BUY_SELL_LABEL, DEBENTURE_BUY_SELL_LABEL, MATURITY_LABEL):
                 continue
 
             split = _split_produto(str(produto_raw).strip())

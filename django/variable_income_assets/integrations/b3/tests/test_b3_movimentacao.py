@@ -88,6 +88,17 @@ LCI_INTEREST_ROW = [
     "628.16",
 ]
 
+DEB_BUY_ROW = [
+    "Credito",
+    "29/09/2026",
+    "COMPRA/VENDA DEFINITIVA/CESSAO",
+    "DEB - LORTA7",
+    INSTITUICAO,
+    5,
+    "1203.826152",
+    "6019.13",
+]
+
 
 def build_xlsx(
     path: Path, rows: list[list], *, sheet_name: str = "Movimentação", header=HEADER
@@ -212,3 +223,18 @@ def test_lci_row_parses(tmp_path):
     assert movements[0].kind == B3FixedIncomeKind.LCI
     assert movements[0].code == "24L03571458"
     assert movements[0].unit_price == Decimal("0.01")
+
+
+def test_debenture_buy_row_is_parsed(tmp_path):
+    path = build_xlsx(tmp_path / "movimentacao.xlsx", [DEB_BUY_ROW])
+
+    movements = parse_movements(str(path))
+
+    assert len(movements) == 1
+    m = movements[0]
+    assert m.kind == B3FixedIncomeKind.DEB
+    assert m.code == "LORTA7"
+    assert m.action == B3FixedIncomeAction.BUY
+    assert m.operation_date == date(2026, 9, 29)
+    assert m.quantity == Decimal("5")
+    assert m.unit_price == Decimal("1203.826152")

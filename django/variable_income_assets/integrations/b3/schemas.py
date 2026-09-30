@@ -12,6 +12,7 @@ class B3FixedIncomeKind(StrEnum):
     CDB = "CDB"
     LCI = "LCI"
     LIG = "LIG"
+    DEB = "DEB"
     OTHER = "OTHER"
 
 
