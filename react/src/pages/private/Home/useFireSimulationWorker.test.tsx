@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
   FireSimulationRequest,
+  VPWSimulationRequest,
   FireSimulationResult,
   WorkerResponseMessage,
 } from "./fireSimulation";
@@ -135,4 +136,66 @@ describe("useFireSimulationWorker", () => {
     expect(hook.current.result).toEqual(result(30));
     expect(hook.current.isCalculating).toBe(true);
   });
+});
+
+it("dispatches VPW jobs and ignores errors from a cancelled calculation", async () => {
+  vi.stubGlobal("Worker", FakeWorker);
+  try {
+    const vpwRequest = (startingBalance: number): VPWSimulationRequest => ({
+      kind: "vpw",
+      input: {
+        portfolio: [],
+        samplingMethod: "independent_months",
+        retirement: {
+          startingBalance,
+          monthlySpending: 500,
+          years: 1,
+          annualGrowth: 0,
+          numTrials: 3,
+        },
+        accumulation: {
+          startingBalance: 0,
+          monthlySavings: 0,
+          years: 0,
+          numTrials: 3,
+        },
+      },
+    });
+    const {
+      result: hook,
+      rerender,
+      unmount,
+    } = renderHook(
+      ({ balance }) => {
+        const simulationRequest = useMemo(() => vpwRequest(balance), [balance]);
+        return useFireSimulationWorker(simulationRequest);
+      },
+      { initialProps: { balance: 6000 } },
+    );
+    const first = FakeWorker.instances[0];
+    expect(first.messages).toEqual([
+      { requestId: 1, request: vpwRequest(6000) },
+    ]);
+    rerender({ balance: 12000 });
+    const second = FakeWorker.instances[1];
+    expect(first.terminated).toBe(true);
+    act(() => first.onerror?.(new ErrorEvent("error")));
+    expect(hook.current.error).toBeNull();
+    expect(hook.current.isCalculating).toBe(true);
+    act(() =>
+      second.respond({
+        requestId: 2,
+        error: "No aligned historical months are available",
+      }),
+    );
+    expect(hook.current.error).toBe(
+      "No aligned historical months are available",
+    );
+    expect(hook.current.isCalculating).toBe(false);
+    unmount();
+    expect(second.terminated).toBe(true);
+  } finally {
+    vi.unstubAllGlobals();
+    FakeWorker.instances = [];
+  }
 });

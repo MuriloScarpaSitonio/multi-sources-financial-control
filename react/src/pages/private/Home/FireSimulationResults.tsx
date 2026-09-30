@@ -28,6 +28,7 @@ import type { AccumulationResult, BootstrapResult } from "./fireBootstrap";
 import {
   buildFireScenarioRows,
   buildFireSummary,
+  formatSimulationSuccessRate,
   type FireSuccessBand,
 } from "./fireResultPresentation";
 
@@ -142,7 +143,7 @@ const DrawdownTooltipContent = ({
   );
 };
 
-const MetricBlock = ({
+export const MetricBlock = ({
   label,
   value,
   sub,
@@ -313,7 +314,9 @@ const FireSimulationResults = ({
           weight={FontWeights.BOLD}
           extraStyle={{ color: toneColor(summary.band), lineHeight: 1 }}
         >
-          {hideValues ? "***" : `${(bootstrap.successRate * 100).toFixed(0)}%`}
+          {hideValues
+            ? "***"
+            : formatSimulationSuccessRate(bootstrap.successRate)}
         </Text>
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
           Chance historica de sustentar {formatCurrency(monthlyExpenses)}/mes

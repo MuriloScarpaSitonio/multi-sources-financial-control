@@ -56,14 +56,14 @@ const Indicators = () => {
   const [ageInBondsStockReturn, setAgeInBondsStockReturn] = useState(5);
   const [ageInBondsBondReturn, setAgeInBondsBondReturn] = useState(3);
   const { selectedMethod } = useSelectedMethod();
-  const { data: planningData } = usePlanningPreferences();
+  const { data: planningData, isError: isPlanningError } = usePlanningPreferences();
   const preferences = planningData?.preferences;
   const firePreferences = getFirePlanningPreferences(preferences);
   const dividendsOnlyPreferences = getDividendsOnlyPlanningPreferences(preferences);
   const oneOverNPreferences = getOneOverNPlanningPreferences(preferences);
   const vpwPreferences = getVPWPlanningPreferences(preferences);
   const dateOfBirth = planningData?.dateOfBirth ?? null;
-  const { data: fireAllocationData, isPending: isFireAllocationLoading } =
+  const { data: fireAllocationData, isPending: isFireAllocationLoading, isError: isFireAllocationError } =
     useFireAllocation();
   const firePortfolio = useMemo(
     () => buildPortfolio(fireAllocationData?.buckets ?? [], firePreferences),
@@ -120,7 +120,7 @@ const Indicators = () => {
     percentage: false,
   });
 
-  const { fixedIncomeTotal, variableIncomeTotal, equityTotal, ifixTotal } = useMemo(() => {
+  const { fixedIncomeTotal, variableIncomeTotal } = useMemo(() => {
     const data = (assetsReportData ?? []) as ReportAggregatedByTypeDataItem[];
     const fixed = data.find((d) => d.type === "Renda fixa BR")?.total ?? 0;
     const ifix = data.find((d) => d.type === "FII")?.total ?? 0;
@@ -317,23 +317,12 @@ const Indicators = () => {
             vpw: (
               <>
                 <VPWIndicator
-                  equityTotal={equityTotal}
-                  ifixTotal={ifixTotal}
-                  fixedIncomeTotal={fixedIncomeTotal}
+                  isError={isPlanningError || isFireAllocationError || isExpensesIndicatorsError}
+                  allocation={fireAllocationData?.buckets ?? []}
+                  preferences={vpwPreferences}
                   avgExpenses={expensesIndicators?.fire_avg ?? 0}
-                  avgMonthlySavings={monthlySavings}
-                  isLoading={isLoading || isExpensesIndicatorsLoading || isReportsLoading}
+                  isLoading={isLoading || isExpensesIndicatorsLoading || isFireAllocationLoading}
                   dateOfBirth={dateOfBirth}
-                  targetAge={vpwPreferences.target_age}
-                  onTargetAgeChange={() => {}}
-                  stockReturn={vpwPreferences.stock_return}
-                  onStockReturnChange={() => {}}
-                  bondReturn={vpwPreferences.bond_return}
-                  onBondReturnChange={() => {}}
-                  stockAllocationOverride={vpwPreferences.stock_allocation_override}
-                  simulatedSavings={vpwPreferences.monthly_savings_override}
-                  simulatedExpenses={vpwPreferences.monthly_expenses_override}
-                  compact
                 />
                 {showGaleno && (
                   <GalenoIndicator

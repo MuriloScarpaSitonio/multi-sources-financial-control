@@ -704,7 +704,9 @@ def test__partial_update__planning_preferences__fire_proxy_fields(client, user):
     assert response.status_code == HTTP_200_OK
     user.refresh_from_db()
     assert user.planning_preferences["fire"]["historical_series_fallbacks"] == {}
-    assert user.planning_preferences["fire"]["historical_series_overrides"] == {"FIXED_SELIC:IMA_S": "CDI"}
+    assert user.planning_preferences["fire"]["historical_series_overrides"] == {
+        "FIXED_SELIC:IMA_S": "CDI"
+    }
 
 
 def test__retrieve__translates_and_persists_legacy_ifix_preference(client, user):
@@ -887,23 +889,68 @@ def test__partial_update__planning_preferences__merges_remaining_strategy_inputs
     }
 
 
-def test__partial_update__planning_preferences__rejects_unselected_strategy_inputs(client, user):
-    # GIVEN
-    user.planning_preferences = {"selected_method": "fire"}
+@pytest.mark.parametrize(
+    ("strategy", "active", "original", "patch", "expected"),
+    [
+        (
+            "fire",
+            "vpw",
+            {"target_years": 40, "excluded_return_categories": []},
+            {"withdrawal_rate": 3.5},
+            {"target_years": 40, "withdrawal_rate": 3.5, "excluded_return_categories": []},
+        ),
+        ("vpw", "fire", {"target_age": 99}, {"target_age": 98}, {"target_age": 98}),
+        (
+            "one_over_n",
+            "fire",
+            {"target_depletion_age": 95},
+            {"real_return": 3},
+            {"target_depletion_age": 95, "real_return": 3},
+        ),
+        (
+            "dividends_only",
+            "fire",
+            {"monthly_savings_override": 1000},
+            {"yield_override": 6},
+            {"monthly_savings_override": 1000, "yield_override": 6},
+        ),
+    ],
+)
+def test__partial_update__planning_preferences__saves_inactive_strategy(
+    client, user, strategy, active, original, patch, expected
+):
+    active_settings = (
+        {"target_age": 100}
+        if active == "vpw"
+        else {"withdrawal_rate": 4, "excluded_return_categories": []}
+    )
+    user.planning_preferences = {
+        "selected_method": active,
+        active: active_settings,
+        strategy: original,
+    }
     user.save()
-    data = {"planning_preferences": {"vpw": {"target_age": 98}}}
 
-    # WHEN
-    response = client.patch(f"{URL}/{user.pk}", data=data)
+    response = client.patch(f"{URL}/{user.pk}", data={"planning_preferences": {strategy: patch}})
 
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.status_code == HTTP_200_OK
     user.refresh_from_db()
-    assert user.planning_preferences == {"selected_method": "fire"}
+    assert user.planning_preferences == {
+        "selected_method": active,
+        active: active_settings,
+        strategy: expected,
+    }
+    fetched = client.get(f"{URL}/{user.pk}").json()["planning_preferences"]
+    assert fetched["selected_method"] == active
+    for key, value in expected.items():
+        assert fetched[strategy][key] == value
+    for key, value in active_settings.items():
+        assert fetched[active][key] == value
 
 
-def test__partial_update__planning_preferences__rejects_inputs_for_previous_strategy(client, user):
-    # GIVEN
+def test__partial_update__planning_preferences__saves_inputs_while_selecting_another_strategy(
+    client, user
+):
     user.planning_preferences = {"selected_method": "fire"}
     user.save()
     data = {
@@ -913,13 +960,14 @@ def test__partial_update__planning_preferences__rejects_inputs_for_previous_stra
         }
     }
 
-    # WHEN
     response = client.patch(f"{URL}/{user.pk}", data=data)
 
-    # THEN
-    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert response.status_code == HTTP_200_OK
     user.refresh_from_db()
-    assert user.planning_preferences == {"selected_method": "fire"}
+    assert user.planning_preferences == {
+        "selected_method": "vpw",
+        "fire": {"withdrawal_rate": 3.5, "excluded_return_categories": []},
+    }
 
 
 def test__partial_update__date_of_birth(client, user):
@@ -1032,3 +1080,184 @@ def test__invalid_historical_fallback_is_rejected(fallbacks):
 def test__planning_preference_serializers_live_at_module_scope(serializer_name):
     assert hasattr(serializer_module, serializer_name)
     assert not hasattr(PlanningPreferencesSerializer, serializer_name)
+
+
+def test__partial_update__vpw_history_preserves_fire_preferences(client, user):
+    fire = {
+        "sampling_method": "independent_months",
+        "us_equity_proxy": "SPY",
+        "excluded_return_categories": [],
+    }
+    user.planning_preferences = {"selected_method": "vpw", "fire": fire}
+    user.save(update_fields=("planning_preferences",))
+    history = {
+        "sampling_method": "contiguous_12_month_blocks",
+        "us_equity_proxy": "VTI",
+        "global_equity_proxy": "VWRL",
+        "crypto_proxy": "CMBI10",
+        "excluded_return_categories": ["FII"],
+        "historical_series_overrides": {"FIXED_SELIC:IMA_S": "CDI"},
+        "historical_series_fallbacks": {"FIXED_IPCA:IMA_B_5_PLUS": "IBOV"},
+    }
+    response = client.patch(
+        f"{URL}/{user.pk}",
+        data={"planning_preferences": {"vpw": history}},
+        content_type="application/json",
+    )
+    assert response.status_code == HTTP_200_OK
+    user.refresh_from_db()
+    assert user.planning_preferences["vpw"] == history
+    assert user.planning_preferences["fire"] == fire
+    fetched = client.get(f"{URL}/{user.pk}").json()["planning_preferences"]
+    for key, value in history.items():
+        assert fetched["vpw"][key] == value
+    response = client.patch(
+        f"{URL}/{user.pk}",
+        data={"planning_preferences": {"vpw": {"historical_series_fallbacks": {}}}},
+        content_type="application/json",
+    )
+    assert response.status_code == HTTP_200_OK
+    user.refresh_from_db()
+    assert user.planning_preferences["vpw"]["historical_series_fallbacks"] == {}
+    assert (
+        user.planning_preferences["vpw"]["historical_series_overrides"]
+        == history["historical_series_overrides"]
+    )
+    assert user.planning_preferences["fire"] == fire
+
+
+@pytest.mark.parametrize(
+    "history",
+    [
+        {"sampling_method": "random_years"},
+        {"us_equity_proxy": "IBOV"},
+        {"global_equity_proxy": "SPY"},
+        {"crypto_proxy": "CDI"},
+        {"excluded_return_categories": ["UNKNOWN"]},
+        {"historical_series_overrides": {"CASH:CASH": "IBOV"}},
+        {"historical_series_overrides": {"FIXED_SELIC:IMA_S": "UNKNOWN"}},
+        {"historical_series_fallbacks": {"not-a-bucket": "IBOV"}},
+    ],
+)
+def test__vpw_history_rejects_invalid_values(history):
+    serializer = serializer_module.VPWPreferencesSerializer(data=history)
+    assert not serializer.is_valid()
+
+
+def test__inactive_vpw_history_can_be_saved(client, user):
+    user.planning_preferences = {"selected_method": "fire"}
+    user.save(update_fields=("planning_preferences",))
+    response = client.patch(
+        f"{URL}/{user.pk}",
+        data={"planning_preferences": {"vpw": {"sampling_method": "contiguous_12_month_blocks"}}},
+        content_type="application/json",
+    )
+    assert response.status_code == HTTP_200_OK
+    user.refresh_from_db()
+    assert user.planning_preferences == {
+        "selected_method": "fire",
+        "vpw": {"sampling_method": "contiguous_12_month_blocks"},
+    }
+
+
+@pytest.mark.parametrize("years", [0, 3, 60])
+def test__vpw_extra_accumulation_years_round_trip(client, user, years):
+    user.planning_preferences = {"selected_method": "vpw"}
+    user.save(update_fields=["planning_preferences"])
+    response = client.patch(
+        f"{URL}/{user.pk}",
+        data={"planning_preferences": {"vpw": {"extra_accumulation_years": years}}},
+        format="json",
+    )
+    assert response.status_code == 200, response.data
+    user.refresh_from_db()
+    assert user.planning_preferences["vpw"]["extra_accumulation_years"] == years
+    assert (
+        client.get(f"{URL}/{user.pk}").data["planning_preferences"]["vpw"][
+            "extra_accumulation_years"
+        ]
+        == years
+    )
+
+
+@pytest.mark.parametrize("years", [-1, 61, 1.5])
+def test__vpw_extra_accumulation_years_rejects_invalid_values(years):
+    serializer = serializer_module.VPWPreferencesSerializer(
+        data={"extra_accumulation_years": years}
+    )
+    assert not serializer.is_valid()
+
+
+@pytest.mark.parametrize("active", ["vpw", "dividends_only", "one_over_n"])
+def test__inactive_fire_saves_age_in_bonds_without_activating_it(client, user, active):
+    user.planning_preferences = {"selected_method": active}
+    user.save()
+    response = client.patch(
+        f"{URL}/{user.pk}",
+        data={
+            "planning_preferences": {
+                "fire": {"withdrawal_rate": 3.5},
+                "show_age_in_bonds": True,
+            }
+        },
+    )
+    assert response.status_code == HTTP_200_OK
+    user.refresh_from_db()
+    assert user.planning_preferences == {
+        "selected_method": active,
+        "show_age_in_bonds": True,
+        "fire": {"withdrawal_rate": 3.5, "excluded_return_categories": []},
+    }
+    response = client.patch(
+        f"{URL}/{user.pk}",
+        data={
+            "planning_preferences": {
+                "selected_method": "fire",
+            }
+        },
+    )
+    assert response.status_code == HTTP_200_OK
+    response = client.patch(
+        f"{URL}/{user.pk}",
+        data={
+            "planning_preferences": {
+                "selected_method": active,
+            }
+        },
+    )
+    assert response.status_code == HTTP_200_OK
+    user.refresh_from_db()
+    assert user.planning_preferences["selected_method"] == active
+    assert user.planning_preferences["show_age_in_bonds"] is True
+
+
+def test__inactive_fire_age_in_bonds_does_not_conflict_with_active_galeno(client, user):
+    user.planning_preferences = {"selected_method": "vpw", "show_galeno": True}
+    user.save()
+    response = client.patch(
+        f"{URL}/{user.pk}",
+        data={
+            "planning_preferences": {
+                "show_age_in_bonds": True,
+            }
+        },
+    )
+    assert response.status_code == HTTP_200_OK
+    user.refresh_from_db()
+    assert user.planning_preferences == {
+        "selected_method": "vpw",
+        "show_galeno": True,
+        "show_age_in_bonds": True,
+    }
+    response = client.patch(
+        f"{URL}/{user.pk}",
+        data={
+            "planning_preferences": {
+                "selected_method": "fire",
+            }
+        },
+    )
+    assert response.status_code == HTTP_400_BAD_REQUEST
+    assert "show_age_in_bonds" in response.data["planning_preferences"]
+    user.refresh_from_db()
+    assert user.planning_preferences["selected_method"] == "vpw"

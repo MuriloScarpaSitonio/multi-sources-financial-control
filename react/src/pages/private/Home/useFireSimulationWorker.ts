@@ -3,21 +3,36 @@ import { useEffect, useRef, useState } from "react";
 import type {
   FireSimulationRequest,
   FireSimulationResult,
+  VPWSimulationRequest,
+  VPWSimulationResult,
+  PlanningSimulationRequest,
+  PlanningSimulationResult,
   WorkerRequestMessage,
   WorkerResponseMessage,
 } from "./fireSimulation";
 
-type FireSimulationWorkerState = {
-  result: FireSimulationResult | null;
+type SimulationWorkerState<T extends PlanningSimulationResult> = {
+  result: T | null;
   isCalculating: boolean;
   error: string | null;
 };
 
-export const useFireSimulationWorker = (
+export function useFireSimulationWorker(
   request: FireSimulationRequest | null,
-): FireSimulationWorkerState => {
+): SimulationWorkerState<FireSimulationResult>;
+export function useFireSimulationWorker(
+  request: VPWSimulationRequest | null,
+): SimulationWorkerState<VPWSimulationResult>;
+export function useFireSimulationWorker(
+  request: PlanningSimulationRequest | null,
+): SimulationWorkerState<PlanningSimulationResult>;
+export function useFireSimulationWorker(
+  request: PlanningSimulationRequest | null,
+): SimulationWorkerState<PlanningSimulationResult> {
   const requestId = useRef(0);
-  const [state, setState] = useState<FireSimulationWorkerState>({
+  const [state, setState] = useState<
+    SimulationWorkerState<PlanningSimulationResult>
+  >({
     result: null,
     isCalculating: request !== null,
     error: null,
@@ -45,7 +60,9 @@ export const useFireSimulationWorker = (
       error: null,
     }));
 
-    worker.onmessage = (event: MessageEvent<WorkerResponseMessage>) => {
+    worker.onmessage = (
+      event: MessageEvent<WorkerResponseMessage<PlanningSimulationResult>>,
+    ) => {
       if (
         !active ||
         requestId.current !== currentRequestId ||
@@ -70,6 +87,7 @@ export const useFireSimulationWorker = (
       }
     };
     worker.onerror = () => {
+      if (!active || requestId.current !== currentRequestId) return;
       setState((current) => ({
         ...current,
         isCalculating: false,
@@ -77,7 +95,7 @@ export const useFireSimulationWorker = (
       }));
     };
 
-    const message: WorkerRequestMessage = {
+    const message: WorkerRequestMessage<PlanningSimulationRequest> = {
       requestId: currentRequestId,
       request,
     };
@@ -90,4 +108,4 @@ export const useFireSimulationWorker = (
   }, [request]);
 
   return state;
-};
+}

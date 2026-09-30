@@ -1,17 +1,23 @@
 /// <reference lib="webworker" />
 
 import {
-  runFireSimulation,
+  runPlanningSimulation,
+  type PlanningSimulationRequest,
+  type PlanningSimulationResult,
   type WorkerRequestMessage,
   type WorkerResponseMessage,
 } from "./fireSimulation";
 
 const worker = self as DedicatedWorkerGlobalScope;
 
-worker.onmessage = (event: MessageEvent<WorkerRequestMessage>) => {
-  const response: WorkerResponseMessage = { requestId: event.data.requestId };
+worker.onmessage = (
+  event: MessageEvent<WorkerRequestMessage<PlanningSimulationRequest>>,
+) => {
+  const response: WorkerResponseMessage<PlanningSimulationResult> = {
+    requestId: event.data.requestId,
+  };
   try {
-    response.result = runFireSimulation(event.data.request);
+    response.result = runPlanningSimulation(event.data.request);
   } catch (error) {
     response.error =
       error instanceof Error ? error.message : "Erro ao calcular simulação";

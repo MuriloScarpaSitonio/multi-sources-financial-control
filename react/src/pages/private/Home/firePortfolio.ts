@@ -1,4 +1,4 @@
-import type { FirePlanningPreferences } from "../Planning/api";
+import type { HistoricalPlanningPreferences } from "../Planning/api";
 import type { FireAllocationBucket } from "../Planning/fireAllocation";
 import type { FireReturnSeriesKey, ReturnCategory } from "./fireReturnTypes";
 import { FIRE_RETURN_SERIES } from "./fireReturns";
@@ -17,11 +17,11 @@ export type PortfolioSlice = {
 export type PortfolioAtFn = (yearIndex: number) => readonly PortfolioSlice[];
 
 const selectableSeries = {
-  US_EQUITY: (preferences: Required<FirePlanningPreferences>) =>
+  US_EQUITY: (preferences: Required<HistoricalPlanningPreferences>) =>
     preferences.us_equity_proxy,
-  GLOBAL_EQUITY: (preferences: Required<FirePlanningPreferences>) =>
+  GLOBAL_EQUITY: (preferences: Required<HistoricalPlanningPreferences>) =>
     preferences.global_equity_proxy,
-  CRYPTO: (preferences: Required<FirePlanningPreferences>) =>
+  CRYPTO: (preferences: Required<HistoricalPlanningPreferences>) =>
     preferences.crypto_proxy,
 } as const;
 
@@ -34,7 +34,7 @@ const fixedSeries = (bucket: FireAllocationBucket): FireReturnSeriesKey => {
 
 const resolveSeries = (
   bucket: FireAllocationBucket,
-  preferences: Required<FirePlanningPreferences>,
+  preferences: Required<HistoricalPlanningPreferences>,
 ): FireReturnSeriesKey => {
   if (bucket.category in selectableSeries) {
     return selectableSeries[bucket.category as keyof typeof selectableSeries](
@@ -46,7 +46,7 @@ const resolveSeries = (
 
 export const buildPortfolio = (
   allocation: readonly FireAllocationBucket[],
-  preferences: Required<FirePlanningPreferences>,
+  preferences: Required<HistoricalPlanningPreferences>,
 ): PortfolioSlice[] => {
   const nonZero = allocation.filter((bucket) => bucket.total > 0);
   const total = nonZero.reduce((sum, bucket) => sum + bucket.total, 0);

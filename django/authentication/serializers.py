@@ -135,32 +135,7 @@ class IntegrationSecretSerializer(serializers.ModelSerializer):
         return value
 
 
-class FirePreferencesSerializer(serializers.Serializer):
-    simulated_patrimony = serializers.FloatField(
-        required=False,
-        allow_null=True,
-        min_value=0,
-    )
-    withdrawal_rate = serializers.FloatField(
-        required=False,
-        min_value=2,
-        max_value=6,
-    )
-    extra_accumulation_years = serializers.IntegerField(
-        required=False,
-        min_value=0,
-        max_value=60,
-    )
-    target_years = serializers.IntegerField(
-        required=False,
-        min_value=20,
-        max_value=80,
-    )
-    monthly_expenses_override = serializers.FloatField(
-        required=False,
-        allow_null=True,
-        min_value=0,
-    )
+class HistoricalPreferencesSerializer(serializers.Serializer):
     sampling_method = serializers.ChoiceField(
         choices=("independent_months", "contiguous_12_month_blocks"),
         required=False,
@@ -219,6 +194,33 @@ class FirePreferencesSerializer(serializers.Serializer):
 
     validate_historical_series_fallbacks = validate_historical_series_overrides
 
+
+class FirePreferencesSerializer(HistoricalPreferencesSerializer):
+    simulated_patrimony = serializers.FloatField(
+        required=False,
+        allow_null=True,
+        min_value=0,
+    )
+    withdrawal_rate = serializers.FloatField(
+        required=False,
+        min_value=2,
+        max_value=6,
+    )
+    extra_accumulation_years = serializers.IntegerField(
+        required=False,
+        min_value=0,
+        max_value=60,
+    )
+    target_years = serializers.IntegerField(
+        required=False,
+        min_value=20,
+        max_value=80,
+    )
+    monthly_expenses_override = serializers.FloatField(
+        required=False,
+        allow_null=True,
+        min_value=0,
+    )
     exclude_ifix_from_sim = serializers.BooleanField(required=False, write_only=True)
 
     def to_representation(self, instance: dict) -> dict:
@@ -268,7 +270,10 @@ class OneOverNPreferencesSerializer(serializers.Serializer):
     )
 
 
-class VPWPreferencesSerializer(serializers.Serializer):
+class VPWPreferencesSerializer(HistoricalPreferencesSerializer):
+    extra_accumulation_years = serializers.IntegerField(
+        required=False, min_value=0, max_value=60
+    )
     target_age = serializers.IntegerField(
         required=False,
         min_value=70,
@@ -442,24 +447,6 @@ class UserSerializer(serializers.ModelSerializer):
                         **current_nested,
                         **incoming_preferences[key],
                     }
-            invalid_strategy_keys = [
-                key
-                for key in strategy_preference_keys
-                if key in incoming_preferences and key != merged.get("selected_method")
-            ]
-            if invalid_strategy_keys:
-                message = (
-                    "Parâmetros de simulação só podem ser salvos para a "
-                    "estratégia selecionada."
-                )
-                raise serializers.ValidationError(
-                    {
-                        "planning_preferences": dict.fromkeys(
-                            invalid_strategy_keys,
-                            message,
-                        )
-                    }
-                )
             if merged.get("show_galeno") and merged.get("selected_method") not in (
                 "fire",
                 "constant_withdrawal",
@@ -484,21 +471,13 @@ class UserSerializer(serializers.ModelSerializer):
                         }
                     }
                 )
-            if merged.get("show_age_in_bonds") and merged.get("selected_method") not in (
-                "fire",
-                "constant_withdrawal",
+            # Age-in-bonds is saved with FIRE even while another strategy is active.
+            # It conflicts with Galeno only when the FIRE variant is actually used.
+            if (
+                merged.get("show_age_in_bonds")
+                and merged.get("show_galeno")
+                and merged.get("selected_method") in ("fire", "constant_withdrawal")
             ):
-                raise serializers.ValidationError(
-                    {
-                        "planning_preferences": {
-                            "show_age_in_bonds": (
-                                "Idade em RF só pode ser ativado com Regra dos X% ou "
-                                "Retirada constante."
-                            )
-                        }
-                    }
-                )
-            if merged.get("show_age_in_bonds") and merged.get("show_galeno"):
                 raise serializers.ValidationError(
                     {
                         "planning_preferences": {

@@ -4,6 +4,7 @@ import {
   buildFireScenarioRows,
   buildFireSummary,
   getFireSuccessBand,
+  formatSimulationSuccessRate,
 } from "./fireResultPresentation";
 
 const assertEqual = <T>(actual: T, expected: T, message: string) => {
@@ -59,12 +60,26 @@ const summary = buildFireSummary({
 });
 
 assertEqual(summary.band, "warn", "summary uses success band");
-assertEqual(summary.failedLabel, "130 de 1000 cenarios falharam", "failure label");
+assertEqual(
+  summary.failedLabel,
+  "130 de 1000 cenarios falharam",
+  "failure label",
+);
 assertClose(summary.safeMonthlySpend, 3_500, "safe monthly spend");
-assertClose(summary.chosenMonthlyWithdrawal, 4_000, "chosen monthly withdrawal");
-assertClose(summary.monthlyGap, -1_500, "negative gap means expenses exceed safe spend");
+assertClose(
+  summary.chosenMonthlyWithdrawal,
+  4_000,
+  "chosen monthly withdrawal",
+);
+assertClose(
+  summary.monthlyGap,
+  -1_500,
+  "negative gap means expenses exceed safe spend",
+);
 if (summary.expenseMultiple === null) {
-  throw new Error("expense multiple should be available when expenses are positive");
+  throw new Error(
+    "expense multiple should be available when expenses are positive",
+  );
 }
 assertClose(summary.expenseMultiple, 20, "expense multiple");
 
@@ -111,4 +126,21 @@ assertEqual(
   }),
   "Meta distante no ritmo atual",
   "unreachable retirement timing label",
+);
+
+assertEqual(
+  formatSimulationSuccessRate(1497 / 1500),
+  "99,8%",
+  "failed trials must not round up to 100%",
+);
+assertEqual(
+  formatSimulationSuccessRate(1),
+  "100%",
+  "omit trailing zeros for full success",
+);
+
+assertEqual(
+  formatSimulationSuccessRate(0.99954),
+  "99,95%",
+  "keep at most two decimal places",
 );

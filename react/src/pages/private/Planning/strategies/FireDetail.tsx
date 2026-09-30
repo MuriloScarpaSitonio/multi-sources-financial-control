@@ -193,7 +193,6 @@ const FireDetail = () => {
 
   const isDirty = useMemo(
     () =>
-      isActive &&
       !!planningData &&
       (JSON.stringify(historicalSeriesFallbacks) !==
         JSON.stringify(firePreferences.historical_series_fallbacks) ||
@@ -212,7 +211,6 @@ const FireDetail = () => {
           JSON.stringify(firePreferences.excluded_return_categories) ||
         showAgeInBonds !== (preferences?.show_age_in_bonds ?? false)),
     [
-      isActive,
       planningData,
       cryptoProxy,
       historicalSeriesOverrides,
@@ -246,7 +244,6 @@ const FireDetail = () => {
   const handleSelect = () => updatePreferences({ selected_method: METHOD });
 
   const handleSave = () => {
-    if (!isActive) return;
     const patch: PlanningPreferences = {
       fire: {
         withdrawal_rate: withdrawalRate,

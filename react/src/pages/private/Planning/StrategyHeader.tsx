@@ -125,19 +125,19 @@ const StrategyHeader = ({
         }
       >
         {actions}
+        {isDirty && (
+          <Button
+            color="success"
+            variant={sticky ? "brand" : "contained"}
+            size="small"
+            onClick={onSave}
+            disabled={isMutating}
+          >
+            Salvar alterações
+          </Button>
+        )}
         {isActive ? (
           <>
-            {isDirty && (
-              <Button
-                color="success"
-                variant={sticky ? "brand" : "contained"}
-                size="small"
-                onClick={onSave}
-                disabled={isMutating}
-              >
-                Salvar alterações
-              </Button>
-            )}
             {!activeBadgeByTitle && (
               <Chip
                 icon={<CheckCircleIcon />}

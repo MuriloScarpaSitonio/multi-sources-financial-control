@@ -17,7 +17,6 @@ import {
 import { useAssetsIndicators } from "../Assets/Indicators/hooks";
 import { useAssetsReports } from "../Assets/Reports/AssetAggregationReports/hooks";
 import { GroupBy, Kinds } from "../Assets/Reports/types";
-import type { ReportAggregatedByTypeDataItem } from "../Assets/Reports/types";
 import { useBankAccountsSummary } from "../Expenses/hooks";
 import { useHomeExpensesIndicators } from "../Expenses/Indicators/hooks";
 import { useIncomesAvg } from "../Incomes/Indicators/hooks";
@@ -48,14 +47,14 @@ const STRATEGY_ORDER: ActiveMethodKey[] = [
 
 const PlanningHub = () => {
   const { selectedMethod } = useSelectedMethod();
-  const { data: planningData } = usePlanningPreferences();
+  const { data: planningData, isError: isPlanningError } = usePlanningPreferences();
   const preferences = planningData?.preferences;
   const firePreferences = getFirePlanningPreferences(preferences);
   const dividendsOnlyPreferences = getDividendsOnlyPlanningPreferences(preferences);
   const oneOverNPreferences = getOneOverNPlanningPreferences(preferences);
   const vpwPreferences = getVPWPlanningPreferences(preferences);
   const dateOfBirth = planningData?.dateOfBirth ?? null;
-  const { data: fireAllocationData, isPending: isFireAllocationLoading } =
+  const { data: fireAllocationData, isPending: isFireAllocationLoading, isError: isFireAllocationError } =
     useFireAllocation();
   const firePortfolio = useMemo(
     () =>
@@ -74,6 +73,7 @@ const PlanningHub = () => {
   const {
     data: expensesIndicators,
     isPending: isExpensesLoading,
+    isError: isExpensesError,
   } = useHomeExpensesIndicators({ includeFireAvg: true });
   const {
     data: { avg: avgPassiveIncome } = { avg: 0 },
@@ -84,7 +84,6 @@ const PlanningHub = () => {
     isPending: isRevenuesLoading,
   } = useHomeRevenuesIndicators();
   const {
-    data: assetsReportData,
     isPending: isReportsLoading,
   } = useAssetsReports({
     kind: Kinds.TOTAL_INVESTED,
@@ -99,27 +98,6 @@ const PlanningHub = () => {
     (revenuesIndicators?.avg ?? 0) - (expensesIndicators?.avg ?? 0);
   const isDataLoading =
     isAssetsLoading || isBankLoading || isExpensesLoading || isRevenuesLoading;
-
-  const { fixedIncomeTotal, equityTotal, ifixTotal } = useMemo(() => {
-    const data = (assetsReportData ?? []) as ReportAggregatedByTypeDataItem[];
-    const fixed = data.find((d) => d.type === "Renda fixa BR")?.total ?? 0;
-    const ifix = data.find((d) => d.type === "FII")?.total ?? 0;
-    const equity = data
-      .filter((d) =>
-        [
-          "Renda variável BR",
-          "Renda variável EUA",
-          "Renda variável Global",
-          "Cripto",
-        ].includes(d.type),
-      )
-      .reduce((sum, d) => sum + d.total, 0);
-    return {
-      fixedIncomeTotal: fixed,
-      equityTotal: equity,
-      ifixTotal: ifix,
-    };
-  }, [assetsReportData]);
 
   const compactIndicators: Record<ActiveMethodKey, React.ReactNode> = {
     fire: (
@@ -168,23 +146,12 @@ const PlanningHub = () => {
     ),
     vpw: (
       <VPWIndicator
-        equityTotal={equityTotal}
-        ifixTotal={ifixTotal}
-        fixedIncomeTotal={fixedIncomeTotal}
+        isError={isPlanningError || isFireAllocationError || isExpensesError}
+        allocation={fireAllocationData?.buckets ?? []}
+        preferences={vpwPreferences}
         avgExpenses={avgExpenses}
-        avgMonthlySavings={avgMonthlySavings}
-        isLoading={isDataLoading || isReportsLoading}
+        isLoading={isDataLoading || isFireAllocationLoading}
         dateOfBirth={dateOfBirth}
-        targetAge={vpwPreferences.target_age}
-        onTargetAgeChange={() => {}}
-        stockReturn={vpwPreferences.stock_return}
-        onStockReturnChange={() => {}}
-        bondReturn={vpwPreferences.bond_return}
-        onBondReturnChange={() => {}}
-        stockAllocationOverride={vpwPreferences.stock_allocation_override}
-        simulatedSavings={vpwPreferences.monthly_savings_override}
-        simulatedExpenses={vpwPreferences.monthly_expenses_override}
-        compact
         hideLabel
       />
     ),

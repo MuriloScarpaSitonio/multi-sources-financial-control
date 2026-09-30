@@ -85,6 +85,8 @@ const ChartTooltipContent = ({
 };
 
 const FireAccumulationChart = ({
+  strategy = "FIRE",
+  showHeading = true,
   accumulation,
   currentAge,
   hideValues,
@@ -92,6 +94,8 @@ const FireAccumulationChart = ({
   showMediana,
   showPessimista,
 }: {
+  strategy?: "FIRE" | "VPW";
+  showHeading?: boolean;
   accumulation: AccumulationResult;
   currentAge: number | null;
   hideValues: boolean;
@@ -121,17 +125,21 @@ const FireAccumulationChart = ({
   return (
     <>
       <Stack gap={0.5} sx={{ mt: 2 }}>
-        <Text
-          size={FontSizes.SMALL}
-          weight={FontWeights.SEMI_BOLD}
-          color={Colors.neutral200}
-        >
-          Quando posso me aposentar?
-        </Text>
+        {showHeading && (
+          <Text
+            size={FontSizes.SMALL}
+            weight={FontWeights.SEMI_BOLD}
+            color={Colors.neutral200}
+          >
+            {strategy === "VPW"
+              ? "Quando posso atingir a meta?"
+              : "Quando posso me aposentar?"}
+          </Text>
+        )}
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          O gráfico mostra quanto ainda falta para atingir a meta FIRE em cada
-          ano. As linhas verticais marcam quando os cenários otimista, mediano e
-          pessimista cruzam a meta.
+          O gráfico mostra quanto ainda falta para atingir a meta {strategy} em
+          cada ano. As linhas verticais marcam quando os cenários otimista,
+          mediano e pessimista cruzam a meta.
         </Text>
       </Stack>
 
@@ -172,7 +180,7 @@ const FireAccumulationChart = ({
               stroke={getColor(Colors.brand)}
               strokeDasharray="3 3"
               label={{
-                value: `otimista · aposenta ${ageLabel(accumulation.p10YearsToTarget)}`,
+                value: `otimista · ${strategy === "VPW" ? "meta" : "aposenta"} ${ageLabel(accumulation.p10YearsToTarget)}`,
                 position: "top",
                 dy: -34,
                 fill: getColor(Colors.brand),
@@ -186,7 +194,7 @@ const FireAccumulationChart = ({
               stroke={getColor(Colors.brand)}
               strokeDasharray="3 3"
               label={{
-                value: `mediana · aposenta ${ageLabel(accumulation.medianYearsToTarget)}`,
+                value: `mediana · ${strategy === "VPW" ? "meta" : "aposenta"} ${ageLabel(accumulation.medianYearsToTarget)}`,
                 position: "top",
                 dy: -18,
                 fill: getColor(Colors.brand),
@@ -200,7 +208,7 @@ const FireAccumulationChart = ({
               stroke={getColor(Colors.danger200)}
               strokeDasharray="3 3"
               label={{
-                value: `pessimista · aposenta ${ageLabel(accumulation.p90YearsToTarget)}`,
+                value: `pessimista · ${strategy === "VPW" ? "meta" : "aposenta"} ${ageLabel(accumulation.p90YearsToTarget)}`,
                 position: "top",
                 dy: -2,
                 fill: getColor(Colors.danger200),

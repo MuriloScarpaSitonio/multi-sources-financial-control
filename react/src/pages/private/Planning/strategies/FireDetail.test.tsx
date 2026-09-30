@@ -94,6 +94,7 @@ const ageInBondsResult: FireSimulationResult = {
 
 const mocks = vi.hoisted(() => ({
   updatePreferences: vi.fn(),
+  selectedMethod: "fire",
   planningData: {
     preferences: {
       selected_method: "fire" as const,
@@ -117,7 +118,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../hooks", () => ({
-  useSelectedMethod: () => ({ selectedMethod: "fire", isLoading: false }),
+  useSelectedMethod: () => ({ selectedMethod: mocks.selectedMethod, isLoading: false }),
   usePlanningPreferences: () => ({
     data: mocks.planningData,
   }),
@@ -198,6 +199,7 @@ const renderPage = () => {
 describe("FireDetail presentation switch", () => {
   beforeEach(() => {
     mocks.updatePreferences.mockReset();
+    mocks.selectedMethod = "fire";
     FakeWorker.instances = [];
     vi.stubGlobal("Worker", FakeWorker);
   });
@@ -205,6 +207,23 @@ describe("FireDetail presentation switch", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+  });
+
+  it("saves inactive FIRE without changing the selected VPW strategy", async () => {
+    mocks.selectedMethod = "vpw";
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "Aumentar Despesas mensais" }));
+    await user.click(screen.getByRole("button", { name: "Premissas avançadas" }));
+    await user.click(screen.getByRole("checkbox", { name: "Alocação Idade em Renda Fixa" }));
+    await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
+    expect(mocks.updatePreferences).toHaveBeenCalledTimes(1);
+    expect(mocks.updatePreferences).toHaveBeenCalledWith({
+      fire: expect.objectContaining({ monthly_expenses_override: 10500 }),
+      show_age_in_bonds: true,
+    });
+    await user.click(screen.getByRole("button", { name: "Selecionar como ativa" }));
+    expect(mocks.updatePreferences).toHaveBeenLastCalledWith({ selected_method: "fire" });
   });
 
   it("saves and recalculates extra accumulation years from advanced assumptions", async () => {

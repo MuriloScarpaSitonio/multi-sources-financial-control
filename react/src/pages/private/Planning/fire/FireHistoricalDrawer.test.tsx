@@ -292,3 +292,17 @@ it("groups portfolio subgroups under broad sidebar asset types", async () => {
     ).getByRole("button", { name: /IPCA/ }),
   ).toBeVisible();
 });
+
+it("can show modeled allocation percentages without presenting weights as reais", () => {
+  render(
+    <FireHistoricalDrawer
+      allocation={[{ category: "FIXED_CDI", series: "CDI", total: 1 }]}
+      preferences={DEFAULT_FIRE_PREFERENCES}
+      showAmounts={false}
+      onApply={vi.fn()}
+      onClose={vi.fn()}
+    />,
+  );
+  expect(screen.getByText("100%")).toBeVisible();
+  expect(screen.queryByText(/R\$/)).toBeNull();
+});

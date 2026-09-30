@@ -11,7 +11,7 @@ import type {
   FireReturnSeriesKey,
   ReturnCategory,
 } from "../../Home/fireReturnTypes";
-import type { FirePlanningPreferences } from "../api";
+import type { HistoricalPlanningPreferences } from "../api";
 import type { FireAllocationBucket } from "../fireAllocation";
 
 export const DATASET_LABELS: Record<FireReturnSeriesKey, string> = {
@@ -159,7 +159,7 @@ export const historicalPhases = (
 
 export const historicalSummary = (
   allocation: readonly FireAllocationBucket[],
-  preferences: Required<FirePlanningPreferences>,
+  preferences: Required<HistoricalPlanningPreferences>,
   showAgeInBonds = false,
 ) => {
   const base = buildPortfolio(allocation, preferences);
