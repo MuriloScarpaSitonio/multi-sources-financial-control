@@ -1,6 +1,6 @@
 import Link from "@mui/material/Link";
 import type { ReactNode } from "react";
-import { Colors, FontSizes, Text } from "../../../../design-system";
+import { FontSizes } from "../../../../design-system";
 import { useLayoutEffect, useMemo, useState } from "react";
 
 import Stack from "@mui/material/Stack";
@@ -15,7 +15,7 @@ import type {
 } from "../../Home/fireReturnTypes";
 import AgeInBondsExplainer from "../AgeInBondsExplainer";
 import { getFirePlanningPreferences, type PlanningPreferences } from "../api";
-import DefaultsPanel from "../DefaultsPanel";
+import StrategyExplanationPanels from "../shared/StrategyExplanationPanels";
 import {
   useFireAllocation,
   type FireAllocationBucket,
@@ -351,46 +351,34 @@ const FireDetail = () => {
       <FireSimulationStudio
         renderHeader={renderHeader}
         renderExplanation={(snapshot) => (
-          <Stack spacing={3}>
-            <DefaultsPanel
-              title="Como funciona a simulação"
-              items={[]}
-              extra={
-                snapshot ? (
-                  <FireMethodologyWalkthrough snapshot={snapshot} />
-                ) : (
-                  <span>Preencha um cenário válido para ver a explicação.</span>
-                )
-              }
-            />
-            <DefaultsPanel
-              title="Sobre a estratégia"
-              items={[]}
-              extra={
-                <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-                  Esta estratégia segue a ideia de retiradas constantes,
-                  ajustadas pela inflação, estudada no{" "}
-                  <Link
-                    href="https://www.aaii.com/journal/article/retirement-savings-choosing-a-withdrawal-rate-that-is-sustainable"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Trinity Study (1998)
-                  </Link>{" "}
-                  e no{" "}
-                  <Link
-                    href="https://obj.portfolioconstructionforum.edu.au/articles_perspectives/retailinvestor.org_pdf_Bengen1.pdf"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    trabalho anterior de William Bengen (1994)
-                  </Link>
-                  . Nossa simulação aplica essa ideia à sua carteira e ao seu
-                  cenário, com históricos e premissas próprios.
-                </Text>
-              }
-            />
-          </Stack>
+          <StrategyExplanationPanels
+            walkthrough={
+              snapshot && <FireMethodologyWalkthrough snapshot={snapshot} />
+            }
+            about={
+              <>
+                Esta estratégia segue a ideia de retiradas constantes, ajustadas
+                pela inflação, estudada no{" "}
+                <Link
+                  href="https://www.aaii.com/journal/article/retirement-savings-choosing-a-withdrawal-rate-that-is-sustainable"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Trinity Study (1998)
+                </Link>{" "}
+                e no{" "}
+                <Link
+                  href="https://obj.portfolioconstructionforum.edu.au/articles_perspectives/retailinvestor.org_pdf_Bengen1.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  trabalho anterior de William Bengen (1994)
+                </Link>
+                . Nossa simulação aplica essa ideia à sua carteira e ao seu
+                cenário, com históricos e premissas próprios.
+              </>
+            }
+          />
         )}
         draft={studioDraft}
         allocation={allocation}

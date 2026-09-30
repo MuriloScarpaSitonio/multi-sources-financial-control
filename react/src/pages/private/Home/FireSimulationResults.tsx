@@ -1,20 +1,6 @@
 import type { ReactNode } from "react";
-import LinearProgress from "@mui/material/LinearProgress";
 import Box from "@mui/material/Box";
-import Checkbox from "@mui/material/Checkbox";
-import FormControlLabel from "@mui/material/FormControlLabel";
 import Stack from "@mui/material/Stack";
-import Tooltip from "@mui/material/Tooltip";
-
-import {
-  CartesianGrid,
-  ComposedChart,
-  Line,
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 
 import {
   Colors,
@@ -25,6 +11,15 @@ import {
 } from "../../../design-system";
 import { formatCurrency } from "../utils";
 import type { AccumulationResult, BootstrapResult } from "./fireBootstrap";
+import {
+  ChartTooltipBox,
+  GoalProgressBar,
+  PercentileTrajectoryChart,
+  ScenarioTable,
+  ScenarioToggles,
+  SuccessVerdictCard,
+  successToneColor,
+} from "../Planning/shared/simulationResultParts";
 import {
   buildFireScenarioRows,
   buildFireSummary,
@@ -61,20 +56,8 @@ type Props = {
   hideValues: boolean;
 };
 
-const toneColor = (tone: FireSuccessBand) => {
-  if (tone === "good") return getColor(Colors.brand);
-  if (tone === "warn") return "#f59e0b";
-  return getColor(Colors.danger200);
-};
-
 const valueOrHidden = (hideValues: boolean, value: string) =>
   hideValues ? "***" : value;
-
-const numberTickFormatter = (value: number) => {
-  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
-  return value.toFixed(0);
-};
 
 type DrawdownPoint = {
   age: number;
@@ -110,15 +93,7 @@ const DrawdownTooltipContent = ({
   const fmtWd = (v: number | null) =>
     v === null ? "-" : hideValues ? "***" : `${formatCurrency(v / 12)}/mes`;
   return (
-    <Stack
-      spacing={0.5}
-      sx={{
-        border: "1px solid",
-        p: 1,
-        borderColor: getColor(Colors.brand400),
-        backgroundColor: getColor(Colors.neutral600),
-      }}
-    >
+    <ChartTooltipBox>
       <p style={{ color: getColor(Colors.neutral300) }}>
         {xLabel}: {xLabel === "Idade" ? data.age : data.year}
       </p>
@@ -139,7 +114,7 @@ const DrawdownTooltipContent = ({
           {fmtWd(data.withdrawalP90)}
         </p>
       )}
-    </Stack>
+    </ChartTooltipBox>
   );
 };
 
@@ -184,7 +159,7 @@ export const MetricBlock = ({
       size={FontSizes.SMALL}
       weight={FontWeights.SEMI_BOLD}
       extraStyle={{
-        color: toneColor(tone),
+        color: successToneColor(tone),
         lineHeight: 1.2,
         whiteSpace: "nowrap",
       }}
@@ -270,8 +245,11 @@ const FireSimulationResults = ({
     summary.monthlyGap >= 0
       ? `Sobra ${formatCurrency(monthlyGapAbs)}/mes`
       : `Falta ${formatCurrency(monthlyGapAbs)}/mes`;
-  const onlyOneScenario =
-    [showOtimista, showMediana, showPessimista].filter(Boolean).length === 1;
+  const visible = {
+    p10: showPessimista,
+    p50: showMediana,
+    p90: showOtimista,
+  };
 
   const position = (row: number) =>
     comparisonColumn
@@ -288,42 +266,20 @@ const FireSimulationResults = ({
         </Text>
       </Stack>
 
-      <Stack
-        alignItems="center"
-        gap={0.75}
-        sx={{
-          border: "1px solid",
-          borderColor: getColor(Colors.neutral600),
-          borderRadius: 1,
-          py: 2,
-          px: 2,
-          backgroundColor: getColor(Colors.neutral900),
-          textAlign: "center",
-          ...position(2),
-        }}
-      >
-        <Text
-          size={FontSizes.SMALL}
-          weight={FontWeights.SEMI_BOLD}
-          extraStyle={{ color: toneColor(summary.band) }}
-        >
-          {summary.verdict}
-        </Text>
-        <Text
-          size={FontSizes.SEMI_LARGE}
-          weight={FontWeights.BOLD}
-          extraStyle={{ color: toneColor(summary.band), lineHeight: 1 }}
-        >
-          {hideValues
+      <SuccessVerdictCard
+        band={summary.band}
+        verdict={summary.verdict}
+        rate={
+          hideValues
             ? "***"
-            : formatSimulationSuccessRate(bootstrap.successRate)}
-        </Text>
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Chance historica de sustentar {formatCurrency(monthlyExpenses)}/mes
-          por {targetYears} anos se a aposentadoria comecasse hoje:{" "}
-          {summary.failedLabel}.
-        </Text>
-      </Stack>
+            : formatSimulationSuccessRate(bootstrap.successRate)
+        }
+        sx={position(2)}
+      >
+        Chance historica de sustentar {formatCurrency(monthlyExpenses)}/mes por{" "}
+        {targetYears} anos se a aposentadoria comecasse hoje:{" "}
+        {summary.failedLabel}.
+      </SuccessVerdictCard>
 
       <Stack
         gap={1.25}
@@ -342,50 +298,12 @@ const FireSimulationResults = ({
             value={formatCurrency(currentPatrimony)}
             hideValues={hideValues}
           >
-            <Tooltip
-              arrow
-              describeChild
-              title={`Mostra quanto da meta FIRE já é coberto pelo seu patrimônio atual. O cálculo usa o patrimônio da carteira e a meta calculada para este cenário: ${valueOrHidden(hideValues, formatCurrency(fireTarget))}.`}
-            >
-              <Box tabIndex={0} sx={{ position: "relative", mt: 0.5 }}>
-                <LinearProgress
-                  variant="determinate"
-                  value={Math.min(100, Math.max(0, retirementProgress))}
-                  aria-label="Progresso do patrimônio atual até a meta FIRE"
-                  aria-valuetext={`${retirementProgress.toFixed(0)}% da meta FIRE`}
-                  sx={{
-                    height: 14,
-                    borderRadius: "4px",
-                    backgroundColor: getColor(Colors.neutral600),
-                    "& .MuiLinearProgress-bar": {
-                      backgroundColor: getColor(
-                        retirementProgress >= 100
-                          ? Colors.brand
-                          : Colors.danger200,
-                      ),
-                      borderRadius: "4px",
-                    },
-                  }}
-                />
-                <Text
-                  aria-hidden
-                  style={{ fontSize: 14 }}
-                  size={FontSizes.EXTRA_SMALL}
-                  weight={FontWeights.SEMI_BOLD}
-                  color={Colors.neutral0}
-                  extraStyle={{
-                    position: "absolute",
-                    top: "50%",
-                    right: 6,
-                    transform: "translateY(-50%)",
-                    lineHeight: 1,
-                    textShadow: "0 1px 2px rgba(0, 0, 0, 0.6)",
-                  }}
-                >
-                  {retirementProgress.toFixed(0)}%
-                </Text>
-              </Box>
-            </Tooltip>
+            <GoalProgressBar
+              progress={retirementProgress}
+              goalLabel="meta FIRE"
+              hideValues={hideValues}
+              tooltip={`Mostra quanto da meta FIRE já é coberto pelo seu patrimônio atual. O cálculo usa o patrimônio da carteira e a meta calculada para este cenário: ${valueOrHidden(hideValues, formatCurrency(fireTarget))}.`}
+            />
           </MetricBlock>
           <MetricBlock
             position={position(4)}
@@ -460,71 +378,26 @@ const FireSimulationResults = ({
             <Text size={FontSizes.SMALL} weight={FontWeights.SEMI_BOLD}>
               O que pode acontecer com seu patrimonio?
             </Text>
-            <Stack direction="row" flexWrap="wrap">
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={showOtimista}
-                    onChange={(_, checked) =>
-                      onScenarioVisibilityChange("otimista", checked)
-                    }
-                    disabled={onlyOneScenario && showOtimista}
-                  />
-                }
-                label="Otimista"
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={showMediana}
-                    onChange={(_, checked) =>
-                      onScenarioVisibilityChange("mediana", checked)
-                    }
-                    disabled={onlyOneScenario && showMediana}
-                  />
-                }
-                label="Mediana"
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={showPessimista}
-                    onChange={(_, checked) =>
-                      onScenarioVisibilityChange("pessimista", checked)
-                    }
-                    disabled={onlyOneScenario && showPessimista}
-                  />
-                }
-                label="Pessimista"
-              />
-            </Stack>
+            <ScenarioToggles
+              visible={visible}
+              onChange={(key, checked) =>
+                onScenarioVisibilityChange(
+                  key === "p90"
+                    ? "otimista"
+                    : key === "p50"
+                      ? "mediana"
+                      : "pessimista",
+                  checked,
+                )
+              }
+            />
           </Stack>
           <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
             Patrimonio final se a aposentadoria comecasse com o patrimonio usado
             no cenario e retirasse {formatCurrency(monthlyExpenses)}/mes por{" "}
             {targetYears} anos, em valores de hoje.
           </Text>
-          <Box
-            component="table"
-            sx={{
-              width: "100%",
-              borderCollapse: "collapse",
-              "& th, & td": {
-                borderBottom: `1px solid ${getColor(Colors.neutral600)}`,
-                py: 1,
-                px: 1,
-                textAlign: "left",
-                fontSize: 12,
-              },
-              "& th": {
-                color: getColor(Colors.neutral300),
-                fontWeight: 700,
-              },
-              "& td": {
-                color: getColor(Colors.neutral200),
-              },
-            }}
-          >
+          <ScenarioTable>
             <thead>
               <tr>
                 <th>Cenario</th>
@@ -535,7 +408,12 @@ const FireSimulationResults = ({
             <tbody>
               {scenarioRows.map((row) => (
                 <tr key={row.key}>
-                  <td style={{ color: toneColor(row.tone), fontWeight: 700 }}>
+                  <td
+                    style={{
+                      color: successToneColor(row.tone),
+                      fontWeight: 700,
+                    }}
+                  >
                     {row.label}
                   </td>
                   <td>
@@ -545,99 +423,47 @@ const FireSimulationResults = ({
                 </tr>
               ))}
             </tbody>
-          </Box>
-          <Stack gap={0.5} sx={{ mt: 1 }}>
-            <Text
-              size={FontSizes.SMALL}
-              weight={FontWeights.SEMI_BOLD}
-              color={Colors.neutral200}
-            >
-              Aposentadoria · trajetória do patrimônio no cenário atual
-            </Text>
-            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-              Sucesso em {targetYears}a:{" "}
-              <strong>{(bootstrap.successRate * 100).toFixed(0)}%</strong>
-              {" · "}
-              Depleção mediana:{" "}
-              <strong>
-                {bootstrap.medianDepletionYear !== null
-                  ? `${bootstrap.medianDepletionYear} anos`
-                  : "nunca"}
-              </strong>
-              {" · "}
-              Depleção pessimista (p10):{" "}
-              <strong>
-                {bootstrap.p10DepletionYear !== null
-                  ? `${bootstrap.p10DepletionYear} anos`
-                  : "nunca"}
-              </strong>
-            </Text>
-          </Stack>
-          <ResponsiveContainer width="100%" height={220}>
-            <ComposedChart
-              data={retirementChartData}
-              margin={{ top: 10, right: 5, left: 5, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="5" vertical={false} />
-              <XAxis
-                dataKey={retirementAge !== null ? "age" : "year"}
-                stroke={getColor(Colors.neutral0)}
-                tickLine={false}
-                tickFormatter={(v) => `${v}`}
+          </ScenarioTable>
+          <PercentileTrajectoryChart
+            subtitle={
+              <>
+                Sucesso em {targetYears}a:{" "}
+                <strong>{(bootstrap.successRate * 100).toFixed(0)}%</strong>
+                {" · "}
+                Depleção mediana:{" "}
+                <strong>
+                  {bootstrap.medianDepletionYear !== null
+                    ? `${bootstrap.medianDepletionYear} anos`
+                    : "nunca"}
+                </strong>
+                {" · "}
+                Depleção pessimista (p10):{" "}
+                <strong>
+                  {bootstrap.p10DepletionYear !== null
+                    ? `${bootstrap.p10DepletionYear} anos`
+                    : "nunca"}
+                </strong>
+              </>
+            }
+            data={retirementChartData}
+            xKey={retirementAge !== null ? "age" : "year"}
+            dataKeys={{
+              p10: "balanceP10",
+              p50: "balanceP50",
+              p90: "balanceP90",
+            }}
+            visible={visible}
+            hideValues={hideValues}
+            tooltip={
+              <DrawdownTooltipContent
+                hideValues={hideValues}
+                showOtimista={showOtimista}
+                showMediana={showMediana}
+                showPessimista={showPessimista}
+                xLabel={retirementAge !== null ? "Idade" : "Ano"}
               />
-              <YAxis
-                stroke={getColor(Colors.brand400)}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={numberTickFormatter}
-                tickCount={hideValues ? 0 : undefined}
-              />
-              <RechartsTooltip
-                cursor={false}
-                content={
-                  <DrawdownTooltipContent
-                    hideValues={hideValues}
-                    showOtimista={showOtimista}
-                    showMediana={showMediana}
-                    showPessimista={showPessimista}
-                    xLabel={retirementAge !== null ? "Idade" : "Ano"}
-                  />
-                }
-              />
-              {showPessimista && (
-                <Line
-                  type="monotone"
-                  dataKey="balanceP10"
-                  stroke={getColor(Colors.danger200)}
-                  strokeWidth={1.5}
-                  strokeDasharray="4 3"
-                  dot={false}
-                  name="p10 (pessimista)"
-                />
-              )}
-              {showMediana && (
-                <Line
-                  type="monotone"
-                  dataKey="balanceP50"
-                  stroke={getColor(Colors.brand200)}
-                  strokeWidth={2}
-                  dot={false}
-                  name="Mediana"
-                />
-              )}
-              {showOtimista && (
-                <Line
-                  type="monotone"
-                  dataKey="balanceP90"
-                  stroke={getColor(Colors.brand)}
-                  strokeWidth={1.5}
-                  strokeDasharray="4 3"
-                  dot={false}
-                  name="p90 (otimista)"
-                />
-              )}
-            </ComposedChart>
-          </ResponsiveContainer>
+            }
+          />
         </Stack>
       )}
 

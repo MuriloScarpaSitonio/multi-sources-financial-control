@@ -1,18 +1,5 @@
-import Collapse from "@mui/material/Collapse";
-import ExpandLessIcon from "@mui/icons-material/ExpandLess";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import Chip from "@mui/material/Chip";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import IconButton from "@mui/material/IconButton";
-import Paper from "@mui/material/Paper";
-import Stack from "@mui/material/Stack";
-import useMediaQuery from "@mui/material/useMediaQuery";
-import type { Theme } from "@mui/material/styles";
 
 import { historicalSourceForMonth } from "../../Home/firePortfolio";
 import type { SamplingMethod } from "../../Home/fireReturnTypes";
@@ -24,6 +11,9 @@ import type { FireSimulationResult } from "../../Home/fireSimulation";
 import FireResultsPanel from "./FireResultsPanel";
 import type { FireCalculationState } from "./FireResultsSkeleton";
 import FireScenarioPanel from "./FireScenarioPanel";
+import SimulationStudioShell, {
+  useStudioLayout,
+} from "../shared/SimulationStudioShell";
 import {
   buildFireStudioSnapshot,
   resubmitFireStudioSnapshot,
@@ -75,9 +65,6 @@ const FireSimulationStudio = ({
   onShowAgeInBondsChange,
   onHistoricalPreferenceChange,
 }: FireSimulationStudioProps) => {
-  const isMobile = useMediaQuery((theme: Theme) =>
-    theme.breakpoints.down("md"),
-  );
   const draftSnapshot = useMemo(() => buildFireStudioSnapshot(draft), [draft]);
   const [submittedSnapshot, setSubmittedSnapshot] =
     useState<FireStudioSnapshot | null>(null);
@@ -90,9 +77,7 @@ const FireSimulationStudio = ({
     useState<FireSimulationResult | null>(null);
   const [comparisonWithoutFallback, setComparisonWithoutFallback] =
     useState(false);
-  const [resultsExpanded, setResultsExpanded] = useState(true);
-  const [panelCollapsed, setPanelCollapsed] = useState(false);
-  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+  const layout = useStudioLayout();
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const historicalControlsRef = useRef<HTMLDivElement>(null);
 
@@ -155,194 +140,81 @@ const FireSimulationStudio = ({
   };
 
   const handleAdjustHistoricalSources = () => {
-    setPanelCollapsed(false);
-    setMobilePanelOpen(true);
+    layout.openPanel();
     setAdvancedOpen(true);
   };
 
-  const scenarioPanel = (
-    <FireScenarioPanel
-      allocation={allocation}
-      firePreferences={firePreferences}
-      patrimonyTotal={draft.patrimonyTotal}
-      simulatedPatrimony={draft.simulatedPatrimony}
-      avgExpenses={draft.avgExpenses}
-      expensesOverride={draft.expensesOverride}
-      derivedMonthlySavings={draft.derivedMonthlySavings}
-      monthlySavingsOverride={draft.monthlySavingsOverride}
-      withdrawalRate={draft.withdrawalRate}
-      targetYears={draft.targetYears}
-      samplingMethod={draft.samplingMethod}
-      showAgeInBonds={draft.showAgeInBonds}
-      canRecalculate={canRecalculate}
-      isCalculating={calculationState.isCalculating}
-      isPersisting={isPersisting}
-      advancedOpen={advancedOpen}
-      historicalControlsRef={historicalControlsRef}
-      onAdvancedOpenChange={setAdvancedOpen}
-      onSimulatedPatrimonyChange={onSimulatedPatrimonyChange}
-      onExpensesChange={onExpensesChange}
-      onMonthlySavingsChange={onMonthlySavingsChange}
-      onWithdrawalRateChange={onWithdrawalRateChange}
-      onTargetYearsChange={onTargetYearsChange}
-      onSamplingMethodChange={onSamplingMethodChange}
-      onShowAgeInBondsChange={onShowAgeInBondsChange}
-      onHistoricalPreferenceChange={onHistoricalPreferenceChange}
-      onRecalculate={handleRecalculate}
-      onCollapse={isMobile ? undefined : () => setPanelCollapsed(true)}
-    />
-  );
-
   return (
-    <>
-      {renderHeader?.(
-        canRecalculate ? (
-          <Button size="small" variant="brand" onClick={handleRecalculate}>
-            Recalcular
-          </Button>
-        ) : null,
+    <SimulationStudioShell
+      layout={layout}
+      testId="fire-simulation-studio"
+      resultsId="fire-simulation-results"
+      renderHeader={renderHeader}
+      canRecalculate={canRecalculate}
+      onRecalculate={handleRecalculate}
+      renderPanel={(onCollapse) => (
+        <FireScenarioPanel
+          allocation={allocation}
+          firePreferences={firePreferences}
+          patrimonyTotal={draft.patrimonyTotal}
+          simulatedPatrimony={draft.simulatedPatrimony}
+          avgExpenses={draft.avgExpenses}
+          expensesOverride={draft.expensesOverride}
+          derivedMonthlySavings={draft.derivedMonthlySavings}
+          monthlySavingsOverride={draft.monthlySavingsOverride}
+          withdrawalRate={draft.withdrawalRate}
+          targetYears={draft.targetYears}
+          samplingMethod={draft.samplingMethod}
+          showAgeInBonds={draft.showAgeInBonds}
+          canRecalculate={canRecalculate}
+          isCalculating={calculationState.isCalculating}
+          isPersisting={isPersisting}
+          advancedOpen={advancedOpen}
+          historicalControlsRef={historicalControlsRef}
+          onAdvancedOpenChange={setAdvancedOpen}
+          onSimulatedPatrimonyChange={onSimulatedPatrimonyChange}
+          onExpensesChange={onExpensesChange}
+          onMonthlySavingsChange={onMonthlySavingsChange}
+          onWithdrawalRateChange={onWithdrawalRateChange}
+          onTargetYearsChange={onTargetYearsChange}
+          onSamplingMethodChange={onSamplingMethodChange}
+          onShowAgeInBondsChange={onShowAgeInBondsChange}
+          onHistoricalPreferenceChange={onHistoricalPreferenceChange}
+          onRecalculate={handleRecalculate}
+          onCollapse={onCollapse}
+        />
       )}
-      <Box
-        data-testid="fire-simulation-studio"
-        data-panel-collapsed={panelCollapsed}
-        sx={{
-          display: "grid",
-          gridTemplateColumns: {
-            xs: "minmax(0, 1fr)",
-            md: panelCollapsed ? "56px minmax(0, 1fr)" : "360px minmax(0, 1fr)",
-          },
-          gap: 2,
-          alignItems: "start",
-        }}
-      >
-        {isMobile ? (
-          <Stack gap={1}>
-            <Button
-              variant="outlined"
-              onClick={() => setMobilePanelOpen((open) => !open)}
-            >
-              {mobilePanelOpen ? "Ocultar cenário" : "Editar cenário"}
-            </Button>
-            {mobilePanelOpen && scenarioPanel}
-          </Stack>
-        ) : panelCollapsed ? (
-          <Paper
-            elevation={1}
-            sx={{
-              position: "sticky",
-              top: 80,
-              p: 1,
-              borderRadius: 2,
-            }}
-          >
-            <IconButton
-              aria-label="Expandir cenário"
-              onClick={() => setPanelCollapsed(false)}
-            >
-              <ChevronRightIcon />
-            </IconButton>
-          </Paper>
-        ) : (
-          <Stack
-            gap={1}
-            sx={{
-              position: "sticky",
-              top: 80,
-              maxHeight: "calc(100dvh - 96px)",
-              overflowY: "auto",
-            }}
-          >
-            {scenarioPanel}
-          </Stack>
-        )}
-
-        <Stack gap={1} sx={{ minWidth: 0 }}>
-          <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
-            <Stack
-              direction="row"
-              alignItems="center"
-              gap={1}
-              flexWrap="wrap"
-              sx={{ minHeight: 32 }}
-            >
-              <Button
-                size="small"
-                variant="brand-text"
-                aria-expanded={resultsExpanded}
-                aria-controls="fire-simulation-results"
-                endIcon={
-                  resultsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />
-                }
-                sx={{ alignSelf: "flex-start" }}
-                onClick={() => setResultsExpanded((value) => !value)}
-              >
-                {resultsExpanded ? "Recolher simulação" : "Expandir simulação"}
-              </Button>
-              {hasFallbackHistory && (
-                <Chip
-                  size="small"
-                  variant="brand"
-                  label="Histórico complementado"
-                />
-              )}
-
-              {hasFallbackHistory && (
-                <Button
-                  variant="brand-text"
-                  size="small"
-                  disabled={
-                    !comparisonWithoutFallback &&
-                    (calculationState.isCalculating ||
-                      !baselineResult ||
-                      !submittedSnapshot?.request)
-                  }
-                  onClick={() => {
-                    setResultsExpanded(true);
-                    setComparisonWithoutFallback((current) => !current);
-                  }}
-                >
-                  {comparisonWithoutFallback
-                    ? "Fechar comparação"
-                    : "Comparar sem complemento"}
-                </Button>
-              )}
-            </Stack>
-          </Paper>
-          <Collapse
-            in={resultsExpanded}
-            id="fire-simulation-results"
-            role="region"
-            aria-label="Resultados da simulação"
-          >
-            <Stack gap={1} sx={{ minWidth: 0 }}>
-              {comparisonWithoutFallback &&
-                submittedSnapshot &&
-                baselineResult && (
-                  <FireComparisonPanel
-                    snapshot={submittedSnapshot}
-                    baseline={baselineResult}
-                  />
-                )}
-              <Box
-                sx={{ display: comparisonWithoutFallback ? "none" : "block" }}
-              >
-                <FireResultsPanel
-                  snapshot={submittedSnapshot}
-                  onSimulationResult={setBaselineResult}
-                  dateOfBirth={dateOfBirth}
-                  fixedIncomeTotal={fixedIncomeTotal}
-                  variableIncomeTotal={variableIncomeTotal}
-                  calculationState={calculationState}
-                  onCalculationStateChange={handleCalculationStateChange}
-                  onAdjustHistoricalSources={handleAdjustHistoricalSources}
-                />
-              </Box>
-            </Stack>
-          </Collapse>
-          {renderExplanation?.(draftSnapshot)}
-        </Stack>
-      </Box>
-    </>
+      hasFallbackHistory={hasFallbackHistory}
+      comparisonOpen={comparisonWithoutFallback}
+      comparisonDisabled={
+        calculationState.isCalculating ||
+        !baselineResult ||
+        !submittedSnapshot?.request
+      }
+      onComparisonOpenChange={setComparisonWithoutFallback}
+      comparison={
+        submittedSnapshot &&
+        baselineResult && (
+          <FireComparisonPanel
+            snapshot={submittedSnapshot}
+            baseline={baselineResult}
+          />
+        )
+      }
+      results={
+        <FireResultsPanel
+          snapshot={submittedSnapshot}
+          onSimulationResult={setBaselineResult}
+          dateOfBirth={dateOfBirth}
+          fixedIncomeTotal={fixedIncomeTotal}
+          variableIncomeTotal={variableIncomeTotal}
+          calculationState={calculationState}
+          onCalculationStateChange={handleCalculationStateChange}
+          onAdjustHistoricalSources={handleAdjustHistoricalSources}
+        />
+      }
+      explanation={renderExplanation?.(draftSnapshot)}
+    />
   );
 };
 
