@@ -18,6 +18,7 @@ import {
 type StrategyHeaderProps = {
   title: ReactNode;
   subtitle?: string;
+  subtitleSize?: FontSizes;
   titleSize?: FontSizes;
   isActive: boolean;
   isMutating: boolean;
@@ -32,6 +33,7 @@ type StrategyHeaderProps = {
 const StrategyHeader = ({
   title,
   subtitle,
+  subtitleSize = FontSizes.SMALL,
   titleSize = FontSizes.LARGE,
   isActive,
   isMutating,
@@ -101,7 +103,7 @@ const StrategyHeader = ({
           )}
         </Stack>
         {subtitle && (
-          <Text size={FontSizes.SMALL} color={Colors.neutral400}>
+          <Text size={subtitleSize} color={Colors.neutral400}>
             {subtitle}
           </Text>
         )}
@@ -125,19 +127,19 @@ const StrategyHeader = ({
         }
       >
         {actions}
+        {isDirty && (
+          <Button
+            color="success"
+            variant={sticky ? "brand" : "contained"}
+            size="small"
+            onClick={onSave}
+            disabled={isMutating}
+          >
+            Salvar alterações
+          </Button>
+        )}
         {isActive ? (
           <>
-            {isDirty && (
-              <Button
-                color="success"
-                variant={sticky ? "brand" : "contained"}
-                size="small"
-                onClick={onSave}
-                disabled={isMutating}
-              >
-                Salvar alterações
-              </Button>
-            )}
             {!activeBadgeByTitle && (
               <Chip
                 icon={<CheckCircleIcon />}

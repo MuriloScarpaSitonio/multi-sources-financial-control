@@ -74,13 +74,11 @@ const DividendsOnlyDetail = () => {
 
   const isDirty = useMemo(
     () =>
-      isActive &&
       !!planningData &&
       (yieldOverride !== dividendsOnlyPreferences.yield_override ||
         savingsOverride !== dividendsOnlyPreferences.monthly_savings_override ||
         expensesOverride !== dividendsOnlyPreferences.monthly_expenses_override),
     [
-      isActive,
       planningData,
       dividendsOnlyPreferences.monthly_expenses_override,
       dividendsOnlyPreferences.monthly_savings_override,
@@ -94,7 +92,6 @@ const DividendsOnlyDetail = () => {
   const handleSelect = () => updatePreferences({ selected_method: METHOD });
 
   const handleSave = () => {
-    if (!isActive) return;
     const patch: PlanningPreferences = {
       dividends_only: {
         yield_override: yieldOverride,

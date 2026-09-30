@@ -74,14 +74,12 @@ const OneOverNDetail = () => {
 
   const isDirty = useMemo(
     () =>
-      isActive &&
       !!planningData &&
       (targetDepletionAge !== oneOverNPreferences.target_depletion_age ||
         realReturn !== oneOverNPreferences.real_return ||
         savingsOverride !== oneOverNPreferences.monthly_savings_override ||
         expensesOverride !== oneOverNPreferences.monthly_expenses_override),
     [
-      isActive,
       planningData,
       oneOverNPreferences.monthly_expenses_override,
       oneOverNPreferences.monthly_savings_override,
@@ -97,7 +95,6 @@ const OneOverNDetail = () => {
   const handleSelect = () => updatePreferences({ selected_method: METHOD });
 
   const handleSave = () => {
-    if (!isActive) return;
     const patch: PlanningPreferences = {
       one_over_n: {
         target_depletion_age: targetDepletionAge,

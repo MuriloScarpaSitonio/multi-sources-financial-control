@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { runFireSimulation } from "./fireSimulation";
+import { runFireSimulation, runPlanningSimulation } from "./fireSimulation";
 
 describe("runFireSimulation", () => {
   it("produces the complete constant-dollar result in one worker job", () => {
@@ -133,4 +133,37 @@ it("uses the projected retirement balances for either strategy", () => {
   expect(age.output.lifestyleBootstrap).toEqual(
     age.output.extendedAccumulation?.bootstrap,
   );
+});
+
+it("runs VPW accumulation and retirement together with distinct starting balances", () => {
+  const request = {
+    kind: "vpw" as const,
+    input: {
+      // An empty portfolio deliberately supplies zero real returns for this protocol fixture.
+      portfolio: [],
+      samplingMethod: "independent_months" as const,
+      retirement: {
+        startingBalance: 120000,
+        monthlySpending: 500,
+        years: 10,
+        annualGrowth: 0,
+        numTrials: 3,
+      },
+      accumulation: {
+        startingBalance: 0,
+        monthlySavings: 1000,
+        years: 9,
+        numTrials: 3,
+      },
+    },
+  };
+  const result = runPlanningSimulation(structuredClone(request));
+  expect(result.kind).toBe("vpw");
+  expect(result.output).toHaveProperty("retirement");
+  expect(result.output).toHaveProperty("accumulation");
+  if (result.kind !== "vpw") throw new Error("wrong result kind");
+  expect(result.output.accumulation?.medianYearsToTarget).toBe(4);
+  expect(result.output.retirement.minimumMonthlyIncome.p50).toBeCloseTo(500);
+  expect(result.output.retirement.balanceBands[10].p50).toBeCloseTo(60000);
+  expect(structuredClone(result)).toEqual(result);
 });

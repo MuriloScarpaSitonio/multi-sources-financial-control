@@ -7,7 +7,7 @@ import {
   getFontSize,
   Text,
 } from "../../../../design-system";
-import type { FirePlanningPreferences } from "../api";
+import type { HistoricalPlanningPreferences } from "../api";
 import type { FireAllocationBucket } from "../fireAllocation";
 import FireHistoricalDrawer from "./FireHistoricalDrawer";
 import { historicalSummary } from "./fireHistoricalDatasets";
@@ -16,19 +16,21 @@ const FireHistoricalSettings = ({
   allocation,
   preferences,
   showAgeInBonds,
+  showAmounts = true,
   open,
   onOpenChange,
   onApply,
   controlsRef,
 }: {
   allocation: readonly FireAllocationBucket[];
-  preferences: Required<FirePlanningPreferences>;
+  preferences: Required<HistoricalPlanningPreferences>;
   showAgeInBonds: boolean;
+  showAmounts?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onApply: (
-    overrides: Required<FirePlanningPreferences>["historical_series_overrides"],
-    fallbacks: Required<FirePlanningPreferences>["historical_series_fallbacks"],
+    overrides: Required<HistoricalPlanningPreferences>["historical_series_overrides"],
+    fallbacks: Required<HistoricalPlanningPreferences>["historical_series_fallbacks"],
   ) => void;
   controlsRef?: Ref<HTMLDivElement>;
 }) => {
@@ -67,6 +69,7 @@ const FireHistoricalSettings = ({
       {open && (
         <FireHistoricalDrawer
           allocation={allocation}
+          showAmounts={showAmounts}
           preferences={preferences}
           showAgeInBonds={showAgeInBonds}
           onClose={() => onOpenChange(false)}

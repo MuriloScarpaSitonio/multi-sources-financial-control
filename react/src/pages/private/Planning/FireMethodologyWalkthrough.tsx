@@ -1,12 +1,12 @@
+import Collapse from "@mui/material/Collapse";
+import ExpandMore from "@mui/icons-material/ExpandMore";
+import ExpandLess from "@mui/icons-material/ExpandLess";
+import { DATASET_LABELS } from "./fire/fireHistoricalDatasets";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import Button from "@mui/material/Button";
 import Skeleton from "@mui/material/Skeleton";
 import Link from "@mui/material/Link";
-import Slider from "@mui/material/Slider";
-import Switch from "@mui/material/Switch";
-import FormControlLabel from "@mui/material/FormControlLabel";
-import type { SamplingMethod } from "../Home/fireReturnTypes";
 import Stack from "@mui/material/Stack";
 import Step from "@mui/material/Step";
 import StepLabel from "@mui/material/StepLabel";
@@ -31,33 +31,58 @@ import {
   Text,
 } from "../../../design-system";
 import {
-  DEFAULT_HORIZON,
-  EXAMPLE_EQUITY_WEIGHT,
-  EXAMPLE_FI_WEIGHT,
-  HORIZON_MAX,
-  HORIZON_MIN,
-  EXAMPLE_MONTHS,
+  prepareWalkthrough,
+  type WalkthroughScenario,
   runBinarySearch,
   sampleTrialMonths,
   simulateTrial,
 } from "./walkthroughKernel";
 
-// Four interactive steps using a fixed example portfolio and monthly returns.
+import { useHideValues } from "../../../hooks/useHideValues";
+import { useFireSimulationWorker } from "../Home/useFireSimulationWorker";
+import type { FireStudioSnapshot } from "./fire/fireStudioScenario";
 
-const TRIALS_FOR_ENSEMBLE = 1000;
+// Four steps explain retirement using the current scenario inputs.
+
+const SOURCE_LINKS: Partial<Record<keyof typeof DATASET_LABELS, string>> = {
+  IBOV: "https://www.b3.com.br/pt_br/market-data-e-indices/indices/indices-amplos/indice-ibovespa-ibovespa-estatisticas-historicas.htm",
+  IFIX: "https://www.b3.com.br/pt_br/market-data-e-indices/indices/indices-de-segmentos-e-setoriais/indice-fundos-de-investimentos-imobiliarios-ifix-estatisticas-historicas.htm",
+  CDI: "https://www3.bcb.gov.br/sgspub/consultarvalores/consultarValoresSeries.do?hdOidSeriesSelecionadas=4391&method=consultarGraficoPorId",
+  SPY: "https://www.ssga.com/library-content/products/fund-data/etfs/us/navhist-us-en-spy.xlsx",
+  VWRL: "https://www.vanguard.co.uk/professional/product/etf/equity/9505/ftse-all-world-ucits-etf-distributing#prices-and-distribution",
+  IMA_S:
+    "https://data.anbima.com.br/indices/consulta/ima/resultados-diarios/ima-s",
+  IRF_M_1:
+    "https://data.anbima.com.br/indices/consulta/ima/resultados-diarios/irf-m-1",
+  IRF_M_1_PLUS:
+    "https://data.anbima.com.br/indices/consulta/ima/resultados-diarios/irf-m-1-mais",
+  IMA_B_5:
+    "https://data.anbima.com.br/indices/consulta/ima/resultados-diarios/ima-b-5",
+  IMA_B_5_PLUS:
+    "https://data.anbima.com.br/indices/consulta/ima/resultados-diarios/ima-b-5-mais",
+  IMA_GERAL_EX_C:
+    "https://data.anbima.com.br/indices/consulta/ima/resultados-diarios/ima-geral-ex-c",
+};
+const sourceLabel = (series: keyof typeof DATASET_LABELS) =>
+  SOURCE_LINKS[series] ? (
+    <Link href={SOURCE_LINKS[series]} target="_blank" rel="noopener noreferrer">
+      {DATASET_LABELS[series]}
+    </Link>
+  ) : (
+    DATASET_LABELS[series]
+  );
+
+const TRIALS_FOR_ENSEMBLE = 2000;
 const ENSEMBLE_RENDERED_LINES = 100;
-const TRIALS_PER_SEARCH_TEST_DISPLAY = 1000;
-const RATE_MIN = 0.02;
-const RATE_MAX = 0.06;
-const RATE_STEP = 0.005;
-
-// Which (zero-indexed) steps use the `taxa` slider. Off-list steps disable it.
-const RATE_RELEVANT_STEPS = new Set([1, 2]);
-
 const formatCurrencyCompact = (v: number) => {
   if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1)}M`;
   if (v >= 1_000) return `R$ ${(v / 1_000).toFixed(0)}k`;
   return `R$ ${v.toFixed(0)}`;
+};
+
+const useWalkthroughCurrencyFormatter = () => {
+  const { hideValues } = useHideValues();
+  return (value: number) => (hideValues ? "***" : formatCurrencyCompact(value));
 };
 
 // =============================================================================
@@ -66,34 +91,27 @@ const formatCurrencyCompact = (v: number) => {
 
 const formatMonth = (month: string) => `${month.slice(5)}/${month.slice(0, 4)}`;
 
-const DeckStep = ({
-  horizon,
-  method,
-}: {
-  horizon: number;
-  method: SamplingMethod;
-}) => {
+const DeckStep = ({ scenario }: { scenario: WalkthroughScenario }) => {
   const [seed, setSeed] = useState(1);
   const months = useMemo(
-    () => sampleTrialMonths(seed, horizon, method),
-    [seed, horizon, method],
+    () => sampleTrialMonths(seed, scenario),
+    [seed, scenario],
   );
-  const blocks = method === "contiguous_12_month_blocks";
+  const blocks =
+    scenario.snapshot.samplingMethod === "contiguous_12_month_blocks";
   return (
     <Stack gap={1.5}>
       <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-        O exemplo usa {EXAMPLE_MONTHS.length} meses comuns ao IBOV e CDI, de{" "}
-        {formatMonth(EXAMPLE_MONTHS[0])} a{" "}
-        {formatMonth(EXAMPLE_MONTHS[EXAMPLE_MONTHS.length - 1])}. Para {horizon}{" "}
-        anos de aposentadoria, sorteamos {horizon * 12} meses com reposição: um
-        mesmo mês pode aparecer várias vezes.
+        Sorteamos meses do histórico da sua carteira para montar uma sequência
+        de retornos ao longo dos anos do seu cenário. Um mesmo mês pode aparecer
+        mais de uma vez.
       </Text>
       <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
         {blocks
-          ? "Preservando sequências, cada sorteio traz 12 meses consecutivos. O bloco pode começar em qualquer mês, não apenas em janeiro."
-          : "Sem preservar sequências, cada mês é sorteado independentemente; a ordem histórica entre meses não é mantida."}{" "}
-        Todas as classes usam o mesmo mês sorteado, preservando a relação entre
-        seus retornos naquele mês.
+          ? "Sorteamos blocos de 12 meses consecutivos."
+          : "Sorteamos cada mês de forma independente."}{" "}
+        Todos os ativos usam o mesmo mês histórico, preservando a relação entre
+        seus retornos.
       </Text>
       <Text size={FontSizes.EXTRA_SMALL}>Primeiros 24 meses sorteados</Text>
       <Stack direction="row" gap={0.5} flexWrap="wrap">
@@ -112,13 +130,6 @@ const DeckStep = ({
           </Stack>
         ))}
       </Stack>
-      <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-        Na sua simulação, cada subgrupo usa o histórico configurado. Um
-        complemento fornece os meses anteriores ao início do principal; depois,
-        vale o principal. O período disponível contém apenas meses cobertos por
-        todos os grupos que exigem histórico. Por isso, um complemento pode não
-        ampliar o período se outro grupo começar mais tarde.
-      </Text>
       <Stack direction="row">
         <Button
           variant="outlined"
@@ -136,20 +147,11 @@ const DeckStep = ({
 // Step 2 — One simulated retiree
 // =============================================================================
 
-const SingleTrialStep = ({
-  rate,
-  horizon,
-  method,
-}: {
-  rate: number;
-  horizon: number;
-  method: SamplingMethod;
-}) => {
+const SingleTrialStep = ({ scenario }: { scenario: WalkthroughScenario }) => {
+  const formatCurrencyCompact = useWalkthroughCurrencyFormatter();
+  const { targetYears: horizon } = scenario.snapshot;
   const [seed, setSeed] = useState(7);
-  const trial = useMemo(
-    () => simulateTrial(rate, seed, horizon, method),
-    [rate, seed, horizon, method],
-  );
+  const trial = useMemo(() => simulateTrial(seed, scenario), [seed, scenario]);
 
   const data = trial.balances.map((bal, year) => ({
     year,
@@ -160,13 +162,12 @@ const SingleTrialStep = ({
   return (
     <Stack gap={1.5}>
       <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-        Este exemplo começa na aposentadoria, com <strong>R$ 1 milhão</strong>:{" "}
-        {EXAMPLE_EQUITY_WEIGHT * 100}% IBOV e {EXAMPLE_FI_WEIGHT * 100}% CDI. A
-        retirada anual de <strong>{(rate * 100).toFixed(1)}%</strong> do
-        patrimônio inicial é dividida em 12 parcelas mensais constantes em poder
-        de compra. A cada mês, aplicamos o retorno real ponderado da carteira e
-        depois descontamos a retirada. Não há novos aportes durante a
-        aposentadoria. O gráfico mostra o saldo ao fim de cada ano.
+        Aplicamos os retornos sorteados ao patrimônio e descontamos sua despesa
+        mensal para ver se o dinheiro dura até a idade alvo.
+      </Text>
+      <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+        As retiradas começam agora, sem novos aportes. Os pesos da carteira
+        permanecem fixos. Os valores descontam a inflação.
       </Text>
       <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
         <Button
@@ -177,21 +178,29 @@ const SingleTrialStep = ({
           Sortear nova sequência
         </Button>
       </Stack>
-      <ResponsiveContainer width="100%" height={200}>
+      <ResponsiveContainer width="100%" height={220}>
         <LineChart
           data={data}
-          margin={{ top: 10, right: 10, left: 5, bottom: 0 }}
+          margin={{ top: 10, right: 10, left: 5, bottom: 20 }}
         >
           <CartesianGrid strokeDasharray="5" vertical={false} />
           <XAxis
             dataKey="year"
+            type="number"
+            domain={[0, horizon]}
+            ticks={Array.from(
+              { length: Math.min(6, horizon + 1) },
+              (_, index) =>
+                Math.round((index * horizon) / Math.min(5, horizon)),
+            )}
+            minTickGap={30}
             stroke={getColor(Colors.neutral0)}
             tickLine={false}
             tickFormatter={(v) => `${v}`}
             label={{
               value: "Ano da aposentadoria",
               position: "insideBottom",
-              offset: -5,
+              offset: -10,
               fill: getColor(Colors.neutral400),
               fontSize: 11,
             }}
@@ -264,108 +273,52 @@ const SingleTrialStep = ({
           Sorteie de novo para ver outra sequência possível.
         </em>
       </Text>
-      <Stack
-        gap={0.5}
-        sx={{
-          mt: 1,
-          p: 1.5,
-          borderRadius: 1,
-          backgroundColor: getColor(Colors.neutral600),
-        }}
-      >
-        <Text
-          size={FontSizes.EXTRA_SMALL}
-          color={Colors.neutral200}
-          weight={FontWeights.MEDIUM}
-        >
-          Fontes da simulação
-        </Text>
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Renda variável BR:{" "}
-          <Link
-            href="https://www.b3.com.br/pt_br/market-data-e-indices/indices/indices-amplos/ibovespa.htm"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            IBOV
-          </Link>
-          . Renda variável EUA, global e cripto usam o proxy selecionado em
-          Dados históricos.
-        </Text>
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          FIIs:{" "}
-          <Link
-            href="https://www.b3.com.br/pt_br/market-data-e-indices/indices/indices-amplos/indice-de-fundos-de-investimentos-imobiliarios-ifix.htm"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            IFIX
-          </Link>{" "}
-          (B3).
-        </Text>
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Renda fixa BR usa o histórico selecionado para seu subgrupo; a seleção
-          inicial considera o indexador e o vencimento do ativo. O CDI vem do{" "}
-          <Link
-            href="https://www3.bcb.gov.br/sgspub/consultarvalores/consultarValoresSeries.do?hdOidSeriesSelecionadas=4391&method=consultarGraficoPorId"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            CDI acumulado no mês
-          </Link>{" "}
-          (BCB SGS 4391).
-        </Text>
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Inflação para deflacionar tudo a valores reais:{" "}
-          <Link
-            href="https://www3.bcb.gov.br/sgspub/consultarvalores/consultarValoresSeries.paint?method=consultarValores"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            IPCA (BCB SGS 433)
-          </Link>
-          .
-        </Text>
-      </Stack>
     </Stack>
   );
 };
 
 // =============================================================================
-// Step 3 — 1000 retirees at once
+// Step 3 — 2000 retirees at once
 // =============================================================================
 
-const EnsembleStep = ({
-  rate,
-  horizon,
-  method,
-}: {
-  rate: number;
-  horizon: number;
-  method: SamplingMethod;
-}) => {
+const EnsembleStep = ({ scenario }: { scenario: WalkthroughScenario }) => {
+  const formatCurrencyCompact = useWalkthroughCurrencyFormatter();
+  const { targetYears: horizon } = scenario.snapshot;
+  const advanced =
+    scenario.snapshot.showAgeInBonds ||
+    (scenario.snapshot.extraAccumulationYears ?? 0) > 0;
+  const production = useFireSimulationWorker(
+    advanced ? scenario.snapshot.request : null,
+  );
+  const productionOutput = production.result?.output;
+  const extended = productionOutput?.extendedAccumulation;
+  const productionBootstrap =
+    production.result?.kind === "constant_dollar"
+      ? production.result.output.bootstrap
+      : production.result?.output.lifestyleBootstrap;
   const [seedBase, setSeedBase] = useState(100);
 
-  const requestKey = `${seedBase}:${rate}:${horizon}:${method}`;
+  const requestKey = `${seedBase}:${JSON.stringify(scenario.snapshot)}`;
   const [result, setResult] = useState<{
     key: string;
     trials: ReturnType<typeof simulateTrial>[];
   } | null>(null);
-  const isCalculating = result?.key !== requestKey;
+  const isCalculating = advanced
+    ? production.isCalculating
+    : result?.key !== requestKey;
   const trials = useMemo(
     () => (isCalculating ? [] : (result?.trials ?? [])),
     [isCalculating, result],
   );
 
   useEffect(() => {
+    if (advanced) return;
     const nextTrials: ReturnType<typeof simulateTrial>[] = [];
     // Yield between batches so loading feedback paints and controls stay responsive.
     const calculateBatch = () => {
       const end = Math.min(nextTrials.length + 25, TRIALS_FOR_ENSEMBLE);
       while (nextTrials.length < end) {
-        nextTrials.push(
-          simulateTrial(rate, seedBase + nextTrials.length, horizon, method),
-        );
+        nextTrials.push(simulateTrial(seedBase + nextTrials.length, scenario));
       }
       if (nextTrials.length === TRIALS_FOR_ENSEMBLE) {
         setResult({ key: requestKey, trials: nextTrials });
@@ -375,9 +328,14 @@ const EnsembleStep = ({
     };
     let timer = setTimeout(calculateBatch, 0);
     return () => clearTimeout(timer);
-  }, [seedBase, rate, horizon, method, requestKey]);
+  }, [seedBase, scenario, requestKey, advanced]);
 
-  const survivors = trials.filter((t) => !t.busted).length;
+  const trialCount = advanced
+    ? (extended?.retirementTrialCount ?? TRIALS_FOR_ENSEMBLE)
+    : TRIALS_FOR_ENSEMBLE;
+  const survivors = advanced
+    ? Math.round((productionBootstrap?.successRate ?? 0) * trialCount)
+    : trials.filter((t) => !t.busted).length;
   const renderedTrials = useMemo(
     () => trials.slice(0, ENSEMBLE_RENDERED_LINES),
     [trials],
@@ -395,29 +353,50 @@ const EnsembleStep = ({
     return rows;
   }, [renderedTrials, horizon]);
 
-  const passes = survivors / TRIALS_FOR_ENSEMBLE >= 0.9;
+  const passes = trialCount > 0 && survivors / trialCount >= 0.9;
 
   return (
     <Stack gap={1.5} aria-busy={isCalculating}>
       <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-        Cada cenário sorteia sua própria sequência de {horizon * 12} meses.
-        Retornos ruins no começo das retiradas podem esgotar o patrimônio mais
-        cedo. Aqui calculamos {TRIALS_FOR_ENSEMBLE} cenários e desenhamos os
-        primeiros {ENSEMBLE_RENDERED_LINES} para manter o gráfico legível. A
-        busca da taxa também usa 1.000 cenários por teste; os resultados do
-        plano usam 2.000.
+        Repetimos a simulação 2.000 vezes para medir em quantos cenários o
+        patrimônio sustenta sua despesa mensal até a idade alvo.
       </Text>
-      <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
-        <Button
-          variant="outlined"
-          size="small"
-          disabled={isCalculating}
-          onClick={() => setSeedBase((s) => s + TRIALS_FOR_ENSEMBLE)}
-        >
-          Sortear nova rodada
-        </Button>
-      </Stack>
-      {isCalculating ? (
+      <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+        Cada simulação usa uma nova sequência de meses sorteados e segue as
+        regras do passo anterior. Atingir a meta permite começar as retiradas,
+        mas não garante que elas cubram seus gastos até a idade alvo. O
+        percentual mede essa cobertura nos cenários que começaram as retiradas.
+      </Text>
+      <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+        {advanced
+          ? "O conjunto inclui os anos extras de acumulação e a alocação por idade quando configurados. O gráfico mostra os percentis 10, 50 e 90 do saldo."
+          : "O gráfico mostra as primeiras 100 das 2.000 simulações."}
+      </Text>
+      {!advanced && (
+        <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
+          <Button
+            variant="outlined"
+            size="small"
+            disabled={isCalculating}
+            onClick={() => setSeedBase((s) => s + TRIALS_FOR_ENSEMBLE)}
+          >
+            Sortear nova rodada
+          </Button>
+        </Stack>
+      )}
+      {advanced && extended && (
+        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+          {extended.retirementTrialCount} de 2.000 cenários iniciaram a
+          aposentadoria após a acumulação. O sucesso abaixo considera apenas
+          esses cenários; os demais não atingiram a meta no prazo simulado.
+        </Text>
+      )}
+      {advanced && (production.error || !scenario.snapshot.request) ? (
+        <Text size={FontSizes.EXTRA_SMALL}>
+          Não foi possível calcular o cenário completo. Confira os dados do
+          plano.
+        </Text>
+      ) : isCalculating ? (
         <Stack gap={1.5} aria-label="Calculando simulação">
           <Skeleton variant="rounded" height={220} />
           <Skeleton variant="text" width="75%" />
@@ -426,7 +405,7 @@ const EnsembleStep = ({
         <>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart
-              data={chartData}
+              data={advanced ? (productionBootstrap?.bands ?? []) : chartData}
               margin={{ top: 10, right: 10, left: 5, bottom: 0 }}
             >
               <CartesianGrid strokeDasharray="5" vertical={false} />
@@ -443,18 +422,33 @@ const EnsembleStep = ({
                 tickFormatter={(v) => formatCurrencyCompact(v)}
               />
               <ReferenceLine y={0} stroke={getColor(Colors.danger200)} />
-              {renderedTrials.map((t, i) => (
-                <Line
-                  key={i}
-                  type="monotone"
-                  dataKey={`t${i}`}
-                  stroke={getColor(t.busted ? Colors.danger200 : Colors.brand)}
-                  strokeWidth={1}
-                  strokeOpacity={0.25}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              ))}
+              {advanced
+                ? ["p10", "p50", "p90"].map((key) => (
+                    <Line
+                      key={key}
+                      name={key.toUpperCase()}
+                      dataKey={key}
+                      stroke={getColor(
+                        key === "p50" ? Colors.brand : Colors.brand400,
+                      )}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  ))
+                : renderedTrials.map((t, i) => (
+                    <Line
+                      key={i}
+                      type="monotone"
+                      dataKey={`t${i}`}
+                      stroke={getColor(
+                        t.busted ? Colors.danger200 : Colors.brand,
+                      )}
+                      strokeWidth={1}
+                      strokeOpacity={0.25}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  ))}
             </LineChart>
           </ResponsiveContainer>
           <Text
@@ -462,16 +456,20 @@ const EnsembleStep = ({
             color={passes ? Colors.brand : Colors.danger200}
             weight={FontWeights.MEDIUM}
           >
-            {survivors} / {TRIALS_FOR_ENSEMBLE} sobreviveram à taxa de{" "}
-            {(rate * 100).toFixed(1)}% durante {horizon} anos →{" "}
-            {passes ? "passa" : "não passa"} no critério de 90% de sucesso.
+            {survivors} / {trialCount} sobreviveram{" "}
+            {advanced
+              ? "às despesas do plano"
+              : `à taxa de ${(((scenario.snapshot.monthlyExpenses * 12) / scenario.snapshot.effectivePatrimony) * 100).toFixed(1)}%`}{" "}
+            durante {horizon} anos → {passes ? "passa" : "não passa"} no
+            critério de 90% de sucesso.
           </Text>
         </>
       )}
       <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
         <em>
-          A taxa segura é a maior taxa que ainda passa em pelo menos 90% dos{" "}
-          {TRIALS_FOR_ENSEMBLE} — é o que o algoritmo busca no próximo passo.
+          No próximo passo, a busca testa taxas de retirada para encontrar a
+          maior que passa em 90% dos 2.000 cenários, usando a carteira e o
+          horizonte selecionados.
         </em>
       </Text>
     </Stack>
@@ -482,16 +480,45 @@ const EnsembleStep = ({
 // Step 4 — Binary search animation
 // =============================================================================
 
-const SearchStep = ({
-  horizon,
-  method,
+const SearchStep = ({ scenario }: { scenario: WalkthroughScenario }) => {
+  const production = useFireSimulationWorker(
+    scenario.snapshot.showAgeInBonds ? scenario.snapshot.request : null,
+  );
+  if (scenario.snapshot.showAgeInBonds) {
+    if (production.error || !scenario.snapshot.request)
+      return (
+        <Text size={FontSizes.EXTRA_SMALL}>
+          Informe a idade para calcular a taxa desta estratégia.
+        </Text>
+      );
+    if (production.isCalculating || production.result?.kind !== "age_in_bonds")
+      return (
+        <Skeleton
+          aria-label="Calculando taxa segura"
+          variant="rounded"
+          height={220}
+        />
+      );
+    return (
+      <SearchAnimation
+        scenario={scenario}
+        anchorAge={production.result.output.solverState.anchorAge}
+      />
+    );
+  }
+  return <SearchAnimation scenario={scenario} />;
+};
+
+const SearchAnimation = ({
+  scenario,
+  anchorAge,
 }: {
-  horizon: number;
-  method: SamplingMethod;
+  scenario: WalkthroughScenario;
+  anchorAge?: number;
 }) => {
   const iterations = useMemo(
-    () => runBinarySearch(horizon, method),
-    [horizon, method],
+    () => runBinarySearch(scenario, anchorAge),
+    [scenario, anchorAge],
   );
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -500,7 +527,7 @@ const SearchStep = ({
   useEffect(() => {
     setStep(0);
     setPlaying(false);
-  }, [horizon, method]);
+  }, [scenario]);
 
   useEffect(() => {
     if (!playing) {
@@ -531,13 +558,13 @@ const SearchStep = ({
   return (
     <Stack gap={1.5}>
       <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-        Para achar a maior taxa que ainda passa em 90%, o algoritmo faz uma
-        busca binária. Começa com um intervalo amplo (0,5% a 10%) e a cada
-        rodada testa o ponto médio com {TRIALS_PER_SEARCH_TEST_DISPLAY}{" "}
-        aposentados. Se o meio passa, o limite inferior sobe. Se falha, o limite
-        superior desce. Após 20 rodadas, o intervalo fecha sobre a taxa
-        estimada. Reutilizamos os mesmos sorteios em cada rodada para comparar
-        as taxas sob as mesmas condições.
+        Testamos diferentes taxas de retirada para encontrar a maior que
+        sustenta os gastos em pelo menos 90% das simulações.
+      </Text>
+      <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+        As retiradas começam imediatamente, sem novos aportes. Buscamos uma taxa
+        que sustente os gastos em pelo menos 90% das simulações. Esta busca não
+        inclui os anos extras de acumulação.
       </Text>
 
       <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
@@ -650,12 +677,13 @@ const SearchStep = ({
       )}
       <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
         <em>
-          Esta taxa pertence à carteira de exemplo e ao horizonte escolhido. Na
-          sua simulação, ela depende dos pesos, dos históricos e do modo de
-          sorteio configurados. Um horizonte maior tende a exigir uma taxa
-          menor, mas não existe uma regra que a obrigue a ficar abaixo de 4%. O
-          critério de 90% descreve os cenários simulados; não é uma garantia de
-          sucesso futuro.
+          {anchorAge === undefined
+            ? "Esta taxa usa os pesos atuais da carteira."
+            : `Esta taxa usa a alocação por idade a partir de ${anchorAge} anos, a idade de referência calculada pelo motor do plano.`}{" "}
+          Os históricos e o modo de sorteio são os selecionados. Um horizonte
+          maior tende a exigir uma taxa menor, mas não existe uma regra que a
+          obrigue a ficar abaixo de 4%. O critério de 90% descreve os cenários
+          simulados; não é uma garantia de sucesso futuro.
         </em>
       </Text>
     </Stack>
@@ -663,35 +691,59 @@ const SearchStep = ({
 };
 
 // =============================================================================
-// Wrapper — horizontal stepper + shared header sliders
+// Wrapper — horizontal stepper and current scenario context
 // =============================================================================
 
 const STEP_LABELS = [
   "Sorteando meses históricos",
   "Um aposentado simulado",
-  "1000 aposentados ao mesmo tempo",
+  "2000 aposentados ao mesmo tempo",
   "Procurando a taxa segura",
 ] as const;
 
-const FireMethodologyWalkthrough = () => {
+const FireMethodologyWalkthrough = ({
+  snapshot,
+}: {
+  snapshot: FireStudioSnapshot;
+}) => {
   const [activeStep, setActiveStep] = useState(0);
-  const [rate, setRate] = useState(0.04);
-  const [horizon, setHorizon] = useState(DEFAULT_HORIZON);
-  const [method, setMethod] = useState<SamplingMethod>("independent_months");
-  const rateActive = RATE_RELEVANT_STEPS.has(activeStep);
+  const [sourcesExpanded, setSourcesExpanded] = useState(false);
+  const snapshotKey = JSON.stringify(snapshot);
+  const preparation = useMemo(() => {
+    if (
+      snapshot.effectivePatrimony <= 0 ||
+      snapshot.targetYears <= 0 ||
+      !snapshot.portfolio.length
+    )
+      return {
+        scenario: null,
+        error:
+          "Defina um patrimônio positivo, uma carteira e um horizonte para acompanhar os passos.",
+      };
+    try {
+      return { scenario: prepareWalkthrough(snapshot), error: null };
+    } catch {
+      return {
+        scenario: null,
+        error:
+          "Os históricos selecionados não oferecem meses suficientes para este modo de sorteio.",
+      };
+    }
+  }, [snapshot]);
+  const { scenario } = preparation;
 
   const renderStepContent = (idx: number) => {
+    if (!scenario)
+      return <Text size={FontSizes.EXTRA_SMALL}>{preparation.error}</Text>;
     switch (idx) {
       case 0:
-        return <DeckStep horizon={horizon} method={method} />;
+        return <DeckStep scenario={scenario} />;
       case 1:
-        return (
-          <SingleTrialStep rate={rate} horizon={horizon} method={method} />
-        );
+        return <SingleTrialStep scenario={scenario} />;
       case 2:
-        return <EnsembleStep rate={rate} horizon={horizon} method={method} />;
+        return <EnsembleStep scenario={scenario} />;
       case 3:
-        return <SearchStep horizon={horizon} method={method} />;
+        return <SearchStep scenario={scenario} />;
       default:
         return null;
     }
@@ -704,98 +756,60 @@ const FireMethodologyWalkthrough = () => {
           Como achamos a taxa segura
         </Text>
         <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Os 4 passos abaixo mostram, em uma carteira de exemplo (R$ 1M em 70%
-          IBOV + 30% CDI), como a taxa segura é encontrada via bootstrap
-          histórico. Estes controles alteram apenas o exemplo, não o seu plano.
+          Os 4 passos mostram como sua carteira e seu cenário são usados para
+          encontrar a taxa segura.
         </Text>
       </Stack>
-
-      <Stack
-        direction="row"
-        flexWrap="wrap"
-        gap={3}
-        sx={{
-          p: 1.5,
-          borderRadius: 1,
-          backgroundColor: getColor(Colors.neutral600),
-        }}
-      >
-        <Stack gap={0.5}>
-          <Text
-            size={FontSizes.EXTRA_SMALL}
-            color={rateActive ? Colors.neutral200 : Colors.neutral400}
-          >
-            Taxa de retirada anual: <strong>{(rate * 100).toFixed(1)}%</strong>
-            {!rateActive && (
-              <em style={{ color: getColor(Colors.neutral400) }}>
-                {" "}
-                (não usado neste passo)
-              </em>
-            )}
-          </Text>
-          <Slider
-            value={rate}
-            onChange={(_, v) => setRate(v as number)}
-            min={RATE_MIN}
-            max={RATE_MAX}
-            step={RATE_STEP}
-            size="small"
-            sx={{ width: 220 }}
-            disabled={!rateActive}
-            aria-label="Taxa de retirada anual"
-            getAriaValueText={(v) => `${(v * 100).toFixed(1)} por cento`}
-            valueLabelDisplay="auto"
-            valueLabelFormat={(v) => `${(v * 100).toFixed(1)}%`}
-          />
-        </Stack>
-        <Stack gap={0.5}>
-          <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral200}>
-            Horizonte: <strong>{horizon} anos</strong>
-          </Text>
-          <Slider
-            value={horizon}
-            onChange={(_, v) => setHorizon(v as number)}
-            min={HORIZON_MIN}
-            max={HORIZON_MAX}
-            step={5}
-            marks
-            size="small"
-            sx={{ width: 220 }}
-            aria-label="Horizonte de aposentadoria em anos"
-            getAriaValueText={(v) => `${v} anos`}
-            valueLabelDisplay="auto"
-            valueLabelFormat={(v) => `${v} anos`}
-          />
-        </Stack>
+      <Stack gap={1}>
+        <Button
+          variant="brand-text"
+          size="small"
+          sx={{ alignSelf: "flex-start" }}
+          aria-expanded={sourcesExpanded}
+          aria-controls="fire-walkthrough-sources"
+          endIcon={sourcesExpanded ? <ExpandLess /> : <ExpandMore />}
+          onClick={() => setSourcesExpanded((value) => !value)}
+        >
+          Fontes da simulação
+        </Button>
+        <Collapse in={sourcesExpanded} id="fire-walkthrough-sources">
+          <Stack gap={1}>
+            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+              Históricos selecionados:{" "}
+              {[...snapshot.portfolio]
+                .sort((a, b) => b.weight - a.weight)
+                .map((slice, index) => (
+                  <span key={`${slice.series}-${index}`}>
+                    {index > 0 && " · "}
+                    {(slice.weight * 100).toLocaleString("pt-BR", {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    })}
+                    % {sourceLabel(slice.series)}
+                    {slice.fallbackSeries && (
+                      <>
+                        {" "}
+                        (complementado por {sourceLabel(slice.fallbackSeries)})
+                      </>
+                    )}
+                  </span>
+                ))}
+              .
+            </Text>
+            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+              Inflação:{" "}
+              <Link
+                href="https://www3.bcb.gov.br/sgspub/consultarvalores/consultarValoresSeries.do?hdOidSeriesSelecionadas=433&method=consultarGraficoPorId"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                IPCA (BCB SGS 433)
+              </Link>
+              .
+            </Text>
+          </Stack>
+        </Collapse>
       </Stack>
-
-      <FormControlLabel
-        control={
-          <Switch
-            size="small"
-            checked={method === "contiguous_12_month_blocks"}
-            onChange={(_, checked) =>
-              setMethod(
-                checked ? "contiguous_12_month_blocks" : "independent_months",
-              )
-            }
-          />
-        }
-        label={
-          <Text size={FontSizes.EXTRA_SMALL}>
-            Preservar sequências históricas de 12 meses
-          </Text>
-        }
-      />
-      <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-        O horizonte começa na aposentadoria. Os aportes pertencem à fase de
-        acumulação. Com anos extras de acumulação, após atingir a meta FIRE o
-        plano continua recebendo aportes pelo período configurado antes das
-        retiradas. O patrimônio projetado nesse momento passa a financiar a
-        aposentadoria; o alcance da meta é verificado ao fim de cada ano. Na
-        opção Idade em Renda Fixa, a alocação também muda com a idade. Este
-        exemplo mantém os pesos fixos.
-      </Text>
 
       <Stepper activeStep={activeStep} alternativeLabel nonLinear>
         {STEP_LABELS.map((label, idx) => (
@@ -819,7 +833,7 @@ const FireMethodologyWalkthrough = () => {
           borderColor: getColor(Colors.neutral400),
         }}
       >
-        {renderStepContent(activeStep)}
+        <Stack key={snapshotKey}>{renderStepContent(activeStep)}</Stack>
         <Stack direction="row" gap={1} sx={{ mt: 1 }}>
           <Button
             size="small"

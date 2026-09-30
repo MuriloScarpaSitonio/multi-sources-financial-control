@@ -21,10 +21,9 @@ export type StrategyContent = {
 
 export const STRATEGY_CONTENT: Record<ActiveMethodKey, StrategyContent> = {
   fire: {
-    title: "Retirada constante (FIRE)",
+    title: "FIRE",
     subtitle:
-      "Mantenha seu padrão de vida atual retirando suas despesas " +
-      "mensais, ajustadas pela inflação.",
+      "Para quem busca manter o padrão de vida: seu patrimônio sustenta seus gastos até a idade alvo?",
     rationale: null,
     defaultsExplained: [],
     pros: [],
@@ -316,138 +315,19 @@ export const STRATEGY_CONTENT: Record<ActiveMethodKey, StrategyContent> = {
     ],
   },
   vpw: {
-    title: (
-      <>
-        VPW <em>Variable Percentage Withdrawal</em> · retirada percentual variável
-      </>
-    ),
-    subtitle:
-      "A porcentagem de saque aumenta a cada ano conforme você " +
-      "envelhece, consumindo o patrimônio até a idade alvo.",
-    rationale: (
-      <>
-        <p>
-          O VPW calcula uma tabela de percentuais de retirada
-          crescentes, levando em conta a alocação do portfólio entre
-          renda variável e fixa e quantos anos faltam até a
-          idade-alvo. A cada ano, você multiplica o saldo do
-          portfólio pelo percentual daquele ano.
-        </p>
-        <p>
-          Diferente do 1/N (que só divide pelo número de anos
-          restantes), o VPW também considera o retorno esperado de
-          cada classe de ativo, resultando em saques mais otimizados.
-        </p>
-        <p>
-          O percentual cresce a cada ano. O valor em reais retirado
-          flutua conforme o portfólio oscila. O portfólio é consumido
-          na idade-alvo.
-        </p>
-        <p>
-          Esse método faz mais sentido se você tem flexibilidade de
-          gastos e não pretende deixar herança.
-        </p>
-      </>
-    ),
-    defaultsExplained: [
-      {
-        label: "O que significa a porcentagem na barra de progresso",
-        explanation:
-          "A barra mostra retirada mensal VPW ÷ despesas. Se o " +
-          "VPW calcula R$ 7.000/mês e suas despesas são " +
-          "R$ 10.000/mês, a barra mostra 70%. Ao atingir 100%, " +
-          "a retirada VPW cobre todas as suas despesas.",
-      },
-      {
-        label: "O que o gráfico mostra",
-        explanation:
-          "O gráfico simula a retirada VPW ao longo do tempo. " +
-          "A cada ano, a taxa de saque é recalculada via fórmula " +
-          "PMT com base nos anos restantes e nos retornos esperados " +
-          "de cada classe de ativo (RV e RF). A taxa de saque " +
-          "cresce conforme você envelhece, mas o valor em reais " +
-          "pode subir ou cair dependendo do retorno do portfólio. " +
-          "A linha tracejada vermelha marca suas despesas atuais — " +
-          "quando a retirada cruza essa referência, o VPW cobre " +
-          "100% das despesas.",
-      },
-      {
-        label: "O que significa o R$/mês ao lado da taxa de saque",
-        explanation:
-          "Na linha 'Saque: X% a.a. · R$ Y/mês', o R$/mês é " +
-          "o seu patrimônio total multiplicado pela taxa VPW " +
-          "do ano atual e dividido por 12. A taxa VPW é " +
-          "calculada via fórmula financeira (PMT) considerando " +
-          "sua idade, idade alvo, alocação entre RF e RV, e " +
-          "retornos esperados de cada classe. A taxa aumenta " +
-          "a cada ano conforme você envelhece.",
-      },
-      {
-        label: "Idade alvo padrão: 99 anos",
-        explanation:
-          <>
-            A{" "}
-            <Link href="https://www.bogleheads.org/wiki/Variable_percentage_withdrawal" target="_blank" rel="noopener noreferrer">
-              planilha oficial do VPW
-            </Link>
-            {" "}usa 'last withdrawal age of 99' e limita o saque a 10%
-            do portfólio como segurança.
-          </>,
-      },
-      {
-        label: "Retorno real RV: 5% a.a.",
-        explanation:
-          <>
-            O{" "}
-            <Link href="https://insight.economatica.com/desempenho-do-ibovespa-50-anos-de-historia/" target="_blank" rel="noopener noreferrer">
-              Ibovespa
-            </Link>
-            {" "}rendeu ~2% real a.a. (2000-2024) ou ~6% desde sua criação.
-            5% é um meio-termo entre essas duas janelas.
-          </>,
-      },
-      {
-        label: "Retorno real RF: 4% a.a.",
-        explanation:
-          <>
-            O{" "}
-            <Link href="https://borainvestir.b3.com.br/noticias/mercado/cdi-ibovespa-inflacao-veja-quanto-o-premio-do-primeiro-bbb-teria-rendido-de-2002-ate-hoje/" target="_blank" rel="noopener noreferrer">
-              CDI
-            </Link>
-            {" "}real ficou em ~5,5% a.a. (2000-2024). 4% é um desconto
-            conservador sobre a média histórica brasileira.
-          </>,
-      },
-    ],
+    title: "VPW",
+    subtitle: "Para quem aceita ajustar os gastos: quanto seu patrimônio permite retirar ao longo da aposentadoria?",
+    rationale: <p>O VPW ajusta as retiradas ao saldo disponível, ao crescimento histórico real da carteira e ao tempo restante até a idade alvo.</p>,
+    defaultsExplained: [],
     pros: [
-      {
-        text:
-          "Saque se adapta automaticamente à idade e à alocação " +
-          "do portfólio",
-      },
-      {
-        text:
-          "Renda cresce ao longo do tempo — compensa parcialmente " +
-          "a inflação",
-      },
-      {
-        text:
-          "Baseado em fórmula financeira robusta (PMT), não em " +
-          "regras empíricas",
-      },
+      { text: "Retiradas se ajustam ao saldo e ao prazo restante" },
+      { text: "O que excede o valor mensal solicitado continua investido" },
+      { text: "Históricos específicos para os ativos da carteira" },
     ],
     cons: [
-      {
-        text: "Renda varia ano a ano conforme o portfólio oscila",
-      },
-      {
-        text:
-          "Patrimônio chega próximo de zero — não sobra herança " +
-          "significativa",
-      },
-      {
-        text: "Risco de longevidade se viver além da idade alvo",
-      },
+      { text: "A renda pode cair quando os investimentos perdem valor" },
+      { text: "Os históricos escolhidos influenciam as projeções" },
+      { text: "O planejamento não cobre a vida após a idade alvo" },
     ],
   },
 };

@@ -8,10 +8,16 @@ import { useHomeRevenuesIndicators } from "../Revenues/hooks/useRevenuesIndicato
  * passive income, bank balances) stays with the strategy that uses it.
  */
 export const useStrategyCommonData = () => {
-  const { data: expensesIndicators, isPending: isExpensesLoading } =
-    useHomeExpensesIndicators({ includeFireAvg: true });
-  const { data: revenuesIndicators, isPending: isRevenuesLoading } =
-    useHomeRevenuesIndicators();
+  const {
+    data: expensesIndicators,
+    isPending: isExpensesLoading,
+    isError: isExpensesError,
+  } = useHomeExpensesIndicators({ includeFireAvg: true });
+  const {
+    data: revenuesIndicators,
+    isPending: isRevenuesLoading,
+    isError: isRevenuesError,
+  } = useHomeRevenuesIndicators();
 
   const avgExpenses = expensesIndicators?.fire_avg ?? 0;
   const expensesAvg = expensesIndicators?.avg ?? 0;
@@ -24,5 +30,6 @@ export const useStrategyCommonData = () => {
     avgRevenues,
     derivedMonthlySavings,
     isLoading: isExpensesLoading || isRevenuesLoading,
+    isError: isExpensesError || isRevenuesError,
   };
 };

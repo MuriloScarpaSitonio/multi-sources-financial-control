@@ -39,7 +39,7 @@ export type BootstrapResult = {
 // Mulberry32 PRNG — fast, seedable. Used so the same inputs produce the same
 // success rate / percentiles across page reloads (instead of jittering with
 // Math.random's per-run entropy).
-const mulberry32 = (seed: number) => () => {
+export const mulberry32 = (seed: number) => () => {
   let t = (seed = (seed + 0x6d2b79f5) | 0);
   t = Math.imul(t ^ (t >>> 15), t | 1);
   t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
@@ -136,7 +136,7 @@ type PreparedPortfolio = {
   sampleMonths: MonthSampler;
 };
 
-const preparePortfolio = (
+export const preparePortfolio = (
   portfolio: readonly PortfolioSlice[],
   method: SamplingMethod,
 ): PreparedPortfolio => {
@@ -359,7 +359,7 @@ export const findSafeWithdrawalRate = (
   portfolio: readonly PortfolioSlice[],
   samplingMethod: SamplingMethod = "independent_months",
   targetSuccess: number = 0.9,
-  numTrials: number = 1000,
+  numTrials: number = 2000,
 ): number => {
   if (horizon <= 0) return 0;
   // Bootstrap success is scale-invariant: doubling both balance and withdrawal
@@ -538,7 +538,7 @@ export const findSafeWithdrawalRateWithVaryingWeights = (
   portfolioAt: PortfolioAtFn,
   samplingMethod: SamplingMethod = "independent_months",
   targetSuccess: number = 0.9,
-  numTrials: number = 1000,
+  numTrials: number = 2000,
 ): number => {
   if (horizon <= 0) return 0;
   const dummyPatrimony = 1_000_000;

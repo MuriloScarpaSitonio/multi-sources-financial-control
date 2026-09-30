@@ -26,12 +26,7 @@ export type PlanningPreferences = {
   vpw?: VPWPlanningPreferences;
 };
 
-export type FirePlanningPreferences = {
-  simulated_patrimony?: number | null;
-  withdrawal_rate?: number;
-  target_years?: number;
-  extra_accumulation_years?: number;
-  monthly_expenses_override?: number | null;
+export type HistoricalPlanningPreferences = {
   sampling_method?: SamplingMethod;
   us_equity_proxy?: UsEquityProxy;
   global_equity_proxy?: GlobalEquityProxy;
@@ -41,12 +36,15 @@ export type FirePlanningPreferences = {
   historical_series_fallbacks?: Record<string, FireReturnSeriesKey>;
 };
 
-export const DEFAULT_FIRE_PREFERENCES = {
-  simulated_patrimony: null,
-  withdrawal_rate: 4,
-  target_years: 30,
-  extra_accumulation_years: 0,
-  monthly_expenses_override: null,
+export type FirePlanningPreferences = HistoricalPlanningPreferences & {
+  simulated_patrimony?: number | null;
+  withdrawal_rate?: number;
+  target_years?: number;
+  extra_accumulation_years?: number;
+  monthly_expenses_override?: number | null;
+};
+
+export const DEFAULT_HISTORICAL_PREFERENCES = {
   sampling_method: "independent_months",
   us_equity_proxy: "SPY",
   global_equity_proxy: "VT",
@@ -54,6 +52,15 @@ export const DEFAULT_FIRE_PREFERENCES = {
   excluded_return_categories: [],
   historical_series_overrides: {},
   historical_series_fallbacks: {},
+} satisfies Required<HistoricalPlanningPreferences>;
+
+export const DEFAULT_FIRE_PREFERENCES = {
+  ...DEFAULT_HISTORICAL_PREFERENCES,
+  simulated_patrimony: null,
+  withdrawal_rate: 4,
+  target_years: 30,
+  extra_accumulation_years: 0,
+  monthly_expenses_override: null,
 } satisfies Required<FirePlanningPreferences>;
 
 export const getFirePlanningPreferences = (
@@ -103,30 +110,34 @@ export const getOneOverNPlanningPreferences = (
   ...(preferences?.one_over_n ?? {}),
 });
 
-export type VPWPlanningPreferences = {
+export type VPWPlanningPreferences = HistoricalPlanningPreferences & {
   target_age?: number;
-  stock_return?: number;
-  bond_return?: number;
-  stock_allocation_override?: number | null;
+  extra_accumulation_years?: number;
   monthly_savings_override?: number | null;
   monthly_expenses_override?: number | null;
 };
 
 export const DEFAULT_VPW_PREFERENCES = {
+  ...DEFAULT_HISTORICAL_PREFERENCES,
   target_age: 99,
-  stock_return: 5,
-  bond_return: 4,
-  stock_allocation_override: null,
+  extra_accumulation_years: 0,
   monthly_savings_override: null,
   monthly_expenses_override: null,
 } satisfies Required<VPWPlanningPreferences>;
 
 export const getVPWPlanningPreferences = (
   preferences?: PlanningPreferences,
-): Required<VPWPlanningPreferences> => ({
-  ...DEFAULT_VPW_PREFERENCES,
-  ...(preferences?.vpw ?? {}),
-});
+): Required<VPWPlanningPreferences> => {
+  // Pick supported settings only: old RV and return overrides must not survive.
+  const result = {
+    ...DEFAULT_VPW_PREFERENCES,
+  } as Required<VPWPlanningPreferences>;
+  for (const key of Object.keys(result) as (keyof VPWPlanningPreferences)[]) {
+    const value = preferences?.vpw?.[key];
+    if (value !== undefined) Object.assign(result, { [key]: value });
+  }
+  return result;
+};
 
 export type PlanningData = {
   preferences: PlanningPreferences;

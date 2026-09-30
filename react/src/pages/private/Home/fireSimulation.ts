@@ -21,6 +21,11 @@ import {
   type PortfolioSlice,
 } from "./firePortfolio";
 import type { SamplingMethod } from "./fireReturnTypes";
+import {
+  runVPWSimulation,
+  type VPWSimulationInput,
+  type VPWSimulationOutput,
+} from "./vpwSimulation";
 
 export type ConstantDollarSimulationInput = {
   targetYears: number;
@@ -105,14 +110,27 @@ export type FireSimulationResult =
       output: AgeInBondsSimulationOutput;
     };
 
-export type WorkerRequestMessage = {
+export type VPWSimulationRequest = { kind: "vpw"; input: VPWSimulationInput };
+export type VPWSimulationResult = { kind: "vpw"; output: VPWSimulationOutput };
+export type PlanningSimulationRequest =
+  | FireSimulationRequest
+  | VPWSimulationRequest;
+export type PlanningSimulationResult =
+  | FireSimulationResult
+  | VPWSimulationResult;
+
+export type WorkerRequestMessage<
+  T extends PlanningSimulationRequest = FireSimulationRequest,
+> = {
   requestId: number;
-  request: FireSimulationRequest;
+  request: T;
 };
 
-export type WorkerResponseMessage = {
+export type WorkerResponseMessage<
+  T extends PlanningSimulationResult = FireSimulationResult,
+> = {
   requestId: number;
-  result?: FireSimulationResult;
+  result?: T;
   error?: string;
 };
 
@@ -407,3 +425,10 @@ export const runFireSimulation = (
     output: runConstantDollarSimulation(request.input),
   };
 };
+
+export const runPlanningSimulation = (
+  request: PlanningSimulationRequest,
+): PlanningSimulationResult =>
+  request.kind === "vpw"
+    ? { kind: "vpw", output: runVPWSimulation(request.input) }
+    : runFireSimulation(request);

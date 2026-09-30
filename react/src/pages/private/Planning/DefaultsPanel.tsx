@@ -31,15 +31,19 @@ const DefaultsPanel = ({
   if (items.length === 0 && !extra) return null;
   return (
     <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
-      <Button
-        size="small"
-        onClick={() => setExpanded(!expanded)}
-        endIcon={expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-        sx={{ alignSelf: "flex-start", textTransform: "none" }}
-      >
-        {title}
-      </Button>
-      <Collapse in={expanded}>
+      <Stack direction="row" alignItems="center" sx={{ minHeight: 32 }}>
+        <Button
+          variant="brand-text"
+          size="small"
+          aria-expanded={expanded}
+          onClick={() => setExpanded(!expanded)}
+          endIcon={expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+          sx={{ alignSelf: "flex-start" }}
+        >
+          {title}
+        </Button>
+      </Stack>
+      <Collapse in={expanded} mountOnEnter>
         <Stack gap={2} mt={1}>
           {items.map((item) => (
             <Stack key={item.label} gap={0.5}>

@@ -1,5 +1,6 @@
+import Link from "@mui/material/Link";
 import type { ReactNode } from "react";
-import { FontSizes } from "../../../../design-system";
+import { Colors, FontSizes, Text } from "../../../../design-system";
 import { useLayoutEffect, useMemo, useState } from "react";
 
 import Stack from "@mui/material/Stack";
@@ -193,7 +194,6 @@ const FireDetail = () => {
 
   const isDirty = useMemo(
     () =>
-      isActive &&
       !!planningData &&
       (JSON.stringify(historicalSeriesFallbacks) !==
         JSON.stringify(firePreferences.historical_series_fallbacks) ||
@@ -212,7 +212,6 @@ const FireDetail = () => {
           JSON.stringify(firePreferences.excluded_return_categories) ||
         showAgeInBonds !== (preferences?.show_age_in_bonds ?? false)),
     [
-      isActive,
       planningData,
       cryptoProxy,
       historicalSeriesOverrides,
@@ -246,7 +245,6 @@ const FireDetail = () => {
   const handleSelect = () => updatePreferences({ selected_method: METHOD });
 
   const handleSave = () => {
-    if (!isActive) return;
     const patch: PlanningPreferences = {
       fire: {
         withdrawal_rate: withdrawalRate,
@@ -334,7 +332,9 @@ const FireDetail = () => {
     <StrategyHeader
       sticky
       title={displayTitle}
+      subtitle={content.subtitle}
       titleSize={FontSizes.REGULAR}
+      subtitleSize={FontSizes.EXTRA_SMALL}
       isActive={isActive}
       isMutating={isUpdating}
       onSelect={handleSelect}
@@ -350,6 +350,48 @@ const FireDetail = () => {
     <Stack spacing={3} pb={3} sx={{ mr: -6 }}>
       <FireSimulationStudio
         renderHeader={renderHeader}
+        renderExplanation={(snapshot) => (
+          <Stack spacing={3}>
+            <DefaultsPanel
+              title="Como funciona a simulação"
+              items={[]}
+              extra={
+                snapshot ? (
+                  <FireMethodologyWalkthrough snapshot={snapshot} />
+                ) : (
+                  <span>Preencha um cenário válido para ver a explicação.</span>
+                )
+              }
+            />
+            <DefaultsPanel
+              title="Sobre a estratégia"
+              items={[]}
+              extra={
+                <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+                  Esta estratégia segue a ideia de retiradas constantes,
+                  ajustadas pela inflação, estudada no{" "}
+                  <Link
+                    href="https://www.aaii.com/journal/article/retirement-savings-choosing-a-withdrawal-rate-that-is-sustainable"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Trinity Study (1998)
+                  </Link>{" "}
+                  e no{" "}
+                  <Link
+                    href="https://obj.portfolioconstructionforum.edu.au/articles_perspectives/retailinvestor.org_pdf_Bengen1.pdf"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    trabalho anterior de William Bengen (1994)
+                  </Link>
+                  . Nossa simulação aplica essa ideia à sua carteira e ao seu
+                  cenário, com históricos e premissas próprios.
+                </Text>
+              }
+            />
+          </Stack>
+        )}
         draft={studioDraft}
         allocation={allocation}
         firePreferences={localFirePreferences}
@@ -366,11 +408,6 @@ const FireDetail = () => {
         onShowAgeInBondsChange={setShowAgeInBonds}
         onHistoricalPreferenceChange={handleHistoricalPreferenceChange}
       />
-      <DefaultsPanel
-        title="Como funciona a simulação"
-        items={content.defaultsExplained}
-        extra={<FireMethodologyWalkthrough />}
-      />
 
       {showAgeInBonds && (
         <AgeInBondsExplainer
@@ -379,7 +416,6 @@ const FireDetail = () => {
           variableIncomeTotal={variableIncomeTotal}
         />
       )}
-
     </Stack>
   );
 };

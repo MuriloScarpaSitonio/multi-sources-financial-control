@@ -19,7 +19,7 @@ import {
 import { buildPortfolio, fireAllocationKey } from "../../Home/firePortfolio";
 import { FIRE_RETURN_SERIES } from "../../Home/fireReturns";
 import type { FireReturnSeriesKey } from "../../Home/fireReturnTypes";
-import type { FirePlanningPreferences } from "../api";
+import type { HistoricalPlanningPreferences } from "../api";
 import { CATEGORY_LABELS } from "./fireHistoricalDatasets";
 import type { FireAllocationBucket } from "../fireAllocation";
 import {
@@ -48,12 +48,14 @@ const FireHistoricalDrawer = ({
   allocation,
   preferences,
   showAgeInBonds = false,
+  showAmounts = true,
   onApply,
   onClose,
 }: {
   allocation: readonly FireAllocationBucket[];
-  preferences: Required<FirePlanningPreferences>;
+  preferences: Required<HistoricalPlanningPreferences>;
   showAgeInBonds?: boolean;
+  showAmounts?: boolean;
   onApply: (overrides: Overrides, fallbacks: Overrides) => void;
   onClose: () => void;
 }) => {
@@ -397,7 +399,8 @@ const FireHistoricalDrawer = ({
                               color={Colors.neutral300}
                               extraStyle={{ whiteSpace: "nowrap" }}
                             >
-                              {money.format(bucket.total)} ·{" "}
+                              {showAmounts &&
+                                `${money.format(bucket.total)} · `}
                               {percent.format(bucket.total / total)}
                             </Text>
                           </Stack>
@@ -432,7 +435,7 @@ const FireHistoricalDrawer = ({
                                       size={FontSizes.EXTRA_SMALL}
                                       extraStyle={{ whiteSpace: "nowrap" }}
                                     >
-                                      {money.format(asset.total)}
+                                      {showAmounts && money.format(asset.total)}
                                     </Text>
                                   </Box>
                                 ))}

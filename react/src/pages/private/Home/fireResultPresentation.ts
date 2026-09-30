@@ -50,6 +50,9 @@ export type FirePatrimonyInputs = {
   accumulationProgress: number;
 };
 
+export const formatSimulationSuccessRate = (rate: number): string =>
+  `${(rate * 100).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%`;
+
 export const getFireSuccessBand = (successRate: number): FireSuccessBand => {
   if (successRate >= 0.95) return "good";
   if (successRate >= 0.8) return "warn";
