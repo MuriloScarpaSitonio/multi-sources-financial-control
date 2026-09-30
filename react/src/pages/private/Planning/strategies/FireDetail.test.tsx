@@ -442,7 +442,7 @@ describe("FireDetail presentation switch", () => {
     ).not.toBeInTheDocument();
     const badge = screen.getByText("Estratégia ativa");
     expect(badge.closest('[data-testid="strategy-title"]')).toHaveTextContent(
-      "Retirada constante (FIRE)",
+      "FIRE",
     );
     expect(screen.getByTestId("fire-simulation-studio")).toBeInTheDocument();
   });

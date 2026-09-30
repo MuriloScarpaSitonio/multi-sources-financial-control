@@ -1,6 +1,7 @@
+import Link from "@mui/material/Link";
 import { useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import Stack from "@mui/material/Stack";
-import { FontSizes } from "../../../../design-system";
+import { Colors, FontSizes, Text } from "../../../../design-system";
 import { getVPWPlanningPreferences, type VPWPlanningPreferences } from "../api";
 import DefaultsPanel from "../DefaultsPanel";
 import { useFireAllocation } from "../fireAllocation";
@@ -77,7 +78,9 @@ export default function VPWDetail() {
       sticky
       activeBadgeByTitle
       title={STRATEGY_CONTENT.vpw.title}
+      subtitle={STRATEGY_CONTENT.vpw.subtitle}
       titleSize={FontSizes.REGULAR}
+      subtitleSize={FontSizes.EXTRA_SMALL}
       isActive={isActive}
       isMutating={isUpdating}
       onSelect={() => updatePreferences({ selected_method: "vpw" })}
@@ -98,17 +101,41 @@ export default function VPWDetail() {
         onPatrimonyChange={setSimulatedPatrimony}
         renderHeader={renderHeader}
         renderExplanation={(snapshot) => (
-          <DefaultsPanel
-            title="Como funciona a simulação"
-            items={[]}
-            extra={
-              snapshot ? (
-                <VPWMethodologyWalkthrough snapshot={snapshot} />
-              ) : (
-                <span>Preencha um cenário válido para ver a explicação.</span>
-              )
-            }
-          />
+          <Stack spacing={3}>
+            <DefaultsPanel
+              title="Como funciona a simulação"
+              items={[]}
+              extra={
+                snapshot ? (
+                  <VPWMethodologyWalkthrough snapshot={snapshot} />
+                ) : (
+                  <span>Preencha um cenário válido para ver a explicação.</span>
+                )
+              }
+            />
+            <DefaultsPanel
+              title="Sobre a estratégia"
+              items={[]}
+              extra={
+                <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+                  O <em>Variable Percentage Withdrawal</em> foi desenvolvido
+                  pela comunidade Bogleheads para ajustar as retiradas ao
+                  patrimônio e ao tempo restante da aposentadoria. Nossa
+                  implementação adapta o método para retiradas mensais,
+                  limitadas aos gastos informados, e usa os históricos da sua
+                  carteira.{" "}
+                  <Link
+                    href="https://www.bogleheads.org/wiki/Variable_percentage_withdrawal"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Conheça o método original
+                  </Link>
+                  .
+                </Text>
+              }
+            />
+          </Stack>
         )}
       />
     </Stack>

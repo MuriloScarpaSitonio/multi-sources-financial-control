@@ -21,10 +21,9 @@ export type StrategyContent = {
 
 export const STRATEGY_CONTENT: Record<ActiveMethodKey, StrategyContent> = {
   fire: {
-    title: "Retirada constante (FIRE)",
+    title: "FIRE",
     subtitle:
-      "Mantenha seu padrão de vida atual retirando suas despesas " +
-      "mensais, ajustadas pela inflação.",
+      "Para quem busca manter o padrão de vida: seu patrimônio sustenta seus gastos até a idade alvo?",
     rationale: null,
     defaultsExplained: [],
     pros: [],
@@ -316,12 +315,8 @@ export const STRATEGY_CONTENT: Record<ActiveMethodKey, StrategyContent> = {
     ],
   },
   vpw: {
-    title: (
-      <>
-        VPW <em>Variable Percentage Withdrawal</em> · retirada percentual variável
-      </>
-    ),
-    subtitle: "Retiradas recalculadas mensalmente, limitadas ao valor que você pretende sacar.",
+    title: "VPW",
+    subtitle: "Para quem aceita ajustar os gastos: quanto seu patrimônio permite retirar ao longo da aposentadoria?",
     rationale: <p>O VPW ajusta as retiradas ao saldo disponível, ao crescimento histórico real da carteira e ao tempo restante até a idade alvo.</p>,
     defaultsExplained: [],
     pros: [
