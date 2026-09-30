@@ -242,3 +242,33 @@ def test_no_matching_glob_raises(tmp_path, monkeypatch):
 
     with pytest.raises(B3ParserError, match="no posicao-"):
         parse_positions()
+
+
+def test_debenture_without_curva_price_falls_back_to_mtm(tmp_path):
+    deb_row = [
+        "DEB - LOCALIZA RENT A CAR S/A",
+        "INTER DISTRIBUIDORA DE TITULOS E VALORES MOBILIARIOS LTDA",
+        "LOCALIZA RENT A CAR S/A",
+        "LORTA7",
+        "IPCA",
+        "DEPOSITADO",
+        "15/03/2021",
+        "15/03/2031",
+        5,
+        5,
+        "-",
+        "-",
+        "-",
+        "1194.45508146",
+        "5972.28",
+        "-",
+        "-",
+        "-",
+        "-",
+    ]
+    path = build_xlsx(tmp_path / "posicao.xlsx", [deb_row])
+
+    [position] = parse_positions(str(path))
+
+    assert position.code == "LORTA7"
+    assert position.current_price == Decimal("1194.45508146")
