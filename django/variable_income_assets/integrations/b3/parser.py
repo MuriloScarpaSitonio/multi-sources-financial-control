@@ -28,6 +28,17 @@ class B3ParserError(Exception):
     pass
 
 
+def _current_price(row: tuple, header_index: dict[str, int], *, row_index: int):
+    # Debêntures only carry a MTM price; CURVA is "-" for them.
+    for column in ("Preço Atualizado CURVA", "Preço Atualizado MTM"):
+        if column not in header_index:
+            continue
+        price = _to_optional_decimal(row[header_index[column]], column=column, row_index=row_index)
+        if price is not None:
+            return price
+    return None
+
+
 def _resolve_path(path: WorkbookSource | None) -> WorkbookSource:
     if isinstance(path, bytes):
         return path
@@ -164,11 +175,7 @@ def parse_positions(path: WorkbookSource | None = None) -> list[B3FixedIncomePos
                         row_index=row_index,
                     ),
                     quantity=quantity,
-                    current_price=_to_optional_decimal(
-                        row[header_index["Preço Atualizado CURVA"]],
-                        column="Preço Atualizado CURVA",
-                        row_index=row_index,
-                    ),
+                    current_price=_current_price(row, header_index, row_index=row_index),
                 )
             )
 
