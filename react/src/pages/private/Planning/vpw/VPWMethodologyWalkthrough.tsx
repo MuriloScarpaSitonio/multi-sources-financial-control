@@ -1,16 +1,9 @@
-import Collapse from "@mui/material/Collapse";
-import ExpandMore from "@mui/icons-material/ExpandMore";
-import ExpandLess from "@mui/icons-material/ExpandLess";
-import { DATASET_LABELS } from "../fire/fireHistoricalDatasets";
+import WalkthroughFrame from "../shared/WalkthroughFrame";
 import { useMemo, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
-import Link from "@mui/material/Link";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
-import Step from "@mui/material/Step";
-import StepLabel from "@mui/material/StepLabel";
-import Stepper from "@mui/material/Stepper";
 import {
   CartesianGrid,
   Line,
@@ -35,34 +28,6 @@ import type { VPWSnapshot } from "./vpwScenario";
 import { formatCurrency } from "../../utils";
 import { useHideValues } from "../../../../hooks/useHideValues";
 import { prepareVPWPlanTrace } from "./vpwWalkthrough";
-
-const SOURCE_LINKS: Partial<Record<keyof typeof DATASET_LABELS, string>> = {
-  IBOV: "https://www.b3.com.br/pt_br/market-data-e-indices/indices/indices-amplos/indice-ibovespa-ibovespa-estatisticas-historicas.htm",
-  IFIX: "https://www.b3.com.br/pt_br/market-data-e-indices/indices/indices-de-segmentos-e-setoriais/indice-fundos-de-investimentos-imobiliarios-ifix-estatisticas-historicas.htm",
-  CDI: "https://www3.bcb.gov.br/sgspub/consultarvalores/consultarValoresSeries.do?hdOidSeriesSelecionadas=4391&method=consultarGraficoPorId",
-  SPY: "https://www.ssga.com/library-content/products/fund-data/etfs/us/navhist-us-en-spy.xlsx",
-  VWRL: "https://www.vanguard.co.uk/professional/product/etf/equity/9505/ftse-all-world-ucits-etf-distributing#prices-and-distribution",
-  IMA_S:
-    "https://data.anbima.com.br/indices/consulta/ima/resultados-diarios/ima-s",
-  IRF_M_1:
-    "https://data.anbima.com.br/indices/consulta/ima/resultados-diarios/irf-m-1",
-  IRF_M_1_PLUS:
-    "https://data.anbima.com.br/indices/consulta/ima/resultados-diarios/irf-m-1-mais",
-  IMA_B_5:
-    "https://data.anbima.com.br/indices/consulta/ima/resultados-diarios/ima-b-5",
-  IMA_B_5_PLUS:
-    "https://data.anbima.com.br/indices/consulta/ima/resultados-diarios/ima-b-5-mais",
-  IMA_GERAL_EX_C:
-    "https://data.anbima.com.br/indices/consulta/ima/resultados-diarios/ima-geral-ex-c",
-};
-const sourceLabel = (series: keyof typeof DATASET_LABELS) =>
-  SOURCE_LINKS[series] ? (
-    <Link href={SOURCE_LINKS[series]} target="_blank" rel="noopener noreferrer">
-      {DATASET_LABELS[series]}
-    </Link>
-  ) : (
-    DATASET_LABELS[series]
-  );
 
 const STEPS = [
   "Sorteando meses históricos",
@@ -93,7 +58,6 @@ export default function VPWMethodologyWalkthrough({
   const { hideValues } = useHideValues();
   const money = (value: number) => (hideValues ? "***" : formatCurrency(value));
   const [step, setStep] = useState(0);
-  const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const {
     years,
     monthlyExpenses: spending,
@@ -193,585 +157,478 @@ export default function VPWMethodologyWalkthrough({
     !worker.isCalculating && !worker.error ? worker.result?.output : null;
   const ready = Boolean(output);
   return (
-    <Stack gap={3}>
-      <Stack gap={0.5}>
-        <Text size={FontSizes.MEDIUM} weight={FontWeights.SEMI_BOLD}>
-          Como calculamos a retirada e a meta VPW
-        </Text>
-        <Note>
-          Os 4 passos mostram como sua carteira e seu cenário são usados para
-          calcular as retiradas e a meta VPW.
-        </Note>
-      </Stack>
-      <Stack gap={1}>
-        <Button
-          variant="brand-text"
-          size="small"
-          sx={{ alignSelf: "flex-start" }}
-          aria-expanded={sourcesExpanded}
-          aria-controls="vpw-walkthrough-sources"
-          endIcon={sourcesExpanded ? <ExpandLess /> : <ExpandMore />}
-          onClick={() => setSourcesExpanded((value) => !value)}
-        >
-          Fontes da simulação
-        </Button>
-        <Collapse in={sourcesExpanded} id="vpw-walkthrough-sources">
-          <Stack gap={1}>
-            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-              Históricos selecionados:{" "}
-              {[...snapshot.portfolio]
-                .sort((a, b) => b.weight - a.weight)
-                .map((slice, index) => (
-                  <span key={`${slice.series}-${index}`}>
-                    {index > 0 && " · "}
-                    {(slice.weight * 100).toLocaleString("pt-BR", {
-                      minimumFractionDigits: 1,
-                      maximumFractionDigits: 1,
-                    })}
-                    % {sourceLabel(slice.series)}
-                    {slice.fallbackSeries && (
-                      <>
-                        {" "}
-                        (complementado por {sourceLabel(slice.fallbackSeries)})
-                      </>
-                    )}
-                  </span>
-                ))}
-              .
+    <WalkthroughFrame
+      idPrefix="vpw"
+      title="Como calculamos a retirada e a meta VPW"
+      description="Os 4 passos mostram como sua carteira e seu cenário são usados para calcular as retiradas e a meta VPW."
+      portfolio={snapshot.portfolio}
+      steps={STEPS}
+      activeStep={step}
+      onStepChange={setStep}
+    >
+      <Stack gap={1.5}>
+        {prepared.error && <Alert severity="warning">{prepared.error}</Alert>}
+        {step === 0 && (
+          <>
+            <Note>
+              Sorteamos meses do histórico da sua carteira para montar uma
+              sequência de retornos ao longo dos anos do seu cenário. Um mesmo
+              mês pode aparecer mais de uma vez.
+            </Note>
+            <Note>
+              {method === "contiguous_12_month_blocks"
+                ? "Sorteamos blocos de 12 meses consecutivos."
+                : "Sorteamos cada mês de forma independente."}{" "}
+              Todos os ativos usam o mesmo mês histórico, preservando a relação
+              entre seus retornos.
+            </Note>
+            <Text size={FontSizes.EXTRA_SMALL}>
+              Primeiros 24 meses sorteados
             </Text>
-            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-              Inflação:{" "}
-              <Link
-                href="https://www3.bcb.gov.br/sgspub/consultarvalores/consultarValoresSeries.do?hdOidSeriesSelecionadas=433&method=consultarGraficoPorId"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                IPCA (BCB SGS 433)
-              </Link>
-              .
-            </Text>
-          </Stack>
-        </Collapse>
-      </Stack>
-      <Stepper activeStep={step} alternativeLabel nonLinear>
-        {STEPS.map((label, index) => (
-          <Step key={label} active={step === index}>
-            <StepLabel
-              role="button"
-              tabIndex={0}
-              onClick={() => setStep(index)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  setStep(index);
-                }
-              }}
-              sx={{ cursor: "pointer" }}
+            <Stack direction="row" gap={0.5} flexWrap="wrap">
+              {sampledMonths.map((item, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    px: 1,
+                    py: 0.5,
+                    borderRadius: 1,
+                    border: "1px solid",
+                    borderColor: getColor(Colors.brand),
+                  }}
+                >
+                  <Text size={FontSizes.EXTRA_SMALL}>{monthLabel(item)}</Text>
+                </Box>
+              ))}
+            </Stack>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => setSeed((value) => value + 1)}
+              sx={{ alignSelf: "flex-start" }}
             >
-              {label}
-            </StepLabel>
-          </Step>
-        ))}
-      </Stepper>
-      <Stack
-        gap={2}
-        sx={{
-          p: 2,
-          borderRadius: 1,
-          border: "1px solid",
-          borderColor: getColor(Colors.neutral400),
-        }}
-      >
-        <Stack gap={1.5}>
-          {prepared.error && <Alert severity="warning">{prepared.error}</Alert>}
-          {step === 0 && (
-            <>
-              <Note>
-                Sorteamos meses do histórico da sua carteira para montar uma
-                sequência de retornos ao longo dos anos do seu cenário. Um mesmo
-                mês pode aparecer mais de uma vez.
-              </Note>
-              <Note>
-                {method === "contiguous_12_month_blocks"
-                  ? "Sorteamos blocos de 12 meses consecutivos."
-                  : "Sorteamos cada mês de forma independente."}{" "}
-                Todos os ativos usam o mesmo mês histórico, preservando a
-                relação entre seus retornos.
-              </Note>
-              <Text size={FontSizes.EXTRA_SMALL}>
-                Primeiros 24 meses sorteados
-              </Text>
-              <Stack direction="row" gap={0.5} flexWrap="wrap">
-                {sampledMonths.map((item, index) => (
-                  <Box
-                    key={index}
-                    sx={{
-                      px: 1,
-                      py: 0.5,
-                      borderRadius: 1,
-                      border: "1px solid",
-                      borderColor: getColor(Colors.brand),
-                    }}
-                  >
-                    <Text size={FontSizes.EXTRA_SMALL}>{monthLabel(item)}</Text>
-                  </Box>
-                ))}
-              </Stack>
+              Sortear outra sequência
+            </Button>
+          </>
+        )}
+        {step === 1 && !prepared.error && (
+          <>
+            <Note>
+              Aplicamos os retornos sorteados ao patrimônio e recalculamos o
+              limite de retirada a cada mês. Se ele ficar abaixo da sua despesa
+              mensal, a retirada diminui.
+            </Note>
+            <Note>
+              Se houver anos extras de acumulação, mantemos os aportes até
+              concluir essa etapa. Depois, cada retirada fica limitada à despesa
+              mensal, ao limite VPW e ao saldo disponível. Os valores descontam
+              a inflação.
+            </Note>
+            <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
               <Button
-                size="small"
                 variant="outlined"
+                size="small"
                 onClick={() => setSeed((value) => value + 1)}
-                sx={{ alignSelf: "flex-start" }}
               >
-                Sortear outra sequência
+                Sortear nova sequência
               </Button>
-            </>
-          )}
-          {step === 1 && !prepared.error && (
-            <>
-              <Note>
-                Aplicamos os retornos sorteados ao patrimônio e recalculamos o
-                limite de retirada a cada mês. Se ele ficar abaixo da sua
-                despesa mensal, a retirada diminui.
-              </Note>
-              <Note>
-                Se houver anos extras de acumulação, mantemos os aportes até
-                concluir essa etapa. Depois, cada retirada fica limitada à
-                despesa mensal, ao limite VPW e ao saldo disponível. Os valores
-                descontam a inflação.
-              </Note>
-              <Stack
-                direction="row"
-                alignItems="center"
-                gap={2}
-                flexWrap="wrap"
+            </Stack>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart
+                data={balancePath}
+                margin={{ top: 10, right: 10, left: 5, bottom: 20 }}
               >
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setSeed((value) => value + 1)}
-                >
-                  Sortear nova sequência
-                </Button>
-              </Stack>
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart
-                  data={balancePath}
-                  margin={{ top: 10, right: 10, left: 5, bottom: 20 }}
-                >
-                  <CartesianGrid vertical={false} strokeDasharray="5" />
-                  <XAxis
-                    dataKey="year"
-                    type="number"
-                    domain={[0, years]}
-                    ticks={yearTicks}
-                    minTickGap={30}
-                    tickFormatter={(value) => `${value}`}
-                    stroke={getColor(Colors.neutral0)}
-                    tickLine={false}
+                <CartesianGrid vertical={false} strokeDasharray="5" />
+                <XAxis
+                  dataKey="year"
+                  type="number"
+                  domain={[0, years]}
+                  ticks={yearTicks}
+                  minTickGap={30}
+                  tickFormatter={(value) => `${value}`}
+                  stroke={getColor(Colors.neutral0)}
+                  tickLine={false}
+                  label={{
+                    value: "Ano da simulação",
+                    position: "insideBottom",
+                    offset: -10,
+                    fill: getColor(Colors.neutral400),
+                    fontSize: 11,
+                  }}
+                />
+                <YAxis
+                  tickFormatter={(value) =>
+                    hideValues ? "***" : compact(value)
+                  }
+                  stroke={getColor(Colors.brand400)}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  content={({ active, payload, label }) =>
+                    !active || !payload?.length ? null : (
+                      <Stack
+                        spacing={0.5}
+                        sx={{
+                          border: "1px solid",
+                          p: 1,
+                          borderColor: getColor(Colors.brand400),
+                          backgroundColor: getColor(Colors.neutral600),
+                        }}
+                      >
+                        <Text
+                          size={FontSizes.EXTRA_SMALL}
+                          color={Colors.neutral300}
+                        >
+                          Ano {label}
+                        </Text>
+                        <Text
+                          size={FontSizes.EXTRA_SMALL}
+                          color={Colors.brand200}
+                        >
+                          Saldo:{" "}
+                          {hideValues
+                            ? "***"
+                            : compact(Number(payload[0].value))}
+                        </Text>
+                      </Stack>
+                    )
+                  }
+                />
+                <ReferenceLine y={0} stroke={getColor(Colors.danger200)} />
+                {snapshot.extraYears > 0 && retirementMonths.length > 0 && (
+                  <ReferenceLine
+                    x={(retirementMonths[0].month - 1) / 12}
+                    stroke={getColor(Colors.neutral400)}
+                    strokeDasharray="5 5"
                     label={{
-                      value: "Ano da simulação",
-                      position: "insideBottom",
-                      offset: -10,
+                      value: "Início das retiradas",
+                      position: "insideTopLeft",
                       fill: getColor(Colors.neutral400),
                       fontSize: 11,
                     }}
                   />
-                  <YAxis
-                    tickFormatter={(value) =>
-                      hideValues ? "***" : compact(value)
-                    }
-                    stroke={getColor(Colors.brand400)}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip
-                    content={({ active, payload, label }) =>
-                      !active || !payload?.length ? null : (
-                        <Stack
-                          spacing={0.5}
-                          sx={{
-                            border: "1px solid",
-                            p: 1,
-                            borderColor: getColor(Colors.brand400),
-                            backgroundColor: getColor(Colors.neutral600),
-                          }}
-                        >
+                )}
+                <Line
+                  type="monotone"
+                  dataKey="balance"
+                  name="Patrimônio"
+                  stroke={getColor(
+                    firstShortfall ? Colors.danger200 : Colors.brand,
+                  )}
+                  dot={{ r: 2 }}
+                  strokeWidth={2}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+              <em>
+                Resultado deste aposentado:{" "}
+                <span
+                  style={{
+                    color: getColor(
+                      retirementMonths.length === 0
+                        ? Colors.neutral400
+                        : firstShortfall
+                          ? Colors.danger200
+                          : Colors.brand,
+                    ),
+                  }}
+                >
+                  {retirementMonths.length === 0
+                    ? "não iniciou as retiradas antes da idade alvo."
+                    : firstShortfall
+                      ? `a retirada ficou abaixo dos gastos a partir do mês ${firstShortfall.month}.`
+                      : `conseguiu retirar ${money(spending)} em todos os meses da aposentadoria.`}
+                </span>{" "}
+                Sorteie de novo para ver outra sequência possível.
+              </em>
+            </Text>
+          </>
+        )}
+        {step >= 2 && (
+          <>
+            {step === 2 && (
+              <>
+                <Note>
+                  Repetimos a simulação 2.000 vezes para medir em quantos
+                  cenários as retiradas cobrem sua despesa mensal até a idade
+                  alvo.
+                </Note>
+                <Note>
+                  Cada simulação usa uma nova sequência de meses sorteados e
+                  segue as regras do passo anterior. Atingir a meta permite
+                  começar as retiradas, mas não garante que elas cubram seus
+                  gastos até a idade alvo. O percentual mede essa cobertura nos
+                  cenários que começaram as retiradas.
+                </Note>
+              </>
+            )}
+            {step === 3 && (
+              <>
+                <Note>
+                  Testamos diferentes patrimônios iniciais para encontrar o
+                  menor que permite cobrir seus gastos em pelo menos 95% das
+                  simulações.
+                </Note>
+                <Note>
+                  As retiradas começam imediatamente, sem novos aportes.
+                  Buscamos um patrimônio inicial que permita cobrir os gastos em
+                  pelo menos 95% das simulações. Esta busca não inclui os anos
+                  extras de acumulação.
+                </Note>
+              </>
+            )}
+            {worker.error ? (
+              <Alert severity="error">
+                Não foi possível calcular o cenário.{" "}
+                <Button
+                  size="small"
+                  onClick={() => setRetry((value) => value + 1)}
+                >
+                  Tentar novamente
+                </Button>
+              </Alert>
+            ) : !ready ? (
+              <Text
+                size={FontSizes.EXTRA_SMALL}
+                aria-label="Calculando cenário VPW"
+              >
+                Calculando cenário…
+              </Text>
+            ) : output ? (
+              <>
+                {step === 2 && (
+                  <>
+                    <Text
+                      size={FontSizes.EXTRA_SMALL}
+                      weight={FontWeights.MEDIUM}
+                      color={
+                        output.retirement.successRate! >= 0.95
+                          ? Colors.brand
+                          : Colors.danger200
+                      }
+                    >
+                      {output.retirement.successRate === null
+                        ? "Nenhuma sequência iniciou as retiradas"
+                        : `${percent(output.retirement.successRate)} de sucesso`}{" "}
+                      com {money(wealth)}
+                    </Text>
+                    <Note>
+                      {Math.round(
+                        output.retirement.successRate! *
+                          output.retirement.trialCount,
+                      )}{" "}
+                      de {output.retirement.trialCount} simulações cobriram{" "}
+                      {money(spending)}/mês até os {snapshot.targetAge} anos.
+                      {snapshot.extraYears > 0 &&
+                        " Contagem entre as simulações que iniciaram as retiradas."}
+                    </Note>
+                  </>
+                )}
+                {step === 2 ? (
+                  <>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <LineChart
+                        data={ensemble?.rows ?? []}
+                        margin={{ top: 10, right: 10, left: 5, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="5" vertical={false} />
+                        <XAxis
+                          dataKey="month"
+                          stroke={getColor(Colors.neutral0)}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          stroke={getColor(Colors.brand400)}
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(value) =>
+                            hideValues ? "***" : compact(value)
+                          }
+                        />
+                        <ReferenceLine
+                          y={spending}
+                          stroke={getColor(Colors.neutral400)}
+                          strokeDasharray="5 5"
+                        />
+                        {ensemble?.failed.map((failed, index) => (
+                          <Line
+                            key={index}
+                            dataKey={`t${index}`}
+                            stroke={getColor(
+                              failed ? Colors.danger200 : Colors.brand,
+                            )}
+                            strokeWidth={1}
+                            strokeOpacity={0.25}
+                            dot={false}
+                            isAnimationActive={false}
+                          />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                    <Note>
+                      Cada linha é uma aposentadoria. Verde: cobriu todos os
+                      meses. Vermelho: teve alguma retirada abaixo dos gastos.
+                      Mostramos as primeiras 100 das 2.000 simulações.
+                    </Note>
+                  </>
+                ) : (
+                  <>
+                    <Text size={FontSizes.SMALL} weight={FontWeights.SEMI_BOLD}>
+                      Quanto precisamos hoje para cobrir {money(spending)}/mês
+                      até os {snapshot.targetAge} anos?
+                    </Text>
+                    <Box
+                      component="ol"
+                      aria-label="Como chegamos à meta VPW"
+                      sx={{
+                        listStyle: "none",
+                        m: 0,
+                        p: 0,
+                        display: "flex",
+                        flexDirection: { xs: "column", md: "row" },
+                        gap: 1.5,
+                        alignItems: "stretch",
+                      }}
+                    >
+                      <Box
+                        component="li"
+                        sx={{
+                          flex: 1,
+                          p: 1.5,
+                          borderRadius: 1,
+                          bgcolor: getColor(Colors.neutral600),
+                        }}
+                      >
+                        <Stack gap={1}>
                           <Text
                             size={FontSizes.EXTRA_SMALL}
-                            color={Colors.neutral300}
+                            color={Colors.neutral400}
                           >
-                            Ano {label}
+                            1 · Retiradas desde hoje
                           </Text>
                           <Text
-                            size={FontSizes.EXTRA_SMALL}
-                            color={Colors.brand200}
+                            size={FontSizes.SMALL}
+                            weight={FontWeights.SEMI_BOLD}
                           >
-                            Saldo:{" "}
-                            {hideValues
-                              ? "***"
-                              : compact(Number(payload[0].value))}
+                            {money(spending)}/mês
+                          </Text>
+                          <Text size={FontSizes.EXTRA_SMALL}>
+                            Até os {snapshot.targetAge} anos, sem acumulação
+                            antes das retiradas.
                           </Text>
                         </Stack>
-                      )
-                    }
-                  />
-                  <ReferenceLine y={0} stroke={getColor(Colors.danger200)} />
-                  {snapshot.extraYears > 0 && retirementMonths.length > 0 && (
-                    <ReferenceLine
-                      x={(retirementMonths[0].month - 1) / 12}
-                      stroke={getColor(Colors.neutral400)}
-                      strokeDasharray="5 5"
-                      label={{
-                        value: "Início das retiradas",
-                        position: "insideTopLeft",
-                        fill: getColor(Colors.neutral400),
-                        fontSize: 11,
-                      }}
-                    />
-                  )}
-                  <Line
-                    type="monotone"
-                    dataKey="balance"
-                    name="Patrimônio"
-                    stroke={getColor(
-                      firstShortfall ? Colors.danger200 : Colors.brand,
-                    )}
-                    dot={{ r: 2 }}
-                    strokeWidth={2}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-              <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-                <em>
-                  Resultado deste aposentado:{" "}
-                  <span
-                    style={{
-                      color: getColor(
-                        retirementMonths.length === 0
-                          ? Colors.neutral400
-                          : firstShortfall
-                            ? Colors.danger200
-                            : Colors.brand,
-                      ),
-                    }}
-                  >
-                    {retirementMonths.length === 0
-                      ? "não iniciou as retiradas antes da idade alvo."
-                      : firstShortfall
-                        ? `a retirada ficou abaixo dos gastos a partir do mês ${firstShortfall.month}.`
-                        : `conseguiu retirar ${money(spending)} em todos os meses da aposentadoria.`}
-                  </span>{" "}
-                  Sorteie de novo para ver outra sequência possível.
-                </em>
-              </Text>
-            </>
-          )}
-          {step >= 2 && (
-            <>
-              {step === 2 && (
-                <>
-                  <Note>
-                    Repetimos a simulação 2.000 vezes para medir em quantos
-                    cenários as retiradas cobrem sua despesa mensal até a idade
-                    alvo.
-                  </Note>
-                  <Note>
-                    Cada simulação usa uma nova sequência de meses sorteados e
-                    segue as regras do passo anterior. Atingir a meta permite
-                    começar as retiradas, mas não garante que elas cubram seus
-                    gastos até a idade alvo. O percentual mede essa cobertura
-                    nos cenários que começaram as retiradas.
-                  </Note>
-                </>
-              )}
-              {step === 3 && (
-                <>
-                  <Note>
-                    Testamos diferentes patrimônios iniciais para encontrar o
-                    menor que permite cobrir seus gastos em pelo menos 95% das
-                    simulações.
-                  </Note>
-                  <Note>
-                    As retiradas começam imediatamente, sem novos aportes.
-                    Buscamos um patrimônio inicial que permita cobrir os gastos
-                    em pelo menos 95% das simulações. Esta busca não inclui os
-                    anos extras de acumulação.
-                  </Note>
-                </>
-              )}
-              {worker.error ? (
-                <Alert severity="error">
-                  Não foi possível calcular o cenário.{" "}
-                  <Button
-                    size="small"
-                    onClick={() => setRetry((value) => value + 1)}
-                  >
-                    Tentar novamente
-                  </Button>
-                </Alert>
-              ) : !ready ? (
-                <Text
-                  size={FontSizes.EXTRA_SMALL}
-                  aria-label="Calculando cenário VPW"
-                >
-                  Calculando cenário…
-                </Text>
-              ) : output ? (
-                <>
-                  {step === 2 && (
-                    <>
-                      <Text
-                        size={FontSizes.EXTRA_SMALL}
-                        weight={FontWeights.MEDIUM}
-                        color={
-                          output.retirement.successRate! >= 0.95
-                            ? Colors.brand
-                            : Colors.danger200
-                        }
-                      >
-                        {output.retirement.successRate === null
-                          ? "Nenhuma sequência iniciou as retiradas"
-                          : `${percent(output.retirement.successRate)} de sucesso`}{" "}
-                        com {money(wealth)}
-                      </Text>
-                      <Note>
-                        {Math.round(
-                          output.retirement.successRate! *
-                            output.retirement.trialCount,
-                        )}{" "}
-                        de {output.retirement.trialCount} simulações cobriram{" "}
-                        {money(spending)}/mês até os {snapshot.targetAge} anos.
-                        {snapshot.extraYears > 0 &&
-                          " Contagem entre as simulações que iniciaram as retiradas."}
-                      </Note>
-                    </>
-                  )}
-                  {step === 2 ? (
-                    <>
-                      <ResponsiveContainer width="100%" height={220}>
-                        <LineChart
-                          data={ensemble?.rows ?? []}
-                          margin={{ top: 10, right: 10, left: 5, bottom: 0 }}
-                        >
-                          <CartesianGrid strokeDasharray="5" vertical={false} />
-                          <XAxis
-                            dataKey="month"
-                            stroke={getColor(Colors.neutral0)}
-                            tickLine={false}
-                          />
-                          <YAxis
-                            stroke={getColor(Colors.brand400)}
-                            tickLine={false}
-                            axisLine={false}
-                            tickFormatter={(value) =>
-                              hideValues ? "***" : compact(value)
-                            }
-                          />
-                          <ReferenceLine
-                            y={spending}
-                            stroke={getColor(Colors.neutral400)}
-                            strokeDasharray="5 5"
-                          />
-                          {ensemble?.failed.map((failed, index) => (
-                            <Line
-                              key={index}
-                              dataKey={`t${index}`}
-                              stroke={getColor(
-                                failed ? Colors.danger200 : Colors.brand,
-                              )}
-                              strokeWidth={1}
-                              strokeOpacity={0.25}
-                              dot={false}
-                              isAnimationActive={false}
-                            />
-                          ))}
-                        </LineChart>
-                      </ResponsiveContainer>
-                      <Note>
-                        Cada linha é uma aposentadoria. Verde: cobriu todos os
-                        meses. Vermelho: teve alguma retirada abaixo dos gastos.
-                        Mostramos as primeiras 100 das 2.000 simulações.
-                      </Note>
-                    </>
-                  ) : (
-                    <>
-                      <Text
-                        size={FontSizes.SMALL}
-                        weight={FontWeights.SEMI_BOLD}
-                      >
-                        Quanto precisamos hoje para cobrir {money(spending)}/mês
-                        até os {snapshot.targetAge} anos?
-                      </Text>
+                      </Box>
                       <Box
-                        component="ol"
-                        aria-label="Como chegamos à meta VPW"
+                        component="li"
+                        aria-hidden="true"
                         sx={{
-                          listStyle: "none",
-                          m: 0,
-                          p: 0,
-                          display: "flex",
-                          flexDirection: { xs: "column", md: "row" },
-                          gap: 1.5,
-                          alignItems: "stretch",
+                          alignSelf: "center",
+                          color: getColor(Colors.neutral400),
                         }}
                       >
                         <Box
-                          component="li"
-                          sx={{
-                            flex: 1,
-                            p: 1.5,
-                            borderRadius: 1,
-                            bgcolor: getColor(Colors.neutral600),
-                          }}
+                          component="span"
+                          sx={{ display: { xs: "none", md: "inline" } }}
                         >
-                          <Stack gap={1}>
-                            <Text
-                              size={FontSizes.EXTRA_SMALL}
-                              color={Colors.neutral400}
-                            >
-                              1 · Retiradas desde hoje
-                            </Text>
-                            <Text
-                              size={FontSizes.SMALL}
-                              weight={FontWeights.SEMI_BOLD}
-                            >
-                              {money(spending)}/mês
-                            </Text>
-                            <Text size={FontSizes.EXTRA_SMALL}>
-                              Até os {snapshot.targetAge} anos, sem acumulação
-                              antes das retiradas.
-                            </Text>
-                          </Stack>
+                          →
                         </Box>
                         <Box
-                          component="li"
-                          aria-hidden="true"
-                          sx={{
-                            alignSelf: "center",
-                            color: getColor(Colors.neutral400),
-                          }}
+                          component="span"
+                          sx={{ display: { xs: "inline", md: "none" } }}
                         >
-                          <Box
-                            component="span"
-                            sx={{ display: { xs: "none", md: "inline" } }}
-                          >
-                            →
-                          </Box>
-                          <Box
-                            component="span"
-                            sx={{ display: { xs: "inline", md: "none" } }}
-                          >
-                            ↓
-                          </Box>
-                        </Box>
-                        <Box
-                          component="li"
-                          sx={{
-                            flex: 1,
-                            p: 1.5,
-                            borderRadius: 1,
-                            bgcolor: getColor(Colors.neutral600),
-                          }}
-                        >
-                          <Stack gap={1}>
-                            <Text
-                              size={FontSizes.EXTRA_SMALL}
-                              color={Colors.neutral400}
-                            >
-                              2 · Critério da meta
-                            </Text>
-                            <Text
-                              size={FontSizes.SMALL}
-                              weight={FontWeights.SEMI_BOLD}
-                            >
-                              Pelo menos 95% das simulações
-                            </Text>
-                            <Text size={FontSizes.EXTRA_SMALL}>
-                              Capital suficiente para 1.900 das 2.000
-                              aposentadorias.
-                            </Text>
-                          </Stack>
-                        </Box>
-                        <Box
-                          component="li"
-                          aria-hidden="true"
-                          sx={{
-                            alignSelf: "center",
-                            color: getColor(Colors.neutral400),
-                          }}
-                        >
-                          <Box
-                            component="span"
-                            sx={{ display: { xs: "none", md: "inline" } }}
-                          >
-                            →
-                          </Box>
-                          <Box
-                            component="span"
-                            sx={{ display: { xs: "inline", md: "none" } }}
-                          >
-                            ↓
-                          </Box>
-                        </Box>
-                        <Box
-                          component="li"
-                          sx={{
-                            flex: 1,
-                            p: 1.5,
-                            borderRadius: 1,
-                            border: "1px solid",
-                            borderColor: getColor(Colors.brand400),
-                            bgcolor: getColor(Colors.neutral600),
-                          }}
-                        >
-                          <Stack gap={1}>
-                            <Text
-                              size={FontSizes.EXTRA_SMALL}
-                              color={Colors.neutral400}
-                            >
-                              3 · Meta encontrada
-                            </Text>
-                            <Text
-                              size={FontSizes.SMALL}
-                              weight={FontWeights.SEMI_BOLD}
-                              color={Colors.brand}
-                            >
-                              {money(output.targetPatrimony)}
-                            </Text>
-                          </Stack>
+                          ↓
                         </Box>
                       </Box>
+                      <Box
+                        component="li"
+                        sx={{
+                          flex: 1,
+                          p: 1.5,
+                          borderRadius: 1,
+                          bgcolor: getColor(Colors.neutral600),
+                        }}
+                      >
+                        <Stack gap={1}>
+                          <Text
+                            size={FontSizes.EXTRA_SMALL}
+                            color={Colors.neutral400}
+                          >
+                            2 · Critério da meta
+                          </Text>
+                          <Text
+                            size={FontSizes.SMALL}
+                            weight={FontWeights.SEMI_BOLD}
+                          >
+                            Pelo menos 95% das simulações
+                          </Text>
+                          <Text size={FontSizes.EXTRA_SMALL}>
+                            Capital suficiente para 1.900 das 2.000
+                            aposentadorias.
+                          </Text>
+                        </Stack>
+                      </Box>
+                      <Box
+                        component="li"
+                        aria-hidden="true"
+                        sx={{
+                          alignSelf: "center",
+                          color: getColor(Colors.neutral400),
+                        }}
+                      >
+                        <Box
+                          component="span"
+                          sx={{ display: { xs: "none", md: "inline" } }}
+                        >
+                          →
+                        </Box>
+                        <Box
+                          component="span"
+                          sx={{ display: { xs: "inline", md: "none" } }}
+                        >
+                          ↓
+                        </Box>
+                      </Box>
+                      <Box
+                        component="li"
+                        sx={{
+                          flex: 1,
+                          p: 1.5,
+                          borderRadius: 1,
+                          border: "1px solid",
+                          borderColor: getColor(Colors.brand400),
+                          bgcolor: getColor(Colors.neutral600),
+                        }}
+                      >
+                        <Stack gap={1}>
+                          <Text
+                            size={FontSizes.EXTRA_SMALL}
+                            color={Colors.neutral400}
+                          >
+                            3 · Meta encontrada
+                          </Text>
+                          <Text
+                            size={FontSizes.SMALL}
+                            weight={FontWeights.SEMI_BOLD}
+                            color={Colors.brand}
+                          >
+                            {money(output.targetPatrimony)}
+                          </Text>
+                        </Stack>
+                      </Box>
+                    </Box>
 
-                      <Note>
-                        O resultado histórico não garante o resultado futuro.
-                      </Note>
-                    </>
-                  )}
-                </>
-              ) : null}
-            </>
-          )}
-        </Stack>
-        <Stack direction="row" gap={1} sx={{ mt: 1 }}>
-          <Button
-            size="small"
-            variant="outlined"
-            disabled={step === 0}
-            onClick={() => setStep((value) => value - 1)}
-          >
-            Voltar
-          </Button>
-          <Button
-            size="small"
-            variant="contained"
-            disabled={step === STEPS.length - 1}
-            onClick={() => setStep((value) => value + 1)}
-          >
-            Próximo
-          </Button>
-        </Stack>
+                    <Note>
+                      O resultado histórico não garante o resultado futuro.
+                    </Note>
+                  </>
+                )}
+              </>
+            ) : null}
+          </>
+        )}
       </Stack>
-    </Stack>
+    </WalkthroughFrame>
   );
 }

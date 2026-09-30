@@ -1,29 +1,19 @@
-import Collapse from "@mui/material/Collapse";
-import ExpandLessIcon from "@mui/icons-material/ExpandLess";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Alert from "@mui/material/Alert";
-import Chip from "@mui/material/Chip";
-import IconButton from "@mui/material/IconButton";
+import Paper from "@mui/material/Paper";
 import VPWComparisonPanel from "./VPWComparisonPanel";
 import { historicalSourceForMonth } from "../../Home/firePortfolio";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import FormControlLabel from "@mui/material/FormControlLabel";
-import Paper from "@mui/material/Paper";
-import Stack from "@mui/material/Stack";
-import Switch from "@mui/material/Switch";
-import useMediaQuery from "@mui/material/useMediaQuery";
-import type { Theme } from "@mui/material/styles";
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import { FontSizes, FontWeights, Text } from "../../../../design-system";
+import { FontSizes, Text } from "../../../../design-system";
 import type { VPWPlanningPreferences } from "../api";
 import { buildVPWPortfolio } from "../../Home/vpwPortfolio";
 import { useFireSimulationWorker } from "../../Home/useFireSimulationWorker";
 import FireHistoricalSettings from "../fire/FireHistoricalSettings";
 import FireScenarioNumberInput from "../fire/FireScenarioNumberInput";
 import FireResultsSkeleton from "../fire/FireResultsSkeleton";
+import ScenarioPanel from "../shared/ScenarioPanel";
+import SimulationStudioShell, {
+  useStudioLayout,
+} from "../shared/SimulationStudioShell";
 import {
   buildVPWSnapshot,
   type VPWDraft,
@@ -50,14 +40,8 @@ export default function VPWStudio({
   renderHeader,
   renderExplanation,
 }: Props) {
-  const isMobile = useMediaQuery((theme: Theme) =>
-    theme.breakpoints.down("md"),
-  );
-  const [resultsExpanded, setResultsExpanded] = useState(true);
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const layout = useStudioLayout();
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const current = useMemo(() => {
     try {
       return { snapshot: buildVPWSnapshot(draft), error: null };
@@ -104,329 +88,154 @@ export default function VPWStudio({
   );
   const ageLimit = draft.currentAge !== null && draft.currentAge >= 105;
   const minimumAge = Math.min(105, Math.max(70, (draft.currentAge ?? 0) + 1));
-  const panel = (
-    <Paper elevation={1} sx={{ p: 2, borderRadius: 2 }}>
-      <Stack gap={2}>
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          <Text size={FontSizes.MEDIUM} weight={FontWeights.SEMI_BOLD}>
-            Seu cenário
-          </Text>
-          {!isMobile && (
-            <Button
-              aria-label="Recolher cenário"
-              variant="brand-text"
-              sx={{ minWidth: 28, p: 0 }}
-              onClick={() => setCollapsed(true)}
-            >
-              <ChevronLeftIcon />
-            </Button>
-          )}
-        </Stack>
-        <Text size={FontSizes.EXTRA_SMALL}>
-          Edite os valores e recalcule quando estiver pronto.
-        </Text>
-        <FireScenarioNumberInput
-          label="Patrimônio"
-          value={draft.simulatedPatrimony ?? modeled.investmentTotal}
-          step={100000}
-          prefix="R$ "
-          disabled={isPersisting}
-          onChange={onPatrimonyChange}
-          onReset={
-            draft.simulatedPatrimony !== null
-              ? () => onPatrimonyChange(null)
-              : undefined
-          }
-        />
-        <FireScenarioNumberInput
-          label="Despesas mensais"
-          tooltip="Valor mensal que você pretende retirar dos investimentos. É o teto de cada saque."
-          value={p.monthly_expenses_override ?? draft.avgExpenses}
-          step={500}
-          prefix="R$ "
-          disabled={isPersisting}
-          onChange={(value) => change({ monthly_expenses_override: value })}
-          onReset={
-            p.monthly_expenses_override !== null
-              ? () => change({ monthly_expenses_override: null })
-              : undefined
-          }
-        />
-        <FireScenarioNumberInput
-          label="Aportes mensais"
-          value={Math.max(
-            0,
-            p.monthly_savings_override ?? draft.monthlySavings,
-          )}
-          step={500}
-          prefix="R$ "
-          disabled={isPersisting}
-          onChange={(value) => change({ monthly_savings_override: value })}
-          onReset={
-            p.monthly_savings_override !== null
-              ? () => change({ monthly_savings_override: null })
-              : undefined
-          }
-        />
-        <FireScenarioNumberInput
-          label="Idade alvo"
-          value={p.target_age}
-          step={1}
-          min={minimumAge}
-          max={105}
-          suffix=" anos"
-          decimalScale={0}
-          disabled={isPersisting || ageLimit}
-          onChange={(value) => change({ target_age: value })}
-        />
-        <Button
-          variant="brand-text"
-          aria-expanded={advancedOpen}
-          onClick={() => setAdvancedOpen((v) => !v)}
-        >
-          Premissas avançadas
-        </Button>
-        {advancedOpen && (
-          <Stack gap={2}>
+  return (
+    <SimulationStudioShell
+      layout={layout}
+      testId="vpw-simulation-studio"
+      resultsId="vpw-simulation-results"
+      renderHeader={renderHeader}
+      canRecalculate={canRecalculate}
+      onRecalculate={recalculate}
+      renderPanel={(onCollapse) => (
+        <ScenarioPanel
+          patrimony={{
+            value: draft.simulatedPatrimony ?? modeled.investmentTotal,
+            isOverridden: draft.simulatedPatrimony !== null,
+            onChange: onPatrimonyChange,
+          }}
+          expenses={{
+            value: p.monthly_expenses_override ?? draft.avgExpenses,
+            isOverridden: p.monthly_expenses_override !== null,
+            onChange: (value) => change({ monthly_expenses_override: value }),
+            tooltip:
+              "Valor mensal que você pretende retirar dos investimentos. É o teto de cada saque.",
+          }}
+          monthlySavings={{
+            value: p.monthly_savings_override ?? draft.monthlySavings,
+            isOverridden: p.monthly_savings_override !== null,
+            onChange: (value) => change({ monthly_savings_override: value }),
+          }}
+          fields={
             <FireScenarioNumberInput
-              label="Anos extras de acumulação"
-              tooltip="Após atingir a meta VPW, continue aportando por esse período antes de começar as retiradas. A idade alvo permanece a mesma."
-              value={p.extra_accumulation_years}
+              label="Idade alvo"
+              value={p.target_age}
               step={1}
-              min={0}
-              max={Math.min(
-                60,
-                Math.max(0, p.target_age - (draft.currentAge ?? 0) - 1),
-              )}
+              min={minimumAge}
+              max={105}
               suffix=" anos"
               decimalScale={0}
-              disabled={isPersisting}
-              onChange={(value) => change({ extra_accumulation_years: value })}
+              disabled={isPersisting || ageLimit}
+              onChange={(value) => change({ target_age: value })}
             />
-            <FireHistoricalSettings
-              allocation={modeled.modeledAllocation}
-              showAmounts={false}
-              preferences={p}
-              showAgeInBonds={false}
-              open={historyOpen}
-              onOpenChange={setHistoryOpen}
-              onApply={(
-                historical_series_overrides,
-                historical_series_fallbacks,
-              ) =>
-                change({
+          }
+          forceAdvancedOpen={historyOpen}
+          advanced={
+            <>
+              <FireScenarioNumberInput
+                label="Anos extras de acumulação"
+                tooltip="Após atingir a meta VPW, continue aportando por esse período antes de começar as retiradas. A idade alvo permanece a mesma."
+                value={p.extra_accumulation_years}
+                step={1}
+                min={0}
+                max={Math.min(
+                  60,
+                  Math.max(0, p.target_age - (draft.currentAge ?? 0) - 1),
+                )}
+                suffix=" anos"
+                decimalScale={0}
+                disabled={isPersisting}
+                onChange={(value) =>
+                  change({ extra_accumulation_years: value })
+                }
+              />
+              <FireHistoricalSettings
+                allocation={modeled.modeledAllocation}
+                showAmounts={false}
+                preferences={p}
+                showAgeInBonds={false}
+                open={historyOpen}
+                onOpenChange={setHistoryOpen}
+                onApply={(
                   historical_series_overrides,
                   historical_series_fallbacks,
-                })
-              }
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={p.sampling_method === "contiguous_12_month_blocks"}
-                  onChange={(_, checked) =>
-                    change({
-                      sampling_method: checked
-                        ? "contiguous_12_month_blocks"
-                        : "independent_months",
-                    })
-                  }
-                />
-              }
-              label={
-                <Text size={FontSizes.EXTRA_SMALL}>
-                  Preservar sequências históricas de 12 meses
-                </Text>
-              }
-            />
-            {modeled.investmentTotal === 0 && (
+                ) =>
+                  change({
+                    historical_series_overrides,
+                    historical_series_fallbacks,
+                  })
+                }
+              />
+            </>
+          }
+          samplingMethod={p.sampling_method}
+          onSamplingMethodChange={(sampling_method) =>
+            change({ sampling_method })
+          }
+          advancedFooter={
+            modeled.investmentTotal === 0 && (
               <Text size={FontSizes.EXTRA_SMALL}>
                 Sem investimentos cadastrados: carteira de referência de{" "}
                 {modeled.stockPct.toFixed(0)}% IBOV e{" "}
                 {(100 - modeled.stockPct).toFixed(0)}% CDI.
               </Text>
-            )}
-          </Stack>
-        )}
-        <Button
-          variant="contained"
-          color="success"
-          fullWidth
-          disabled={!canRecalculate}
-          onClick={recalculate}
-        >
-          {worker.isCalculating ? "Recalculando…" : "Recalcular"}
-        </Button>
-      </Stack>
-    </Paper>
-  );
-  return (
-    <>
-      {renderHeader?.(
-        canRecalculate ? (
-          <Button variant="brand" size="small" onClick={recalculate}>
-            Recalcular
-          </Button>
-        ) : null,
+            )
+          }
+          canRecalculate={canRecalculate}
+          isCalculating={worker.isCalculating}
+          isPersisting={isPersisting}
+          onRecalculate={recalculate}
+          onCollapse={onCollapse}
+        />
       )}
-      <Box
-        data-testid="vpw-simulation-studio"
-        data-panel-collapsed={collapsed}
-        sx={{
-          display: "grid",
-          gridTemplateColumns: {
-            xs: "minmax(0, 1fr)",
-            md: collapsed ? "56px minmax(0, 1fr)" : "360px minmax(0, 1fr)",
-          },
-          gap: 2,
-          alignItems: "start",
-        }}
-      >
-        {isMobile ? (
-          <Stack gap={1}>
-            <Button variant="outlined" onClick={() => setMobileOpen((v) => !v)}>
-              {mobileOpen ? "Ocultar cenário" : "Editar cenário"}
-            </Button>
-            {mobileOpen && panel}
-          </Stack>
-        ) : collapsed ? (
-          <Paper
-            elevation={1}
-            sx={{ position: "sticky", top: 80, p: 1, borderRadius: 2 }}
-          >
-            <IconButton
-              aria-label="Expandir cenário"
-              onClick={() => setCollapsed(false)}
-            >
-              <ChevronRightIcon />
-            </IconButton>
-          </Paper>
-        ) : (
-          <Box
-            sx={{
-              position: "sticky",
-              top: 80,
-              maxHeight: "calc(100dvh - 96px)",
-              overflowY: "auto",
-            }}
-          >
-            {panel}
-          </Box>
-        )}
-        <Stack gap={1} sx={{ minWidth: 0 }}>
-          <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
-            <Stack
-              direction="row"
-              alignItems="center"
-              gap={1}
-              flexWrap="wrap"
-              sx={{ minHeight: 32 }}
-            >
-              <Button
-                size="small"
-                variant="brand-text"
-                aria-expanded={resultsExpanded}
-                aria-controls="vpw-simulation-results"
-                endIcon={
-                  resultsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />
-                }
-                sx={{ alignSelf: "flex-start" }}
-                onClick={() => setResultsExpanded((value) => !value)}
-              >
-                {resultsExpanded ? "Recolher simulação" : "Expandir simulação"}
-              </Button>
-              {hasFallbackHistory && (
-                <Chip
-                  size="small"
-                  variant="brand"
-                  label="Histórico complementado"
-                />
-              )}
-
-              {hasFallbackHistory && (
-                <Button
-                  variant="brand-text"
-                  size="small"
-                  disabled={
-                    !comparison &&
-                    (worker.isCalculating ||
-                      !worker.result ||
-                      Boolean(worker.error))
-                  }
-                  onClick={() => {
-                    setResultsExpanded(true);
-                    setComparison((value) => !value);
-                  }}
-                >
-                  {comparison
-                    ? "Fechar comparação"
-                    : "Comparar sem complemento"}
-                </Button>
-              )}
-            </Stack>
-          </Paper>
-          <Collapse
-            in={resultsExpanded}
-            id="vpw-simulation-results"
-            role="region"
-            aria-label="Resultados da simulação"
-          >
-            <Stack gap={1} sx={{ minWidth: 0 }}>
-              {comparison && submitted && worker.result && (
-                <VPWComparisonPanel
-                  snapshot={submitted}
-                  baseline={worker.result.output}
-                />
-              )}
-              <Paper
-                elevation={1}
-                sx={{
-                  p: { xs: 2, md: 3 },
-                  minWidth: 0,
-                  borderRadius: 2,
-                  display: comparison ? "none" : "block",
-                }}
-              >
-                {dataError ? (
-                  <Alert severity="error">
-                    Não foi possível carregar os dados do cenário. Recarregue a
-                    página para tentar novamente.
-                  </Alert>
-                ) : current.error ? (
-                  <Alert severity="warning">{current.error}</Alert>
-                ) : !draft.isReady ? (
-                  <FireResultsSkeleton />
-                ) : draft.currentAge === null ? (
-                  <Alert severity="info">
-                    Cadastre sua data de nascimento no perfil para calcular o
-                    VPW.
-                  </Alert>
-                ) : worker.error ? (
-                  <Alert severity="error">
-                    {Object.values(VPW_SCENARIO_ERRORS).some(
-                      (message) => message === worker.error,
-                    )
-                      ? worker.error
-                      : "Não foi possível recalcular a simulação. Seus valores foram preservados; tente novamente."}
-                  </Alert>
-                ) : !submitted || worker.isCalculating || !worker.result ? (
-                  <FireResultsSkeleton />
-                ) : (
-                  <VPWResults
-                    snapshot={submitted}
-                    output={worker.result.output}
-                  />
-                )}
-              </Paper>
-            </Stack>
-          </Collapse>
-          {renderExplanation?.(current.snapshot)}
-        </Stack>
-      </Box>
-    </>
+      hasFallbackHistory={Boolean(hasFallbackHistory)}
+      comparisonOpen={comparison}
+      comparisonDisabled={
+        worker.isCalculating || !worker.result || Boolean(worker.error)
+      }
+      onComparisonOpenChange={setComparison}
+      comparison={
+        submitted &&
+        worker.result && (
+          <VPWComparisonPanel
+            snapshot={submitted}
+            baseline={worker.result.output}
+          />
+        )
+      }
+      results={
+        <Paper
+          elevation={1}
+          sx={{ p: { xs: 2, md: 3 }, minWidth: 0, borderRadius: 2 }}
+        >
+          {dataError ? (
+            <Alert severity="error">
+              Não foi possível carregar os dados do cenário. Recarregue a página
+              para tentar novamente.
+            </Alert>
+          ) : current.error ? (
+            <Alert severity="warning">{current.error}</Alert>
+          ) : !draft.isReady ? (
+            <FireResultsSkeleton />
+          ) : draft.currentAge === null ? (
+            <Alert severity="info">
+              Cadastre sua data de nascimento no perfil para calcular o VPW.
+            </Alert>
+          ) : worker.error ? (
+            <Alert severity="error">
+              {Object.values(VPW_SCENARIO_ERRORS).some(
+                (message) => message === worker.error,
+              )
+                ? worker.error
+                : "Não foi possível recalcular a simulação. Seus valores foram preservados; tente novamente."}
+            </Alert>
+          ) : !submitted || worker.isCalculating || !worker.result ? (
+            <FireResultsSkeleton />
+          ) : (
+            <VPWResults snapshot={submitted} output={worker.result.output} />
+          )}
+        </Paper>
+      }
+      explanation={renderExplanation?.(current.snapshot)}
+    />
   );
 }

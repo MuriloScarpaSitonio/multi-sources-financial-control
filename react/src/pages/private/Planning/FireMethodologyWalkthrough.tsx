@@ -1,16 +1,9 @@
-import Collapse from "@mui/material/Collapse";
-import ExpandMore from "@mui/icons-material/ExpandMore";
-import ExpandLess from "@mui/icons-material/ExpandLess";
-import { DATASET_LABELS } from "./fire/fireHistoricalDatasets";
+import WalkthroughFrame from "./shared/WalkthroughFrame";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import Button from "@mui/material/Button";
 import Skeleton from "@mui/material/Skeleton";
-import Link from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
-import Step from "@mui/material/Step";
-import StepLabel from "@mui/material/StepLabel";
-import Stepper from "@mui/material/Stepper";
 
 import {
   CartesianGrid,
@@ -43,34 +36,6 @@ import { useFireSimulationWorker } from "../Home/useFireSimulationWorker";
 import type { FireStudioSnapshot } from "./fire/fireStudioScenario";
 
 // Four steps explain retirement using the current scenario inputs.
-
-const SOURCE_LINKS: Partial<Record<keyof typeof DATASET_LABELS, string>> = {
-  IBOV: "https://www.b3.com.br/pt_br/market-data-e-indices/indices/indices-amplos/indice-ibovespa-ibovespa-estatisticas-historicas.htm",
-  IFIX: "https://www.b3.com.br/pt_br/market-data-e-indices/indices/indices-de-segmentos-e-setoriais/indice-fundos-de-investimentos-imobiliarios-ifix-estatisticas-historicas.htm",
-  CDI: "https://www3.bcb.gov.br/sgspub/consultarvalores/consultarValoresSeries.do?hdOidSeriesSelecionadas=4391&method=consultarGraficoPorId",
-  SPY: "https://www.ssga.com/library-content/products/fund-data/etfs/us/navhist-us-en-spy.xlsx",
-  VWRL: "https://www.vanguard.co.uk/professional/product/etf/equity/9505/ftse-all-world-ucits-etf-distributing#prices-and-distribution",
-  IMA_S:
-    "https://data.anbima.com.br/indices/consulta/ima/resultados-diarios/ima-s",
-  IRF_M_1:
-    "https://data.anbima.com.br/indices/consulta/ima/resultados-diarios/irf-m-1",
-  IRF_M_1_PLUS:
-    "https://data.anbima.com.br/indices/consulta/ima/resultados-diarios/irf-m-1-mais",
-  IMA_B_5:
-    "https://data.anbima.com.br/indices/consulta/ima/resultados-diarios/ima-b-5",
-  IMA_B_5_PLUS:
-    "https://data.anbima.com.br/indices/consulta/ima/resultados-diarios/ima-b-5-mais",
-  IMA_GERAL_EX_C:
-    "https://data.anbima.com.br/indices/consulta/ima/resultados-diarios/ima-geral-ex-c",
-};
-const sourceLabel = (series: keyof typeof DATASET_LABELS) =>
-  SOURCE_LINKS[series] ? (
-    <Link href={SOURCE_LINKS[series]} target="_blank" rel="noopener noreferrer">
-      {DATASET_LABELS[series]}
-    </Link>
-  ) : (
-    DATASET_LABELS[series]
-  );
 
 const TRIALS_FOR_ENSEMBLE = 2000;
 const ENSEMBLE_RENDERED_LINES = 100;
@@ -707,7 +672,6 @@ const FireMethodologyWalkthrough = ({
   snapshot: FireStudioSnapshot;
 }) => {
   const [activeStep, setActiveStep] = useState(0);
-  const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const snapshotKey = JSON.stringify(snapshot);
   const preparation = useMemo(() => {
     if (
@@ -750,112 +714,17 @@ const FireMethodologyWalkthrough = ({
   };
 
   return (
-    <Stack gap={3}>
-      <Stack gap={0.5}>
-        <Text size={FontSizes.MEDIUM} weight={FontWeights.SEMI_BOLD}>
-          Como achamos a taxa segura
-        </Text>
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-          Os 4 passos mostram como sua carteira e seu cenário são usados para
-          encontrar a taxa segura.
-        </Text>
-      </Stack>
-      <Stack gap={1}>
-        <Button
-          variant="brand-text"
-          size="small"
-          sx={{ alignSelf: "flex-start" }}
-          aria-expanded={sourcesExpanded}
-          aria-controls="fire-walkthrough-sources"
-          endIcon={sourcesExpanded ? <ExpandLess /> : <ExpandMore />}
-          onClick={() => setSourcesExpanded((value) => !value)}
-        >
-          Fontes da simulação
-        </Button>
-        <Collapse in={sourcesExpanded} id="fire-walkthrough-sources">
-          <Stack gap={1}>
-            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-              Históricos selecionados:{" "}
-              {[...snapshot.portfolio]
-                .sort((a, b) => b.weight - a.weight)
-                .map((slice, index) => (
-                  <span key={`${slice.series}-${index}`}>
-                    {index > 0 && " · "}
-                    {(slice.weight * 100).toLocaleString("pt-BR", {
-                      minimumFractionDigits: 1,
-                      maximumFractionDigits: 1,
-                    })}
-                    % {sourceLabel(slice.series)}
-                    {slice.fallbackSeries && (
-                      <>
-                        {" "}
-                        (complementado por {sourceLabel(slice.fallbackSeries)})
-                      </>
-                    )}
-                  </span>
-                ))}
-              .
-            </Text>
-            <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-              Inflação:{" "}
-              <Link
-                href="https://www3.bcb.gov.br/sgspub/consultarvalores/consultarValoresSeries.do?hdOidSeriesSelecionadas=433&method=consultarGraficoPorId"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                IPCA (BCB SGS 433)
-              </Link>
-              .
-            </Text>
-          </Stack>
-        </Collapse>
-      </Stack>
-
-      <Stepper activeStep={activeStep} alternativeLabel nonLinear>
-        {STEP_LABELS.map((label, idx) => (
-          <Step key={label} active={activeStep === idx}>
-            <StepLabel
-              onClick={() => setActiveStep(idx)}
-              sx={{ cursor: "pointer" }}
-            >
-              {label}
-            </StepLabel>
-          </Step>
-        ))}
-      </Stepper>
-
-      <Stack
-        gap={2}
-        sx={{
-          p: 2,
-          borderRadius: 1,
-          border: "1px solid",
-          borderColor: getColor(Colors.neutral400),
-        }}
-      >
-        <Stack key={snapshotKey}>{renderStepContent(activeStep)}</Stack>
-        <Stack direction="row" gap={1} sx={{ mt: 1 }}>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => setActiveStep((s) => Math.max(0, s - 1))}
-            disabled={activeStep === 0}
-          >
-            Voltar
-          </Button>
-          <Button
-            size="small"
-            variant="contained"
-            onClick={() =>
-              setActiveStep((s) => Math.min(STEP_LABELS.length - 1, s + 1))
-            }
-            disabled={activeStep === STEP_LABELS.length - 1}
-          >
-            Próximo
-          </Button>
-        </Stack>
-      </Stack>
-    </Stack>
+    <WalkthroughFrame
+      idPrefix="fire"
+      title="Como achamos a taxa segura"
+      description="Os 4 passos mostram como sua carteira e seu cenário são usados para encontrar a taxa segura."
+      portfolio={snapshot.portfolio}
+      steps={STEP_LABELS}
+      activeStep={activeStep}
+      onStepChange={setActiveStep}
+    >
+      <Stack key={snapshotKey}>{renderStepContent(activeStep)}</Stack>
+    </WalkthroughFrame>
   );
 };
 

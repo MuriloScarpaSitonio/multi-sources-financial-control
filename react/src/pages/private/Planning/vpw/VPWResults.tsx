@@ -1,25 +1,22 @@
 import { useState } from "react";
 import Box from "@mui/material/Box";
-import LinearProgress from "@mui/material/LinearProgress";
-import MuiTooltip from "@mui/material/Tooltip";
 import {
   getFireSuccessBand,
   formatSimulationSuccessRate,
 } from "../../Home/fireResultPresentation";
 import { MetricBlock } from "../../Home/FireSimulationResults";
 import FireAccumulationChart from "../../Home/FireAccumulationChart";
-import Checkbox from "@mui/material/Checkbox";
-import FormControlLabel from "@mui/material/FormControlLabel";
 import Stack from "@mui/material/Stack";
 import {
-  CartesianGrid,
-  ComposedChart,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+  ChartTooltipBox,
+  GoalProgressBar,
+  PercentileTrajectoryChart,
+  ScenarioTable,
+  ScenarioToggles,
+  SuccessVerdictCard,
+  percentileColor,
+  type PercentileVisibility,
+} from "../shared/simulationResultParts";
 import {
   Colors,
   FontSizes,
@@ -38,22 +35,50 @@ const scenarios = [
   {
     key: "p10",
     label: "Pessimista",
-    color: getColor(Colors.danger200),
+    color: percentileColor("p10"),
     meaning: "90% das simulações ficaram neste valor ou acima.",
   },
   {
     key: "p50",
     label: "Mediano",
-    color: getColor(Colors.brand200),
+    color: percentileColor("p50"),
     meaning: "50% das simulações ficaram neste valor ou acima.",
   },
   {
     key: "p90",
     label: "Otimista",
-    color: getColor(Colors.brand),
+    color: percentileColor("p90"),
     meaning: "10% das simulações ficaram neste valor ou acima.",
   },
 ] as const;
+
+const BandTooltip = ({
+  active,
+  payload,
+  visible,
+  money,
+}: {
+  active?: boolean;
+  payload?: { payload: BootstrapBand & { age: number } }[];
+  visible: PercentileVisibility;
+  money: (n: number) => string;
+}) => {
+  if (!active || !payload?.length) return null;
+  const point = payload[0].payload;
+  return (
+    <ChartTooltipBox>
+      <p style={{ color: getColor(Colors.neutral300) }}>Idade: {point.age}</p>
+      {scenarios
+        .filter((item) => visible[item.key])
+        .map((item) => (
+          <p key={item.key} style={{ color: item.color }}>
+            {item.key === "p50" ? "Mediana" : item.label} ({item.key}):{" "}
+            {money(point[item.key])}
+          </p>
+        ))}
+    </ChartTooltipBox>
+  );
+};
 
 export default function VPWResults({
   snapshot: s,
@@ -96,10 +121,7 @@ export default function VPWResults({
   const coversSpending = gap >= -0.005;
   const successRate = output.retirement.successRate;
   const band = getFireSuccessBand(successRate ?? 0);
-  const resultColor =
-    band === "warn"
-      ? "#f59e0b"
-      : getColor(band === "good" ? Colors.brand : Colors.danger200);
+
   const verdict =
     band === "good"
       ? "Plano historicamente robusto"
@@ -151,101 +173,27 @@ export default function VPWResults({
     const data = bands.map((b) => ({ ...b, age: s.currentAge + b.year }));
     return (
       <Stack gap={1.75} sx={{ minWidth: 0 }}>
-        <Stack gap={0.5} sx={{ mt: 1 }}>
-          <Text
-            size={FontSizes.SMALL}
-            weight={FontWeights.SEMI_BOLD}
-            color={Colors.neutral200}
-          >
-            Aposentadoria · trajetória do patrimônio no cenário atual
-          </Text>
-          <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-            Sucesso até os {s.targetAge} anos:{" "}
-            <strong>
-              {hideValues
-                ? "***"
-                : successRate === null
-                  ? "—"
-                  : formatSimulationSuccessRate(successRate)}
-            </strong>
-            {" · "}Gastos: <strong>{money(s.monthlyExpenses)}/mês</strong>
-          </Text>
-        </Stack>
-        <ResponsiveContainer width="100%" height={220}>
-          <ComposedChart
-            data={data}
-            margin={{ top: 10, right: 5, left: 5, bottom: 0 }}
-          >
-            <CartesianGrid strokeDasharray="5" vertical={false} />
-            <XAxis
-              dataKey="age"
-              stroke={getColor(Colors.neutral0)}
-              tickLine={false}
-              tickFormatter={(v) => `${v}`}
-            />
-            <YAxis
-              stroke={getColor(Colors.brand400)}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(v: number) => {
-                if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
-                if (v >= 1000) return `${(v / 1000).toFixed(0)}k`;
-                return v.toFixed(0);
-              }}
-              tickCount={hideValues ? 0 : undefined}
-            />
-            <Tooltip
-              cursor={false}
-              content={({ active, payload }) => {
-                if (!active || !payload?.length) return null;
-                const point = payload[0].payload as BootstrapBand & {
-                  age: number;
-                };
-                return (
-                  <Stack
-                    spacing={0.5}
-                    sx={{
-                      border: "1px solid",
-                      p: 1,
-                      borderColor: getColor(Colors.brand400),
-                      backgroundColor: getColor(Colors.neutral600),
-                    }}
-                  >
-                    <p style={{ color: getColor(Colors.neutral300) }}>
-                      Idade: {point.age}
-                    </p>
-                    {scenarios
-                      .filter((item) => visible[item.key])
-                      .map((item) => (
-                        <p key={item.key} style={{ color: item.color }}>
-                          {item.key === "p50" ? "Mediana" : item.label} (
-                          {item.key}): {money(point[item.key])}
-                        </p>
-                      ))}
-                  </Stack>
-                );
-              }}
-            />
-            {scenarios
-              .filter((item) => visible[item.key])
-              .map((item) => (
-                <Line
-                  key={item.key}
-                  type="monotone"
-                  dataKey={item.key}
-                  name={
-                    item.key === "p50"
-                      ? "Mediana"
-                      : `${item.key} (${item.label.toLowerCase()})`
-                  }
-                  stroke={item.color}
-                  strokeWidth={item.key === "p50" ? 2 : 1.5}
-                  strokeDasharray={item.key === "p50" ? undefined : "4 3"}
-                  dot={false}
-                />
-              ))}
-          </ComposedChart>
-        </ResponsiveContainer>
+        <PercentileTrajectoryChart
+          subtitle={
+            <>
+              Sucesso até os {s.targetAge} anos:{" "}
+              <strong>
+                {hideValues
+                  ? "***"
+                  : successRate === null
+                    ? "—"
+                    : formatSimulationSuccessRate(successRate)}
+              </strong>
+              {" · "}Gastos: <strong>{money(s.monthlyExpenses)}/mês</strong>
+            </>
+          }
+          data={data}
+          xKey="age"
+          dataKeys={{ p10: "p10", p50: "p50", p90: "p90" }}
+          visible={visible}
+          hideValues={hideValues}
+          tooltip={<BandTooltip visible={visible} money={money} />}
+        />
       </Stack>
     );
   };
@@ -294,47 +242,25 @@ export default function VPWResults({
         </Text>
       )}
       {hasRetirement && (
-        <Stack
-          alignItems="center"
-          gap={0.75}
-          sx={{
-            border: "1px solid",
-            borderColor: getColor(Colors.neutral600),
-            borderRadius: 1,
-            py: 2,
-            px: 2,
-            backgroundColor: getColor(Colors.neutral900),
-            textAlign: "center",
-          }}
+        <SuccessVerdictCard
+          band={band}
+          verdict={verdict}
+          rate={
+            hideValues ? "***" : formatSimulationSuccessRate(successRate ?? 0)
+          }
         >
-          <Text
-            size={FontSizes.SMALL}
-            weight={FontWeights.SEMI_BOLD}
-            extraStyle={{ color: resultColor }}
-          >
-            {verdict}
-          </Text>
-          <Text
-            size={FontSizes.SEMI_LARGE}
-            weight={FontWeights.BOLD}
-            extraStyle={{ color: resultColor, lineHeight: 1 }}
-          >
-            {hideValues ? "***" : formatSimulationSuccessRate(successRate ?? 0)}
-          </Text>
-          <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-            Chance histórica de sustentar {money(s.monthlyExpenses)}/mês{" "}
-            {extended
-              ? `até os ${s.targetAge} anos após a acumulação`
-              : `por ${s.years} anos se a aposentadoria começasse hoje`}
-            :{" "}
-            {hideValues
-              ? "***"
-              : failedTrials === 0
-                ? "nenhum cenário falhou"
-                : `${failedTrials} de ${output.retirement.trialCount} cenários falharam`}
-            .
-          </Text>
-        </Stack>
+          Chance histórica de sustentar {money(s.monthlyExpenses)}/mês{" "}
+          {extended
+            ? `até os ${s.targetAge} anos após a acumulação`
+            : `por ${s.years} anos se a aposentadoria começasse hoje`}
+          :{" "}
+          {hideValues
+            ? "***"
+            : failedTrials === 0
+              ? "nenhum cenário falhou"
+              : `${failedTrials} de ${output.retirement.trialCount} cenários falharam`}
+          .
+        </SuccessVerdictCard>
       )}
       <Box
         sx={{
@@ -350,54 +276,12 @@ export default function VPWResults({
           value={money(s.actualPatrimony)}
           hideValues={hideValues}
         >
-          <MuiTooltip
-            arrow
-            describeChild
-            title={`Mostra quanto da meta VPW já é coberto pelo patrimônio atual da carteira. Meta para 95% de sucesso nas retiradas: ${money(output.targetPatrimony)}.`}
-          >
-            <Box tabIndex={0} sx={{ position: "relative", mt: 0.5 }}>
-              <LinearProgress
-                variant="determinate"
-                value={hideValues ? 0 : Math.min(100, Math.max(0, progress))}
-                aria-label="Progresso do patrimônio atual até a meta VPW"
-                aria-valuetext={
-                  hideValues ? "***" : `${progress.toFixed(0)}% da meta VPW`
-                }
-                sx={{
-                  height: 14,
-                  borderRadius: "4px",
-                  backgroundColor: getColor(Colors.neutral600),
-                  "& .MuiLinearProgress-bar": {
-                    backgroundColor: getColor(
-                      hideValues
-                        ? Colors.neutral600
-                        : progress >= 100
-                          ? Colors.brand
-                          : Colors.danger200,
-                    ),
-                    borderRadius: "4px",
-                  },
-                }}
-              />
-              <Text
-                aria-hidden
-                style={{ fontSize: 14 }}
-                size={FontSizes.EXTRA_SMALL}
-                weight={FontWeights.SEMI_BOLD}
-                color={Colors.neutral0}
-                extraStyle={{
-                  position: "absolute",
-                  top: "50%",
-                  right: 6,
-                  transform: "translateY(-50%)",
-                  lineHeight: 1,
-                  textShadow: "0 1px 2px rgba(0, 0, 0, 0.6)",
-                }}
-              >
-                {hideValues ? "***" : `${progress.toFixed(0)}%`}
-              </Text>
-            </Box>
-          </MuiTooltip>
+          <GoalProgressBar
+            progress={progress}
+            goalLabel="meta VPW"
+            hideValues={hideValues}
+            tooltip={`Mostra quanto da meta VPW já é coberto pelo patrimônio atual da carteira. Meta para 95% de sucesso nas retiradas: ${money(output.targetPatrimony)}.`}
+          />
         </MetricBlock>
         <MetricBlock
           label="Meta VPW"
@@ -461,28 +345,14 @@ export default function VPWResults({
             <Text size={FontSizes.SMALL} weight={FontWeights.SEMI_BOLD}>
               O que pode acontecer com sua renda?
             </Text>
-            <Stack direction="row" flexWrap="wrap">
-              {scenarios.map((item) => (
-                <FormControlLabel
-                  key={item.key}
-                  label={item.label}
-                  control={
-                    <Checkbox
-                      checked={visible[item.key]}
-                      disabled={
-                        visible[item.key] &&
-                        Object.values(visible).filter(Boolean).length === 1
-                      }
-                      onChange={(_, checked) =>
-                        onScenarioVisibilityChange
-                          ? onScenarioVisibilityChange(item.key, checked)
-                          : setVisible((v) => ({ ...v, [item.key]: checked }))
-                      }
-                    />
-                  }
-                />
-              ))}
-            </Stack>
+            <ScenarioToggles
+              visible={visible}
+              onChange={(key, checked) =>
+                onScenarioVisibilityChange
+                  ? onScenarioVisibilityChange(key, checked)
+                  : setVisible((v) => ({ ...v, [key]: checked }))
+              }
+            />
           </Stack>
           <Text size={FontSizes.EXTRA_SMALL}>
             Gasto mensal que poderia ser mantido até os {s.targetAge} anos, em
@@ -490,24 +360,7 @@ export default function VPWResults({
             {money(s.monthlyExpenses)}/mês.
             {!extended && " A estimativa considera retiradas a partir de hoje."}
           </Text>
-          <Box
-            component="table"
-            aria-label="Gasto mensal sustentável"
-            sx={{
-              width: "100%",
-              borderCollapse: "collapse",
-              "& th, & td": {
-                textAlign: "left",
-                borderBottom: "1px solid",
-                borderColor: getColor(Colors.neutral600),
-                py: 1,
-                px: 1,
-                fontSize: 12,
-              },
-              "& th": { color: getColor(Colors.neutral300), fontWeight: 700 },
-              "& td": { color: getColor(Colors.neutral200) },
-            }}
-          >
+          <ScenarioTable ariaLabel="Gasto mensal sustentável">
             <thead>
               <tr>
                 <th>Cenário</th>
@@ -530,7 +383,7 @@ export default function VPWResults({
                   </tr>
                 ))}
             </tbody>
-          </Box>
+          </ScenarioTable>
         </Stack>
       )}
       {chart(output.retirement.balanceBands)}
