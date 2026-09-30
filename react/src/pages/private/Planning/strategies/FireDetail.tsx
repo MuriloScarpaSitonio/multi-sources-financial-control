@@ -347,6 +347,19 @@ const FireDetail = () => {
     <Stack spacing={3} pb={3} sx={{ mr: -6 }}>
       <FireSimulationStudio
         renderHeader={renderHeader}
+        renderExplanation={(snapshot) => (
+          <DefaultsPanel
+            title="Como funciona a simulação"
+            items={[]}
+            extra={
+              snapshot ? (
+                <FireMethodologyWalkthrough snapshot={snapshot} />
+              ) : (
+                <span>Preencha um cenário válido para ver a explicação.</span>
+              )
+            }
+          />
+        )}
         draft={studioDraft}
         allocation={allocation}
         firePreferences={localFirePreferences}
@@ -363,11 +376,6 @@ const FireDetail = () => {
         onShowAgeInBondsChange={setShowAgeInBonds}
         onHistoricalPreferenceChange={handleHistoricalPreferenceChange}
       />
-      <DefaultsPanel
-        title="Como funciona a simulação"
-        items={content.defaultsExplained}
-        extra={<FireMethodologyWalkthrough />}
-      />
 
       {showAgeInBonds && (
         <AgeInBondsExplainer
@@ -376,7 +384,6 @@ const FireDetail = () => {
           variableIncomeTotal={variableIncomeTotal}
         />
       )}
-
     </Stack>
   );
 };

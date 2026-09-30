@@ -1,4 +1,10 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
@@ -204,5 +210,114 @@ it("saves inactive VPW without changing the active FIRE strategy", async () => {
   await userEvent.click(
     screen.getByRole("button", { name: "Selecionar como ativa" }),
   );
-  expect(queryState.mutate).toHaveBeenLastCalledWith({ selected_method: "vpw" });
+  expect(queryState.mutate).toHaveBeenLastCalledWith({
+    selected_method: "vpw",
+  });
+});
+
+it("keeps the walkthrough separate from saved settings and starts its worker only on demand", async () => {
+  const post = vi.fn();
+  vi.stubGlobal(
+    "Worker",
+    class {
+      postMessage = post;
+      terminate() {}
+    },
+  );
+  renderDetail();
+  await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+  expect(
+    screen.queryByText("Como calculamos a retirada e a meta VPW"),
+  ).toBeNull();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Como funciona a simulação" }),
+  );
+  expect(
+    screen.getByText("Como calculamos a retirada e a meta VPW"),
+  ).toBeVisible();
+  expect(post).toHaveBeenCalledTimes(1);
+  await userEvent.click(
+    screen.getByRole("button", { name: "2000 aposentados ao mesmo tempo" }),
+  );
+  await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+  expect(queryState.mutate).not.toHaveBeenCalled();
+  expect(
+    screen.queryByRole("button", { name: "Salvar alterações" }),
+  ).toBeNull();
+});
+
+it("keeps the explanation next to the collapsible scenario and follows draft edits", async () => {
+  const post = vi.fn();
+  vi.stubGlobal(
+    "Worker",
+    class {
+      postMessage = post;
+      terminate() {}
+    },
+  );
+  renderDetail();
+  const studio = screen.getByTestId("vpw-simulation-studio");
+  await userEvent.click(
+    within(studio).getByRole("button", { name: "Como funciona a simulação" }),
+  );
+  expect(within(studio).getByText("Seu cenário")).toBeVisible();
+  await userEvent.click(
+    within(studio).getByRole("button", {
+      name: "2000 aposentados ao mesmo tempo",
+    }),
+  );
+  expect(post.mock.lastCall?.[0].request.input.retirement.monthlySpending).toBe(
+    5000,
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "Aumentar Despesas mensais" }),
+  );
+  expect(post.mock.lastCall?.[0].request.input.retirement.monthlySpending).toBe(
+    5500,
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "Recolher cenário" }),
+  );
+  expect(studio).toHaveAttribute("data-panel-collapsed", "true");
+  expect(
+    within(studio).getByText(
+      /Os 4 passos mostram como sua carteira e seu cenário/,
+    ),
+  ).toBeVisible();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Expandir cenário" }),
+  );
+  expect(studio).toHaveAttribute("data-panel-collapsed", "false");
+  expect(queryState.mutate).not.toHaveBeenCalled();
+});
+
+it("collapses the simulation independently from the explanation and scenario", async () => {
+  const post = vi.fn();
+  vi.stubGlobal(
+    "Worker",
+    class {
+      postMessage = post;
+      terminate() {}
+    },
+  );
+  renderDetail();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Como funciona a simulação" }),
+  );
+  const results = screen.getByRole("region", {
+    name: "Resultados da simulação",
+  });
+  await userEvent.click(
+    screen.getByRole("button", { name: "Recolher simulação" }),
+  );
+  await waitFor(() => expect(results).not.toBeVisible());
+  expect(screen.getByText("Seu cenário")).toBeVisible();
+  expect(
+    screen.getByText(/Os 4 passos mostram como sua carteira e seu cenário/),
+  ).toBeVisible();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Expandir simulação" }),
+  );
+  expect(results).toBeVisible();
+  expect(post).toHaveBeenCalledTimes(1);
 });

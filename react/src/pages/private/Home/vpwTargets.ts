@@ -37,7 +37,7 @@ export const findVPWTargets = (
   input: TargetInput,
   accumulationYears: number,
 ): number[] => {
-  const trials = input.numTrials ?? 1500;
+  const trials = input.numTrials ?? 2000;
   if (
     !Number.isSafeInteger(trials) ||
     trials <= 0 ||

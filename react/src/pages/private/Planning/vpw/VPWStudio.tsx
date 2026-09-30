@@ -1,6 +1,10 @@
+import Collapse from "@mui/material/Collapse";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Alert from "@mui/material/Alert";
 import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
 import VPWComparisonPanel from "./VPWComparisonPanel";
 import { historicalSourceForMonth } from "../../Home/firePortfolio";
 import Box from "@mui/material/Box";
@@ -35,6 +39,7 @@ type Props = {
   onPreferencesChange: (patch: VPWPlanningPreferences) => void;
   onPatrimonyChange: (value: number | null) => void;
   renderHeader?: (action: ReactNode) => ReactNode;
+  renderExplanation?: (snapshot: VPWSnapshot | null) => ReactNode;
 };
 export default function VPWStudio({
   draft,
@@ -43,10 +48,12 @@ export default function VPWStudio({
   onPreferencesChange: change,
   onPatrimonyChange,
   renderHeader,
+  renderExplanation,
 }: Props) {
   const isMobile = useMediaQuery((theme: Theme) =>
     theme.breakpoints.down("md"),
   );
+  const [resultsExpanded, setResultsExpanded] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -287,83 +294,137 @@ export default function VPWStudio({
             {mobileOpen && panel}
           </Stack>
         ) : collapsed ? (
-          <Paper sx={{ p: 1, position: "sticky", top: 80 }}>
-            <Button
+          <Paper
+            elevation={1}
+            sx={{ position: "sticky", top: 80, p: 1, borderRadius: 2 }}
+          >
+            <IconButton
               aria-label="Expandir cenário"
-              sx={{ minWidth: 28, p: 0 }}
               onClick={() => setCollapsed(false)}
             >
               <ChevronRightIcon />
-            </Button>
+            </IconButton>
           </Paper>
         ) : (
-          panel
-        )}
-        <Stack gap={1} sx={{ minWidth: 0 }}>
-          {hasFallbackHistory && (
-            <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
-              <Chip
-                size="small"
-                variant="brand"
-                label="Histórico complementado"
-              />
-              <Button
-                variant="brand-text"
-                size="small"
-                disabled={
-                  !comparison &&
-                  (worker.isCalculating ||
-                    !worker.result ||
-                    Boolean(worker.error))
-                }
-                onClick={() => setComparison((value) => !value)}
-              >
-                {comparison ? "Fechar comparação" : "Comparar sem complemento"}
-              </Button>
-            </Stack>
-          )}
-          {comparison && submitted && worker.result && (
-            <VPWComparisonPanel
-              snapshot={submitted}
-              baseline={worker.result.output}
-            />
-          )}
-          <Paper
-            elevation={1}
+          <Box
             sx={{
-              p: { xs: 2, md: 3 },
-              minWidth: 0,
-              borderRadius: 2,
-              display: comparison ? "none" : "block",
+              position: "sticky",
+              top: 80,
+              maxHeight: "calc(100dvh - 96px)",
+              overflowY: "auto",
             }}
           >
-            {dataError ? (
-              <Alert severity="error">
-                Não foi possível carregar os dados do cenário. Recarregue a
-                página para tentar novamente.
-              </Alert>
-            ) : current.error ? (
-              <Alert severity="warning">{current.error}</Alert>
-            ) : !draft.isReady ? (
-              <FireResultsSkeleton />
-            ) : draft.currentAge === null ? (
-              <Alert severity="info">
-                Cadastre sua data de nascimento no perfil para calcular o VPW.
-              </Alert>
-            ) : worker.error ? (
-              <Alert severity="error">
-                {Object.values(VPW_SCENARIO_ERRORS).some(
-                  (message) => message === worker.error,
-                )
-                  ? worker.error
-                  : "Não foi possível recalcular a simulação. Seus valores foram preservados; tente novamente."}
-              </Alert>
-            ) : !submitted || worker.isCalculating || !worker.result ? (
-              <FireResultsSkeleton />
-            ) : (
-              <VPWResults snapshot={submitted} output={worker.result.output} />
-            )}
+            {panel}
+          </Box>
+        )}
+        <Stack gap={1} sx={{ minWidth: 0 }}>
+          <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
+            <Stack
+              direction="row"
+              alignItems="center"
+              gap={1}
+              flexWrap="wrap"
+              sx={{ minHeight: 32 }}
+            >
+              <Button
+                size="small"
+                variant="brand-text"
+                aria-expanded={resultsExpanded}
+                aria-controls="vpw-simulation-results"
+                endIcon={
+                  resultsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />
+                }
+                sx={{ alignSelf: "flex-start" }}
+                onClick={() => setResultsExpanded((value) => !value)}
+              >
+                {resultsExpanded ? "Recolher simulação" : "Expandir simulação"}
+              </Button>
+              {hasFallbackHistory && (
+                <Chip
+                  size="small"
+                  variant="brand"
+                  label="Histórico complementado"
+                />
+              )}
+
+              {hasFallbackHistory && (
+                <Button
+                  variant="brand-text"
+                  size="small"
+                  disabled={
+                    !comparison &&
+                    (worker.isCalculating ||
+                      !worker.result ||
+                      Boolean(worker.error))
+                  }
+                  onClick={() => {
+                    setResultsExpanded(true);
+                    setComparison((value) => !value);
+                  }}
+                >
+                  {comparison
+                    ? "Fechar comparação"
+                    : "Comparar sem complemento"}
+                </Button>
+              )}
+            </Stack>
           </Paper>
+          <Collapse
+            in={resultsExpanded}
+            id="vpw-simulation-results"
+            role="region"
+            aria-label="Resultados da simulação"
+          >
+            <Stack gap={1} sx={{ minWidth: 0 }}>
+              {comparison && submitted && worker.result && (
+                <VPWComparisonPanel
+                  snapshot={submitted}
+                  baseline={worker.result.output}
+                />
+              )}
+              <Paper
+                elevation={1}
+                sx={{
+                  p: { xs: 2, md: 3 },
+                  minWidth: 0,
+                  borderRadius: 2,
+                  display: comparison ? "none" : "block",
+                }}
+              >
+                {dataError ? (
+                  <Alert severity="error">
+                    Não foi possível carregar os dados do cenário. Recarregue a
+                    página para tentar novamente.
+                  </Alert>
+                ) : current.error ? (
+                  <Alert severity="warning">{current.error}</Alert>
+                ) : !draft.isReady ? (
+                  <FireResultsSkeleton />
+                ) : draft.currentAge === null ? (
+                  <Alert severity="info">
+                    Cadastre sua data de nascimento no perfil para calcular o
+                    VPW.
+                  </Alert>
+                ) : worker.error ? (
+                  <Alert severity="error">
+                    {Object.values(VPW_SCENARIO_ERRORS).some(
+                      (message) => message === worker.error,
+                    )
+                      ? worker.error
+                      : "Não foi possível recalcular a simulação. Seus valores foram preservados; tente novamente."}
+                  </Alert>
+                ) : !submitted || worker.isCalculating || !worker.result ? (
+                  <FireResultsSkeleton />
+                ) : (
+                  <VPWResults
+                    snapshot={submitted}
+                    output={worker.result.output}
+                  />
+                )}
+              </Paper>
+            </Stack>
+          </Collapse>
+          {renderExplanation?.(current.snapshot)}
         </Stack>
       </Box>
     </>

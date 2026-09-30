@@ -118,7 +118,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../hooks", () => ({
-  useSelectedMethod: () => ({ selectedMethod: mocks.selectedMethod, isLoading: false }),
+  useSelectedMethod: () => ({
+    selectedMethod: mocks.selectedMethod,
+    isLoading: false,
+  }),
   usePlanningPreferences: () => ({
     data: mocks.planningData,
   }),
@@ -197,6 +200,76 @@ const renderPage = () => {
 };
 
 describe("FireDetail presentation switch", () => {
+  it("collapses results without hiding the explanation or restarting the simulation", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(
+      screen.getByRole("button", { name: "Como funciona a simulação" }),
+    );
+    const results = screen.getByRole("region", {
+      name: "Resultados da simulação",
+    });
+    await user.click(
+      screen.getByRole("button", { name: "Recolher simulação" }),
+    );
+    await waitFor(() => expect(results).not.toBeVisible());
+    expect(screen.getByText("Seu cenário")).toBeVisible();
+    expect(screen.getByText("Como achamos a taxa segura")).toBeVisible();
+    await user.click(
+      screen.getByRole("button", { name: "Expandir simulação" }),
+    );
+    expect(results).toBeVisible();
+    expect(FakeWorker.instances).toHaveLength(1);
+  });
+
+  it("keeps the explanation alongside the collapsible scenario and passes live draft values", async () => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(
+      screen.getByRole("button", { name: "Premissas avançadas" }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Aumentar Anos extras de acumulação",
+      }),
+    );
+    const studio = screen.getByTestId("fire-simulation-studio");
+    await user.click(
+      within(studio).getByRole("button", { name: "Como funciona a simulação" }),
+    );
+    expect(within(studio).getByText("Seu cenário")).toBeVisible();
+    await user.click(
+      within(studio).getByText("2000 aposentados ao mesmo tempo"),
+    );
+    await waitFor(() => expect(FakeWorker.instances.length).toBeGreaterThan(1));
+    await user.click(
+      screen.getByRole("button", { name: "Aumentar Despesas mensais" }),
+    );
+    await waitFor(() =>
+      expect(
+        FakeWorker.instances.at(-1)!.messages.at(-1)!.request.input,
+      ).toMatchObject({
+        annualExpenses: 126000,
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Recolher cenário" }));
+    expect(studio).toHaveAttribute("data-panel-collapsed", "true");
+    expect(
+      within(studio).getByRole("button", { name: "Como funciona a simulação" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    await user.click(screen.getByRole("button", { name: "Expandir cenário" }));
+    expect(studio).toHaveAttribute("data-panel-collapsed", "false");
+    expect(mocks.updatePreferences).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     mocks.updatePreferences.mockReset();
     mocks.selectedMethod = "fire";
@@ -213,17 +286,27 @@ describe("FireDetail presentation switch", () => {
     mocks.selectedMethod = "vpw";
     const user = userEvent.setup();
     renderPage();
-    await user.click(screen.getByRole("button", { name: "Aumentar Despesas mensais" }));
-    await user.click(screen.getByRole("button", { name: "Premissas avançadas" }));
-    await user.click(screen.getByRole("checkbox", { name: "Alocação Idade em Renda Fixa" }));
+    await user.click(
+      screen.getByRole("button", { name: "Aumentar Despesas mensais" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Premissas avançadas" }),
+    );
+    await user.click(
+      screen.getByRole("checkbox", { name: "Alocação Idade em Renda Fixa" }),
+    );
     await user.click(screen.getByRole("button", { name: "Salvar alterações" }));
     expect(mocks.updatePreferences).toHaveBeenCalledTimes(1);
     expect(mocks.updatePreferences).toHaveBeenCalledWith({
       fire: expect.objectContaining({ monthly_expenses_override: 10500 }),
       show_age_in_bonds: true,
     });
-    await user.click(screen.getByRole("button", { name: "Selecionar como ativa" }));
-    expect(mocks.updatePreferences).toHaveBeenLastCalledWith({ selected_method: "fire" });
+    await user.click(
+      screen.getByRole("button", { name: "Selecionar como ativa" }),
+    );
+    expect(mocks.updatePreferences).toHaveBeenLastCalledWith({
+      selected_method: "fire",
+    });
   });
 
   it("saves and recalculates extra accumulation years from advanced assumptions", async () => {

@@ -1,3 +1,6 @@
+import Collapse from "@mui/material/Collapse";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -32,6 +35,7 @@ type Preferences = Required<FirePlanningPreferences>;
 
 export type FireSimulationStudioProps = {
   renderHeader?: (recalculate: ReactNode) => ReactNode;
+  renderExplanation?: (snapshot: FireStudioSnapshot | null) => ReactNode;
   draft: FireStudioDraft;
   allocation: readonly FireAllocationBucket[];
   firePreferences: Preferences;
@@ -55,6 +59,7 @@ export type FireSimulationStudioProps = {
 const FireSimulationStudio = ({
   draft,
   renderHeader,
+  renderExplanation,
   allocation,
   firePreferences,
   dateOfBirth,
@@ -85,6 +90,7 @@ const FireSimulationStudio = ({
     useState<FireSimulationResult | null>(null);
   const [comparisonWithoutFallback, setComparisonWithoutFallback] =
     useState(false);
+  const [resultsExpanded, setResultsExpanded] = useState(true);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -242,6 +248,8 @@ const FireSimulationStudio = ({
             sx={{
               position: "sticky",
               top: 80,
+              maxHeight: "calc(100dvh - 96px)",
+              overflowY: "auto",
             }}
           >
             {scenarioPanel}
@@ -249,50 +257,89 @@ const FireSimulationStudio = ({
         )}
 
         <Stack gap={1} sx={{ minWidth: 0 }}>
-          {hasFallbackHistory && (
-            <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
-              <Chip
-                size="small"
-                variant="brand"
-                label="Histórico complementado"
-              />
+          <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
+            <Stack
+              direction="row"
+              alignItems="center"
+              gap={1}
+              flexWrap="wrap"
+              sx={{ minHeight: 32 }}
+            >
               <Button
-                variant="brand-text"
                 size="small"
-                disabled={
-                  !comparisonWithoutFallback &&
-                  (calculationState.isCalculating ||
-                    !baselineResult ||
-                    !submittedSnapshot?.request)
+                variant="brand-text"
+                aria-expanded={resultsExpanded}
+                aria-controls="fire-simulation-results"
+                endIcon={
+                  resultsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />
                 }
-                onClick={() => {
-                  setComparisonWithoutFallback((current) => !current);
-                }}
+                sx={{ alignSelf: "flex-start" }}
+                onClick={() => setResultsExpanded((value) => !value)}
               >
-                {comparisonWithoutFallback
-                  ? "Fechar comparação"
-                  : "Comparar sem complemento"}
+                {resultsExpanded ? "Recolher simulação" : "Expandir simulação"}
               </Button>
+              {hasFallbackHistory && (
+                <Chip
+                  size="small"
+                  variant="brand"
+                  label="Histórico complementado"
+                />
+              )}
+
+              {hasFallbackHistory && (
+                <Button
+                  variant="brand-text"
+                  size="small"
+                  disabled={
+                    !comparisonWithoutFallback &&
+                    (calculationState.isCalculating ||
+                      !baselineResult ||
+                      !submittedSnapshot?.request)
+                  }
+                  onClick={() => {
+                    setResultsExpanded(true);
+                    setComparisonWithoutFallback((current) => !current);
+                  }}
+                >
+                  {comparisonWithoutFallback
+                    ? "Fechar comparação"
+                    : "Comparar sem complemento"}
+                </Button>
+              )}
             </Stack>
-          )}
-          {comparisonWithoutFallback && submittedSnapshot && baselineResult && (
-            <FireComparisonPanel
-              snapshot={submittedSnapshot}
-              baseline={baselineResult}
-            />
-          )}
-          <Box sx={{ display: comparisonWithoutFallback ? "none" : "block" }}>
-            <FireResultsPanel
-              snapshot={submittedSnapshot}
-              onSimulationResult={setBaselineResult}
-              dateOfBirth={dateOfBirth}
-              fixedIncomeTotal={fixedIncomeTotal}
-              variableIncomeTotal={variableIncomeTotal}
-              calculationState={calculationState}
-              onCalculationStateChange={handleCalculationStateChange}
-              onAdjustHistoricalSources={handleAdjustHistoricalSources}
-            />
-          </Box>
+          </Paper>
+          <Collapse
+            in={resultsExpanded}
+            id="fire-simulation-results"
+            role="region"
+            aria-label="Resultados da simulação"
+          >
+            <Stack gap={1} sx={{ minWidth: 0 }}>
+              {comparisonWithoutFallback &&
+                submittedSnapshot &&
+                baselineResult && (
+                  <FireComparisonPanel
+                    snapshot={submittedSnapshot}
+                    baseline={baselineResult}
+                  />
+                )}
+              <Box
+                sx={{ display: comparisonWithoutFallback ? "none" : "block" }}
+              >
+                <FireResultsPanel
+                  snapshot={submittedSnapshot}
+                  onSimulationResult={setBaselineResult}
+                  dateOfBirth={dateOfBirth}
+                  fixedIncomeTotal={fixedIncomeTotal}
+                  variableIncomeTotal={variableIncomeTotal}
+                  calculationState={calculationState}
+                  onCalculationStateChange={handleCalculationStateChange}
+                  onAdjustHistoricalSources={handleAdjustHistoricalSources}
+                />
+              </Box>
+            </Stack>
+          </Collapse>
+          {renderExplanation?.(draftSnapshot)}
         </Stack>
       </Box>
     </>

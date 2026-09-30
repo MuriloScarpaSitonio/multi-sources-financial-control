@@ -12,6 +12,7 @@ import {
 import StrategyHeader from "../StrategyHeader";
 import { STRATEGY_CONTENT } from "../strategyContent";
 import { useStrategyCommonData } from "../useStrategyCommonData";
+import VPWMethodologyWalkthrough from "../vpw/VPWMethodologyWalkthrough";
 import VPWStudio from "../vpw/VPWStudio";
 import { ageFromBirthDate, type VPWDraft } from "../vpw/vpwScenario";
 
@@ -68,8 +69,7 @@ export default function VPWDetail() {
     ],
   );
   const isDirty =
-    Boolean(planningData) &&
-    JSON.stringify(preferences) !== savedKey;
+    Boolean(planningData) && JSON.stringify(preferences) !== savedKey;
   const change = (patch: VPWPlanningPreferences) =>
     setPreferences((current) => ({ ...current, ...patch }));
   const renderHeader = (actions: ReactNode) => (
@@ -97,10 +97,19 @@ export default function VPWDetail() {
         onPreferencesChange={change}
         onPatrimonyChange={setSimulatedPatrimony}
         renderHeader={renderHeader}
-      />
-      <DefaultsPanel
-        title="Como funciona a simulação"
-        items={STRATEGY_CONTENT.vpw.defaultsExplained}
+        renderExplanation={(snapshot) => (
+          <DefaultsPanel
+            title="Como funciona a simulação"
+            items={[]}
+            extra={
+              snapshot ? (
+                <VPWMethodologyWalkthrough snapshot={snapshot} />
+              ) : (
+                <span>Preencha um cenário válido para ver a explicação.</span>
+              )
+            }
+          />
+        )}
       />
     </Stack>
   );

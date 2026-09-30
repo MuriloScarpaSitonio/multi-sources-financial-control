@@ -323,15 +323,7 @@ export const STRATEGY_CONTENT: Record<ActiveMethodKey, StrategyContent> = {
     ),
     subtitle: "Retiradas recalculadas mensalmente, limitadas ao valor que você pretende sacar.",
     rationale: <p>O VPW ajusta as retiradas ao saldo disponível, ao crescimento histórico real da carteira e ao tempo restante até a idade alvo.</p>,
-    defaultsExplained: [
-      { label: "Retirada mensal e limite de gastos", explanation: "No início de cada mês, o VPW recalcula quanto a carteira permite retirar. O saque é o menor valor entre esse limite, suas despesas mensais e o saldo disponível. O restante continua investido." },
-      { label: "Crescimento histórico real", explanation: "A premissa de crescimento vem do retorno composto dos históricos selecionados para cada ativo, após a inflação. Os pesos da carteira são mantidos mês a mês. Usamos os meses disponíveis em comum, incluindo os históricos complementares escolhidos. O passado é uma premissa de cálculo, não uma garantia de retorno futuro." },
-      { label: "1.500 simulações com os mesmos históricos do FIRE", explanation: "A simulação sorteia meses históricos alinhados entre os ativos, ou blocos consecutivos de 12 meses. As escolhas de histórico do VPW são salvas separadamente das escolhas do FIRE. A retirada varia a cada mês; não é uma despesa fixa garantida." },
-      { label: "Alvo e prazo de acumulação", explanation: "A meta estima o patrimônio necessário para cobrir seus gastos em todos os meses até a idade alvo em pelo menos 95% das simulações. Ela é recalculada para o prazo restante em cada idade. O prazo parte do patrimônio real, sem saldo em conta, e usa seus aportes mensais positivos. Mostramos o prazo entre as simulações que atingiram o alvo e também a porcentagem que conseguiu. Alterar o patrimônio simulado muda a projeção de retiradas, sem substituir o patrimônio real na estimativa do prazo até a meta." },
-      { label: "Anos extras de acumulação", explanation: "Após atingir a meta, continue aportando pelos anos extras escolhidos antes de começar as retiradas. Cada simulação usa o patrimônio que acumulou. A idade alvo permanece a mesma; adiar as retiradas reduz sua duração. Os resultados de renda consideram apenas as simulações que começaram a aposentadoria antes da idade alvo." },
-      { label: "Menor renda mensal", explanation: "Primeiro encontramos o pior ano de cada simulação e dividimos suas retiradas por 12. Depois calculamos os percentis desses valores. Isso é diferente de procurar o menor ponto de cada linha do gráfico; rendas iguais a zero também contam." },
-      { label: "Idade alvo: 99 anos por padrão", explanation: "O prazo vai da sua idade atual até a idade alvo, que pode ser ajustada até 105 anos. Não há garantia de renda após esse horizonte. O limite de gastos pode deixar patrimônio ao final. Pensões e INSS não fazem parte desta simulação." },
-    ],
+    defaultsExplained: [],
     pros: [
       { text: "Retiradas se ajustam ao saldo e ao prazo restante" },
       { text: "O que excede o valor mensal solicitado continua investido" },

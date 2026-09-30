@@ -1,61 +1,48 @@
-// Fixed educational portfolio. Sampling and search evaluation use the production
-// engine; the trace exposes monthly draws and annual balances for the charts.
-import { runBootstrap, sampleMonthKeys } from "../Home/fireBootstrap";
+// Retirement traces use the currently selected portfolio and historical sample.
+import {
+  runBootstrap,
+  runBootstrapWithVaryingWeights,
+  sampleMonthKeys,
+  mulberry32,
+} from "../Home/fireBootstrap";
 import {
   eligibleMonths,
   returnForMonth,
-  type PortfolioSlice,
+  buildAgeInBondsPortfolio,
 } from "../Home/firePortfolio";
-import type { SamplingMethod } from "../Home/fireReturnTypes";
+import type { FireStudioSnapshot } from "./fire/fireStudioScenario";
 
-export const EXAMPLE_EQUITY_WEIGHT = 0.7;
-export const EXAMPLE_FI_WEIGHT = 0.3;
-export const STARTING_BALANCE = 1_000_000;
-export const DEFAULT_HORIZON = 30;
-export const HORIZON_MIN = 20;
-export const HORIZON_MAX = 80;
-export const TRIALS_PER_SEARCH_TEST = 1000;
-const portfolio: PortfolioSlice[] = [
-  {
-    category: "BR_EQUITY",
-    series: "IBOV",
-    weight: EXAMPLE_EQUITY_WEIGHT,
-    constrainsSample: true,
-  },
-  {
-    category: "FIXED_CDI",
-    series: "CDI",
-    weight: EXAMPLE_FI_WEIGHT,
-    constrainsSample: true,
-  },
-];
-export const EXAMPLE_MONTHS = eligibleMonths(portfolio);
-const returns = new Map(
-  EXAMPLE_MONTHS.map((month) => [
-    month,
-    portfolio.reduce(
-      (sum, slice) => sum + slice.weight * returnForMonth(slice, month),
-      0,
-    ),
-  ]),
-);
-
-const mulberry32 = (seed: number) => () => {
-  let t = (seed = (seed + 0x6d2b79f5) | 0);
-  t = Math.imul(t ^ (t >>> 15), t | 1);
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+export const TRIALS_PER_SEARCH_TEST = 2000;
+export const prepareWalkthrough = (snapshot: FireStudioSnapshot) => {
+  const available = eligibleMonths(snapshot.portfolio);
+  const returns = new Map(
+    available.map((month) => [
+      month,
+      snapshot.portfolio.reduce(
+        (sum, slice) => sum + slice.weight * returnForMonth(slice, month),
+        0,
+      ),
+    ]),
+  );
+  // Validate the selected sampler before mounting any of the four steps.
+  sampleMonthKeys({
+    eligible: available,
+    method: snapshot.samplingMethod,
+    count: 12,
+    rng: mulberry32(1),
+  });
+  return { snapshot, available, returns };
 };
+export type WalkthroughScenario = ReturnType<typeof prepareWalkthrough>;
 
 export const sampleTrialMonths = (
   seed: number,
-  horizon: number,
-  method: SamplingMethod,
+  scenario: WalkthroughScenario,
 ) =>
   sampleMonthKeys({
-    eligible: EXAMPLE_MONTHS,
-    method,
-    count: horizon * 12,
+    eligible: scenario.available,
+    method: scenario.snapshot.samplingMethod,
+    count: scenario.snapshot.targetYears * 12,
     rng: mulberry32(seed),
   });
 
@@ -66,20 +53,19 @@ export type TrialResult = {
   busted: boolean;
 };
 export const simulateTrial = (
-  rate: number,
   seed: number,
-  horizon: number,
-  method: SamplingMethod = "independent_months",
+  scenario: WalkthroughScenario,
 ): TrialResult => {
-  const months = sampleTrialMonths(seed, horizon, method);
-  const balances = [STARTING_BALANCE];
+  const months = sampleTrialMonths(seed, scenario);
+  const { effectivePatrimony, monthlyExpenses } = scenario.snapshot;
+  const balances = [effectivePatrimony];
   const yearReturns: number[] = [];
-  const monthlyWithdrawal = (STARTING_BALANCE * rate) / 12;
-  let balance = STARTING_BALANCE;
+  const monthlyWithdrawal = monthlyExpenses;
+  let balance = effectivePatrimony;
   let compounded = 1;
-  let busted = false;
+  let busted = balance <= 0 && monthlyWithdrawal > 0;
   months.forEach((month, index) => {
-    const monthlyReturn = returns.get(month)!;
+    const monthlyReturn = scenario.returns.get(month)!;
     compounded *= 1 + monthlyReturn;
     if (balance > 0) {
       const grown = balance * (1 + monthlyReturn);
@@ -107,22 +93,39 @@ export type SearchIteration = {
   passes: boolean;
 };
 export const runBinarySearch = (
-  horizon: number,
-  method: SamplingMethod = "independent_months",
+  scenario: WalkthroughScenario,
+  anchorAge?: number,
 ): SearchIteration[] => {
+  const { targetYears, portfolio, samplingMethod } = scenario.snapshot;
+  // As in production, a normalized positive balance keeps the rate search scale independent.
+  const startingBalance = 1_000_000;
   const iterations: SearchIteration[] = [];
   let lo = 0.005;
   let hi = 0.1;
   for (let iter = 0; iter < 20; iter++) {
     const mid = (lo + hi) / 2;
-    const { successRate } = runBootstrap(
-      STARTING_BALANCE,
-      STARTING_BALANCE * mid,
-      horizon,
-      portfolio,
-      method,
-      TRIALS_PER_SEARCH_TEST,
-    );
+    const { successRate } =
+      anchorAge === undefined
+        ? runBootstrap(
+            startingBalance,
+            startingBalance * mid,
+            targetYears,
+            portfolio,
+            samplingMethod,
+            TRIALS_PER_SEARCH_TEST,
+          )
+        : runBootstrapWithVaryingWeights(
+            startingBalance,
+            startingBalance * mid,
+            targetYears,
+            (year) =>
+              buildAgeInBondsPortfolio(
+                portfolio,
+                1 - Math.min(anchorAge + year, 100) / 100,
+              ),
+            samplingMethod,
+            TRIALS_PER_SEARCH_TEST,
+          );
     const passes = successRate >= 0.9;
     iterations.push({ iter, lo, hi, mid, successRate, passes });
     if (passes) lo = mid;

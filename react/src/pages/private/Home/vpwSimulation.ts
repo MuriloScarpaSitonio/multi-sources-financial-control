@@ -102,7 +102,7 @@ const spendingSummary = (successfulTrials: number, safeBudgets: number[]) => {
 export const runVPWRetirement = (
   input: VPWRetirementInput,
 ): VPWRetirementResult => {
-  const trials = input.numTrials ?? 1500;
+  const trials = input.numTrials ?? 2000;
   if (!Number.isSafeInteger(trials) || trials <= 0) {
     throw new Error("Trial count must be a positive integer");
   }
@@ -216,7 +216,7 @@ export type VPWAccumulationInput = {
 export const runVPWAccumulation = (
   input: VPWAccumulationInput,
 ): AccumulationResult | null => {
-  const trials = input.numTrials ?? 1500;
+  const trials = input.numTrials ?? 2000;
   if (!Number.isSafeInteger(trials) || trials <= 0) {
     throw new Error("Trial count must be a positive integer");
   }
@@ -365,7 +365,7 @@ const runVPWExtendedAccumulation = (
 ): Pick<VPWSimulationOutput, "retirement" | "extendedAccumulation"> => {
   const { years, annualGrowth, startingBalance, monthlySpending } =
     input.retirement;
-  const trials = input.retirement.numTrials ?? 1500;
+  const trials = input.retirement.numTrials ?? 2000;
   if (
     !Number.isSafeInteger(trials) ||
     trials <= 0 ||

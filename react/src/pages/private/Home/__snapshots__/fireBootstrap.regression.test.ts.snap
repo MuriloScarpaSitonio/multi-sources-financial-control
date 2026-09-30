@@ -197,9 +197,9 @@ exports[`FIRE deterministic outputs: contiguous_12_month_blocks > preserves cash
 }
 `;
 
-exports[`FIRE deterministic outputs: contiguous_12_month_blocks > preserves the full 20-iteration safe-rate search 1`] = `1.8915290832519533`;
+exports[`FIRE deterministic outputs: contiguous_12_month_blocks > preserves the full 20-iteration safe-rate search 1`] = `1.907701015472412`;
 
-exports[`FIRE deterministic outputs: contiguous_12_month_blocks > preserves the varying-allocation safe-rate search 1`] = `8.342299938201906`;
+exports[`FIRE deterministic outputs: contiguous_12_month_blocks > preserves the varying-allocation safe-rate search 1`] = `8.293575763702393`;
 
 exports[`FIRE deterministic outputs: independent_months > preserves accumulation after early target crossing 1`] = `
 {
@@ -398,6 +398,6 @@ exports[`FIRE deterministic outputs: independent_months > preserves cash, exclus
 }
 `;
 
-exports[`FIRE deterministic outputs: independent_months > preserves the full 20-iteration safe-rate search 1`] = `1.5680541992187502`;
+exports[`FIRE deterministic outputs: independent_months > preserves the full 20-iteration safe-rate search 1`] = `1.6420555114746094`;
 
-exports[`FIRE deterministic outputs: independent_months > preserves the varying-allocation safe-rate search 1`] = `9.021512031555176`;
+exports[`FIRE deterministic outputs: independent_months > preserves the varying-allocation safe-rate search 1`] = `9.057035923004154`;

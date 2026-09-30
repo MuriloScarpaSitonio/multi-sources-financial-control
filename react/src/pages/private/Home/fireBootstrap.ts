@@ -359,7 +359,7 @@ export const findSafeWithdrawalRate = (
   portfolio: readonly PortfolioSlice[],
   samplingMethod: SamplingMethod = "independent_months",
   targetSuccess: number = 0.9,
-  numTrials: number = 1000,
+  numTrials: number = 2000,
 ): number => {
   if (horizon <= 0) return 0;
   // Bootstrap success is scale-invariant: doubling both balance and withdrawal
@@ -538,7 +538,7 @@ export const findSafeWithdrawalRateWithVaryingWeights = (
   portfolioAt: PortfolioAtFn,
   samplingMethod: SamplingMethod = "independent_months",
   targetSuccess: number = 0.9,
-  numTrials: number = 1000,
+  numTrials: number = 2000,
 ): number => {
   if (horizon <= 0) return 0;
   const dummyPatrimony = 1_000_000;
