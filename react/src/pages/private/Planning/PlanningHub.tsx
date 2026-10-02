@@ -152,6 +152,7 @@ const PlanningHub = () => {
         avgExpenses={avgExpenses}
         isLoading={isDataLoading || isFireAllocationLoading}
         dateOfBirth={dateOfBirth}
+        compact
         hideLabel
       />
     ),
