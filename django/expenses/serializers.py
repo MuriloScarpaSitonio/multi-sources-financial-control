@@ -44,7 +44,9 @@ class FlatManyToManySerializer(serializers.ListSerializer):
 
 class ExpenseSerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
-    installments = serializers.IntegerField(default=1, write_only=True, allow_null=True)
+    installments = serializers.IntegerField(
+        source="installments_qty", required=False, allow_null=True, min_value=1, max_value=32767
+    )
     tags = FlatManyToManySerializer(required=False)
     bank_account_description = serializers.CharField()
 
@@ -66,6 +68,11 @@ class ExpenseSerializer(serializers.ModelSerializer):
         )
         extra_kwargs = {"id": {"read_only": True}, "full_description": {"read_only": True}}
 
+    def to_representation(self, instance: Expense) -> dict:
+        data = super().to_representation(instance)
+        data["installments"] = instance.installments_qty or 1
+        return data
+
     def create(self, validated_data: dict[str, Any]) -> Expense:
         try:
             user = validated_data.pop("user")
@@ -81,11 +88,12 @@ class ExpenseSerializer(serializers.ModelSerializer):
             bank_account_id = BankAccount.objects.values_list("id", flat=True).get(
                 description=bank_account_description, user=user, is_active=True
             )
+            installments_qty = validated_data.pop("installments_qty", None) or 1
             expense = ExpenseDomainModel(
                 **validated_data,
                 category=category,
                 source=source,
-                installments_qty=validated_data.pop("installments") or 1,
+                installments_qty=installments_qty,
                 extra_data={
                     "expanded_category_id": expanded_category_id,
                     "expanded_source_id": expanded_source_id,
@@ -118,7 +126,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
         try:
             extra_data: dict[str, int] = {}
 
-            validated_data.pop("installments")
+            installments_qty = validated_data.pop("installments_qty", None)
             user = validated_data.pop("user")
             category = validated_data.pop("category")
 
@@ -144,7 +152,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
                 category=category,
                 source=source,
                 installments_id=instance.installments_id,
-                installments_qty=instance.installments_qty or 1,
+                installments_qty=installments_qty or instance.installments_qty or 1,
                 recurring_id=instance.recurring_id,
                 extra_data=extra_data,
                 **validated_data,
