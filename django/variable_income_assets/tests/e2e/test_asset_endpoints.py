@@ -623,7 +623,7 @@ def test__list__aggregations__dollar(client, stock_usa_asset: Asset, fixture, op
     request.getfixturevalue("sync_assets_read_model")
 
     roi = get_current_roi_brute_force(asset=stock_usa_asset)
-    avg_price = get_current_adjusted_avg_price_brute_forte(asset=stock_usa_asset, normalize=False)
+    avg_price = get_current_adjusted_avg_price_brute_forte(asset=stock_usa_asset)
     total_bought = get_current_total_bought_brute_force(asset=stock_usa_asset)
 
     # WHEN

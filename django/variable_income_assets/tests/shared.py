@@ -56,7 +56,6 @@ def get_current_avg_price_bute_force(
 
 def get_current_adjusted_avg_price_brute_forte(
     asset: Asset,
-    normalize: bool = True,
     closed_total_bought: float | None = None,
 ):
     quantity_balance = get_quantity_balance_brute_force(asset=asset)
@@ -71,10 +70,7 @@ def get_current_adjusted_avg_price_brute_forte(
     incomes = get_total_credited_incomes_brute_force(
         asset, normalize=True
     ) - _get_finsished_credited_incomes_brute_force(asset, normalize=True)
-    price = (bought - sold - incomes) / quantity_balance
-    if not normalize and asset.currency == Currencies.dollar:
-        price /= get_dollar_conversion_rate()
-    return price
+    return (bought - sold - incomes) / quantity_balance
 
 
 def _get_finsished_credited_incomes_brute_force(asset: Asset, normalize: bool = True):

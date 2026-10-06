@@ -99,18 +99,12 @@ class AssetReadModel(models.Model):
 
     @cached_property
     def adjusted_avg_price(self) -> Decimal:
-        """Price in the asset's currency that makes the current operation's ROI zero."""
-        if not self.quantity_balance:
-            return Decimal()
         try:
-            conversion_rate = (
-                get_dollar_conversion_rate() if self.currency == Currencies.dollar else Decimal(1)
-            )
             return (
                 self.normalized_total_bought
                 - self.normalized_total_sold
                 - self.normalized_credited_incomes
-            ) / (self.quantity_balance * conversion_rate)
+            ) / self.quantity_balance
         except DecimalException:
             return Decimal()
 

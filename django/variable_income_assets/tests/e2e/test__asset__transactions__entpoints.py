@@ -103,7 +103,7 @@ def test__simulate_transaction__wo_total_and_quantity__error(client, stock_asset
 
 
 @pytest.mark.usefixtures("crypto_transaction", "crypto_asset_metadata")
-def test__simulate_transaction__break_even_price_in_dollars(client, crypto_asset):
+def test__simulate_transaction__adjusted_price_uses_net_cash_outlay(client, crypto_asset):
     # GIVEN
     price, quantity = 10, 100
     old = {
@@ -134,10 +134,10 @@ def test__simulate_transaction__break_even_price_in_dollars(client, crypto_asset
     # THEN
     assert response.status_code == 200
 
-    # The original 50 units cost R$2,550 at 5.1 BRL/USD. At today's 5 BRL/USD,
-    # they break even at $10.20; buying 100 more at $10 lowers that to $10.0667.
-    assert response_json["old"]["adjusted_avg_price"] == pytest.approx(10.2)
-    assert response_json["new"]["adjusted_avg_price"] == pytest.approx(10.0666666667)
+    # The original 50 units cost R$2,550. The simulated purchase adds R$5,000
+    # and 100 units: 2,550 / 50 = 51; 7,550 / 150 = 50.3333.
+    assert response_json["old"]["adjusted_avg_price"] == pytest.approx(51)
+    assert response_json["new"]["adjusted_avg_price"] == pytest.approx(50.3333333333)
 
     for k, v in old.items():
         assert convert_and_quantitize(v) == convert_and_quantitize(response_json["old"][k])
