@@ -1,4 +1,9 @@
 import {
+  runOneOverNSimulation,
+  type OneOverNSimulationInput,
+  type OneOverNSimulationOutput,
+} from "./oneOverNSimulation";
+import {
   findSafeWithdrawalRate,
   findSafeWithdrawalRateWithVaryingWeights,
   runAccumulationBootstrap,
@@ -112,12 +117,22 @@ export type FireSimulationResult =
 
 export type VPWSimulationRequest = { kind: "vpw"; input: VPWSimulationInput };
 export type VPWSimulationResult = { kind: "vpw"; output: VPWSimulationOutput };
+export type OneOverNSimulationRequest = {
+  kind: "one_over_n";
+  input: OneOverNSimulationInput;
+};
+export type OneOverNSimulationResult = {
+  kind: "one_over_n";
+  output: OneOverNSimulationOutput;
+};
 export type PlanningSimulationRequest =
   | FireSimulationRequest
-  | VPWSimulationRequest;
+  | VPWSimulationRequest
+  | OneOverNSimulationRequest;
 export type PlanningSimulationResult =
   | FireSimulationResult
-  | VPWSimulationResult;
+  | VPWSimulationResult
+  | OneOverNSimulationResult;
 
 export type WorkerRequestMessage<
   T extends PlanningSimulationRequest = FireSimulationRequest,
@@ -429,6 +444,8 @@ export const runFireSimulation = (
 export const runPlanningSimulation = (
   request: PlanningSimulationRequest,
 ): PlanningSimulationResult =>
-  request.kind === "vpw"
-    ? { kind: "vpw", output: runVPWSimulation(request.input) }
-    : runFireSimulation(request);
+  request.kind === "one_over_n"
+    ? { kind: "one_over_n", output: runOneOverNSimulation(request.input) }
+    : request.kind === "vpw"
+      ? { kind: "vpw", output: runVPWSimulation(request.input) }
+      : runFireSimulation(request);

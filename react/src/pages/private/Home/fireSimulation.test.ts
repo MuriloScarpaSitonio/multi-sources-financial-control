@@ -167,3 +167,26 @@ it("runs VPW accumulation and retirement together with distinct starting balance
   expect(result.output.retirement.balanceBands[10].p50).toBeCloseTo(60000);
   expect(structuredClone(result)).toEqual(result);
 });
+
+it("dispatches the full-spending 1/N strategy through the planning worker protocol", () => {
+  const request = {
+    kind: "one_over_n" as const,
+    input: {
+      portfolio: [],
+      samplingMethod: "independent_months" as const,
+      extraAccumulationYears: 0,
+      retirement: {
+        startingBalance: 120000,
+        monthlyExpenses: 100,
+        years: 10,
+        numTrials: 3,
+      },
+      accumulation: { startingBalance: 120000, monthlySavings: -500, years: 9 },
+    },
+  };
+  const result = runPlanningSimulation(structuredClone(request));
+  expect(result.kind).toBe("one_over_n");
+  if (result.kind !== "one_over_n") throw new Error("wrong method");
+  expect(result.output.retirement.minimumMonthlyIncome?.p50).toBe(1000);
+  expect(result.output.retirement.balanceBands.at(-1)?.p50).toBe(0);
+});

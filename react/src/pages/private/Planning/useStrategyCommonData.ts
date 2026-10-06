@@ -12,11 +12,13 @@ export const useStrategyCommonData = () => {
     data: expensesIndicators,
     isPending: isExpensesLoading,
     isError: isExpensesError,
+    refetch: retryExpenses,
   } = useHomeExpensesIndicators({ includeFireAvg: true });
   const {
     data: revenuesIndicators,
     isPending: isRevenuesLoading,
     isError: isRevenuesError,
+    refetch: retryRevenues,
   } = useHomeRevenuesIndicators();
 
   const avgExpenses = expensesIndicators?.fire_avg ?? 0;
@@ -24,7 +26,18 @@ export const useStrategyCommonData = () => {
   const avgRevenues = revenuesIndicators?.avg ?? 0;
   const derivedMonthlySavings = avgRevenues - expensesAvg;
 
+  const hasRequiredData = Boolean(
+    expensesIndicators &&
+    revenuesIndicators &&
+    [
+      expensesIndicators.fire_avg,
+      expensesIndicators.avg,
+      revenuesIndicators.avg,
+    ].every((value) => typeof value === "number" && Number.isFinite(value)),
+  );
   return {
+    hasRequiredData,
+    retry: () => Promise.allSettled([retryExpenses(), retryRevenues()]),
     avgExpenses,
     expensesAvg,
     avgRevenues,

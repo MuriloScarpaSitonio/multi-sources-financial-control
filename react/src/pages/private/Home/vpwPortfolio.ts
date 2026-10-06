@@ -14,20 +14,19 @@ export const buildVPWPortfolio = (
   allocation: readonly FireAllocationBucket[],
   preferences: Required<VPWPlanningPreferences>,
 ): VPWPortfolio => {
-  const invested = allocation.filter(
-    (bucket) => bucket.category !== "CASH" && bucket.total > 0,
-  );
+  const invested = allocation.filter((bucket) => bucket.total > 0);
   const investmentTotal = invested.reduce(
     (sum, bucket) => sum + bucket.total,
     0,
   );
   const variable = invested.filter(
-    (bucket) => !bucket.category.startsWith("FIXED_"),
+    (bucket) =>
+      bucket.category !== "CASH" && !bucket.category.startsWith("FIXED_"),
   );
   const variableTotal = variable.reduce((sum, bucket) => sum + bucket.total, 0);
   const stockPct =
     investmentTotal > 0 ? (variableTotal / investmentTotal) * 100 : 60;
-  // Retain the established reference only when there are no investments.
+  // Retain the established reference only when there is no positive wealth.
   const modeled: FireAllocationBucket[] =
     investmentTotal > 0
       ? invested

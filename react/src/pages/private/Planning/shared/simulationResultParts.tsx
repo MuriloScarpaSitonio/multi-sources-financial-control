@@ -248,7 +248,10 @@ export const ChartTooltipBox = ({
 );
 
 export const PercentileTrajectoryChart = <T extends object>({
+  title = "Aposentadoria · trajetória do patrimônio no cenário atual",
   subtitle,
+  headerAction,
+  chartOverlay,
   data,
   xKey,
   dataKeys,
@@ -256,7 +259,14 @@ export const PercentileTrajectoryChart = <T extends object>({
   tooltip,
   hideValues,
 }: {
+  title?: ReactNode;
   subtitle: ReactNode;
+  headerAction?: ReactNode;
+  chartOverlay?: {
+    axis: ReactNode;
+    behindLines: ReactNode;
+    aboveLines?: ReactNode;
+  };
   data: T[];
   xKey: string;
   dataKeys: Record<PercentileKey, string>;
@@ -266,13 +276,32 @@ export const PercentileTrajectoryChart = <T extends object>({
 }) => (
   <>
     <Stack gap={0.5} sx={{ mt: 1 }}>
-      <Text
-        size={FontSizes.SMALL}
-        weight={FontWeights.SEMI_BOLD}
-        color={Colors.neutral200}
-      >
-        Aposentadoria · trajetória do patrimônio no cenário atual
-      </Text>
+      {headerAction ? (
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          flexWrap="wrap"
+          gap={1}
+        >
+          <Text
+            size={FontSizes.SMALL}
+            weight={FontWeights.SEMI_BOLD}
+            color={Colors.neutral200}
+          >
+            {title}
+          </Text>
+          {headerAction}
+        </Stack>
+      ) : (
+        <Text
+          size={FontSizes.SMALL}
+          weight={FontWeights.SEMI_BOLD}
+          color={Colors.neutral200}
+        >
+          {title}
+        </Text>
+      )}
       <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
         {subtitle}
       </Text>
@@ -291,12 +320,15 @@ export const PercentileTrajectoryChart = <T extends object>({
         />
         <YAxis
           stroke={getColor(Colors.brand400)}
+          tick={chartOverlay ? { fill: getColor(Colors.brand400) } : undefined}
           tickLine={false}
           axisLine={false}
           tickFormatter={compactNumberTick}
           tickCount={hideValues ? 0 : undefined}
         />
+        {chartOverlay?.axis}
         <RechartsTooltip cursor={false} content={tooltip} />
+        {chartOverlay?.behindLines}
         {(["p10", "p50", "p90"] as const)
           .filter((key) => visible[key])
           .map((key) => (
@@ -311,6 +343,7 @@ export const PercentileTrajectoryChart = <T extends object>({
               name={PERCENTILES[key].line}
             />
           ))}
+        {chartOverlay?.aboveLines}
       </ComposedChart>
     </ResponsiveContainer>
   </>

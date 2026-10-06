@@ -41,14 +41,14 @@ it("requires a birth date and keeps an invalid target actionable", () => {
   );
   expect(screen.getByText(/idade alvo maior/i)).toBeVisible();
 });
-it("does not include bank cash in the withdrawal", () => {
+it("includes bank cash in the expense-capped withdrawal", () => {
   render(
     <VPWIndicator
       {...props}
       allocation={[{ category: "CASH", series: "CASH", total: 1000000 }]}
     />,
   );
-  expect(screen.getByText(/R\$ 0,00/)).toBeVisible();
+  expect(screen.getByText(/R\$ 100,00/)).toBeVisible();
 });
 
 it("shows unavailable data instead of a zero-wealth scenario on query failure", () => {

@@ -29,6 +29,17 @@ vi.mock("../useStrategyCommonData", () => ({
     avgExpenses: 5000,
     derivedMonthlySavings: 1000,
     isLoading: false,
+    hasRequiredData: true,
+    isError: false,
+    retry: vi.fn(),
+  }),
+}));
+vi.mock("../fireAllocation", () => ({
+  useFireAllocation: () => ({
+    data: { buckets: [{ category: "CASH", series: "CASH", total: 1000000 }] },
+    isPending: false,
+    isError: false,
+    refetch: vi.fn(),
   }),
 }));
 vi.mock("../../Assets/Indicators/hooks", () => ({
@@ -75,6 +86,13 @@ it.each([
         disconnect() {}
       },
     );
+    vi.stubGlobal(
+      "Worker",
+      class {
+        postMessage() {}
+        terminate() {}
+      },
+    );
     const user = userEvent.setup();
     render(
       <MemoryRouter>
@@ -86,8 +104,14 @@ it.each([
     expect(
       screen.queryByRole("button", { name: "Salvar alterações" }),
     ).toBeNull();
-    screen.getAllByRole("slider")[0].focus();
-    await user.keyboard("{ArrowRight}");
+    if (strategy === "one_over_n") {
+      await user.click(
+        screen.getByRole("button", { name: "Aumentar Idade alvo" }),
+      );
+    } else {
+      screen.getAllByRole("slider")[0].focus();
+      await user.keyboard("{ArrowRight}");
+    }
     await user.click(
       await screen.findByRole("button", { name: "Salvar alterações" }),
     );

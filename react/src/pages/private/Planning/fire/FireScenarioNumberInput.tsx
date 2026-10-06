@@ -29,6 +29,7 @@ type Props = {
   value: number;
   step: number;
   min?: number;
+  allowNegative?: boolean;
   max?: number;
   prefix?: string;
   suffix?: string;
@@ -44,6 +45,7 @@ const FireScenarioNumberInput = ({
   value,
   step,
   min = 0,
+  allowNegative = false,
   max = Infinity,
   prefix,
   suffix,
@@ -130,7 +132,7 @@ const FireScenarioNumberInput = ({
           thousandSeparator="."
           decimalSeparator=","
           decimalScale={decimalScale}
-          allowNegative={false}
+          allowNegative={allowNegative}
           onValueChange={({ floatValue }, source) => {
             if (source.source !== "event") return;
             setDraft(floatValue ?? "");

@@ -47,25 +47,30 @@ const STRATEGY_ORDER: ActiveMethodKey[] = [
 
 const PlanningHub = () => {
   const { selectedMethod } = useSelectedMethod();
-  const { data: planningData, isError: isPlanningError } = usePlanningPreferences();
+  const {
+    data: planningData,
+    isError: isPlanningError,
+    isPending: isPlanningLoading,
+  } = usePlanningPreferences();
   const preferences = planningData?.preferences;
   const firePreferences = getFirePlanningPreferences(preferences);
-  const dividendsOnlyPreferences = getDividendsOnlyPlanningPreferences(preferences);
+  const dividendsOnlyPreferences =
+    getDividendsOnlyPlanningPreferences(preferences);
   const oneOverNPreferences = getOneOverNPlanningPreferences(preferences);
   const vpwPreferences = getVPWPlanningPreferences(preferences);
   const dateOfBirth = planningData?.dateOfBirth ?? null;
-  const { data: fireAllocationData, isPending: isFireAllocationLoading, isError: isFireAllocationError } =
-    useFireAllocation();
+  const {
+    data: fireAllocationData,
+    isPending: isFireAllocationLoading,
+    isError: isFireAllocationError,
+  } = useFireAllocation();
   const firePortfolio = useMemo(
-    () =>
-      buildPortfolio(fireAllocationData?.buckets ?? [], firePreferences),
+    () => buildPortfolio(fireAllocationData?.buckets ?? [], firePreferences),
     [fireAllocationData?.buckets, firePreferences],
   );
 
-  const {
-    data: assetsIndicators,
-    isPending: isAssetsLoading,
-  } = useAssetsIndicators({ includeYield: true });
+  const { data: assetsIndicators, isPending: isAssetsLoading } =
+    useAssetsIndicators({ includeYield: true });
   const {
     data: { total: bankAmount } = { total: 0 },
     isPending: isBankLoading,
@@ -82,10 +87,9 @@ const PlanningHub = () => {
   const {
     data: revenuesIndicators,
     isPending: isRevenuesLoading,
+    isError: isRevenuesError,
   } = useHomeRevenuesIndicators();
-  const {
-    isPending: isReportsLoading,
-  } = useAssetsReports({
+  const { isPending: isReportsLoading } = useAssetsReports({
     kind: Kinds.TOTAL_INVESTED,
     group_by: GroupBy.TYPE,
     current: true,
@@ -129,17 +133,31 @@ const PlanningHub = () => {
     ),
     one_over_n: (
       <OneOverNIndicator
-        patrimonyTotal={patrimonyTotal}
+        allocation={fireAllocationData?.buckets ?? []}
+        preferences={oneOverNPreferences}
         avgExpenses={avgExpenses}
         avgMonthlySavings={avgMonthlySavings}
-        isLoading={isDataLoading}
+        isLoading={
+          isPlanningLoading ||
+          isExpensesLoading ||
+          isRevenuesLoading ||
+          isFireAllocationLoading
+        }
+        isError={
+          isPlanningError ||
+          isFireAllocationError ||
+          isExpensesError ||
+          isRevenuesError ||
+          (!isPlanningLoading && !planningData) ||
+          (!isFireAllocationLoading &&
+            !Array.isArray(fireAllocationData?.buckets)) ||
+          (!isExpensesLoading &&
+            ![expensesIndicators?.avg, expensesIndicators?.fire_avg].every(
+              (v) => typeof v === "number" && Number.isFinite(v),
+            )) ||
+          (!isRevenuesLoading && !Number.isFinite(revenuesIndicators?.avg))
+        }
         dateOfBirth={dateOfBirth}
-        targetDepletionAge={oneOverNPreferences.target_depletion_age}
-        onTargetDepletionAgeChange={() => {}}
-        realReturn={oneOverNPreferences.real_return}
-        onRealReturnChange={() => {}}
-        simulatedSavings={oneOverNPreferences.monthly_savings_override}
-        simulatedExpenses={oneOverNPreferences.monthly_expenses_override}
         compact
         hideLabel
       />
@@ -183,9 +201,16 @@ const PlanningHub = () => {
               }}
             >
               <Stack gap={2}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
                   <Stack gap={0.5}>
-                    <Text weight={FontWeights.SEMI_BOLD} size={FontSizes.MEDIUM}>
+                    <Text
+                      weight={FontWeights.SEMI_BOLD}
+                      size={FontSizes.MEDIUM}
+                    >
                       {content.title}
                     </Text>
                     <Text size={FontSizes.SMALL} color={Colors.neutral400}>

@@ -56,7 +56,11 @@ const Indicators = () => {
   const [ageInBondsStockReturn, setAgeInBondsStockReturn] = useState(5);
   const [ageInBondsBondReturn, setAgeInBondsBondReturn] = useState(3);
   const { selectedMethod } = useSelectedMethod();
-  const { data: planningData, isError: isPlanningError } = usePlanningPreferences();
+  const {
+    data: planningData,
+    isError: isPlanningError,
+    isPending: isPlanningLoading,
+  } = usePlanningPreferences();
   const preferences = planningData?.preferences;
   const firePreferences = getFirePlanningPreferences(preferences);
   const dividendsOnlyPreferences = getDividendsOnlyPlanningPreferences(preferences);
@@ -280,24 +284,38 @@ const Indicators = () => {
             one_over_n: (
               <>
                 <OneOverNIndicator
-                  patrimonyTotal={(assetsIndicators?.total ?? 0) + bankAmount}
+                  allocation={fireAllocationData?.buckets ?? []}
+                  preferences={oneOverNPreferences}
                   avgExpenses={expensesIndicators?.fire_avg ?? 0}
                   avgMonthlySavings={
                     (revenuesIndicators?.avg ?? 0) -
                     (expensesIndicators?.avg ?? 0)
                   }
                   isLoading={
-                    isLoading ||
+                    isPlanningLoading ||
                     isExpensesIndicatorsLoading ||
-                    isRevenuesIndicatorsLoading
+                    isRevenuesIndicatorsLoading ||
+                    isFireAllocationLoading
+                  }
+                  isError={
+                    isPlanningError ||
+                    isFireAllocationError ||
+                    isExpensesIndicatorsError ||
+                    isRevenuesIndicatorsError ||
+                    (!isPlanningLoading && !planningData) ||
+                    (!isFireAllocationLoading &&
+                      !Array.isArray(fireAllocationData?.buckets)) ||
+                    (!isExpensesIndicatorsLoading &&
+                      ![
+                        expensesIndicators?.avg,
+                        expensesIndicators?.fire_avg,
+                      ].every(
+                        (v) => typeof v === "number" && Number.isFinite(v),
+                      )) ||
+                    (!isRevenuesIndicatorsLoading &&
+                      !Number.isFinite(revenuesIndicators?.avg))
                   }
                   dateOfBirth={dateOfBirth}
-                  targetDepletionAge={oneOverNPreferences.target_depletion_age}
-                  onTargetDepletionAgeChange={() => {}}
-                  realReturn={oneOverNPreferences.real_return}
-                  onRealReturnChange={() => {}}
-                  simulatedSavings={oneOverNPreferences.monthly_savings_override}
-                  simulatedExpenses={oneOverNPreferences.monthly_expenses_override}
                   compact
                 />
                 {showGaleno && (

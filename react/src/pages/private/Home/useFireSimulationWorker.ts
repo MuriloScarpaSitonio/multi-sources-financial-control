@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import type {
+  OneOverNSimulationRequest,
+  OneOverNSimulationResult,
   FireSimulationRequest,
   FireSimulationResult,
   VPWSimulationRequest,
@@ -17,6 +19,9 @@ type SimulationWorkerState<T extends PlanningSimulationResult> = {
   error: string | null;
 };
 
+export function useFireSimulationWorker(
+  request: OneOverNSimulationRequest | null,
+): SimulationWorkerState<OneOverNSimulationResult>;
 export function useFireSimulationWorker(
   request: FireSimulationRequest | null,
 ): SimulationWorkerState<FireSimulationResult>;

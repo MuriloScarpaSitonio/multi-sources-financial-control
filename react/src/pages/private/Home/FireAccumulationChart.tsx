@@ -94,7 +94,7 @@ const FireAccumulationChart = ({
   showMediana,
   showPessimista,
 }: {
-  strategy?: "FIRE" | "VPW";
+  strategy?: "FIRE" | "VPW" | "1/N";
   showHeading?: boolean;
   accumulation: AccumulationResult;
   currentAge: number | null;
@@ -131,7 +131,7 @@ const FireAccumulationChart = ({
             weight={FontWeights.SEMI_BOLD}
             color={Colors.neutral200}
           >
-            {strategy === "VPW"
+            {strategy !== "FIRE"
               ? "Quando posso atingir a meta?"
               : "Quando posso me aposentar?"}
           </Text>
@@ -180,7 +180,7 @@ const FireAccumulationChart = ({
               stroke={getColor(Colors.brand)}
               strokeDasharray="3 3"
               label={{
-                value: `otimista · ${strategy === "VPW" ? "meta" : "aposenta"} ${ageLabel(accumulation.p10YearsToTarget)}`,
+                value: `otimista · ${strategy !== "FIRE" ? "meta" : "aposenta"} ${ageLabel(accumulation.p10YearsToTarget)}`,
                 position: "top",
                 dy: -34,
                 fill: getColor(Colors.brand),
@@ -194,7 +194,7 @@ const FireAccumulationChart = ({
               stroke={getColor(Colors.brand)}
               strokeDasharray="3 3"
               label={{
-                value: `mediana · ${strategy === "VPW" ? "meta" : "aposenta"} ${ageLabel(accumulation.medianYearsToTarget)}`,
+                value: `mediana · ${strategy !== "FIRE" ? "meta" : "aposenta"} ${ageLabel(accumulation.medianYearsToTarget)}`,
                 position: "top",
                 dy: -18,
                 fill: getColor(Colors.brand),
@@ -208,7 +208,7 @@ const FireAccumulationChart = ({
               stroke={getColor(Colors.danger200)}
               strokeDasharray="3 3"
               label={{
-                value: `pessimista · ${strategy === "VPW" ? "meta" : "aposenta"} ${ageLabel(accumulation.p90YearsToTarget)}`,
+                value: `pessimista · ${strategy !== "FIRE" ? "meta" : "aposenta"} ${ageLabel(accumulation.p90YearsToTarget)}`,
                 position: "top",
                 dy: -2,
                 fill: getColor(Colors.danger200),

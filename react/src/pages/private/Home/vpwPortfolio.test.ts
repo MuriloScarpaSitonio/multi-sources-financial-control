@@ -12,20 +12,21 @@ const allocation: FireAllocationBucket[] = [
 ];
 
 describe("VPW portfolio from the shared asset allocation endpoint", () => {
-  it("excludes bank cash while preserving asset-specific histories and actual wealth", () => {
+  it("includes bank cash while preserving asset-specific histories and actual wealth", () => {
     const result = buildVPWPortfolio(allocation, getVPWPlanningPreferences());
-    expect(result.investmentTotal).toBe(500);
-    expect(result.stockPct).toBe(80);
+    expect(result.investmentTotal).toBe(1000);
+    expect(result.stockPct).toBe(40);
     expect(result.allocation.some((bucket) => bucket.category === "CASH")).toBe(
-      false,
+      true,
     );
     expect(
       result.portfolio.map((slice) => [slice.series, slice.weight]),
     ).toEqual([
-      ["SPY", 0.4],
-      ["IBOV", 0.2],
-      ["IFIX", 0.2],
-      ["IMA_B_5", 0.2],
+      ["CASH", 0.5],
+      ["SPY", 0.2],
+      ["IBOV", 0.1],
+      ["IFIX", 0.1],
+      ["IMA_B_5", 0.1],
     ]);
   });
 
@@ -48,27 +49,24 @@ describe("VPW portfolio from the shared asset allocation endpoint", () => {
         vpw: { excluded_return_categories: ["US_EQUITY"] },
       }),
     );
-    expect(result.investmentTotal).toBe(500);
-    expect(result.portfolio[0]).toMatchObject({
+    expect(result.investmentTotal).toBe(1000);
+    expect(result.portfolio[1]).toMatchObject({
       category: "US_EQUITY",
       series: "CASH",
-      weight: 0.4,
+      weight: 0.2,
     });
   });
 
-  it("uses the existing 60/40 fallback without counting bank cash as investments", () => {
+  it("uses actual CASH history for a cash-only portfolio", () => {
     const result = buildVPWPortfolio(
       [{ category: "CASH", series: "CASH", total: 10000 }],
       getVPWPlanningPreferences(),
     );
-    expect(result.investmentTotal).toBe(0);
-    expect(result.stockPct).toBe(60);
+    expect(result.investmentTotal).toBe(10000);
+    expect(result.stockPct).toBe(0);
     expect(
       result.portfolio.map((slice) => [slice.series, slice.weight]),
-    ).toEqual([
-      ["IBOV", 0.6],
-      ["CDI", 0.4],
-    ]);
+    ).toEqual([["CASH", 1]]);
   });
 
   it("resolves selected global/crypto histories", () => {
@@ -90,9 +88,7 @@ describe("VPW portfolio from the shared asset allocation endpoint", () => {
 
 it("history controls expose actual holdings and the existing empty-portfolio reference", () => {
   const result = buildVPWPortfolio(allocation, getVPWPlanningPreferences());
-  expect(result.modeledAllocation).toEqual(
-    allocation.filter((b) => b.category !== "CASH"),
-  );
+  expect(result.modeledAllocation).toEqual(allocation);
   const empty = buildVPWPortfolio([], getVPWPlanningPreferences());
   expect(empty.modeledAllocation.map((b) => b.series)).toEqual(["IBOV", "CDI"]);
 });
