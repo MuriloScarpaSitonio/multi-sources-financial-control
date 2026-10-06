@@ -10,7 +10,6 @@ import {
   CartesianGrid,
   ComposedChart,
   Line,
-  ResponsiveContainer,
   Tooltip as RechartsTooltip,
   XAxis,
   YAxis,
@@ -24,6 +23,7 @@ import {
   Text,
 } from "../../../../design-system";
 import type { FireSuccessBand } from "../../Home/fireResultPresentation";
+import { ChartFrame } from "./ChartFrame";
 
 export type PercentileKey = "p10" | "p50" | "p90";
 export type PercentileVisibility = Record<PercentileKey, boolean>;
@@ -251,6 +251,8 @@ export const PercentileTrajectoryChart = <T extends object>({
   title = "Aposentadoria · trajetória do patrimônio no cenário atual",
   subtitle,
   headerAction,
+  fullscreenControls,
+  expandable = false,
   chartOverlay,
   data,
   xKey,
@@ -262,6 +264,8 @@ export const PercentileTrajectoryChart = <T extends object>({
   title?: ReactNode;
   subtitle: ReactNode;
   headerAction?: ReactNode;
+  fullscreenControls?: ReactNode;
+  expandable?: boolean;
   chartOverlay?: {
     axis: ReactNode;
     behindLines: ReactNode;
@@ -274,39 +278,14 @@ export const PercentileTrajectoryChart = <T extends object>({
   tooltip: ReactElement;
   hideValues: boolean;
 }) => (
-  <>
-    <Stack gap={0.5} sx={{ mt: 1 }}>
-      {headerAction ? (
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-          flexWrap="wrap"
-          gap={1}
-        >
-          <Text
-            size={FontSizes.SMALL}
-            weight={FontWeights.SEMI_BOLD}
-            color={Colors.neutral200}
-          >
-            {title}
-          </Text>
-          {headerAction}
-        </Stack>
-      ) : (
-        <Text
-          size={FontSizes.SMALL}
-          weight={FontWeights.SEMI_BOLD}
-          color={Colors.neutral200}
-        >
-          {title}
-        </Text>
-      )}
-      <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
-        {subtitle}
-      </Text>
-    </Stack>
-    <ResponsiveContainer width="100%" height={220}>
+  <ChartFrame
+    title={title}
+    subtitle={subtitle}
+    headerAction={headerAction}
+    fullscreenControls={fullscreenControls}
+    expandable={expandable}
+    height={220}
+    chart={
       <ComposedChart
         data={data}
         margin={{ top: 10, right: 5, left: 5, bottom: 0 }}
@@ -345,6 +324,6 @@ export const PercentileTrajectoryChart = <T extends object>({
           ))}
         {chartOverlay?.aboveLines}
       </ComposedChart>
-    </ResponsiveContainer>
-  </>
+    }
+  />
 );

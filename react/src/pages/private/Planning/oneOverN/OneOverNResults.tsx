@@ -193,6 +193,16 @@ export default function OneOverNResults({
   });
   const [showWithdrawals, setShowWithdrawals] = useState(false);
   const visible = scenarioVisibility ?? localVisible;
+  const scenarioControls = (
+    <ScenarioToggles
+      visible={visible}
+      onChange={(key, checked) =>
+        onScenarioVisibilityChange
+          ? onScenarioVisibilityChange(key, checked)
+          : setVisible((v) => ({ ...v, [key]: checked }))
+      }
+    />
+  );
   const money = (n: number) => (hideValues ? "***" : formatCurrency(n));
   const a = output.accumulation;
   const percent = (n: number) =>
@@ -289,6 +299,8 @@ export default function OneOverNResults({
     );
     return (
       <PercentileTrajectoryChart
+        expandable
+        fullscreenControls={scenarioControls}
         subtitle={
           showWithdrawals
             ? `Linhas: patrimônio restante. Barras azuis: retirada mensal. Gastos de referência: ${money(s.monthlyExpenses)}/mês.`
@@ -508,14 +520,7 @@ export default function OneOverNResults({
             <Text size={FontSizes.SMALL} weight={FontWeights.SEMI_BOLD}>
               O que pode acontecer com sua renda?
             </Text>
-            <ScenarioToggles
-              visible={visible}
-              onChange={(key, checked) =>
-                onScenarioVisibilityChange
-                  ? onScenarioVisibilityChange(key, checked)
-                  : setVisible((v) => ({ ...v, [key]: checked }))
-              }
-            />
+            {scenarioControls}
           </Stack>
           <Text size={FontSizes.EXTRA_SMALL}>
             Média mensal no ano de menor retirada de cada simulação, em valores
@@ -576,6 +581,8 @@ export default function OneOverNResults({
         </Stack>
         {a.gapBands.length > 1 && (
           <FireAccumulationChart
+            expandable
+            fullscreenControls={scenarioControls}
             strategy="1/N"
             accumulation={a}
             currentAge={s.currentAge}

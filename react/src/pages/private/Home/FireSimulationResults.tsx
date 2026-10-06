@@ -250,6 +250,17 @@ const FireSimulationResults = ({
     p50: showMediana,
     p90: showOtimista,
   };
+  const scenarioControls = (
+    <ScenarioToggles
+      visible={visible}
+      onChange={(key, checked) =>
+        onScenarioVisibilityChange(
+          key === "p90" ? "otimista" : key === "p50" ? "mediana" : "pessimista",
+          checked,
+        )
+      }
+    />
+  );
 
   const position = (row: number) =>
     comparisonColumn
@@ -378,19 +389,7 @@ const FireSimulationResults = ({
             <Text size={FontSizes.SMALL} weight={FontWeights.SEMI_BOLD}>
               O que pode acontecer com seu patrimonio?
             </Text>
-            <ScenarioToggles
-              visible={visible}
-              onChange={(key, checked) =>
-                onScenarioVisibilityChange(
-                  key === "p90"
-                    ? "otimista"
-                    : key === "p50"
-                      ? "mediana"
-                      : "pessimista",
-                  checked,
-                )
-              }
-            />
+            {scenarioControls}
           </Stack>
           <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
             Patrimonio final se a aposentadoria comecasse com o patrimonio usado
@@ -425,6 +424,8 @@ const FireSimulationResults = ({
             </tbody>
           </ScenarioTable>
           <PercentileTrajectoryChart
+            expandable
+            fullscreenControls={scenarioControls}
             subtitle={
               <>
                 Sucesso em {targetYears}a:{" "}

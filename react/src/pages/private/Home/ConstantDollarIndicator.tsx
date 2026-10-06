@@ -10,6 +10,7 @@ import LinearProgress, {
 import { styled } from "@mui/material/styles";
 
 import FireAccumulationChart from "./FireAccumulationChart";
+import { ScenarioToggles } from "../Planning/shared/simulationResultParts";
 
 import {
   Colors,
@@ -390,6 +391,26 @@ const ConstantDollarIndicator = ({
         retirementProgress < 100 &&
         accumulation.gapBands.length > 1 && (
           <FireAccumulationChart
+            expandable
+            fullscreenControls={
+              <ScenarioToggles
+                visible={{
+                  p10: showPessimista,
+                  p50: showMediana,
+                  p90: showOtimista,
+                }}
+                onChange={(key, checked) =>
+                  toggleScenario(
+                    key === "p90"
+                      ? "otimista"
+                      : key === "p50"
+                        ? "mediana"
+                        : "pessimista",
+                    checked,
+                  )
+                }
+              />
+            }
             accumulation={accumulation}
             currentAge={currentAge}
             hideValues={hideValues}

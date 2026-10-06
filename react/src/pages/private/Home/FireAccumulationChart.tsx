@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Stack from "@mui/material/Stack";
 import {
   ComposedChart,
@@ -7,17 +8,11 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip as RechartsTooltip,
-  ResponsiveContainer,
 } from "recharts";
-import {
-  Colors,
-  FontSizes,
-  FontWeights,
-  getColor,
-  Text,
-} from "../../../design-system";
+import { Colors, getColor } from "../../../design-system";
 import { formatCurrency } from "../utils";
 import type { AccumulationResult, BootstrapBand } from "./fireBootstrap";
+import { ChartFrame } from "../Planning/shared/ChartFrame";
 
 const numberTickFormatter = (value: number) => {
   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
@@ -87,6 +82,8 @@ const ChartTooltipContent = ({
 const FireAccumulationChart = ({
   strategy = "FIRE",
   showHeading = true,
+  expandable = false,
+  fullscreenControls,
   accumulation,
   currentAge,
   hideValues,
@@ -96,6 +93,8 @@ const FireAccumulationChart = ({
 }: {
   strategy?: "FIRE" | "VPW" | "1/N";
   showHeading?: boolean;
+  expandable?: boolean;
+  fullscreenControls?: ReactNode;
   accumulation: AccumulationResult;
   currentAge: number | null;
   hideValues: boolean;
@@ -123,27 +122,25 @@ const FireAccumulationChart = ({
   const refX = (years: number) =>
     useAgeAxis ? (currentAge as number) + years : years;
   return (
-    <>
-      <Stack gap={0.5} sx={{ mt: 2 }}>
-        {showHeading && (
-          <Text
-            size={FontSizes.SMALL}
-            weight={FontWeights.SEMI_BOLD}
-            color={Colors.neutral200}
-          >
-            {strategy !== "FIRE"
-              ? "Quando posso atingir a meta?"
-              : "Quando posso me aposentar?"}
-          </Text>
-        )}
-        <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
+    <ChartFrame
+      title={
+        strategy !== "FIRE"
+          ? "Quando posso atingir a meta?"
+          : "Quando posso me aposentar?"
+      }
+      subtitle={
+        <>
           O gráfico mostra quanto ainda falta para atingir a meta {strategy} em
           cada ano. As linhas verticais marcam quando os cenários otimista,
           mediano e pessimista cruzam a meta.
-        </Text>
-      </Stack>
-
-      <ResponsiveContainer width="100%" height={240}>
+        </>
+      }
+      showHeading={showHeading}
+      expandable={expandable}
+      fullscreenControls={fullscreenControls}
+      marginTop={2}
+      height={240}
+      chart={
         <ComposedChart
           data={accData}
           margin={{ top: 50, right: 5, left: 5, bottom: 0 }}
@@ -250,8 +247,8 @@ const FireAccumulationChart = ({
             />
           )}
         </ComposedChart>
-      </ResponsiveContainer>
-    </>
+      }
+    />
   );
 };
 

@@ -194,6 +194,16 @@ export default function VPWResults({
   });
   const [showWithdrawals, setShowWithdrawals] = useState(false);
   const visible = scenarioVisibility ?? localVisible;
+  const scenarioControls = (
+    <ScenarioToggles
+      visible={visible}
+      onChange={(key, checked) =>
+        onScenarioVisibilityChange
+          ? onScenarioVisibilityChange(key, checked)
+          : setVisible((v) => ({ ...v, [key]: checked }))
+      }
+    />
+  );
   const money = (n: number) => (hideValues ? "***" : formatCurrency(n));
   const a = output.accumulation;
   const percent = (n: number) =>
@@ -292,6 +302,8 @@ export default function VPWResults({
     return (
       <Stack gap={1.75} sx={{ minWidth: 0 }}>
         <PercentileTrajectoryChart
+          expandable
+          fullscreenControls={scenarioControls}
           subtitle={
             <>
               Sucesso até os {s.targetAge} anos:{" "}
@@ -522,14 +534,7 @@ export default function VPWResults({
             <Text size={FontSizes.SMALL} weight={FontWeights.SEMI_BOLD}>
               O que pode acontecer com sua renda?
             </Text>
-            <ScenarioToggles
-              visible={visible}
-              onChange={(key, checked) =>
-                onScenarioVisibilityChange
-                  ? onScenarioVisibilityChange(key, checked)
-                  : setVisible((v) => ({ ...v, [key]: checked }))
-              }
-            />
+            {scenarioControls}
           </Stack>
           <Text size={FontSizes.EXTRA_SMALL}>
             Gasto mensal que poderia ser mantido até os {s.targetAge} anos, em
@@ -608,6 +613,8 @@ export default function VPWResults({
         </Stack>
         {a && s.monthlySavings > 0 && a.gapBands.length > 1 && (
           <FireAccumulationChart
+            expandable
+            fullscreenControls={scenarioControls}
             strategy="VPW"
             accumulation={a}
             currentAge={s.currentAge}

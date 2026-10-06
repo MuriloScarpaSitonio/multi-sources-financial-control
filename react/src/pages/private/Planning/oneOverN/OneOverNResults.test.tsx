@@ -3,6 +3,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
@@ -154,6 +155,57 @@ it("shows retirement before accumulation like FIRE and VPW", () => {
   expect(accumulationRows[0].p50).toBe(0);
   expect(retirementRows[0].p50).toBe(600000);
   expect(retirementRows[0].income_p50).toBe(5000);
+});
+
+it("opens each chart alone in full screen and keeps its plotted data", async () => {
+  render(<OneOverNResults snapshot={snapshot} output={output} />);
+  const [retirement, accumulation] = screen.getAllByRole("figure");
+
+  fireEvent.click(
+    screen.getByRole("button", { name: /Expandir gráfico: Aposentadoria/ }),
+  );
+  const retirementDialog = screen.getByRole("dialog");
+  expect(within(retirementDialog).getAllByRole("figure")).toHaveLength(1);
+  expect(
+    within(retirementDialog).getByRole("figure").getAttribute("data-chart"),
+  ).toBe(retirement.getAttribute("data-chart"));
+  expect(
+    within(retirementDialog).getByRole("figure").parentElement,
+  ).toHaveAttribute("data-height", "100%");
+  fireEvent.click(
+    within(retirementDialog).getByRole("checkbox", { name: "Pessimista" }),
+  );
+  expect(
+    within(retirementDialog).getByRole("checkbox", { name: "Pessimista" }),
+  ).not.toBeChecked();
+  expect(
+    within(retirementDialog)
+      .getByRole("figure")
+      .querySelector('[data-line="p10"]'),
+  ).toBeNull();
+  fireEvent.click(
+    within(retirementDialog).getByRole("button", { name: "Fechar tela cheia" }),
+  );
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: /Expandir gráfico: Quando posso atingir a meta/,
+    }),
+  );
+  const accumulationDialog = screen.getByRole("dialog");
+  expect(within(accumulationDialog).getAllByRole("figure")).toHaveLength(1);
+  expect(
+    within(accumulationDialog).getByRole("checkbox", { name: "Pessimista" }),
+  ).not.toBeChecked();
+  expect(
+    within(accumulationDialog)
+      .getByRole("figure")
+      .querySelector('[data-line="p90"]'),
+  ).toBeNull();
+  expect(
+    within(accumulationDialog).getByRole("figure").getAttribute("data-chart"),
+  ).toBe(accumulation.getAttribute("data-chart"));
 });
 
 it("keeps the compact chart presentation and only shows plotted metrics", () => {

@@ -15,6 +15,7 @@ import {
 } from "../../../../design-system";
 import { useHideValues } from "../../../../hooks/useHideValues";
 import FireAccumulationChart from "../../Home/FireAccumulationChart";
+import { ScenarioToggles } from "../shared/simulationResultParts";
 import FireSimulationResults from "../../Home/FireSimulationResults";
 import FireAccumulationExtensionNotice from "../../Home/FireAccumulationExtensionNotice";
 import type { FireSimulationResult } from "../../Home/fireSimulation";
@@ -139,6 +140,26 @@ const FireComparisonPanel = ({
             }}
           >
             <FireAccumulationChart
+              expandable
+              fullscreenControls={
+                <ScenarioToggles
+                  visible={{
+                    p10: visible.includes("pessimista"),
+                    p50: visible.includes("mediana"),
+                    p90: visible.includes("otimista"),
+                  }}
+                  onChange={(key, checked) =>
+                    toggle(
+                      key === "p90"
+                        ? "otimista"
+                        : key === "p50"
+                          ? "mediana"
+                          : "pessimista",
+                      checked,
+                    )
+                  }
+                />
+              }
               accumulation={props.accumulation}
               currentAge={source.currentAge}
               hideValues={hideValues}
