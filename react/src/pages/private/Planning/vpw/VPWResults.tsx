@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { Bar, ReferenceLine, YAxis } from "recharts";
 import Box from "@mui/material/Box";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import {
   getFireSuccessBand,
   formatSimulationSuccessRate,
@@ -7,8 +9,10 @@ import {
 import { MetricBlock } from "../../Home/FireSimulationResults";
 import FireAccumulationChart from "../../Home/FireAccumulationChart";
 import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
 import {
   ChartTooltipBox,
+  compactNumberTick,
   GoalProgressBar,
   PercentileTrajectoryChart,
   ScenarioTable,
@@ -52,30 +56,116 @@ const scenarios = [
   },
 ] as const;
 
+const compactCurrency = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+type ScenarioKey = (typeof scenarios)[number]["key"];
+const withdrawalColors: Record<ScenarioKey, string> = {
+  p10: "#93c5fd",
+  p50: "#60a5fa",
+  p90: "#3b82f6",
+};
+
+type RetirementPoint = BootstrapBand & {
+  age: number;
+  income_p10?: number;
+  income_p50?: number;
+  income_p90?: number;
+};
+
 const BandTooltip = ({
   active,
   payload,
   visible,
-  money,
+  hidden,
+  showWithdrawals,
 }: {
   active?: boolean;
-  payload?: { payload: BootstrapBand & { age: number } }[];
+  payload?: { payload: RetirementPoint }[];
   visible: PercentileVisibility;
-  money: (n: number) => string;
+  hidden: boolean;
+  showWithdrawals: boolean;
 }) => {
   if (!active || !payload?.length) return null;
   const point = payload[0].payload;
+  const income = {
+    p10: point.income_p10,
+    p50: point.income_p50,
+    p90: point.income_p90,
+  };
+  const showIncome =
+    showWithdrawals &&
+    scenarios.some(
+      (item) => visible[item.key] && income[item.key] !== undefined,
+    );
+  const value = (amount: number | undefined) =>
+    amount === undefined
+      ? "—"
+      : hidden
+        ? "***"
+        : compactCurrency.format(amount);
   return (
-    <ChartTooltipBox>
-      <p style={{ color: getColor(Colors.neutral300) }}>Idade: {point.age}</p>
-      {scenarios
-        .filter((item) => visible[item.key])
-        .map((item) => (
-          <p key={item.key} style={{ color: item.color }}>
-            {item.key === "p50" ? "Mediana" : item.label} ({item.key}):{" "}
-            {money(point[item.key])}
-          </p>
-        ))}
+    <ChartTooltipBox sx={{ maxWidth: 360 }}>
+      <p style={{ color: getColor(Colors.neutral300) }}>
+        Ano {point.year} (idade {point.age})
+      </p>
+      <table
+        aria-label="Valores da aposentadoria"
+        style={{ borderCollapse: "collapse", fontSize: 12 }}
+      >
+        <thead>
+          <tr style={{ color: getColor(Colors.neutral300) }}>
+            <th scope="col" style={{ textAlign: "left" }}>
+              Cenário
+            </th>
+            <th scope="col" style={{ paddingLeft: 12, textAlign: "right" }}>
+              Patrimônio
+            </th>
+            {showIncome && (
+              <th scope="col" style={{ paddingLeft: 12, textAlign: "right" }}>
+                Retirada/mês
+              </th>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {scenarios
+            .filter((item) => visible[item.key])
+            .map((item) => (
+              <tr key={item.key}>
+                <td style={{ color: item.color, whiteSpace: "nowrap" }}>
+                  {item.key === "p50" ? "Mediana" : item.label}
+                </td>
+                <td
+                  style={{
+                    color: item.color,
+                    paddingLeft: 12,
+                    textAlign: "right",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {value(point[item.key])}
+                </td>
+                {showIncome && (
+                  <td
+                    style={{
+                      color: withdrawalColors[item.key],
+                      paddingLeft: 12,
+                      textAlign: "right",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {value(income[item.key])}
+                  </td>
+                )}
+              </tr>
+            ))}
+        </tbody>
+      </table>
     </ChartTooltipBox>
   );
 };
@@ -102,6 +192,7 @@ export default function VPWResults({
     p50: true,
     p90: true,
   });
+  const [showWithdrawals, setShowWithdrawals] = useState(false);
   const visible = scenarioVisibility ?? localVisible;
   const money = (n: number) => (hideValues ? "***" : formatCurrency(n));
   const a = output.accumulation;
@@ -170,7 +261,34 @@ export default function VPWResults({
   };
   const chart = (bands: BootstrapBand[]) => {
     if (!bands.length) return null;
-    const data = bands.map((b) => ({ ...b, age: s.currentAge + b.year }));
+    const incomes = new Map(
+      output.retirement.withdrawalBands.map((b) => [b.year, b]),
+    );
+    const data = bands.map((b) => {
+      if (!showWithdrawals) return { ...b, age: s.currentAge + b.year };
+      const income = incomes.get(b.year);
+      return {
+        ...b,
+        age: s.currentAge + b.year,
+        income_p10: income?.p10 === undefined ? undefined : income.p10 / 12,
+        income_p50: income?.p50 === undefined ? undefined : income.p50 / 12,
+        income_p90: income?.p90 === undefined ? undefined : income.p90 / 12,
+      };
+    });
+    const withdrawalSwitch = (
+      <FormControlLabel
+        control={
+          <Switch
+            size="small"
+            inputProps={{ role: "switch" }}
+            checked={showWithdrawals}
+            onChange={(_, checked) => setShowWithdrawals(checked)}
+          />
+        }
+        label="Mostrar retiradas"
+        sx={{ m: 0, "& .MuiFormControlLabel-label": { fontSize: 12 } }}
+      />
+    );
     return (
       <Stack gap={1.75} sx={{ minWidth: 0 }}>
         <PercentileTrajectoryChart
@@ -185,14 +303,73 @@ export default function VPWResults({
                     : formatSimulationSuccessRate(successRate)}
               </strong>
               {" · "}Gastos: <strong>{money(s.monthlyExpenses)}/mês</strong>
+              {showWithdrawals &&
+                " · Linhas: patrimônio. Barras azuis: retirada mensal."}
             </>
           }
+          headerAction={withdrawalSwitch}
           data={data}
           xKey="age"
           dataKeys={{ p10: "p10", p50: "p50", p90: "p90" }}
           visible={visible}
           hideValues={hideValues}
-          tooltip={<BandTooltip visible={visible} money={money} />}
+          tooltip={
+            <BandTooltip
+              visible={visible}
+              hidden={hideValues}
+              showWithdrawals={showWithdrawals}
+            />
+          }
+          chartOverlay={
+            showWithdrawals
+              ? {
+                  axis: (
+                    <YAxis
+                      yAxisId="income"
+                      orientation="right"
+                      stroke={withdrawalColors.p50}
+                      tick={{ fill: withdrawalColors.p50 }}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={compactNumberTick}
+                      tickCount={hideValues ? 0 : undefined}
+                      label={{
+                        value: "R$/mês",
+                        angle: 90,
+                        position: "insideRight",
+                        fill: withdrawalColors.p50,
+                        fontSize: 12,
+                      }}
+                    />
+                  ),
+                  behindLines: (
+                    <>
+                      {scenarios
+                        .filter((item) => visible[item.key])
+                        .map((item) => (
+                          <Bar
+                            key={`income-${item.key}`}
+                            yAxisId="income"
+                            dataKey={`income_${item.key}`}
+                            name={`Retirada · ${item.label}`}
+                            fill={withdrawalColors[item.key]}
+                            fillOpacity={0.65}
+                            stroke={withdrawalColors[item.key]}
+                          />
+                        ))}
+                    </>
+                  ),
+                  aboveLines: (
+                    <ReferenceLine
+                      yAxisId="income"
+                      y={s.monthlyExpenses}
+                      stroke={getColor(Colors.danger200)}
+                      strokeDasharray="5 5"
+                    />
+                  ),
+                }
+              : undefined
+          }
         />
       </Stack>
     );
