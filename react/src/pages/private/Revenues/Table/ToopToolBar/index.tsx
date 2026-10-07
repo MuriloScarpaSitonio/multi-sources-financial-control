@@ -1,4 +1,10 @@
 import {
+  FullHistorySearchBar,
+  FullHistoryFilterIndicators,
+} from "../../../Expenses/FullHistorySearchControls";
+import { type SearchDateControls } from "../../../Expenses/fullHistorySearch";
+import Alert from "@mui/material/Alert";
+import {
   useState,
   type Dispatch,
   type MouseEvent,
@@ -21,7 +27,9 @@ import {
 } from "material-react-table";
 
 import { Colors, getColor } from "../../../../../design-system";
-import FilterIndicators, { type DateFilterProps } from "../../../../../components/FilterIndicators";
+import FilterIndicators, {
+  type DateFilterProps,
+} from "../../../../../components/FilterIndicators";
 import {
   ShowHideColumnsMenuItem,
   ToggleDensityMenuItem,
@@ -34,7 +42,10 @@ import {
   ManageRelatedEntitiesMenuItem,
   ManageRelatedEntitiesDrawer,
 } from "./ManageRelatedEntitiesMenuItem";
-import { revenuesFilterConfig } from "../../filterConfig";
+import {
+  revenuesFilterConfig,
+  revenuesSearchFilterConfig,
+} from "../../filterConfig";
 import { Filters } from "../../types";
 import { SearchBar } from "../../../components";
 
@@ -80,6 +91,10 @@ const TopToolBar = ({
   setFilters,
   defaultFilters,
   dateFilters,
+  isSearch = false,
+  onOpenSearch,
+  onBackToOverview,
+  searchDateControls,
 }: {
   table: DataTable<Row>;
   search: string;
@@ -89,6 +104,10 @@ const TopToolBar = ({
   setFilters: Dispatch<SetStateAction<Filters>>;
   defaultFilters: Filters;
   dateFilters: DateFilterProps;
+  isSearch?: boolean;
+  onOpenSearch?: () => void;
+  onBackToOverview?: () => void;
+  searchDateControls?: SearchDateControls;
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openDrawer, setOpenDrawer] = useState(false);
@@ -104,15 +123,29 @@ const TopToolBar = ({
         }}
       >
         <Grid item xs={6}>
-          <SearchBar
-            search={search}
-            placeholder="Pesquisar por descrição"
-            setSearch={setSearch}
-            setPagination={setPagination}
-          />
+          {isSearch ? (
+            <FullHistorySearchBar search={search} setSearch={setSearch} />
+          ) : (
+            <SearchBar
+              search={search}
+              placeholder="Pesquisar por descrição"
+              setSearch={setSearch}
+              setPagination={setPagination}
+            />
+          )}
         </Grid>
         <Grid container item xs={6} justifyContent="flex-end">
           <Stack direction="row" spacing={1}>
+            {onOpenSearch && (
+              <Button variant="neutral" onClick={onOpenSearch}>
+                Pesquisar todas as receitas
+              </Button>
+            )}
+            {onBackToOverview && (
+              <Button variant="neutral" onClick={onBackToOverview}>
+                Voltar à visão geral
+              </Button>
+            )}
             <Button
               startIcon={<AddIcon />}
               size="large"
@@ -132,19 +165,31 @@ const TopToolBar = ({
           </Stack>
         </Grid>
       </Grid>
-      <FilterIndicators
-        filters={filters}
-        setFilters={setFilters}
-        defaultFilters={defaultFilters}
-        fieldConfigs={revenuesFilterConfig}
-        dateFilters={dateFilters}
-      />
+      {isSearch && table.getState().showAlertBanner && (
+        <Alert severity="error">Não foi possível carregar receitas.</Alert>
+      )}
+      {isSearch ? (
+        <FullHistoryFilterIndicators
+          filters={filters}
+          setFilters={setFilters}
+          fieldConfigs={revenuesSearchFilterConfig}
+        />
+      ) : (
+        <FilterIndicators
+          filters={filters}
+          setFilters={setFilters}
+          defaultFilters={defaultFilters}
+          fieldConfigs={revenuesFilterConfig}
+          dateFilters={dateFilters}
+        />
+      )}
       <FiltersMenu
         open={Boolean(anchorEl)}
         onClose={() => setAnchorEl(null)}
         anchorEl={anchorEl}
         filters={filters}
         setFilters={setFilters}
+        searchDateControls={searchDateControls}
       />
       <RevenueDrawer open={openDrawer} onClose={() => setOpenDrawer(false)} />
     </>

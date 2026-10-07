@@ -1,4 +1,10 @@
-import { useContext, useEffect, type Dispatch, type SetStateAction } from "react";
+import type { SearchDateControls } from "../../fullHistorySearch";
+import {
+  useContext,
+  useEffect,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 
 import { ptBR } from "date-fns/locale/pt-BR";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFnsV3";
@@ -50,12 +56,14 @@ export const FiltersMenu = ({
   anchorEl,
   filters,
   setFilters,
+  searchDateControls,
 }: {
   open: boolean;
   onClose: () => void;
   anchorEl: null | HTMLElement;
   filters: Filters;
   setFilters: Dispatch<SetStateAction<Filters>>;
+  searchDateControls?: SearchDateControls;
 }) => {
   const {
     startDate,
@@ -67,10 +75,12 @@ export const FiltersMenu = ({
     sources,
   } = useContext(ExpensesContext);
   const { data: bankAccountsData } = useBankAccounts();
-  const bankAccountOptions = (bankAccountsData?.results ?? []).map((account) => ({
-    value: account.description,
-    label: account.description,
-  }));
+  const bankAccountOptions = (bankAccountsData?.results ?? []).map(
+    (account) => ({
+      value: account.description,
+      label: account.description,
+    }),
+  );
 
   const { control, watch, getValues, reset } = useForm({
     resolver: yupResolver(schema),
@@ -91,7 +101,10 @@ export const FiltersMenu = ({
       source: (filters.source ?? []).map((v) => ({ label: v, value: v })),
       tags: filters.tag ?? [],
       bank_account_description: filters.bank_account_description
-        ? { label: filters.bank_account_description, value: filters.bank_account_description }
+        ? {
+            label: filters.bank_account_description,
+            value: filters.bank_account_description,
+          }
         : null,
     });
   }, [filters, reset]);
@@ -153,9 +166,18 @@ export const FiltersMenu = ({
                   {...field}
                   label="Início"
                   format="dd/MM/yyyy"
-                  defaultValue={startDate}
-                  slotProps={{ textField: { required: true } }}
+                  {...(searchDateControls
+                    ? { value: searchDateControls.startDate }
+                    : { defaultValue: startDate })}
+                  slotProps={{
+                    textField: { required: !searchDateControls },
+                    field: { clearable: !!searchDateControls },
+                  }}
                   onChange={(date) => {
+                    if (searchDateControls) {
+                      searchDateControls.onStartDateChange(date);
+                      return;
+                    }
                     if (date) {
                       setStartDate(date);
                       if (!isFilteringWholeMonth(date, endDate))
@@ -178,9 +200,18 @@ export const FiltersMenu = ({
                   {...field}
                   label="Fim"
                   format="dd/MM/yyyy"
-                  defaultValue={endDate}
-                  slotProps={{ textField: { required: true } }}
+                  {...(searchDateControls
+                    ? { value: searchDateControls.endDate }
+                    : { defaultValue: endDate })}
+                  slotProps={{
+                    textField: { required: !searchDateControls },
+                    field: { clearable: !!searchDateControls },
+                  }}
                   onChange={(date) => {
+                    if (searchDateControls) {
+                      searchDateControls.onEndDateChange(date);
+                      return;
+                    }
                     if (date) {
                       setEndDate(date);
                       if (!isFilteringWholeMonth(startDate, date))
@@ -243,11 +274,16 @@ export const FiltersMenu = ({
                   optionValue === value
                 }
                 filterOptions={(options, state) => {
-                  if (!state.inputValue || state.inputValue === field.value?.label) {
+                  if (
+                    !state.inputValue ||
+                    state.inputValue === field.value?.label
+                  ) {
                     return options;
                   }
                   return options.filter((option) =>
-                    option.label?.toLowerCase().includes(state.inputValue.toLowerCase())
+                    option.label
+                      ?.toLowerCase()
+                      .includes(state.inputValue.toLowerCase()),
                   );
                 }}
                 onChange={(_, value) => {
@@ -258,7 +294,11 @@ export const FiltersMenu = ({
                   }));
                 }}
                 renderInput={(params) => (
-                  <TextField {...params} label="Conta bancária" variant="standard" />
+                  <TextField
+                    {...params}
+                    label="Conta bancária"
+                    variant="standard"
+                  />
                 )}
               />
             )}

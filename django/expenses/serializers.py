@@ -60,11 +60,39 @@ class ExpenseSerializer(serializers.ModelSerializer):
             "is_fixed",
             "user",
             "installments",
+            "installments_id",
+            "installment_number",
+            "installments_qty",
             "full_description",
             "tags",
             "bank_account_description",
         )
         extra_kwargs = {"id": {"read_only": True}, "full_description": {"read_only": True}}
+        read_only_fields = ("installments_id", "installment_number", "installments_qty")
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if isinstance(instance, ExpenseDomainModel):
+            # Mutations return a domain object; response metadata belongs to the
+            # persisted installment, including nulls for ordinary expenses.
+            if instance.id is None and instance.installments_id is None:
+                metadata = dict.fromkeys(self.Meta.read_only_fields)
+            else:
+                lookup = (
+                    {"pk": instance.id}
+                    if instance.id is not None
+                    else {"installments_id": instance.installments_id, "installment_number": 1}
+                )
+                metadata = (
+                    Expense.objects.filter(user=self.context["request"].user)
+                    .values(*self.Meta.read_only_fields)
+                    .get(**lookup)
+                )
+            for name, value in metadata.items():
+                data[name] = (
+                    self.fields[name].to_representation(value) if value is not None else None
+                )
+        return data
 
     def create(self, validated_data: dict[str, Any]) -> Expense:
         try:
@@ -312,6 +340,15 @@ class BankAccountSerializer(serializers.ModelSerializer):
             "updated_at": {"read_only": True},
             "is_active": {"read_only": True},
         }
+
+    def get_unique_together_validators(self):
+        # The view transfers the default flag before saving. DRF 3.18's new
+        # single-field constraint validator would reject that transfer first.
+        return [
+            validator
+            for validator in super().get_unique_together_validators()
+            if validator.fields != ("user",)
+        ]
 
     def save(self, **kwargs):
         try:

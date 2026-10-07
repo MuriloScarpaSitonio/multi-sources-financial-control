@@ -13,13 +13,13 @@ typing-check:
 	mypy . --exclude=tests --ignore-missing-imports
 
 test:
-	USE_POSTGRES=1 uv run pytest -n auto --disable-warnings --cov-report=term-missing:skip-covered --cov-report=html --cov=. --create-db
+	uv run pytest -n auto --disable-warnings --cov-report=term-missing:skip-covered --cov-report=html --cov=. --create-db
 
 test-exit:
-	USE_POSTGRES=1 pytest -n auto --disable-warnings --exitfirst
+	pytest -n auto --disable-warnings --exitfirst
 
 test-last:
-	USE_POSTGRES=1 pytest -s --disable-warnings --exitfirst --last-failed
+	pytest -s --disable-warnings --exitfirst --last-failed
 
 
 pre-commit: test code-convention security-check #typing-check

@@ -1,6 +1,13 @@
+import { isAxiosError } from "axios";
+import {
+  getFullHistoryOrdering,
+  getSearchDateControls,
+  type FullHistoryTableProps,
+  type SearchFields,
+} from "../../Expenses/fullHistorySearch";
 import type { ApiListResponse, RawDateString } from "../../../../types";
 
-import { useContext, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 
 import { startOfMonth } from "date-fns";
 
@@ -41,12 +48,7 @@ import RevenueDrawer from "./RevenueDrawer";
 import TopToolBar from "./ToopToolBar";
 import { Filters } from "../types";
 
-interface TableProps {
-  externalFilters: {
-    filters: Filters;
-    setFilters: Dispatch<SetStateAction<Filters>> | ((filters: Filters) => void);
-  };
-}
+type TableProps = FullHistoryTableProps<Filters>;
 
 type GroupedRevenue = Revenue & { type: string };
 
@@ -80,7 +82,7 @@ const getRevenuesGroupedByType = async (filters: {
   };
 };
 
-const useOnRevenueDeleteSuccess = () => {
+const useOnRevenueDeleteSuccess = (isSearch: boolean) => {
   const queryClient = useQueryClient();
   const { invalidate: invalidateRevenuesQueries } =
     useInvalidateRevenuesQueries(queryClient);
@@ -106,21 +108,38 @@ const useOnRevenueDeleteSuccess = () => {
   return {
     onDeleteSuccess: async (RevenueId: number) => {
       await invalidateRevenuesQueries({ invalidateTableQuery: false });
-      removeRevenueFromCachedData(RevenueId);
+      if (isSearch) {
+        await queryClient.cancelQueries({
+          queryKey: [REVENUES_QUERY_KEY, "search"],
+        });
+        await queryClient.invalidateQueries({
+          queryKey: [REVENUES_QUERY_KEY, "search"],
+        });
+      } else removeRevenueFromCachedData(RevenueId);
     },
   };
 };
 
 const defaultFilters: Filters = {};
 
-const Table = ({ externalFilters }: TableProps) => {
-  const [deleteRevenue, setDeleteRevenue] = useState<
-    GroupedRevenue | undefined
-  >();
-  const [editRevenue, setEditRevenue] = useState<GroupedRevenue | undefined>();
+const Table = (props: TableProps) => {
+  const { externalFilters } = props;
+  const isSearch = props.mode === "search";
+  const scopedFilters = externalFilters.filters as Filters & SearchFields;
+  const searchFiltersSetter = externalFilters.setFilters as React.Dispatch<
+    React.SetStateAction<Filters & SearchFields>
+  >;
+  const [deleteRevenue, setDeleteRevenue] = useState<Revenue | undefined>();
+  const [editRevenue, setEditRevenue] = useState<Revenue | undefined>();
 
-  const { startDate, setStartDate, endDate, setEndDate, isRelatedEntitiesLoading, revenuesCategories } =
-    useContext(ExpensesContext);
+  const {
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
+    isRelatedEntitiesLoading,
+    revenuesCategories,
+  } = useContext(ExpensesContext);
 
   const dateFilters = useMemo(() => {
     const now = new Date();
@@ -138,7 +157,7 @@ const Table = ({ externalFilters }: TableProps) => {
 
   const columns = useMemo<Column<GroupedRevenue>[]>(
     () => [
-      { header: "", accessorKey: "type", size: 25 },
+      ...(!isSearch ? [{ header: "", accessorKey: "type", size: 25 }] : []),
       {
         header: "Descrição",
         accessorKey: "full_description",
@@ -161,9 +180,9 @@ const Table = ({ externalFilters }: TableProps) => {
             {hideValues
               ? ""
               : `R$ ${cell.getValue<number>().toLocaleString("pt-br", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`}
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`}
           </Text>
         ),
       },
@@ -194,10 +213,10 @@ const Table = ({ externalFilters }: TableProps) => {
         },
       },
     ],
-    [revenuesCategories, hideValues],
+    [revenuesCategories, hideValues, isSearch],
   );
 
-  const { onDeleteSuccess } = useOnRevenueDeleteSuccess();
+  const { onDeleteSuccess } = useOnRevenueDeleteSuccess(isSearch);
   const {
     table,
     search,
@@ -205,34 +224,62 @@ const Table = ({ externalFilters }: TableProps) => {
     pagination,
     setPagination,
     sorting,
+    queryError,
     filters,
     setFilters,
   } = useTable({
     columns: columns as Column<any>[],
-    queryKey: [
-      REVENUES_QUERY_KEY,
-      startDate.toLocaleDateString("pt-br"),
-      endDate.toLocaleDateString("pt-br"),
-    ],
+    queryKey: isSearch
+      ? [REVENUES_QUERY_KEY, "search"]
+      : [
+          REVENUES_QUERY_KEY,
+          startDate.toLocaleDateString("pt-br"),
+          endDate.toLocaleDateString("pt-br"),
+        ],
     defaultFilters,
-    externalFilters: externalFilters as { filters: Record<string, any>; setFilters: any },
-    enableExpanding: true,
-    enableExpandAll: true,
-    enableGrouping: true,
+    externalFilters: externalFilters as {
+      filters: Record<string, any>;
+      setFilters: any;
+    },
+    initialSearch: props.mode !== "search" ? props.initialSearch : undefined,
+    ...(isSearch
+      ? {
+          externalSearch: {
+            value: scopedFilters.description ?? "",
+            setValue: (value) =>
+              searchFiltersSetter((previous) => ({
+                ...previous,
+                description:
+                  typeof value === "function"
+                    ? value(previous.description ?? "")
+                    : value,
+              })),
+          },
+          paginationResetKey: JSON.stringify(scopedFilters),
+        }
+      : {}),
+    enableExpanding: !isSearch,
+    enableExpandAll: !isSearch,
+    enableGrouping: !isSearch,
     manualExpanding: false,
     groupedColumnMode: "remove",
-    positionToolbarAlertBanner: "none",
+    positionToolbarAlertBanner: isSearch ? "top" : "none",
     defaultPageSize: 100,
     editDisplayMode: "custom",
     enableRowActions: true,
     enableToolbarInternalActions: true,
     isLoading: isRelatedEntitiesLoading,
     positionActionsColumn: "last",
-    initialState: {
-      grouping: ["type"],
-      expanded: { "type:Outras": true, "type:Receitas fixas": true },
+    initialState: isSearch
+      ? {}
+      : {
+          grouping: ["type"],
+          expanded: { "type:Outras": true, "type:Receitas fixas": true },
+        },
+    localization: {
+      noRecordsToDisplay: "Nenhuma receita encontrada",
+      rowsPerPage: "Receitas por página",
     },
-    localization: { noRecordsToDisplay: "Nenhuma receita encontrada", rowsPerPage: "Receitas por página" },
     displayColumnDefOptions: {
       "mrt-row-expand": {
         muiTableBodyCellProps: () => ({
@@ -245,16 +292,24 @@ const Table = ({ externalFilters }: TableProps) => {
       },
     },
     queryFn: () =>
-      getRevenuesGroupedByType({
-        page: pagination.pageIndex + 1,
-        page_size: pagination.pageSize,
-        ordering:
-          sorting.map((s) => (s.desc ? `-${s.id}` : s.id))[0] ?? "-created_at",
-        description: search,
-        startDate,
-        endDate,
-        ...filters,
-      }),
+      isSearch
+        ? getRevenues({
+            ...scopedFilters,
+            page: pagination.pageIndex + 1,
+            page_size: pagination.pageSize,
+            ordering: getFullHistoryOrdering(sorting),
+          })
+        : getRevenuesGroupedByType({
+            page: pagination.pageIndex + 1,
+            page_size: pagination.pageSize,
+            ordering:
+              sorting.map((s) => (s.desc ? `-${s.id}` : s.id))[0] ??
+              "-created_at",
+            description: search,
+            startDate,
+            endDate,
+            ...filters,
+          }),
     getRowId: (row: Revenue) => row.id?.toString(),
     renderTopToolbar: ({ table }) => (
       <TopToolBar
@@ -266,6 +321,20 @@ const Table = ({ externalFilters }: TableProps) => {
         setFilters={setFilters}
         defaultFilters={defaultFilters}
         dateFilters={dateFilters}
+        isSearch={isSearch}
+        onOpenSearch={
+          props.mode !== "search" && props.onOpenSearch
+            ? () => props.onOpenSearch?.(search)
+            : undefined
+        }
+        onBackToOverview={
+          props.mode === "search" ? props.onBackToOverview : undefined
+        }
+        searchDateControls={
+          isSearch
+            ? getSearchDateControls(scopedFilters, searchFiltersSetter)
+            : undefined
+        }
       />
     ),
     renderRowActions: ({ row, table }) => (
@@ -290,11 +359,26 @@ const Table = ({ externalFilters }: TableProps) => {
     ),
   });
 
+  useEffect(() => {
+    if (
+      isSearch &&
+      pagination.pageIndex > 0 &&
+      isAxiosError(queryError) &&
+      queryError.response?.status === 404 &&
+      queryError.response.data?.detail === "Invalid page."
+    ) {
+      setPagination((previous) => ({
+        ...previous,
+        pageIndex: Math.max(0, previous.pageIndex - 1),
+      }));
+    }
+  }, [isSearch, queryError, pagination.pageIndex, setPagination]);
+
   return (
     <>
       <MaterialReactTable table={table} />
       <DeleteRevenueDialog
-        revenue={deleteRevenue as GroupedRevenue}
+        revenue={deleteRevenue as Revenue}
         open={!!deleteRevenue}
         onClose={() => setDeleteRevenue(undefined)}
         onSuccess={onDeleteSuccess}

@@ -10,3 +10,11 @@ export const revenuesFilterConfig: FilterFieldConfigs = {
 export const revenuesFilterSchema: FilterSchema = {
   bank_account_description: { type: "string" },
 };
+
+export const revenuesSearchFilterSchema: FilterSchema = {
+  ...revenuesFilterSchema,
+  description: { type: "string" }, startDate: { type: "string" }, endDate: { type: "string" },
+};
+export const revenuesSearchFilterConfig: FilterFieldConfigs = {
+  ...revenuesFilterConfig, startDate: { label: "Início" }, endDate: { label: "Fim" },
+};

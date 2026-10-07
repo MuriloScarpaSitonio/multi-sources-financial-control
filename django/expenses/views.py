@@ -59,7 +59,7 @@ class _PersonalFinanceViewSet(
 ):
     historic_filterset_class: ClassVar[FilterSet]
     permission_classes = (SubscriptionEndedPermission, PersonalFinancesModulePermission)
-    ordering_fields = ("created_at", "value")
+    ordering_fields = ("created_at", "value", "id")
     indicators_serializer_class = serializers.PersonalFinancesIndicatorsSerializer
 
     def get_serializer_context(self):

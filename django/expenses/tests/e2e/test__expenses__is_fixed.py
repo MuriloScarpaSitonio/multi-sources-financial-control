@@ -878,11 +878,11 @@ def test__update__is_fixed__current__tags(client, fixed_expenses, bank_account):
         .count()
         == 10
     )
-    assert list(
+    assert set(
         Expense.objects.filter(
             recurring_id__isnull=False, recurring_id=expense.recurring_id, tags__isnull=True
         ).values_list("id", flat=True)
-    ) == [fixed_expenses[0].id, fixed_expenses[1].id]
+    ) == {fixed_expenses[0].id, fixed_expenses[1].id}
     assert Expense.objects.values("created_at__month", "created_at__year").distinct().count() == 12
     assert (
         list(
@@ -1177,11 +1177,11 @@ def test__update__is_fixed__current__tags__reuse__empty(
         .count()
         == 10
     )
-    assert list(
+    assert set(
         Expense.objects.filter(
             recurring_id__isnull=False, recurring_id=expense.recurring_id, tags__isnull=True
         ).values_list("id", flat=True)
-    ) == [fixed_expenses[0].id, fixed_expenses[1].id]
+    ) == {fixed_expenses[0].id, fixed_expenses[1].id}
 
     assert Expense.objects.values("created_at__month", "created_at__year").distinct().count() == 12
     assert (

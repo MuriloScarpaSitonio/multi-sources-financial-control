@@ -34,7 +34,10 @@ import { Expense } from "../../api/models";
 import { AutoCompleteForRelatedEntities } from "../../components";
 import TagsAutoComplete from "../../components/TagsAutoComplete";
 import { ExpensesContext } from "../../context";
-import { useDefaultBankAccount, useInvalidateExpenseQueries } from "../../hooks";
+import {
+  useDefaultBankAccount,
+  useInvalidateExpenseQueries,
+} from "../../hooks";
 import Autocomplete from "@mui/material/Autocomplete";
 
 const schema = yup.object().shape({
@@ -145,9 +148,15 @@ const ExpenseForm = ({
   onEditSuccess?: () => void;
   initialData?: Expense;
 }) => {
-  const { sources, categories, mostCommonCategory, mostCommonSource } =
-    useContext(ExpensesContext);
-  const { data: defaultBankAccount, accounts: bankAccounts } = useDefaultBankAccount();
+  const {
+    sources,
+    categories,
+    mostCommonCategory,
+    mostCommonSource,
+    isFullHistorySearch,
+  } = useContext(ExpensesContext);
+  const { data: defaultBankAccount, accounts: bankAccounts } =
+    useDefaultBankAccount();
 
   const {
     id: expenseId,
@@ -156,6 +165,9 @@ const ExpenseForm = ({
     created_at,
     is_fixed,
     bank_account_description: _bankAccountDescription,
+    installments_id: _installmentsId,
+    installment_number: _installmentNumber,
+    installments_qty: _installmentsQty,
     ...rest
   } = initialData ?? {
     category: mostCommonCategory?.name ?? "Alimentação",
@@ -173,10 +185,16 @@ const ExpenseForm = ({
 
   const defaultBankAccountOption = useMemo(() => {
     if (initialData?.bank_account_description) {
-      return { label: initialData.bank_account_description, value: initialData.bank_account_description };
+      return {
+        label: initialData.bank_account_description,
+        value: initialData.bank_account_description,
+      };
     }
     return defaultBankAccount
-      ? { label: defaultBankAccount.description, value: defaultBankAccount.description }
+      ? {
+          label: defaultBankAccount.description,
+          value: defaultBankAccount.description,
+        }
       : null;
   }, [initialData, defaultBankAccount]);
 
@@ -200,7 +218,18 @@ const ExpenseForm = ({
       bank_account_description: defaultBankAccountOption,
       ...rest,
     }),
-    [category, created_at, is_fixed, rest, source, categories, sources, mostCommonCategory, mostCommonSource, defaultBankAccountOption],
+    [
+      category,
+      created_at,
+      is_fixed,
+      rest,
+      source,
+      categories,
+      sources,
+      mostCommonCategory,
+      mostCommonSource,
+      defaultBankAccountOption,
+    ],
   );
 
   const queryClient = useQueryClient();
@@ -209,7 +238,13 @@ const ExpenseForm = ({
 
   const updateCachedData = useCallback(
     (data: yup.Asserts<typeof schema> & { id: number }) => {
-      const { category, source, created_at, bank_account_description, ...rest } = data;
+      const {
+        category,
+        source,
+        created_at,
+        bank_account_description,
+        ...rest
+      } = data;
       const expensesData = queryClient.getQueriesData({
         queryKey: [EXPENSES_QUERY_KEY],
         type: "active",
@@ -220,13 +255,13 @@ const ExpenseForm = ({
         ).results.map((expense) =>
           expense.id === data.id
             ? {
-              ...expense,
-              ...rest,
-              created_at: formatISO(created_at, { representation: "date" }),
-              category: category.label,
-              source: source.label,
-              bank_account_description: bank_account_description.label,
-            }
+                ...expense,
+                ...rest,
+                created_at: formatISO(created_at, { representation: "date" }),
+                category: category.label,
+                source: source.label,
+                bank_account_description: bank_account_description.label,
+              }
             : expense,
         );
 
@@ -276,7 +311,14 @@ const ExpenseForm = ({
         },
       );
       if (expenseId) {
-        updateCachedData({ ...data, id: expenseId });
+        if (isFullHistorySearch) {
+          await queryClient.cancelQueries({
+            queryKey: [EXPENSES_QUERY_KEY, "search"],
+          });
+          await queryClient.invalidateQueries({
+            queryKey: [EXPENSES_QUERY_KEY, "search"],
+          });
+        } else updateCachedData({ ...data, id: expenseId });
         onEditSuccess?.();
       } else reset({ ...data, description: "", value: "", installments: 1 });
     },
@@ -437,7 +479,8 @@ const ExpenseForm = ({
               getOptionLabel={(option) => option?.label ?? ""}
               isOptionEqualToValue={({ value: optionValue }, { value }) =>
                 optionValue === value
-              }              onChange={(_, value) => field.onChange(value)}
+              }
+              onChange={(_, value) => field.onChange(value)}
               renderInput={(params) => (
                 <TextField
                   {...params}
