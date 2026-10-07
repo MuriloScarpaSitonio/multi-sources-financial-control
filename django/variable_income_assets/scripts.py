@@ -65,9 +65,62 @@ def _get_partial_sell_roi(month: int, year: int, asset_id: int) -> Decimal:
     )
 
 
+def _get_irpf_acquisition_costs(asset_ids: list[int], year: int) -> dict[int, dict[str, Decimal]]:
+    """Replay recorded share transactions through the report year without persisting changes."""
+    positions = {}
+    unavailable_assets = set()
+    transactions = (
+        Transaction.objects.filter(asset_id__in=asset_ids, operation_date__year__lte=year)
+        .order_by("asset_id", "operation_date", "pk")
+        .only("asset_id", "action", "quantity", "irpf_price", "current_currency_conversion_rate")
+    )
+    for transaction in transactions:
+        if transaction.asset_id in unavailable_assets:
+            continue
+        if transaction.quantity is None:
+            # Amount-only fixed-income deposits do not define a per-share acquisition cost.
+            unavailable_assets.add(transaction.asset_id)
+            continue
+        position = positions.setdefault(
+            transaction.asset_id,
+            {
+                "quantity": Decimal(),
+                "total_invested": Decimal(),
+                "normalized_total_invested": Decimal(),
+            },
+        )
+        quantity = transaction.quantity
+        if transaction.action in (TransactionActions.buy, TransactionActions.bonificacao):
+            cost = transaction.irpf_price * quantity
+            position["total_invested"] += cost
+            position["normalized_total_invested"] += (
+                cost * transaction.current_currency_conversion_rate
+            )
+            position["quantity"] += quantity
+        elif transaction.action == TransactionActions.sell:
+            if position["quantity"] <= 0 or quantity > position["quantity"]:
+                # A missing/backdated acquisition cannot support a reliable recommendation.
+                unavailable_assets.add(transaction.asset_id)
+                continue
+            remaining_fraction = (position["quantity"] - quantity) / position["quantity"]
+            position["total_invested"] *= remaining_fraction
+            position["normalized_total_invested"] *= remaining_fraction
+            position["quantity"] -= quantity
+
+    for asset_id in unavailable_assets:
+        positions.pop(asset_id, None)
+    for position in positions.values():
+        quantity = position.pop("quantity")
+        total = position["total_invested"]
+        position["avg_price"] = total / quantity if quantity else Decimal()
+        position["avg_current_currency_conversion_rate"] = (
+            position["normalized_total_invested"] / total if total else Decimal()
+        )
+    return positions
+
+
 def _print_assets_portfolio(qs: AssetQuerySet[Asset], year: int) -> None:
-    results = []
-    for i, asset in enumerate(
+    assets = list(
         qs.annotate_irpf_infos(year=year)
         .filter(transactions_balance__gt=0)
         .values(
@@ -80,9 +133,11 @@ def _print_assets_portfolio(qs: AssetQuerySet[Asset], year: int) -> None:
             "description",
             "normalized_total_invested",
             "avg_current_currency_conversion_rate",
-        ),
-        start=1,
-    ):
+        )
+    )
+    acquisition_costs = _get_irpf_acquisition_costs([asset["id"] for asset in assets], year)
+    results = []
+    for i, asset in enumerate(assets, start=1):
         # Examplo de descrição na receita pra dolar:
         # 91,166711130 ACOES (EWBC) // EAST WEST BANCORP, INC. //
         # COM CUSTO DE AQUISICAO DE US$ 3.962,24, SENDO O DOLAR MEDIO DE 4,9728,
@@ -94,17 +149,25 @@ def _print_assets_portfolio(qs: AssetQuerySet[Asset], year: int) -> None:
             else f"{i}. {asset['code']}"
         )
         results.append(f"\tQuantidade: {asset['transactions_balance']:n}")
-        results.append(f"\tPreço médio: {currency.symbol} {asset['avg_price']:n}")
-        results.append(
-            f"\tTotal: R$ {asset['normalized_total_invested']:n}"
-            if currency.value == Currencies.real
-            else (
-                f"\tTotal: R$ {asset['normalized_total_invested']:n} "
-                f"| {currency.symbol} {asset['total_invested']:n}"
+        calculations = [("Cálculo da última declaração", asset)]
+        if acquisition_cost := acquisition_costs.get(asset["id"]):
+            calculations.append(
+                (
+                    "Cálculo recomendado (método da Receita; fonte: "
+                    "https://www.gov.br/receitafederal/pt-br/assuntos/"
+                    "meu-imposto-de-renda/pagamento/renda-variavel/manual)",
+                    acquisition_cost,
+                )
             )
-        )
-        if currency.value == Currencies.dollar:
-            results.append(f"\tDólar médio: R$ {asset['avg_current_currency_conversion_rate']:n}")
+        for label, values in calculations:
+            results.append(f"\t{label}")
+            results.append(f"\t\tPreço médio: {currency.symbol} {values['avg_price']:n}")
+            results.append(f"\t\tTotal: R$ {values['normalized_total_invested']:n}")
+            if currency.value == Currencies.dollar:
+                results.append(f"\t\tTotal em dólar: US$ {values['total_invested']:n}")
+                results.append(
+                    f"\t\tDólar médio: R$ {values['avg_current_currency_conversion_rate']:n}"
+                )
 
         results.append("")
 
