@@ -101,7 +101,9 @@ class AssetReadModel(models.Model):
     def adjusted_avg_price(self) -> Decimal:
         try:
             return (
-                (self.quantity_balance * self.avg_price) - self.credited_incomes
+                self.normalized_total_bought
+                - self.normalized_total_sold
+                - self.normalized_credited_incomes
             ) / self.quantity_balance
         except DecimalException:
             return Decimal()
