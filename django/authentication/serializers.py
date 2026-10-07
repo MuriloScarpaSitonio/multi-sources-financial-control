@@ -1,4 +1,5 @@
 from copy import deepcopy
+from math import isfinite
 
 from django.contrib.auth import get_user_model, password_validation
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -247,33 +248,22 @@ class DividendsOnlyPreferencesSerializer(serializers.Serializer):
     )
 
 
-class OneOverNPreferencesSerializer(serializers.Serializer):
-    target_depletion_age = serializers.IntegerField(
-        required=False,
-        min_value=70,
-        max_value=105,
-    )
-    real_return = serializers.FloatField(
-        required=False,
-        min_value=1,
-        max_value=8,
-    )
-    monthly_savings_override = serializers.FloatField(
-        required=False,
-        allow_null=True,
-        min_value=0,
-    )
-    monthly_expenses_override = serializers.FloatField(
-        required=False,
-        allow_null=True,
-        min_value=0,
-    )
+class OneOverNPreferencesSerializer(HistoricalPreferencesSerializer):
+    target_depletion_age = serializers.IntegerField(required=False, min_value=70, max_value=105)
+    extra_accumulation_years = serializers.IntegerField(required=False, min_value=0, max_value=60)
+    monthly_savings_override = serializers.FloatField(required=False, allow_null=True)
+    monthly_expenses_override = serializers.FloatField(required=False, allow_null=True, min_value=0)
+
+    def validate(self, attrs):
+        for field in ("monthly_savings_override", "monthly_expenses_override"):
+            value = attrs.get(field)
+            if value is not None and not isfinite(value):
+                raise serializers.ValidationError({field: "Informe um valor finito."})
+        return attrs
 
 
 class VPWPreferencesSerializer(HistoricalPreferencesSerializer):
-    extra_accumulation_years = serializers.IntegerField(
-        required=False, min_value=0, max_value=60
-    )
+    extra_accumulation_years = serializers.IntegerField(required=False, min_value=0, max_value=60)
     target_age = serializers.IntegerField(
         required=False,
         min_value=70,
@@ -430,9 +420,7 @@ class UserSerializer(serializers.ModelSerializer):
 
         if "planning_preferences" in validated_data:
             incoming_preferences = validated_data["planning_preferences"]
-            current_preferences, _ = normalize_planning_preferences(
-                instance.planning_preferences
-            )
+            current_preferences, _ = normalize_planning_preferences(instance.planning_preferences)
             merged = {
                 **current_preferences,
                 **incoming_preferences,

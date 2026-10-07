@@ -1,152 +1,169 @@
-import { useLayoutEffect, useMemo, useState } from "react";
-
-import Paper from "@mui/material/Paper";
+import Link from "@mui/material/Link";
+import {
+  useLayoutEffect,
+  useMemo,
+  useState,
+  useRef,
+  type ReactNode,
+} from "react";
 import Stack from "@mui/material/Stack";
-
-import OneOverNIndicator from "../../Home/OneOverNIndicator";
-import { useAssetsIndicators } from "../../Assets/Indicators/hooks";
-import { useBankAccountsSummary } from "../../Expenses/hooks";
+import { FontSizes } from "../../../../design-system";
 import {
   getOneOverNPlanningPreferences,
-  type PlanningPreferences,
+  type OneOverNPlanningPreferences,
 } from "../api";
-import DefaultsPanel from "../DefaultsPanel";
+import StrategyExplanationPanels from "../shared/StrategyExplanationPanels";
+import { useFireAllocation } from "../fireAllocation";
 import {
   usePlanningPreferences,
   useSelectedMethod,
   useUpdatePlanningPreferences,
 } from "../hooks";
-import StrategyChrome from "../StrategyChrome";
 import StrategyHeader from "../StrategyHeader";
 import { STRATEGY_CONTENT } from "../strategyContent";
 import { useStrategyCommonData } from "../useStrategyCommonData";
+import OneOverNMethodologyWalkthrough from "../oneOverN/OneOverNMethodologyWalkthrough";
+import OneOverNStudio from "../oneOverN/OneOverNStudio";
+import type { OneOverNDraft } from "../oneOverN/oneOverNScenario";
+import { ageFromBirthDate } from "../vpw/vpwScenario";
 
-const METHOD = "one_over_n" as const;
-
-const OneOverNDetail = () => {
-  const content = STRATEGY_CONTENT[METHOD];
+export default function OneOverNDetail() {
   const { selectedMethod } = useSelectedMethod();
-  const isActive = selectedMethod === METHOD;
-
-  const { data: planningData } = usePlanningPreferences();
-  const preferences = planningData?.preferences;
-  const oneOverNPreferences = getOneOverNPlanningPreferences(preferences);
-  const dateOfBirth = planningData?.dateOfBirth ?? null;
+  const isActive = selectedMethod === "one_over_n";
+  const {
+    data: planningData,
+    isError: planningError,
+    isPending: planningLoading,
+    refetch: retryPlanning,
+  } = usePlanningPreferences();
+  const savedKey = JSON.stringify(
+    getOneOverNPlanningPreferences(planningData?.preferences),
+  );
+  const [preferences, setPreferences] = useState(() =>
+    getOneOverNPlanningPreferences(planningData?.preferences),
+  );
+  const edited = useRef(false);
+  useLayoutEffect(() => {
+    if (!edited.current) setPreferences(JSON.parse(savedKey));
+  }, [savedKey]);
+  const [simulatedPatrimony, setSimulatedPatrimony] = useState<number | null>(
+    null,
+  );
   const { mutate: updatePreferences, isPending: isUpdating } =
     useUpdatePlanningPreferences();
-
-  const [targetDepletionAge, setTargetDepletionAge] = useState(
-    oneOverNPreferences.target_depletion_age,
-  );
-  const [realReturn, setRealReturn] = useState(oneOverNPreferences.real_return);
-  const [savingsOverride, setSavingsOverride] = useState<number | null>(
-    oneOverNPreferences.monthly_savings_override,
-  );
-  const [expensesOverride, setExpensesOverride] = useState<number | null>(
-    oneOverNPreferences.monthly_expenses_override,
-  );
-
-  useLayoutEffect(() => {
-    setTargetDepletionAge(oneOverNPreferences.target_depletion_age);
-    setRealReturn(oneOverNPreferences.real_return);
-    setSavingsOverride(oneOverNPreferences.monthly_savings_override);
-    setExpensesOverride(oneOverNPreferences.monthly_expenses_override);
-  }, [
-    oneOverNPreferences.monthly_expenses_override,
-    oneOverNPreferences.monthly_savings_override,
-    oneOverNPreferences.real_return,
-    oneOverNPreferences.target_depletion_age,
-  ]);
-
+  const common = useStrategyCommonData();
   const {
-    avgExpenses,
-    derivedMonthlySavings,
-    isLoading: isCommonLoading,
-  } = useStrategyCommonData();
-  const { data: assetsIndicators, isPending: isAssetsLoading } = useAssetsIndicators({
-    includeYield: true,
-  });
-  const { data: { total: bankAmount } = { total: 0 }, isPending: isBankLoading } =
-    useBankAccountsSummary();
-
-  const patrimonyTotal = (assetsIndicators?.total ?? 0) + bankAmount;
-  const isDataLoading = isAssetsLoading || isBankLoading || isCommonLoading;
-
-  const isDirty = useMemo(
-    () =>
-      !!planningData &&
-      (targetDepletionAge !== oneOverNPreferences.target_depletion_age ||
-        realReturn !== oneOverNPreferences.real_return ||
-        savingsOverride !== oneOverNPreferences.monthly_savings_override ||
-        expensesOverride !== oneOverNPreferences.monthly_expenses_override),
+    data: allocationData,
+    isPending: allocationLoading,
+    isError: allocationError,
+    refetch: retryAllocation,
+  } = useFireAllocation();
+  const dataError = Boolean(
+    planningError ||
+    allocationError ||
+    common.isError ||
+    (!planningLoading && !planningData) ||
+    (!allocationLoading && !Array.isArray(allocationData?.buckets)) ||
+    (!common.isLoading && !common.hasRequiredData),
+  );
+  const draft = useMemo<OneOverNDraft>(
+    () => ({
+      isReady:
+        Boolean(planningData) &&
+        !common.isLoading &&
+        !allocationLoading &&
+        !dataError &&
+        common.hasRequiredData,
+      currentAge: ageFromBirthDate(planningData?.dateOfBirth ?? null),
+      allocation: allocationData?.buckets ?? [],
+      preferences,
+      simulatedPatrimony,
+      avgExpenses: common.avgExpenses,
+      monthlySavings: common.derivedMonthlySavings,
+    }),
     [
       planningData,
-      oneOverNPreferences.monthly_expenses_override,
-      oneOverNPreferences.monthly_savings_override,
-      oneOverNPreferences.real_return,
-      oneOverNPreferences.target_depletion_age,
-      targetDepletionAge,
-      realReturn,
-      savingsOverride,
-      expensesOverride,
+      common.isLoading,
+      common.avgExpenses,
+      common.derivedMonthlySavings,
+      allocationLoading,
+      dataError,
+      common.hasRequiredData,
+      allocationData,
+      preferences,
+      simulatedPatrimony,
     ],
   );
-
-  const handleSelect = () => updatePreferences({ selected_method: METHOD });
-
-  const handleSave = () => {
-    const patch: PlanningPreferences = {
-      one_over_n: {
-        target_depletion_age: targetDepletionAge,
-        real_return: realReturn,
-        monthly_savings_override: savingsOverride,
-        monthly_expenses_override: expensesOverride,
-      },
-    };
-    updatePreferences(patch);
+  const isDirty =
+    Boolean(planningData) && JSON.stringify(preferences) !== savedKey;
+  const change = (patch: OneOverNPlanningPreferences) => {
+    edited.current = true;
+    setPreferences((current) => ({ ...current, ...patch }));
   };
-
+  const renderHeader = (actions: ReactNode) => (
+    <StrategyHeader
+      sticky
+      activeBadgeByTitle
+      title={STRATEGY_CONTENT.one_over_n.title}
+      subtitle={STRATEGY_CONTENT.one_over_n.subtitle}
+      titleSize={FontSizes.REGULAR}
+      subtitleSize={FontSizes.EXTRA_SMALL}
+      isActive={isActive}
+      isMutating={isUpdating}
+      onSelect={() => updatePreferences({ selected_method: "one_over_n" })}
+      isDirty={isDirty}
+      onSave={() => {
+        edited.current = false;
+        updatePreferences({ one_over_n: preferences });
+      }}
+      actions={actions}
+    />
+  );
   return (
-    <Stack spacing={3} pb={3}>
-      <StrategyHeader
-        title={content.title}
-        subtitle={content.subtitle}
-        isActive={isActive}
-        isMutating={isUpdating}
-        onSelect={handleSelect}
-        isDirty={isDirty}
-        onSave={handleSave}
-      />
-
-      <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
-        <OneOverNIndicator
-          patrimonyTotal={patrimonyTotal}
-          avgExpenses={avgExpenses}
-          avgMonthlySavings={derivedMonthlySavings}
-          isLoading={isDataLoading}
-          dateOfBirth={dateOfBirth}
-          targetDepletionAge={targetDepletionAge}
-          onTargetDepletionAgeChange={setTargetDepletionAge}
-          realReturn={realReturn}
-          onRealReturnChange={setRealReturn}
-          persistEnabled={isActive}
-          isPersisting={isUpdating}
-          simulatedSavings={savingsOverride}
-          onSimulatedSavingsChange={setSavingsOverride}
-          simulatedExpenses={expensesOverride}
-          onSimulatedExpensesChange={setExpensesOverride}
-        />
-      </Paper>
-
-      <DefaultsPanel items={content.defaultsExplained} />
-
-      <StrategyChrome
-        rationale={content.rationale}
-        pros={content.pros}
-        cons={content.cons}
+    <Stack spacing={3} pb={3} sx={{ mr: -6 }}>
+      <OneOverNStudio
+        dataError={dataError}
+        onRetryData={() => {
+          void Promise.allSettled([
+            retryPlanning(),
+            retryAllocation(),
+            common.retry(),
+          ]);
+        }}
+        draft={draft}
+        isPersisting={isUpdating}
+        onPreferencesChange={change}
+        onPatrimonyChange={setSimulatedPatrimony}
+        renderHeader={renderHeader}
+        renderExplanation={(snapshot, output) => (
+          <StrategyExplanationPanels
+            walkthrough={
+              snapshot && (
+                <OneOverNMethodologyWalkthrough
+                  snapshot={snapshot}
+                  output={output}
+                />
+              )
+            }
+            about={
+              <>
+                Na estratégia 1/N, a cada ano você divide o patrimônio pelos
+                anos restantes até a idade alvo e gasta o valor calculado. A
+                retirada varia conforme o saldo e o tempo restante. No último
+                ano, você retira todo o saldo.{" "}
+                <Link
+                  href="https://www.bogleheads.org/wiki/Withdrawal_methods#1/N_withdrawal_amounts"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Conheça o método original
+                </Link>
+                .
+              </>
+            }
+          />
+        )}
       />
     </Stack>
   );
-};
-
-export default OneOverNDetail;
+}

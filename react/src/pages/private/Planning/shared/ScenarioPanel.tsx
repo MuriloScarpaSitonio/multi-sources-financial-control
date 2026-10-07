@@ -30,7 +30,7 @@ type AmountField = {
 type Props = {
   patrimony: AmountField;
   expenses: AmountField & { tooltip?: string };
-  monthlySavings: AmountField;
+  monthlySavings: AmountField & { allowNegative?: boolean };
   // Strategy-specific inputs rendered after the shared amounts.
   fields?: ReactNode;
   // Strategy-specific advanced inputs rendered before the sampling switch.
@@ -136,7 +136,13 @@ const ScenarioPanel = ({
         />
         <FireScenarioNumberInput
           label="Aportes mensais"
-          value={Math.max(0, monthlySavings.value)}
+          value={
+            monthlySavings.allowNegative
+              ? monthlySavings.value
+              : Math.max(0, monthlySavings.value)
+          }
+          allowNegative={monthlySavings.allowNegative}
+          min={monthlySavings.allowNegative ? -Number.MAX_VALUE : 0}
           step={500}
           prefix="R$ "
           disabled={isPersisting}

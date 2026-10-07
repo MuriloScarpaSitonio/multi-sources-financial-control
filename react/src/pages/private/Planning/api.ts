@@ -89,26 +89,35 @@ export const getDividendsOnlyPlanningPreferences = (
   ...(preferences?.dividends_only ?? {}),
 });
 
-export type OneOverNPlanningPreferences = {
+export type OneOverNPlanningPreferences = HistoricalPlanningPreferences & {
   target_depletion_age?: number;
-  real_return?: number;
+  extra_accumulation_years?: number;
   monthly_savings_override?: number | null;
   monthly_expenses_override?: number | null;
 };
 
 export const DEFAULT_ONE_OVER_N_PREFERENCES = {
+  ...DEFAULT_HISTORICAL_PREFERENCES,
   target_depletion_age: 90,
-  real_return: 5,
+  extra_accumulation_years: 0,
   monthly_savings_override: null,
   monthly_expenses_override: null,
 } satisfies Required<OneOverNPlanningPreferences>;
 
 export const getOneOverNPlanningPreferences = (
   preferences?: PlanningPreferences,
-): Required<OneOverNPlanningPreferences> => ({
-  ...DEFAULT_ONE_OVER_N_PREFERENCES,
-  ...(preferences?.one_over_n ?? {}),
-});
+): Required<OneOverNPlanningPreferences> => {
+  const result = {
+    ...DEFAULT_ONE_OVER_N_PREFERENCES,
+  } as Required<OneOverNPlanningPreferences>;
+  for (const key of Object.keys(
+    result,
+  ) as (keyof OneOverNPlanningPreferences)[]) {
+    const value = preferences?.one_over_n?.[key];
+    if (value !== undefined) Object.assign(result, { [key]: value });
+  }
+  return result;
+};
 
 export type VPWPlanningPreferences = HistoricalPlanningPreferences & {
   target_age?: number;

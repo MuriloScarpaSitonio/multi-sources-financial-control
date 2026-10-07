@@ -44,14 +44,14 @@ describe("VPW historical growth and scenario", () => {
       ),
     );
     expect(s.annualGrowth).toBeCloseTo(compoundedAnnualGrowth(returns), 12);
-    expect(s.actualPatrimony).toBe(100000);
+    expect(s.actualPatrimony).toBe(1000000);
     expect(s.historyMonths).toEqual(months);
   });
   it("caps withdrawals and leaves actual wealth in accumulation when simulating wealth", () => {
     const s = buildVPWSnapshot({ ...draft, simulatedPatrimony: 10000000 })!;
     expect(s.monthlyWithdrawal).toBe(5000);
     expect(s.request.input.retirement.startingBalance).toBe(10000000);
-    expect(s.request.input.accumulation.startingBalance).toBe(100000);
+    expect(s.request.input.accumulation.startingBalance).toBe(1000000);
     expect(s.request.input.accumulation.years).toBe(19);
     expect(s.accumulationYears).toBe(19);
   });

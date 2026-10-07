@@ -1,5 +1,11 @@
 import type { ReactNode } from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import VPWResults from "./VPWResults";
@@ -7,30 +13,48 @@ import { buildVPWSnapshot } from "./vpwScenario";
 import { DEFAULT_VPW_PREFERENCES } from "../api";
 import type { VPWSimulationOutput } from "../../Home/vpwSimulation";
 
-vi.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: { children: ReactNode }) => (
-    <>{children}</>
-  ),
-  ComposedChart: ({
-    children,
-    data,
-  }: {
-    children: ReactNode;
-    data: unknown;
-  }) => (
-    <div role="figure" data-chart={JSON.stringify(data)}>
-      {children}
-    </div>
-  ),
-  Line: ({ name, dataKey }: { name: string; dataKey: string }) => (
-    <span data-series={dataKey}>{name}</span>
-  ),
-  CartesianGrid: () => null,
-  ReferenceLine: ({ y }: { y: number }) => <span data-expenses={y} />,
-  Tooltip: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
-}));
+vi.mock("recharts", async () => {
+  const { createContext, useContext, cloneElement } = await import("react");
+  const PointContext = createContext<unknown>(null);
+  return {
+    ResponsiveContainer: ({ children }: { children: ReactNode }) => (
+      <>{children}</>
+    ),
+    ComposedChart: ({
+      children,
+      data,
+    }: {
+      children: ReactNode;
+      data: unknown[];
+    }) => (
+      <PointContext.Provider value={data[0]}>
+        <div role="figure" data-chart={JSON.stringify(data)}>
+          {children}
+        </div>
+      </PointContext.Provider>
+    ),
+    Line: ({ name, dataKey }: { name: string; dataKey: string }) => (
+      <span data-series={dataKey}>{name}</span>
+    ),
+    Bar: ({ dataKey, fill }: { dataKey: string; fill: string }) => (
+      <span data-bar={dataKey} data-fill={fill} />
+    ),
+    CartesianGrid: () => null,
+    ReferenceLine: ({ y, yAxisId }: { y: number; yAxisId?: string }) => (
+      <span data-expenses={y} data-reference={yAxisId} />
+    ),
+    Tooltip: ({ content }: { content?: React.ReactElement }) => {
+      const point = useContext(PointContext);
+      return content
+        ? cloneElement(content, { active: true, payload: [{ payload: point }] })
+        : null;
+    },
+    XAxis: () => null,
+    YAxis: ({ yAxisId }: { yAxisId?: string }) => (
+      <span data-axis={yAxisId ?? "wealth"} />
+    ),
+  };
+});
 afterEach(() => {
   cleanup();
   localStorage.clear();
@@ -54,7 +78,7 @@ const output: VPWSimulationOutput = {
     minimumMonthlyIncome: { p10: 100, p50: 500, p90: 1000 },
     withdrawalBands: [{ year: 0, p10: 1200, p50: 6000, p90: 12000 }],
     monthlyWithdrawalLimitBands: [
-      { year: 0, p10: 1500, p50: 2000, p90: 3000 },
+      { year: 0, p10: 150, p50: 600, p90: 1300 },
       { year: 1, p10: 1600, p50: 2200, p90: 3500 },
     ],
     balanceBands: [{ year: 0, p10: 50000, p50: 50000, p90: 50000 }],
@@ -95,6 +119,43 @@ it("shows wealth and accumulation charts like FIRE with shared scenario controls
   expect(within(charts[0]).queryByText("p10 (pessimista)")).toBeNull();
   expect(within(charts[1]).queryByText("p90 (pessimista)")).toBeNull();
   expect(within(charts[1]).getByText("p10 (otimista)")).toBeVisible();
+});
+
+it("restores the optional VPW withdrawal bars on the existing chart", () => {
+  render(<VPWResults snapshot={snapshot} output={output} />);
+  const retirement = screen.getAllByRole("figure")[0];
+  const toggle = screen.getByRole("switch", { name: "Mostrar retiradas" });
+  expect(toggle).not.toBeChecked();
+  expect(retirement.querySelector("[data-bar]")).toBeNull();
+  const tooltip = within(retirement).getByRole("table", {
+    name: "Valores da aposentadoria",
+  });
+  expect(within(tooltip).queryByText("Retirada/mês")).toBeNull();
+
+  fireEvent.click(toggle);
+  expect(toggle).toBeChecked();
+  expect(screen.getAllByRole("figure")[0]).toBe(retirement);
+  expect(JSON.parse(retirement.getAttribute("data-chart")!)[0]).toMatchObject({
+    income_p10: 100,
+    income_p50: 500,
+    income_p90: 1000,
+  });
+  expect(screen.getByText(/Barras azuis: retirada mensal/)).toBeVisible();
+  expect(retirement.querySelector('[data-bar="income_p10"]')).not.toBeNull();
+  expect(retirement.querySelector('[data-axis="income"]')).not.toBeNull();
+  expect(retirement.querySelector('[data-reference="income"]')).toHaveAttribute(
+    "data-expenses",
+    "1000",
+  );
+  expect(within(tooltip).getByText("Retirada/mês")).toBeVisible();
+  expect(
+    within(within(tooltip).getByRole("row", { name: /Pessimista/ })).getByText(
+      /R\$\s*100/,
+    ),
+  ).toBeVisible();
+
+  fireEvent.click(toggle);
+  expect(retirement.querySelector("[data-bar]")).toBeNull();
 });
 
 it("puts scenario wealth and the retire-today assumption beside the main result", () => {
@@ -258,6 +319,11 @@ it("hides the financial amounts and target progress in the cards", () => {
     screen.getByRole("table", { name: "Gasto mensal sustentável" }),
   );
   expect(table.getAllByText("***")).toHaveLength(6);
+  fireEvent.click(screen.getByRole("switch", { name: "Mostrar retiradas" }));
+  const tooltip = within(screen.getAllByRole("figure")[0]).getByRole("table", {
+    name: "Valores da aposentadoria",
+  });
+  expect(within(tooltip).getAllByText("***")).toHaveLength(6);
 });
 
 it("uses FIRE's single headline sentence and preserves fractional success", () => {

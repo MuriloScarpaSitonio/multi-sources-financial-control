@@ -609,7 +609,7 @@ def test__partial_update__planning_preferences__fire_inputs(client, user):
                 "target_years": 45,
                 "monthly_expenses_override": 12500,
                 "exclude_ifix_from_sim": True,
-            }
+            },
         }
     }
 
@@ -746,13 +746,11 @@ def test__retrieve__translates_and_persists_legacy_ifix_preference(client, user)
             "one_over_n",
             {
                 "target_depletion_age": 92,
-                "real_return": 4.5,
                 "monthly_savings_override": 10_000,
                 "monthly_expenses_override": 17_000,
             },
             {
                 "target_depletion_age": 92,
-                "real_return": 4.5,
                 "monthly_savings_override": 10_000.0,
                 "monthly_expenses_override": 17_000.0,
             },
@@ -904,8 +902,8 @@ def test__partial_update__planning_preferences__merges_remaining_strategy_inputs
             "one_over_n",
             "fire",
             {"target_depletion_age": 95},
-            {"real_return": 3},
-            {"target_depletion_age": 95, "real_return": 3},
+            {"extra_accumulation_years": 3},
+            {"target_depletion_age": 95, "extra_accumulation_years": 3},
         ),
         (
             "dividends_only",
@@ -999,18 +997,29 @@ def test__retrieve__includes_date_of_birth(client, user):
 
 @pytest.mark.parametrize("value", [2100000.26, 0, None])
 def test__partial_update__planning_preferences__fire_patrimony(client, user, value):
-    response = client.patch(f"{URL}/{user.pk}", data={
-        "planning_preferences": {"selected_method": "fire", "fire": {"simulated_patrimony": value}}
-    }, content_type="application/json")
+    response = client.patch(
+        f"{URL}/{user.pk}",
+        data={
+            "planning_preferences": {
+                "selected_method": "fire",
+                "fire": {"simulated_patrimony": value},
+            }
+        },
+        content_type="application/json",
+    )
     assert response.status_code == HTTP_200_OK, response.data
     user.refresh_from_db()
     assert user.planning_preferences["fire"]["simulated_patrimony"] == value
 
 
 def test__partial_update__planning_preferences__rejects_negative_fire_patrimony(client, user):
-    response = client.patch(f"{URL}/{user.pk}", data={
-        "planning_preferences": {"selected_method": "fire", "fire": {"simulated_patrimony": -1}}
-    }, content_type="application/json")
+    response = client.patch(
+        f"{URL}/{user.pk}",
+        data={
+            "planning_preferences": {"selected_method": "fire", "fire": {"simulated_patrimony": -1}}
+        },
+        content_type="application/json",
+    )
     assert response.status_code == HTTP_400_BAD_REQUEST
     assert "simulated_patrimony" in response.data["planning_preferences"]["fire"]
 
@@ -1261,3 +1270,52 @@ def test__inactive_fire_age_in_bonds_does_not_conflict_with_active_galeno(client
     assert "show_age_in_bonds" in response.data["planning_preferences"]
     user.refresh_from_db()
     assert user.planning_preferences["selected_method"] == "vpw"
+
+
+@pytest.mark.parametrize("years", [0, 3, 60])
+def test__planning_one_over_n_history_round_trip(client, user, years):
+    user.planning_preferences = {
+        "selected_method": "fire",
+        "fire": {"withdrawal_rate": 4, "excluded_return_categories": []},
+    }
+    user.save(update_fields=["planning_preferences"])
+    settings = {
+        "target_depletion_age": 90,
+        "extra_accumulation_years": years,
+        "sampling_method": "contiguous_12_month_blocks",
+        "monthly_savings_override": -500,
+        "historical_series_fallbacks": {"FIXED_IPCA:IMA_B_5_PLUS": "IBOV"},
+    }
+    response = client.patch(
+        f"{URL}/{user.pk}",
+        data={"planning_preferences": {"one_over_n": settings}},
+        content_type="application/json",
+    )
+    assert response.status_code == HTTP_200_OK
+    user.refresh_from_db()
+    assert user.planning_preferences["one_over_n"] == settings
+    assert user.planning_preferences["selected_method"] == "fire"
+    assert user.planning_preferences["fire"] == {
+        "withdrawal_rate": 4,
+        "excluded_return_categories": [],
+    }
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        {"extra_accumulation_years": -1},
+        {"extra_accumulation_years": 61},
+        {"extra_accumulation_years": 1.5},
+        {"target_depletion_age": 69},
+        {"target_depletion_age": 106},
+        {"monthly_expenses_override": -1},
+        {"monthly_savings_override": float("inf")},
+        {"monthly_savings_override": float("nan")},
+        {"sampling_method": "random_years"},
+        {"historical_series_overrides": {"CASH:CASH": "IBOV"}},
+    ],
+)
+def test__planning_one_over_n_rejects_invalid_settings(settings):
+    serializer = serializer_module.OneOverNPreferencesSerializer(data=settings)
+    assert not serializer.is_valid()

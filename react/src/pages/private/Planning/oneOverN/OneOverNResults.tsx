@@ -1,7 +1,8 @@
+import { Bar, YAxis, ReferenceLine } from "recharts";
 import { useState } from "react";
-import { Bar, ReferenceLine, YAxis } from "recharts";
 import Box from "@mui/material/Box";
 import FormControlLabel from "@mui/material/FormControlLabel";
+import Switch from "@mui/material/Switch";
 import {
   getFireSuccessBand,
   formatSimulationSuccessRate,
@@ -9,7 +10,6 @@ import {
 import { MetricBlock } from "../../Home/FireSimulationResults";
 import FireAccumulationChart from "../../Home/FireAccumulationChart";
 import Stack from "@mui/material/Stack";
-import Switch from "@mui/material/Switch";
 import {
   ChartTooltipBox,
   compactNumberTick,
@@ -32,8 +32,8 @@ import {
 import { useHideValues } from "../../../../hooks/useHideValues";
 import { formatCurrency } from "../../utils";
 import type { BootstrapBand } from "../../Home/fireBootstrap";
-import type { VPWSimulationOutput } from "../../Home/vpwSimulation";
-import type { VPWSnapshot } from "./vpwScenario";
+import type { OneOverNSimulationOutput } from "../../Home/oneOverNSimulation";
+import type { OneOverNSnapshot } from "./oneOverNScenario";
 
 const scenarios = [
   {
@@ -77,7 +77,7 @@ type RetirementPoint = BootstrapBand & {
   income_p90?: number;
 };
 
-const BandTooltip = ({
+const DrawdownTooltip = ({
   active,
   payload,
   visible,
@@ -97,11 +97,10 @@ const BandTooltip = ({
     p50: point.income_p50,
     p90: point.income_p90,
   };
-  const showIncome =
-    showWithdrawals &&
-    scenarios.some(
-      (item) => visible[item.key] && income[item.key] !== undefined,
-    );
+  const hasIncome = scenarios.some(
+    (item) => visible[item.key] && income[item.key] !== undefined,
+  );
+  const showIncome = showWithdrawals && hasIncome;
   const value = (amount: number | undefined) =>
     amount === undefined
       ? "—"
@@ -170,15 +169,15 @@ const BandTooltip = ({
   );
 };
 
-export default function VPWResults({
+export default function OneOverNResults({
   snapshot: s,
   output,
   comparison = false,
   scenarioVisibility,
   onScenarioVisibilityChange,
 }: {
-  snapshot: VPWSnapshot;
-  output: VPWSimulationOutput;
+  snapshot: OneOverNSnapshot;
+  output: OneOverNSimulationOutput;
   comparison?: boolean;
   scenarioVisibility?: Record<"p10" | "p50" | "p90", boolean>;
   onScenarioVisibilityChange?: (
@@ -217,7 +216,7 @@ export default function VPWResults({
     output.targetPatrimony > 0
       ? (s.actualPatrimony / output.targetPatrimony) * 100
       : 100;
-  const minimumIncome = output.retirement.minimumMonthlyIncome.p10;
+  const minimumIncome = output.retirement.minimumMonthlyIncome?.p10 ?? 0;
   const gap = minimumIncome - s.monthlyExpenses;
   const coversSpending = gap >= -0.005;
   const successRate = output.retirement.successRate;
@@ -258,11 +257,11 @@ export default function VPWResults({
         ? "Informe aportes positivos para estimar"
         : "No horizonte simulado"
       : yearsToRetirement === 0
-        ? "Patrimônio atual já alcança a meta VPW"
+        ? "Patrimônio atual já alcança a meta 1/N"
         : extended
           ? "Mediana entre simulações que começaram as retiradas"
           : "Mediana entre simulações que atingiram a meta";
-  const spendingScenarios = output.retirement.sustainableMonthlySpending;
+  const spendingScenarios = output.retirement.minimumMonthlyIncome;
   const spendingGap = (income: number) => {
     if (hideValues) return "***";
     const difference = s.monthlyExpenses - income;
@@ -275,14 +274,13 @@ export default function VPWResults({
       output.retirement.withdrawalBands.map((b) => [b.year, b]),
     );
     const data = bands.map((b) => {
-      if (!showWithdrawals) return { ...b, age: s.currentAge + b.year };
       const income = incomes.get(b.year);
       return {
         ...b,
         age: s.currentAge + b.year,
-        income_p10: income?.p10 === undefined ? undefined : income.p10 / 12,
-        income_p50: income?.p50 === undefined ? undefined : income.p50 / 12,
-        income_p90: income?.p90 === undefined ? undefined : income.p90 / 12,
+        income_p10: income?.p10,
+        income_p50: income?.p50,
+        income_p90: income?.p90,
       };
     });
     const withdrawalSwitch = (
@@ -300,90 +298,78 @@ export default function VPWResults({
       />
     );
     return (
-      <Stack gap={1.75} sx={{ minWidth: 0 }}>
-        <PercentileTrajectoryChart
-          expandable
-          fullscreenControls={scenarioControls}
-          subtitle={
-            <>
-              Sucesso até os {s.targetAge} anos:{" "}
-              <strong>
-                {hideValues
-                  ? "***"
-                  : successRate === null
-                    ? "—"
-                    : formatSimulationSuccessRate(successRate)}
-              </strong>
-              {" · "}Gastos: <strong>{money(s.monthlyExpenses)}/mês</strong>
-              {showWithdrawals &&
-                " · Linhas: patrimônio. Barras azuis: retirada mensal."}
-            </>
-          }
-          headerAction={withdrawalSwitch}
-          data={data}
-          xKey="age"
-          dataKeys={{ p10: "p10", p50: "p50", p90: "p90" }}
-          visible={visible}
-          hideValues={hideValues}
-          tooltip={
-            <BandTooltip
-              visible={visible}
-              hidden={hideValues}
-              showWithdrawals={showWithdrawals}
-            />
-          }
-          chartOverlay={
-            showWithdrawals
-              ? {
-                  axis: (
-                    <YAxis
-                      yAxisId="income"
-                      orientation="right"
-                      stroke={withdrawalColors.p50}
-                      tick={{ fill: withdrawalColors.p50 }}
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={compactNumberTick}
-                      tickCount={hideValues ? 0 : undefined}
-                      label={{
-                        value: "R$/mês",
-                        angle: 90,
-                        position: "insideRight",
-                        fill: withdrawalColors.p50,
-                        fontSize: 12,
-                      }}
-                    />
-                  ),
-                  behindLines: (
-                    <>
-                      {scenarios
-                        .filter((item) => visible[item.key])
-                        .map((item) => (
-                          <Bar
-                            key={`income-${item.key}`}
-                            yAxisId="income"
-                            dataKey={`income_${item.key}`}
-                            name={`Retirada · ${item.label}`}
-                            fill={withdrawalColors[item.key]}
-                            fillOpacity={0.65}
-                            stroke={withdrawalColors[item.key]}
-                          />
-                        ))}
-                    </>
-                  ),
-                  aboveLines: (
-                    <ReferenceLine
-                      yAxisId="income"
-                      y={s.monthlyExpenses}
-                      stroke={getColor(Colors.danger200)}
-                      strokeDasharray="5 5"
-                    />
-                  ),
-                }
-              : undefined
-          }
-        />
-      </Stack>
+      <PercentileTrajectoryChart
+        expandable
+        fullscreenControls={scenarioControls}
+        subtitle={
+          showWithdrawals
+            ? `Linhas: patrimônio restante. Barras azuis: retirada mensal. Gastos de referência: ${money(s.monthlyExpenses)}/mês.`
+            : "Patrimônio restante nos cenários selecionados."
+        }
+        headerAction={withdrawalSwitch}
+        data={data}
+        xKey="age"
+        dataKeys={{ p10: "p10", p50: "p50", p90: "p90" }}
+        visible={visible}
+        hideValues={hideValues}
+        tooltip={
+          <DrawdownTooltip
+            visible={visible}
+            hidden={hideValues}
+            showWithdrawals={showWithdrawals}
+          />
+        }
+        chartOverlay={
+          showWithdrawals
+            ? {
+                axis: (
+                  <YAxis
+                    yAxisId="income"
+                    orientation="right"
+                    stroke={withdrawalColors.p50}
+                    tick={{ fill: withdrawalColors.p50 }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={compactNumberTick}
+                    tickCount={hideValues ? 0 : undefined}
+                    label={{
+                      value: "R$/mês",
+                      angle: 90,
+                      position: "insideRight",
+                      fill: withdrawalColors.p50,
+                      fontSize: 12,
+                    }}
+                  />
+                ),
+                behindLines: (
+                  <>
+                    {scenarios
+                      .filter((item) => visible[item.key])
+                      .map((item) => (
+                        <Bar
+                          key={`income-${item.key}`}
+                          yAxisId="income"
+                          dataKey={`income_${item.key}`}
+                          name={`Retirada · ${item.label}`}
+                          fill={withdrawalColors[item.key]}
+                          fillOpacity={0.65}
+                          stroke={withdrawalColors[item.key]}
+                        />
+                      ))}
+                  </>
+                ),
+                aboveLines: (
+                  <ReferenceLine
+                    yAxisId="income"
+                    y={s.monthlyExpenses}
+                    stroke={getColor(Colors.danger200)}
+                    strokeDasharray="5 5"
+                  />
+                ),
+              }
+            : undefined
+        }
+      />
     );
   };
   return (
@@ -393,7 +379,7 @@ export default function VPWResults({
           <Text size={FontSizes.EXTRA_SMALL}>
             Aportes por mais {extended.extraYears}{" "}
             {extended.extraYears === 1 ? "ano" : "anos"} após atingir a meta
-            VPW.
+            1/N.
           </Text>
           {hasRetirement ? (
             <>
@@ -467,13 +453,13 @@ export default function VPWResults({
         >
           <GoalProgressBar
             progress={progress}
-            goalLabel="meta VPW"
+            goalLabel="meta 1/N"
             hideValues={hideValues}
-            tooltip={`Mostra quanto da meta VPW já é coberto pelo patrimônio atual da carteira. Meta para 95% de sucesso nas retiradas: ${money(output.targetPatrimony)}.`}
+            tooltip={`Mostra quanto da meta 1/N já é coberto pelo patrimônio atual da carteira. Meta para 95% de sucesso nas retiradas: ${money(output.targetPatrimony)}.`}
           />
         </MetricBlock>
         <MetricBlock
-          label="Meta VPW"
+          label="Meta 1/N"
           value={money(output.targetPatrimony)}
           hideValues={hideValues}
           sub={
@@ -537,16 +523,16 @@ export default function VPWResults({
             {scenarioControls}
           </Stack>
           <Text size={FontSizes.EXTRA_SMALL}>
-            Gasto mensal que poderia ser mantido até os {s.targetAge} anos, em
-            valores de hoje, comparado aos seus gastos de{" "}
-            {money(s.monthlyExpenses)}/mês.
+            Média mensal no ano de menor retirada de cada simulação, em valores
+            de hoje, comparada aos seus gastos de {money(s.monthlyExpenses)}
+            /mês.
             {!extended && " A estimativa considera retiradas a partir de hoje."}
           </Text>
-          <ScenarioTable ariaLabel="Gasto mensal sustentável">
+          <ScenarioTable ariaLabel="Renda no pior ano">
             <thead>
               <tr>
                 <th>Cenário</th>
-                <th>Gasto mensal sustentável</th>
+                <th>Renda no pior ano</th>
                 <th>Folga ou falta</th>
                 <th>Leitura</th>
               </tr>
@@ -572,50 +558,32 @@ export default function VPWResults({
       <Text size={FontSizes.EXTRA_SMALL} color={Colors.neutral400}>
         {extended &&
           "Em cada idade, os gráficos incluem apenas as simulações que já começaram as retiradas. "}
-        Os percentis de cada ano não representam uma única trajetória. O limite
-        mensal pode deixar patrimônio ao final do prazo.
+        Os percentis de cada ano não representam uma única trajetória. A
+        retirada é recalculada anualmente e gasta integralmente; o saldo termina
+        em zero na idade alvo.
       </Text>
       <Stack gap={2}>
         <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
-          {s.monthlySavings <= 0 ? (
+          {s.monthlySavings < 0 && (
             <Text size={FontSizes.EXTRA_SMALL} color={Colors.danger200}>
-              Informe um aporte mensal positivo para estimar quando atingirá a
-              meta.
+              Déficit mensal: {money(Math.abs(s.monthlySavings))}. A simulação
+              preserva esse fluxo negativo.
             </Text>
-          ) : (
-            a && (
-              <Text
-                size={FontSizes.EXTRA_SMALL}
-                color={
-                  a.medianYearsToTarget === null
-                    ? Colors.danger200
-                    : Colors.neutral400
-                }
-              >
-                No ritmo de {money(s.monthlySavings)}/mês:{" "}
-                {a.medianYearsToTarget === null ? (
-                  <>
-                    meta não atingida em {s.accumulationYears}{" "}
-                    {s.accumulationYears === 1 ? "ano" : "anos"}
-                  </>
-                ) : (
-                  <>
-                    mediana <strong>{a.medianYearsToTarget}a</strong>
-                    {" · "}otimista (p10) {a.p10YearsToTarget ?? "—"}a{" · "}
-                    pessimista (p90) {a.p90YearsToTarget ?? "—"}a
-                  </>
-                )}
-                {" · "}sucesso {hideValues ? "***" : percent(a.successRate)} em{" "}
-                {s.accumulationYears}a
-              </Text>
-            )
           )}
+          <Text size={FontSizes.EXTRA_SMALL}>
+            Meta{" "}
+            {a.medianYearsToTarget === null
+              ? "não alcançada no horizonte simulado"
+              : `atingida em ${a.medianYearsToTarget} anos (mediana)`}
+            . Sucesso na acumulação:{" "}
+            {hideValues ? "***" : percent(a.successRate)}.
+          </Text>
         </Stack>
-        {a && s.monthlySavings > 0 && a.gapBands.length > 1 && (
+        {a.gapBands.length > 1 && (
           <FireAccumulationChart
             expandable
             fullscreenControls={scenarioControls}
-            strategy="VPW"
+            strategy="1/N"
             accumulation={a}
             currentAge={s.currentAge}
             hideValues={hideValues}
