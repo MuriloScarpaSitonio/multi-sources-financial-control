@@ -1,5 +1,6 @@
 import {
   type ReactNode,
+  type ChangeEventHandler,
   type Dispatch,
   type SetStateAction,
   useCallback,
@@ -137,6 +138,54 @@ export const Indicator = ({
   );
 };
 
+export const SearchInput = ({
+  value,
+  showClear,
+  placeholder,
+  onChange,
+  onClear,
+  clearLabel,
+}: {
+  value: string;
+  showClear: boolean;
+  placeholder: string;
+  onChange: ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement>;
+  onClear: () => void;
+  clearLabel?: string;
+}) => {
+  return (
+    <OutlinedInput
+      size="small"
+      value={value}
+      fullWidth
+      placeholder={placeholder}
+      onChange={onChange}
+      endAdornment={
+        showClear ? (
+          <IconButton aria-label={clearLabel} onClick={onClear}>
+            <ClearIcon sx={{ color: getColor(enums.Colors.neutral200) }} />
+          </IconButton>
+        ) : (
+          <SearchIcon sx={{ color: getColor(enums.Colors.neutral200) }} />
+        )
+      }
+      sx={{
+        "&.MuiOutlinedInput-root": {
+          border: "none",
+          borderRadius: "5px",
+          backgroundColor: getColor(enums.Colors.neutral400),
+        },
+        "&.MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline": {
+          border: "none",
+        },
+        "&.MuiOutlinedInput-root .MuiOutlinedInput-input::placeholder": {
+          color: getColor(enums.Colors.neutral0),
+        },
+      }}
+    />
+  );
+};
+
 export const SearchBar = ({
   search,
   setSearch,
@@ -162,10 +211,9 @@ export const SearchBar = ({
   );
 
   return (
-    <OutlinedInput
-      size="small"
+    <SearchInput
       value={innerSearch}
-      fullWidth
+      showClear={Boolean(search)}
       placeholder={placeholder}
       onChange={(e) => {
         setInnerSearch(e.target.value);
@@ -173,34 +221,11 @@ export const SearchBar = ({
           changeSearch(e.target.value);
         }, 600);
       }}
-      endAdornment={
-        search ? (
-          <IconButton
-            onClick={() => {
-              setInnerSearch("");
-              setTimeout(() => {
-                changeSearch("");
-              }, 600);
-            }}
-          >
-            <ClearIcon sx={{ color: getColor(enums.Colors.neutral200) }} />
-          </IconButton>
-        ) : (
-          <SearchIcon sx={{ color: getColor(enums.Colors.neutral200) }} />
-        )
-      }
-      sx={{
-        "&.MuiOutlinedInput-root": {
-          border: "none",
-          borderRadius: "5px",
-          backgroundColor: getColor(enums.Colors.neutral400),
-        },
-        "&.MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline": {
-          border: "none",
-        },
-        "&.MuiOutlinedInput-root .MuiOutlinedInput-input::placeholder": {
-          color: getColor(enums.Colors.neutral0),
-        },
+      onClear={() => {
+        setInnerSearch("");
+        setTimeout(() => {
+          changeSearch("");
+        }, 600);
       }}
     />
   );

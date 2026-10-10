@@ -6,12 +6,10 @@ import {
   type SetStateAction,
 } from "react";
 import { useLocation, useNavigationType } from "react-router-dom";
-import OutlinedInput from "@mui/material/OutlinedInput";
-import IconButton from "@mui/material/IconButton";
-import ClearIcon from "@mui/icons-material/Clear";
 import FilterIndicators, {
   type FilterFieldConfigs,
 } from "../../../components/FilterIndicators";
+import { SearchInput } from "../components";
 import type { SearchFields } from "./fullHistorySearch";
 
 export function FullHistorySearchBar({
@@ -45,19 +43,13 @@ export function FullHistorySearchBar({
     timer.current = setTimeout(() => setSearch(value), 600);
   };
   return (
-    <OutlinedInput
-      size="small"
-      fullWidth
+    <SearchInput
       value={text}
+      showClear={Boolean(search)}
       placeholder="Pesquisar por descrição"
       onChange={(event) => change(event.target.value)}
-      endAdornment={
-        search ? (
-          <IconButton aria-label="Limpar pesquisa" onClick={() => change("")}>
-            <ClearIcon />
-          </IconButton>
-        ) : null
-      }
+      onClear={() => change("")}
+      clearLabel="Limpar pesquisa"
     />
   );
 }
