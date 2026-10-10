@@ -1,4 +1,11 @@
-import { useCallback, useMemo, useState, type Context, type SyntheticEvent } from "react";
+import useFullHistorySearch from "./useFullHistorySearch";
+import {
+  useCallback,
+  useMemo,
+  useState,
+  type Context,
+  type SyntheticEvent,
+} from "react";
 
 import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
@@ -11,7 +18,10 @@ import { useSearchParams } from "react-router-dom";
 import { Colors, getColor, PeriodsManager } from "../../../design-system";
 import { ContextType as PeriodsManagerContextType } from "../../../design-system/components/PeriodsManager";
 import useURLFilters from "../../../hooks/useURLFilters";
-import { useGetCategories as useRevenuesCategories, useGetMostCommonCategory as useRevenuesMostCommonCategory } from "../Revenues/hooks/useGetCategories";
+import {
+  useGetCategories as useRevenuesCategories,
+  useGetMostCommonCategory as useRevenuesMostCommonCategory,
+} from "../Revenues/hooks/useGetCategories";
 import { revenuesFilterSchema } from "../Revenues/filterConfig";
 import { default as RevenueReports } from "../Revenues/Reports";
 import { default as RevenuesTable } from "../Revenues/Table";
@@ -19,7 +29,12 @@ import { Filters as RevenueFilters } from "../Revenues/types";
 import { customEndOfMonth } from "../utils";
 import { ExpensesContext } from "./context";
 import { expensesFilterSchema } from "./filterConfig";
-import { useGetCategories, useGetMostCommonCategory, useGetMostCommonSource, useGetSources } from "./hooks";
+import {
+  useGetCategories,
+  useGetMostCommonCategory,
+  useGetMostCommonSource,
+  useGetSources,
+} from "./hooks";
 import Indicators from "./Indicators";
 import { default as ExpenseReports } from "./Reports";
 import { default as ExpensesTable } from "./Table";
@@ -50,13 +65,18 @@ const defaultExpenseFilters: ExpenseFilters = {};
 const defaultRevenueFilters: RevenueFilters = {};
 
 const Expenses = () => {
+  const fullSearch = useFullHistorySearch();
+  const [overviewDescriptions, setOverviewDescriptions] = useState({
+    expenses: "",
+    revenues: "",
+  });
   const now = new Date();
   const defaultDates = useMemo(
     () => ({
       startDate: startOfMonth(now),
       endDate: customEndOfMonth(now),
     }),
-    []
+    [],
   );
 
   // URL filters for expenses (includes dates)
@@ -72,14 +92,12 @@ const Expenses = () => {
   });
 
   // URL filters for revenues (scoped with "revenues_" prefix)
-  const {
-    filters: revenueFilters,
-    setFilters: setRevenueFilters,
-  } = useURLFilters<RevenueFilters>({
-    schema: revenuesFilterSchema,
-    defaults: defaultRevenueFilters,
-    scope: "revenues",
-  });
+  const { filters: revenueFilters, setFilters: setRevenueFilters } =
+    useURLFilters<RevenueFilters>({
+      schema: revenuesFilterSchema,
+      defaults: defaultRevenueFilters,
+      scope: "revenues",
+    });
 
   const [month, setMonth] = useState(now.getMonth() as Month | undefined);
   const [year, setYear] = useState(now.getFullYear());
@@ -94,7 +112,7 @@ const Expenses = () => {
         startDate: typeof value === "function" ? value(prev.startDate) : value,
       }));
     },
-    [setDates]
+    [setDates],
   );
 
   const setEndDate = useCallback(
@@ -104,18 +122,21 @@ const Expenses = () => {
         endDate: typeof value === "function" ? value(prev.endDate) : value,
       }));
     },
-    [setDates]
+    [setDates],
   );
 
   const handleTabChange = useCallback(
     (_: SyntheticEvent, value: number) => {
-      setSearchParams((prev) => {
-        const newParams = new URLSearchParams(prev);
-        newParams.set("revenues", value === 1 ? "true" : "false");
-        return newParams;
-      }, { replace: true });
+      setSearchParams(
+        (prev) => {
+          const newParams = new URLSearchParams(prev);
+          newParams.set("revenues", value === 1 ? "true" : "false");
+          return newParams;
+        },
+        { replace: true },
+      );
     },
-    [setSearchParams]
+    [setSearchParams],
   );
 
   const { data: categoriesData, isPending: isLoadingCategories } =
@@ -124,8 +145,12 @@ const Expenses = () => {
     ordering: "name",
     enabled: !displayRevenuesComponents,
   });
-  const { data: mostCommonCategory } = useGetMostCommonCategory({ enabled: !displayRevenuesComponents });
-  const { data: mostCommonSource } = useGetMostCommonSource({ enabled: !displayRevenuesComponents });
+  const { data: mostCommonCategory } = useGetMostCommonCategory({
+    enabled: !displayRevenuesComponents,
+  });
+  const { data: mostCommonSource } = useGetMostCommonSource({
+    enabled: !displayRevenuesComponents,
+  });
   const {
     data: revenuesCategoriesData,
     isLoading: isLoadingRevenuesCategories,
@@ -143,6 +168,7 @@ const Expenses = () => {
 
   const contextValue = useMemo(
     () => ({
+      isFullHistorySearch: fullSearch.isSearchMode,
       startDate: dates?.startDate ?? defaultDates.startDate,
       setStartDate,
       endDate: dates?.endDate ?? defaultDates.endDate,
@@ -184,6 +210,7 @@ const Expenses = () => {
       mostCommonRevenueCategory,
     }),
     [
+      fullSearch.isSearchMode,
       dates,
       defaultDates,
       setStartDate,
@@ -202,27 +229,31 @@ const Expenses = () => {
   return (
     <ExpensesContext.Provider value={contextValue}>
       <Stack spacing={2}>
-        <PeriodsManager
-          context={
-            ExpensesContext as unknown as Context<PeriodsManagerContextType>
-          }
-        />
-        <Grid container spacing={4}>
-          <Grid item xs={6}>
-            <Indicators />
-          </Grid>
-          <Grid item xs={6}>
-            <CustomTabs
-              tabValue={displayRevenuesComponents ? 1 : 0}
-              onTabChange={handleTabChange}
+        {!fullSearch.isSearchMode && (
+          <>
+            <PeriodsManager
+              context={
+                ExpensesContext as unknown as Context<PeriodsManagerContextType>
+              }
             />
-            {displayRevenuesComponents ? (
-              <RevenueReports />
-            ) : (
-              <ExpenseReports />
-            )}
-          </Grid>
-        </Grid>
+            <Grid container spacing={4}>
+              <Grid item xs={6}>
+                <Indicators />
+              </Grid>
+              <Grid item xs={6}>
+                <CustomTabs
+                  tabValue={displayRevenuesComponents ? 1 : 0}
+                  onTabChange={handleTabChange}
+                />
+                {displayRevenuesComponents ? (
+                  <RevenueReports />
+                ) : (
+                  <ExpenseReports />
+                )}
+              </Grid>
+            </Grid>
+          </>
+        )}
         <Grid container spacing={4}>
           <Grid item xs={12}>
             <CustomTabs
@@ -230,9 +261,53 @@ const Expenses = () => {
               onTabChange={handleTabChange}
             />
             {displayRevenuesComponents ? (
-              <RevenuesTable externalFilters={{ filters: revenueFilters, setFilters: setRevenueFilters }} />
+              fullSearch.isSearchMode ? (
+                <RevenuesTable
+                  key="revenue-search"
+                  mode="search"
+                  externalFilters={fullSearch.revenues}
+                  onBackToOverview={fullSearch.backToOverview}
+                />
+              ) : (
+                <RevenuesTable
+                  key="revenue-overview"
+                  externalFilters={{
+                    filters: revenueFilters,
+                    setFilters: setRevenueFilters,
+                  }}
+                  initialSearch={overviewDescriptions.revenues}
+                  onOpenSearch={(description) => {
+                    setOverviewDescriptions((previous) => ({
+                      ...previous,
+                      revenues: description,
+                    }));
+                    fullSearch.openSearch();
+                  }}
+                />
+              )
+            ) : fullSearch.isSearchMode ? (
+              <ExpensesTable
+                key="expense-search"
+                mode="search"
+                externalFilters={fullSearch.expenses}
+                onBackToOverview={fullSearch.backToOverview}
+              />
             ) : (
-              <ExpensesTable externalFilters={{ filters: expenseFilters, setFilters: setExpenseFilters }} />
+              <ExpensesTable
+                key="expense-overview"
+                externalFilters={{
+                  filters: expenseFilters,
+                  setFilters: setExpenseFilters,
+                }}
+                initialSearch={overviewDescriptions.expenses}
+                onOpenSearch={(description) => {
+                  setOverviewDescriptions((previous) => ({
+                    ...previous,
+                    expenses: description,
+                  }));
+                  fullSearch.openSearch();
+                }}
+              />
             )}
           </Grid>
         </Grid>

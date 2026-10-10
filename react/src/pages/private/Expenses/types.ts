@@ -1,4 +1,5 @@
 import { RawDateString } from "../../../types";
+import type { SearchFields } from "./fullHistorySearch";
 
 export enum GroupBy {
   CATEGORY = "category",
@@ -55,3 +56,5 @@ export type Filters = {
   tag?: string[];
   bank_account_description?: string;
 };
+
+export type SearchFilters = Filters & SearchFields;

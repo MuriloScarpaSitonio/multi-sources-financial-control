@@ -5,7 +5,7 @@ description = ""
 authors = [{ name = "Your Name", email = "you@example.com" }]
 requires-python = "~=3.13.0"
 dependencies = [
-    "Django>=5.2.3,<6",
+    "Django>=6.1.1,<6.2",
     "aiohttp>=3.9.0,<4",
     "asgiref>=3.7.2,<4",
     "cryptography>=42.0.0,<43",
@@ -13,7 +13,7 @@ dependencies = [
     "django-choices>=1.7.2,<2",
     "django-cors-headers>=4.3.0,<5",
     "django-filter~=24.0",
-    "djangorestframework>=3.15.0,<4",
+    "djangorestframework>=3.18.3,<4",
     "djangorestframework-simplejwt>=5.3.0,<6",
     "drf-spectacular>=0.27.0,<1",
     "pydantic>=2.5.0,<3",
@@ -122,7 +122,6 @@ omit = [
   "*asgi*",
   "manage.py",
   "locustfile.py",
-  "backup_dbs.py",
   "*scripts*",
 ]
 parallel = true

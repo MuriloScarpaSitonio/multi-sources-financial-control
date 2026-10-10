@@ -6,24 +6,31 @@ import { ApiListResponse } from "../../../types";
 
 const RESOURCE = "revenues";
 
-type Params = {
+export type RevenueListParams = {
   page?: number;
   page_size?: number;
   ordering?: string;
-  startDate?: Date;
-  endDate?: Date;
+  startDate?: Date | string;
+  endDate?: Date | string;
+  bank_account_description?: string;
   description?: string;
   is_fixed?: boolean;
 };
 export const getRevenues = async (
-  params: Params = {}
+  params: RevenueListParams = {},
 ): Promise<ApiListResponse<Revenue>> =>
   (
     await apiProvider.get(RESOURCE, {
       params: {
         ...params,
-        start_date: params.startDate?.toLocaleDateString("pt-br"),
-        end_date: params.endDate?.toLocaleDateString("pt-br"),
+        start_date:
+          params.startDate instanceof Date
+            ? params.startDate.toLocaleDateString("pt-br")
+            : params.startDate,
+        end_date:
+          params.endDate instanceof Date
+            ? params.endDate.toLocaleDateString("pt-br")
+            : params.endDate,
       },
     })
   ).data;
@@ -47,7 +54,7 @@ export const createRevenue = async (data: RevenueWrite): Promise<Revenue> => {
           perform_actions_on_future_fixed_entities:
             performActionsOnFutureFixedEntities,
         },
-      }
+      },
     )
   ).data;
 };
@@ -72,14 +79,14 @@ export const editRevenue = async ({
           perform_actions_on_future_fixed_entities:
             performActionsOnFutureFixedEntities,
         },
-      }
+      },
     )
   ).data;
 };
 
 export const deleteRevenue = async (
   id: number,
-  performActionsOnFutureFixedEntities?: boolean
+  performActionsOnFutureFixedEntities?: boolean,
 ) =>
   (
     await apiProvider.Delete(`${RESOURCE}/${id}`, {

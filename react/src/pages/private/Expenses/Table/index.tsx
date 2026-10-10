@@ -1,7 +1,14 @@
+import { isAxiosError } from "axios";
+import {
+  getFullHistoryOrdering,
+  getSearchDateControls,
+  type FullHistoryTableProps,
+  type SearchFields,
+} from "../fullHistorySearch";
 import type { ApiListResponse, RawDateString } from "../../../../types";
 import type { Filters } from "../types";
 
-import { useContext, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -41,12 +48,7 @@ import DeleteExpenseDialog from "./DeleteExpenseDialog";
 import ExpenseDrawer from "./ExpenseDrawer";
 import TopToolBar from "./ToopToolBar";
 
-interface TableProps {
-  externalFilters: {
-    filters: Filters;
-    setFilters: Dispatch<SetStateAction<Filters>> | ((filters: Filters) => void);
-  };
-}
+type TableProps = FullHistoryTableProps<Filters>;
 
 type GroupedExpense = Expense & { type: string };
 
@@ -93,7 +95,7 @@ const getExpensesGroupedByType = async (
   };
 };
 
-const useOnExpenseDeleteSuccess = () => {
+const useOnExpenseDeleteSuccess = (isSearch: boolean) => {
   const queryClient = useQueryClient();
   const { invalidate: invalidateExpensesQueries } =
     useInvalidateExpenseQueries(queryClient);
@@ -119,21 +121,39 @@ const useOnExpenseDeleteSuccess = () => {
   return {
     onDeleteSuccess: async (expenseId: number) => {
       await invalidateExpensesQueries({ invalidateTableQuery: false });
-      removeExpenseFromCachedData(expenseId);
+      if (isSearch) {
+        await queryClient.cancelQueries({
+          queryKey: [EXPENSES_QUERY_KEY, "search"],
+        });
+        await queryClient.invalidateQueries({
+          queryKey: [EXPENSES_QUERY_KEY, "search"],
+        });
+      } else removeExpenseFromCachedData(expenseId);
     },
   };
 };
 
 const defaultFilters: Filters = {};
 
-const Table = ({ externalFilters }: TableProps) => {
-  const [deleteExpense, setDeleteExpense] = useState<
-    GroupedExpense | undefined
-  >();
-  const [editExpense, setEditExpense] = useState<GroupedExpense | undefined>();
+const Table = (props: TableProps) => {
+  const { externalFilters } = props;
+  const isSearch = props.mode === "search";
+  const scopedFilters = externalFilters.filters as Filters & SearchFields;
+  const searchFiltersSetter = externalFilters.setFilters as React.Dispatch<
+    React.SetStateAction<Filters & SearchFields>
+  >;
+  const [deleteExpense, setDeleteExpense] = useState<Expense | undefined>();
+  const [editExpense, setEditExpense] = useState<Expense | undefined>();
 
-  const { startDate, setStartDate, endDate, setEndDate, categories, sources, isRelatedEntitiesLoading } =
-    useContext(ExpensesContext);
+  const {
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
+    categories,
+    sources,
+    isRelatedEntitiesLoading,
+  } = useContext(ExpensesContext);
 
   const { hideValues } = useHideValues();
 
@@ -151,7 +171,7 @@ const Table = ({ externalFilters }: TableProps) => {
 
   const columns = useMemo<Column<GroupedExpense>[]>(
     () => [
-      { header: "", accessorKey: "type", size: 25 },
+      ...(!isSearch ? [{ header: "", accessorKey: "type", size: 25 }] : []),
       {
         header: "Descrição",
         accessorKey: "full_description",
@@ -174,9 +194,9 @@ const Table = ({ externalFilters }: TableProps) => {
             {hideValues
               ? ""
               : `R$ ${cell.getValue<number>().toLocaleString("pt-br", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`}
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`}
           </Text>
         ),
       },
@@ -244,10 +264,10 @@ const Table = ({ externalFilters }: TableProps) => {
         },
       },
     ],
-    [categories, sources, hideValues],
+    [categories, sources, hideValues, isSearch],
   );
 
-  const { onDeleteSuccess } = useOnExpenseDeleteSuccess();
+  const { onDeleteSuccess } = useOnExpenseDeleteSuccess(isSearch);
   const {
     table,
     search,
@@ -255,30 +275,55 @@ const Table = ({ externalFilters }: TableProps) => {
     pagination,
     setPagination,
     sorting,
+    queryError,
     filters,
     setFilters,
   } = useTable({
     columns: columns as Column<any>[],
-    queryKey: [
-      EXPENSES_QUERY_KEY,
-      startDate.toLocaleDateString("pt-br"),
-      endDate.toLocaleDateString("pt-br"),
-    ],
+    queryKey: isSearch
+      ? [EXPENSES_QUERY_KEY, "search"]
+      : [
+          EXPENSES_QUERY_KEY,
+          startDate.toLocaleDateString("pt-br"),
+          endDate.toLocaleDateString("pt-br"),
+        ],
     defaultFilters,
-    externalFilters: externalFilters as { filters: Record<string, any>; setFilters: any },
-    enableExpanding: true,
-    enableExpandAll: true,
-    enableGrouping: true,
+    externalFilters: externalFilters as {
+      filters: Record<string, any>;
+      setFilters: any;
+    },
+    initialSearch: props.mode !== "search" ? props.initialSearch : undefined,
+    ...(isSearch
+      ? {
+          externalSearch: {
+            value: scopedFilters.description ?? "",
+            setValue: (value) =>
+              searchFiltersSetter((previous) => ({
+                ...previous,
+                description:
+                  typeof value === "function"
+                    ? value(previous.description ?? "")
+                    : value,
+              })),
+          },
+          paginationResetKey: JSON.stringify(scopedFilters),
+        }
+      : {}),
+    enableExpanding: !isSearch,
+    enableExpandAll: !isSearch,
+    enableGrouping: !isSearch,
     manualExpanding: false,
     groupedColumnMode: "remove",
-    positionToolbarAlertBanner: "none",
+    positionToolbarAlertBanner: isSearch ? "top" : "none",
     defaultPageSize: 100,
     editDisplayMode: "custom",
     enableRowActions: true,
     enableToolbarInternalActions: true,
     isLoading: isRelatedEntitiesLoading,
     positionActionsColumn: "last",
-    initialState: { grouping: ["type"], expanded: { "type:Outros": true } },
+    initialState: isSearch
+      ? {}
+      : { grouping: ["type"], expanded: { "type:Outros": true } },
     localization: {
       noRecordsToDisplay: "Nenhuma despesa encontrada",
       actions: "",
@@ -296,16 +341,24 @@ const Table = ({ externalFilters }: TableProps) => {
       },
     },
     queryFn: () =>
-      getExpensesGroupedByType({
-        page: pagination.pageIndex + 1,
-        page_size: pagination.pageSize,
-        ordering:
-          sorting.map((s) => (s.desc ? `-${s.id}` : s.id))[0] ?? "-created_at",
-        description: search,
-        startDate,
-        endDate,
-        ...(filters as Filters),
-      }),
+      isSearch
+        ? getExpenses({
+            ...scopedFilters,
+            page: pagination.pageIndex + 1,
+            page_size: pagination.pageSize,
+            ordering: getFullHistoryOrdering(sorting),
+          })
+        : getExpensesGroupedByType({
+            page: pagination.pageIndex + 1,
+            page_size: pagination.pageSize,
+            ordering:
+              sorting.map((s) => (s.desc ? `-${s.id}` : s.id))[0] ??
+              "-created_at",
+            description: search,
+            startDate,
+            endDate,
+            ...(filters as Filters),
+          }),
     getRowId: (row: Expense) => row.id?.toString(),
     renderTopToolbar: ({ table }) => (
       <TopToolBar
@@ -317,6 +370,20 @@ const Table = ({ externalFilters }: TableProps) => {
         setFilters={setFilters}
         defaultFilters={defaultFilters}
         dateFilters={dateFilters}
+        isSearch={isSearch}
+        onOpenSearch={
+          props.mode !== "search" && props.onOpenSearch
+            ? () => props.onOpenSearch?.(search)
+            : undefined
+        }
+        onBackToOverview={
+          props.mode === "search" ? props.onBackToOverview : undefined
+        }
+        searchDateControls={
+          isSearch
+            ? getSearchDateControls(scopedFilters, searchFiltersSetter)
+            : undefined
+        }
       />
     ),
     renderRowActions: ({ row, table }) => (
@@ -341,11 +408,26 @@ const Table = ({ externalFilters }: TableProps) => {
     ),
   });
 
+  useEffect(() => {
+    if (
+      isSearch &&
+      pagination.pageIndex > 0 &&
+      isAxiosError(queryError) &&
+      queryError.response?.status === 404 &&
+      queryError.response.data?.detail === "Invalid page."
+    ) {
+      setPagination((previous) => ({
+        ...previous,
+        pageIndex: Math.max(0, previous.pageIndex - 1),
+      }));
+    }
+  }, [isSearch, queryError, pagination.pageIndex, setPagination]);
+
   return (
     <>
       <MaterialReactTable table={table} />
       <DeleteExpenseDialog
-        expense={deleteExpense as GroupedExpense}
+        expense={deleteExpense as Expense}
         open={!!deleteExpense}
         onClose={() => setDeleteExpense(undefined)}
         onSuccess={onDeleteSuccess}

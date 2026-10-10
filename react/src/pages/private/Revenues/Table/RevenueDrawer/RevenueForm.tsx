@@ -103,8 +103,10 @@ const RevenueForm = ({
   onEditSuccess?: () => void;
   initialData?: Revenue;
 }) => {
-  const { revenuesCategories, mostCommonRevenueCategory } = useContext(ExpensesContext);
-  const { data: defaultBankAccount, accounts: bankAccounts } = useDefaultBankAccount();
+  const { revenuesCategories, mostCommonRevenueCategory, isFullHistorySearch } =
+    useContext(ExpensesContext);
+  const { data: defaultBankAccount, accounts: bankAccounts } =
+    useDefaultBankAccount();
 
   const {
     id: revenueId,
@@ -129,10 +131,16 @@ const RevenueForm = ({
 
   const defaultBankAccountOption = useMemo(() => {
     if (initialData?.bank_account_description) {
-      return { label: initialData.bank_account_description, value: initialData.bank_account_description };
+      return {
+        label: initialData.bank_account_description,
+        value: initialData.bank_account_description,
+      };
     }
     return defaultBankAccount
-      ? { label: defaultBankAccount.description, value: defaultBankAccount.description }
+      ? {
+          label: defaultBankAccount.description,
+          value: defaultBankAccount.description,
+        }
       : null;
   }, [initialData, defaultBankAccount]);
 
@@ -150,7 +158,15 @@ const RevenueForm = ({
       bank_account_description: defaultBankAccountOption,
       ...rest,
     }),
-    [category, created_at, is_fixed, rest, revenuesCategories, mostCommonRevenueCategory, defaultBankAccountOption],
+    [
+      category,
+      created_at,
+      is_fixed,
+      rest,
+      revenuesCategories,
+      mostCommonRevenueCategory,
+      defaultBankAccountOption,
+    ],
   );
 
   const queryClient = useQueryClient();
@@ -223,7 +239,14 @@ const RevenueForm = ({
         },
       );
       if (revenueId) {
-        updateCachedData({ ...data, id: revenueId });
+        if (isFullHistorySearch) {
+          await queryClient.cancelQueries({
+            queryKey: [REVENUES_QUERY_KEY, "search"],
+          });
+          await queryClient.invalidateQueries({
+            queryKey: [REVENUES_QUERY_KEY, "search"],
+          });
+        } else updateCachedData({ ...data, id: revenueId });
         onEditSuccess?.();
       } else reset({ ...data, description: "", value: "" });
     },

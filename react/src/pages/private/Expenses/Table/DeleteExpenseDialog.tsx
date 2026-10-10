@@ -22,7 +22,7 @@ const DeleteExpenseDialog = ({
   onClose,
   onSuccess,
 }: {
-  expense: Expense & { type: string };
+  expense: Expense;
   open: boolean;
   onClose: () => void;
   onSuccess: (id: number) => Promise<void>;
@@ -46,7 +46,7 @@ const DeleteExpenseDialog = ({
     <Dialog open={open} onClose={onClose}>
       <DialogTitle>Tem certeza que deseja deletar essa despesa?</DialogTitle>
       <DialogContent>
-        {expense?.type === "Parcelas" && (
+        {!!expense?.installments_id && (
           <b>ATENÇÃO: TODAS AS OUTRAS PARCELAS TAMBÉM SERÃO EXCLUÍDAS!</b>
         )}
         <Typography

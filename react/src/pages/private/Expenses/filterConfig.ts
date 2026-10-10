@@ -22,3 +22,11 @@ export const expensesFilterSchema: FilterSchema = {
   tag: { type: "array" },
   bank_account_description: { type: "string" },
 };
+
+export const expensesSearchFilterSchema: FilterSchema = {
+  ...expensesFilterSchema,
+  description: { type: "string" }, startDate: { type: "string" }, endDate: { type: "string" },
+};
+export const expensesSearchFilterConfig: FilterFieldConfigs = {
+  ...expensesFilterConfig, startDate: { label: "Início" }, endDate: { label: "Fim" },
+};
