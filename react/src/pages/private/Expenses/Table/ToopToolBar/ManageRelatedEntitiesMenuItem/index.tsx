@@ -68,7 +68,7 @@ const schema = yup.object().shape({
       value: yup.string().required("A cor é obrigatória"),
     })
     .required("A cor é obrigatória"),
-  exclude_from_fire: yup.boolean().optional(),
+  exclude_from_planning: yup.boolean().optional(),
 });
 
 const FORM_ID = "new-expense-related-entity-form-id";
@@ -110,7 +110,7 @@ const NewRelatedEntityForm = ({
   } = useFormPlus({
     mutationFn: kind === "category" ? addCategory : addSource,
     schema: schema,
-    defaultValues: { name: "", hex_color: { label: "", value: "" }, exclude_from_fire: false },
+    defaultValues: { name: "", hex_color: { label: "", value: "" }, exclude_from_planning: false },
     onSuccess: () => {
       onSuccess();
       reset();
@@ -132,7 +132,7 @@ const NewRelatedEntityForm = ({
         mutate({
           name: data.name,
           hex_color: data.hex_color.value,
-          ...(kind === "category" && { exclude_from_fire: data.exclude_from_fire }),
+          ...(kind === "category" && { exclude_from_planning: data.exclude_from_planning }),
         }),
       )}
       sx={{ marginBottom: 2 }}
@@ -165,16 +165,16 @@ const NewRelatedEntityForm = ({
       </Stack>
       {kind === "category" && (
         <Controller
-          name="exclude_from_fire"
+          name="exclude_from_planning"
           control={control}
           render={({ field }) => (
             <Tooltip
-              title="Despesas desta categoria não serão consideradas no cálculo do indicador FIRE (ex: impostos de trabalho PJ)"
+              title="Despesas desta categoria não serão consideradas no cálculo das despesas mensais do planejamento (ex: impostos de trabalho PJ)"
               arrow
             >
               <FormControlLabel
                 control={<Checkbox {...field} checked={field.value} size="small" />}
-                label="Excluir do FIRE"
+                label="Excluir do planejamento"
               />
             </Tooltip>
           )}
@@ -315,7 +315,7 @@ const RelatedEntityForm = ({
         label: entity.hex_color,
         value: entity.hex_color,
       },
-      exclude_from_fire: entity.exclude_from_fire ?? false,
+      exclude_from_planning: entity.exclude_from_planning ?? false,
     },
     onSuccess: async () => {
       const data = getValues() as yup.Asserts<typeof schema>;
@@ -366,16 +366,16 @@ const RelatedEntityForm = ({
       </Stack>
       {kind === "category" && (
         <Controller
-          name="exclude_from_fire"
+          name="exclude_from_planning"
           control={control}
           render={({ field }) => (
             <Tooltip
-              title="Despesas desta categoria não serão consideradas no cálculo do indicador FIRE (ex: impostos de trabalho PJ)"
+              title="Despesas desta categoria não serão consideradas no cálculo das despesas mensais do planejamento (ex: impostos de trabalho PJ)"
               arrow
             >
               <FormControlLabel
                 control={<Checkbox {...field} checked={field.value} size="small" />}
-                label="Excluir do FIRE"
+                label="Excluir do planejamento"
               />
             </Tooltip>
           )}
@@ -397,14 +397,14 @@ const RelatedEntityForm = ({
             ({
               name,
               hex_color: { value: hex_color },
-              exclude_from_fire,
+              exclude_from_planning,
             }: yup.Asserts<typeof schema>) => {
               updateEntity({
                 id: entity.id,
                 data: {
                   name,
                   hex_color,
-                  ...(kind === "category" && { exclude_from_fire }),
+                  ...(kind === "category" && { exclude_from_planning }),
                 },
               });
             },

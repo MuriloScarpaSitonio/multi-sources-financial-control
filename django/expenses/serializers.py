@@ -371,7 +371,7 @@ class _ExpenseRelatedEntitySerializer(serializers.ModelSerializer):
 class ExpenseCategorySerializer(_ExpenseRelatedEntitySerializer):
     class Meta(_ExpenseRelatedEntitySerializer.Meta):
         model = ExpenseCategory
-        fields = (*_ExpenseRelatedEntitySerializer.Meta.fields, "exclude_from_fire")
+        fields = (*_ExpenseRelatedEntitySerializer.Meta.fields, "exclude_from_planning")
 
 
 class ExpenseSourceSerializer(_ExpenseRelatedEntitySerializer):
