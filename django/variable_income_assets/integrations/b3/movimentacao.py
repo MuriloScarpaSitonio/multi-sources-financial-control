@@ -16,6 +16,7 @@ GLOB_PATTERN = "movimentacao-*.xlsx"
 BUY_SELL_LABEL = "COMPRA / VENDA"
 DEBENTURE_BUY_SELL_LABEL = "COMPRA/VENDA DEFINITIVA/CESSAO"
 MATURITY_LABEL = "VENCIMENTO"
+EARLY_REDEMPTION_LABEL = "RESGATE ANTECIPADO"
 INTEREST_LABEL = "PAGAMENTO DE JUROS"
 RENDA_FIXA_PREFIXES = (
     B3FixedIncomeKind.CDB,
@@ -139,7 +140,12 @@ def parse_movements(path: WorkbookSource | None = None) -> list[B3FixedIncomeMov
 
             movement_label = row[h["Movimentação"]] if h["Movimentação"] < len(row) else None
             movement_label = str(movement_label or "").strip()
-            if movement_label not in (BUY_SELL_LABEL, DEBENTURE_BUY_SELL_LABEL, MATURITY_LABEL):
+            if movement_label not in (
+                BUY_SELL_LABEL,
+                DEBENTURE_BUY_SELL_LABEL,
+                MATURITY_LABEL,
+                EARLY_REDEMPTION_LABEL,
+            ):
                 continue
 
             split = _split_produto(str(produto_raw).strip())

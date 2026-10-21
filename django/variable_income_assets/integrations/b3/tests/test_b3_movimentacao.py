@@ -181,6 +181,36 @@ def test_pagamento_de_juros_parses_as_fixed_income_interest(tmp_path):
     assert payments[0].amount == Decimal("628.16")
 
 
+def test_resgate_antecipado_maps_to_sell(tmp_path):
+    path = build_xlsx(
+        tmp_path / "movimentacao.xlsx",
+        [
+            [
+                "Debito",
+                "20/10/2026",
+                "RESGATE ANTECIPADO",
+                "LCI - 25H03552398 - BANCO INTER S/A",
+                "BANCO INTER S/A",
+                1500000,
+                "0.01166082",
+                "17491.23",
+            ]
+        ],
+    )
+
+    movements = parse_movements(str(path))
+
+    assert len(movements) == 1
+    movement = movements[0]
+    assert movement.kind == B3FixedIncomeKind.LCI
+    assert movement.code == "25H03552398"
+    assert movement.action == B3FixedIncomeAction.SELL
+    assert movement.operation_date == date(2026, 10, 20)
+    assert movement.quantity == Decimal("1500000")
+    assert movement.unit_price == Decimal("0.01166082")
+    assert movement.is_maturity is False
+
+
 def test_unknown_flow_raises(tmp_path):
     bad_row = list(CDB_BUY_ROW)
     bad_row[0] = "Garbage"
