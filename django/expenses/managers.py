@@ -30,7 +30,7 @@ class _PersonalFinancialQuerySet(QuerySet):
     def _monthly_avg_expression(self, exclude_fire_categories: bool = False) -> CombinedExpression:
         base_filter = self.filters.since_a_year_ago & ~self.filters.current
         if exclude_fire_categories:
-            base_filter = base_filter & ~Q(expanded_category__exclude_from_fire=True)
+            base_filter = base_filter & ~Q(expanded_category__exclude_from_planning=True)
 
         return Sum("value", filter=base_filter, default=Decimal()) / (
             Greatest(
@@ -50,7 +50,7 @@ class _PersonalFinancialQuerySet(QuerySet):
     def since_a_year_ago_avg(self, exclude_fire_categories: bool = False) -> dict[str, Decimal]:
         qs = self.filter(self.filters.since_a_year_ago).exclude(self.filters.current)
         if exclude_fire_categories:
-            qs = qs.exclude(expanded_category__exclude_from_fire=True)
+            qs = qs.exclude(expanded_category__exclude_from_planning=True)
 
         return qs.aggregate(
             avg=Coalesce(

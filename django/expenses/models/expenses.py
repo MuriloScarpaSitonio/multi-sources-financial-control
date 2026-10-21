@@ -15,7 +15,7 @@ class ExpenseCategory(RelatedEntity):
     user = models.ForeignKey(
         to=settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="expense_categories"
     )
-    exclude_from_fire = models.BooleanField(default=False)
+    exclude_from_planning = models.BooleanField(default=False)
 
 
 class ExpenseSource(RelatedEntity):

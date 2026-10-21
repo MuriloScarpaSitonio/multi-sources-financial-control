@@ -208,7 +208,7 @@ export const updateCategory = async ({
   data,
 }: {
   id: number;
-  data: { name: string; hex_color: string; exclude_from_fire?: boolean };
+  data: { name: string; hex_color: string; exclude_from_planning?: boolean };
 }): Promise<ExpenseRelatedEntity> =>
   (await apiProvider.put(`${RESOURCE}/categories/${id}`, data)).data;
 
@@ -218,7 +218,7 @@ export const deleteCategory = async (id: number) =>
 export const addCategory = async (data: {
   name: string;
   hex_color: string;
-  exclude_from_fire?: boolean;
+  exclude_from_planning?: boolean;
 }): Promise<ExpenseRelatedEntity> =>
   (await apiProvider.post(`${RESOURCE}/categories`, data)).data;
 

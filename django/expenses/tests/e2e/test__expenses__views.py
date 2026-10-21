@@ -1362,10 +1362,10 @@ def test__indicators__include_fire_avg(client, user, bank_account):
     last_month = today - relativedelta(months=1)
 
     regular_category = ExpenseCategoryFactory(
-        name="TestCategory", hex_color="#000000", user=user, exclude_from_fire=False
+        name="TestCategory", hex_color="#000000", user=user, exclude_from_planning=False
     )
     fire_excluded_category = ExpenseCategoryFactory(
-        name="WorkExpenses", hex_color="#111111", user=user, exclude_from_fire=True
+        name="WorkExpenses", hex_color="#111111", user=user, exclude_from_planning=True
     )
 
     # Create regular expenses last month
@@ -1378,7 +1378,7 @@ def test__indicators__include_fire_avg(client, user, bank_account):
         bank_account=bank_account,
     )
 
-    # Create expenses with exclude_from_fire=True (should be excluded from fire_avg)
+    # Create expenses with exclude_from_planning=True (should be excluded from fire_avg)
     ExpenseFactory(
         value=Decimal("200.00"),
         category="WorkExpenses",
@@ -1397,7 +1397,7 @@ def test__indicators__include_fire_avg(client, user, bank_account):
     assert response.status_code == HTTP_200_OK
     # avg includes all expenses: (100 + 200) / 1 month = 300
     assert response_json["avg"] == 300.0
-    # fire_avg excludes categories with exclude_from_fire=True: 100 / 1 month = 100
+    # fire_avg excludes categories with exclude_from_planning=True: 100 / 1 month = 100
     assert response_json["fire_avg"] == 100.0
 
 
@@ -1408,7 +1408,7 @@ def test__indicators__include_fire_avg_false_by_default(client, user, bank_accou
     last_month = today - relativedelta(months=1)
 
     fire_excluded_category = ExpenseCategoryFactory(
-        name="WorkExpenses", hex_color="#111111", user=user, exclude_from_fire=True
+        name="WorkExpenses", hex_color="#111111", user=user, exclude_from_planning=True
     )
 
     ExpenseFactory(

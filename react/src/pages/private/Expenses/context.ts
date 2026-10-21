@@ -7,7 +7,7 @@ export type ExpenseRelatedEntity = {
   id: number;
   name: string;
   hex_color: string;
-  exclude_from_fire?: boolean;
+  exclude_from_planning?: boolean;
 };
 
 export type RelatedEntityResultsAndHexColorMapping = {
