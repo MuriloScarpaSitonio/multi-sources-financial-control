@@ -32,6 +32,7 @@ export function fakeSearchApi<T extends Expense | Revenue>(
 ) {
   let rows = [...initial];
   const requests: { resource: string; params: Record<string, any> }[] = [];
+  const totalRequests: { resource: string; params: Record<string, any> }[] = [];
   const bank = {
     description: "Nubank",
     amount: 10000,
@@ -43,12 +44,18 @@ export function fakeSearchApi<T extends Expense | Revenue>(
   const get = vi
     .spyOn(apiProvider, "get")
     .mockImplementation(async (url: string, config?: any) => {
+      const isTotal = url.endsWith("/sum");
+      const requestedResource = isTotal ? url.slice(0, -4) : url;
       if (
-        url === resource ||
-        (resource === "all" && ["expenses", "revenues"].includes(url))
+        requestedResource === resource ||
+        (resource === "all" &&
+          ["expenses", "revenues"].includes(requestedResource))
       ) {
         const params = config?.params ?? {};
-        requests.push({ resource: url, params });
+        (isTotal ? totalRequests : requests).push({
+          resource: requestedResource,
+          params,
+        });
         let matching = rows.filter(
           (row) =>
             !params.description ||
@@ -64,6 +71,12 @@ export function fakeSearchApi<T extends Expense | Revenue>(
               !!("installments_id" in row && row.installments_id) ===
               params.with_installments,
           );
+        if (isTotal)
+          return {
+            data: {
+              total: matching.reduce((total, row) => total + row.value, 0),
+            },
+          } as any;
         const page = params.page ?? 1,
           size = params.page_size ?? 100;
         if (page > Math.max(1, Math.ceil(matching.length / size))) {
@@ -131,6 +144,7 @@ export function fakeSearchApi<T extends Expense | Revenue>(
     });
   return {
     requests,
+    totalRequests,
     get,
     put,
     remove,

@@ -1,3 +1,4 @@
+import FullHistorySearchTotal from "../../../Expenses/FullHistorySearchTotal";
 import {
   FullHistorySearchBar,
   FullHistoryFilterIndicators,
@@ -165,6 +166,9 @@ const TopToolBar = ({
           </Stack>
         </Grid>
       </Grid>
+      {isSearch && (
+        <FullHistorySearchTotal resource="revenues" filters={filters} />
+      )}
       {isSearch && table.getState().showAlertBanner && (
         <Alert severity="error">Não foi possível carregar receitas.</Alert>
       )}

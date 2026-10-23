@@ -110,8 +110,8 @@ class _PersonalFinanceViewSet(
 
     @action(methods=("GET",), detail=False)
     def sum(self, request: Request) -> Response:
-        filterset = filters.DateRangeFilterSet(data=request.GET, queryset=self.get_queryset())
-        return Response(serializers.TotalSerializer(filterset.qs.sum()).data, status=HTTP_200_OK)
+        queryset = self.filter_queryset(self.get_queryset()).order_by().distinct()
+        return Response(serializers.TotalSerializer(queryset.sum()).data, status=HTTP_200_OK)
 
     @action(methods=("GET",), detail=False)
     def avg(self, _: Request) -> Response:

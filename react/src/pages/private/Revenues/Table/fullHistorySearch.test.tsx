@@ -50,6 +50,10 @@ it("uses one unpartitioned request without overview dates and paginates the full
   );
   const { api } = setup(rows);
   await screen.findByText("rent 1");
+  await screen.findByText(/Total: R\$\s*20\.200,00/);
+  expect(api.totalRequests).toHaveLength(1);
+  expect(api.totalRequests[0].params.page).toBeUndefined();
+  expect(api.totalRequests[0].params.page_size).toBeUndefined();
   expect(api.requests).toHaveLength(1);
   expect(api.requests[0].params).toMatchObject({
     page: 1,
@@ -65,6 +69,8 @@ it("uses one unpartitioned request without overview dates and paginates the full
   fireEvent.click(screen.getByRole("button", { name: "Go to page 2" }));
   await screen.findByText("rent 101");
   expect(api.requests.at(-1)?.params.page).toBe(2);
+  expect(screen.getByText(/Total: R\$\s*20\.200,00/)).toBeInTheDocument();
+  expect(api.totalRequests).toHaveLength(1);
   expect(screen.getByRole("button", { name: "Go to page 3" })).toBeEnabled();
 });
 
@@ -79,6 +85,7 @@ it("editing through the existing drawer refetches matching rows and preserves ov
   fireEvent.click(screen.getAllByRole("button", { name: "Editar" }).at(-1)!);
   await waitFor(() => expect(api.getRows()[0].description).toBe("food"));
   await screen.findByText("Nenhuma receita encontrada");
+  await screen.findByText(/Total: R\$\s*0,00/);
   expect(client.getQueryData([REVENUES_QUERY_KEY, "overview-test"])).toEqual(
     overview,
   );
@@ -183,6 +190,7 @@ it("fixed rows keep the existing future deletion toggle and balance/report inval
   fireEvent.click(within(dialog).getByRole("checkbox"));
   fireEvent.click(within(dialog).getByRole("button", { name: "Deletar" }));
   await screen.findByText("Nenhuma receita encontrada");
+  await screen.findByText(/Total: R\$\s*0,00/);
   expect(
     api.remove.mock.calls[0][1].params.perform_actions_on_future_fixed_entities,
   ).toBe(true);
@@ -352,6 +360,7 @@ it.each(["delete", "edit"])(
       finishRead();
     });
     await screen.findByText("Nenhuma receita encontrada");
+    await screen.findByText(/Total: R\$\s*0,00/);
     expect(reads).toBe(2);
   },
   10000,

@@ -97,17 +97,21 @@ export const deleteRevenue = async (
     })
   ).data;
 
-export const getSum = async (params: {
-  startDate: Date;
-  endDate: Date;
-}): Promise<{
-  total: number;
-}> =>
+export const getSum = async (
+  params: Omit<RevenueListParams, "page" | "page_size" | "ordering"> = {},
+): Promise<{ total: number }> =>
   (
     await apiProvider.get(`${RESOURCE}/sum`, {
       params: {
-        start_date: params.startDate.toLocaleDateString("pt-br"),
-        end_date: params.endDate.toLocaleDateString("pt-br"),
+        ...params,
+        start_date:
+          params.startDate instanceof Date
+            ? params.startDate.toLocaleDateString("pt-br")
+            : params.startDate,
+        end_date:
+          params.endDate instanceof Date
+            ? params.endDate.toLocaleDateString("pt-br")
+            : params.endDate,
       },
     })
   ).data;
