@@ -22,7 +22,7 @@ const DeleteRevenueDialog = ({
   onClose,
   onSuccess,
 }: {
-  revenue: Revenue & { type: string };
+  revenue: Revenue;
   open: boolean;
   onClose: () => void;
   onSuccess: (id: number) => Promise<void>;

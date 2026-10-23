@@ -1,3 +1,9 @@
+import FullHistorySearchTotal from "../../FullHistorySearchTotal";
+import {
+  FullHistorySearchBar,
+  FullHistoryFilterIndicators,
+} from "../../FullHistorySearchControls";
+import { type SearchDateControls } from "../../fullHistorySearch";
 import {
   useState,
   type Dispatch,
@@ -5,6 +11,7 @@ import {
   type SetStateAction,
 } from "react";
 
+import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
@@ -27,14 +34,19 @@ import {
   ToggleFullScreenMenuItem,
 } from "../../../../Datatable/components";
 
-import FilterIndicators, { type DateFilterProps } from "../../../../../components/FilterIndicators";
+import FilterIndicators, {
+  type DateFilterProps,
+} from "../../../../../components/FilterIndicators";
 import FiltersMenu from "./FiltersMenu";
 import {
   ManageRelatedEntitiesMenuItem,
   ManageRelatedEntitiesDrawer,
 } from "./ManageRelatedEntitiesMenuItem";
 import { Filters } from "../../types";
-import { expensesFilterConfig } from "../../filterConfig";
+import {
+  expensesFilterConfig,
+  expensesSearchFilterConfig,
+} from "../../filterConfig";
 import { SearchBar } from "../../../components";
 import ExpenseDrawer from "../ExpenseDrawer";
 
@@ -80,6 +92,10 @@ const TopToolBar = ({
   setFilters,
   defaultFilters,
   dateFilters,
+  isSearch = false,
+  onOpenSearch,
+  onBackToOverview,
+  searchDateControls,
 }: {
   table: DataTable<Row>;
   search: string;
@@ -89,6 +105,10 @@ const TopToolBar = ({
   setFilters: Dispatch<SetStateAction<Filters>>;
   defaultFilters: Filters;
   dateFilters: DateFilterProps;
+  isSearch?: boolean;
+  onOpenSearch?: () => void;
+  onBackToOverview?: () => void;
+  searchDateControls?: SearchDateControls;
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openDrawer, setOpenDrawer] = useState(false);
@@ -104,15 +124,29 @@ const TopToolBar = ({
         }}
       >
         <Grid item xs={6}>
-          <SearchBar
-            search={search}
-            placeholder="Pesquisar por descrição"
-            setSearch={setSearch}
-            setPagination={setPagination}
-          />
+          {isSearch ? (
+            <FullHistorySearchBar search={search} setSearch={setSearch} />
+          ) : (
+            <SearchBar
+              search={search}
+              placeholder="Pesquisar por descrição"
+              setSearch={setSearch}
+              setPagination={setPagination}
+            />
+          )}
         </Grid>
         <Grid container item xs={6} justifyContent="flex-end">
           <Stack direction="row" spacing={1}>
+            {onOpenSearch && (
+              <Button variant="neutral" onClick={onOpenSearch}>
+                Pesquisar todas as despesas
+              </Button>
+            )}
+            {onBackToOverview && (
+              <Button variant="neutral" onClick={onBackToOverview}>
+                Voltar à visão geral
+              </Button>
+            )}
             <Button
               startIcon={<AddIcon />}
               size="large"
@@ -132,19 +166,34 @@ const TopToolBar = ({
           </Stack>
         </Grid>
       </Grid>
-      <FilterIndicators
-        filters={filters}
-        setFilters={setFilters}
-        defaultFilters={defaultFilters}
-        fieldConfigs={expensesFilterConfig}
-        dateFilters={dateFilters}
-      />
+      {isSearch && (
+        <FullHistorySearchTotal resource="expenses" filters={filters} />
+      )}
+      {isSearch && table.getState().showAlertBanner && (
+        <Alert severity="error">Não foi possível carregar despesas.</Alert>
+      )}
+      {isSearch ? (
+        <FullHistoryFilterIndicators
+          filters={filters}
+          setFilters={setFilters}
+          fieldConfigs={expensesSearchFilterConfig}
+        />
+      ) : (
+        <FilterIndicators
+          filters={filters}
+          setFilters={setFilters}
+          defaultFilters={defaultFilters}
+          fieldConfigs={expensesFilterConfig}
+          dateFilters={dateFilters}
+        />
+      )}
       <FiltersMenu
         open={Boolean(anchorEl)}
         onClose={() => setAnchorEl(null)}
         anchorEl={anchorEl}
         filters={filters}
         setFilters={setFilters}
+        searchDateControls={searchDateControls}
       />
       <ExpenseDrawer open={openDrawer} onClose={() => setOpenDrawer(false)} />
     </>

@@ -16,7 +16,9 @@ import { type ApiListResponse } from "../types";
 
 interface ExternalFilters {
   filters: Record<string, any>;
-  setFilters: Dispatch<SetStateAction<Record<string, any>>> | ((filters: Record<string, any>) => void);
+  setFilters:
+    | Dispatch<SetStateAction<Record<string, any>>>
+    | ((filters: Record<string, any>) => void);
 }
 
 interface TableProps extends TableOptions<any> {
@@ -27,6 +29,12 @@ interface TableProps extends TableOptions<any> {
   columnVisibility?: VisibilityState;
   isLoading?: boolean;
   externalFilters?: ExternalFilters;
+  initialSearch?: string;
+  externalSearch?: {
+    value: string;
+    setValue: Dispatch<SetStateAction<string>>;
+  };
+  paginationResetKey?: string;
 }
 
 const useTable = ({
@@ -35,14 +43,31 @@ const useTable = ({
   isLoading = false,
   columnVisibility,
   externalFilters,
+  initialSearch = "",
+  externalSearch,
+  paginationResetKey,
   ...rest
 }: Omit<TableProps, "data">) => {
-  const [search, setSearch] = useState("");
+  const [internalSearch, setInternalSearch] = useState(initialSearch);
+  const search = externalSearch?.value ?? internalSearch;
+  const setSearch = externalSearch?.setValue ?? setInternalSearch;
   const [sorting, setSorting] = useState<SortingState>([]);
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: defaultPageSize,
   });
+  const [previousResetKey, setPreviousResetKey] = useState(paginationResetKey);
+  const effectivePagination =
+    paginationResetKey !== undefined && previousResetKey !== paginationResetKey
+      ? { ...pagination, pageIndex: 0 }
+      : pagination;
+  if (
+    paginationResetKey !== undefined &&
+    previousResetKey !== paginationResetKey
+  ) {
+    setPreviousResetKey(paginationResetKey);
+    setPagination(effectivePagination);
+  }
   const [expanded, setExpanded] = useState<ExpandedState>(
     rest.initialState?.expanded ?? {},
   );
@@ -58,16 +83,20 @@ const useTable = ({
     isPending,
     isRefetching,
     isError,
+    error: queryError,
   } = useQuery({
     queryKey: [
       ...queryKey,
-      pagination.pageIndex,
-      pagination.pageSize,
+      effectivePagination.pageIndex,
+      effectivePagination.pageSize,
       sorting,
       search,
       filters,
     ],
     queryFn,
+    ...(paginationResetKey !== undefined
+      ? { staleTime: 0, refetchOnMount: true, retry: false }
+      : {}),
   });
 
   const table = useMaterialReactTable({
@@ -120,7 +149,7 @@ const useTable = ({
       isLoading: isPending || isLoading,
       showProgressBars: isRefetching,
       showLoadingOverlay: false,
-      pagination,
+      pagination: effectivePagination,
       sorting,
       expanded,
       showAlertBanner: isError,
@@ -133,7 +162,8 @@ const useTable = ({
     table,
     search,
     setSearch,
-    pagination,
+    pagination: effectivePagination,
+    queryError,
     setPagination,
     sorting,
     expanded,

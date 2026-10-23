@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from django.contrib.postgres.search import Lexeme, SearchQuery, SearchVector
 from django.utils import timezone
 
 import django_filters
@@ -50,11 +51,22 @@ class _PersonalFinanceFilterSet(django_filters.FilterSet):
     end_date = django_filters.DateFilter(
         field_name="created_at", lookup_expr="lte", input_formats=["%d/%m/%Y", "%Y-%m-%d"]
     )
-    description = django_filters.CharFilter(lookup_expr="icontains")
+    description = django_filters.CharFilter(method="filter_description", strip=False)
     bank_account_description = django_filters.CharFilter(field_name="bank_account__description")
 
     class Meta:
         fields = ("is_fixed", "bank_account_description")
+
+    def filter_description(self, queryset: QuerySet, name: str, value: str) -> QuerySet:
+        terms = [term for term in value.split() if any(char.isalnum() for char in term)]
+        if not terms:
+            return queryset.none()
+        query = SearchQuery(Lexeme(terms[0], prefix=True), config="simple")
+        for term in terms[1:]:
+            query &= SearchQuery(Lexeme(term, prefix=True), config="simple")
+        return queryset.alias(
+            description_search=SearchVector("description", config="simple")
+        ).filter(description_search=query)
 
     @property
     def qs(self):

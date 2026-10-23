@@ -1,6 +1,8 @@
 from decimal import Decimal
 
 from django.conf import settings
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVector
 from django.core.validators import MinValueValidator
 from django.db import models
 
@@ -56,9 +58,11 @@ class Revenue(models.Model):
 
     class Meta:
         indexes = [
-            # Default date filter (always applied, can't be removed by user)
-            # Composite with user since queries always filter by user + date range
+            # Overview queries combine authenticated user and optional date bounds.
             models.Index(fields=["user", "created_at"]),
+            GinIndex(
+                SearchVector("description", config="simple"), name="revenues_desc_search_gin"
+            ),
         ]
 
     def __str__(self) -> str:  # pragma: no cover

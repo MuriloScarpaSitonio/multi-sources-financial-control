@@ -16,6 +16,7 @@ export type RelatedEntityResultsAndHexColorMapping = {
 };
 
 interface ExpensesContextType {
+  isFullHistorySearch?: boolean;
   startDate: Date;
   setStartDate: Dispatch<SetStateAction<Date>>;
   endDate: Date;
