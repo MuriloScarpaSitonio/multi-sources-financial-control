@@ -15,7 +15,7 @@ SHEET_NAME = "Movimentação"
 GLOB_PATTERN = "movimentacao-*.xlsx"
 BUY_SELL_LABEL = "COMPRA / VENDA"
 DEBENTURE_BUY_SELL_LABEL = "COMPRA/VENDA DEFINITIVA/CESSAO"
-MATURITY_LABEL = "VENCIMENTO"
+MATURITY_LABELS = ("VENCIMENTO", "VENCIMENTO/RESGATE SALDO EM CONTA")
 EARLY_REDEMPTION_LABEL = "RESGATE ANTECIPADO"
 INTEREST_LABEL = "PAGAMENTO DE JUROS"
 RENDA_FIXA_PREFIXES = (
@@ -143,7 +143,7 @@ def parse_movements(path: WorkbookSource | None = None) -> list[B3FixedIncomeMov
             if movement_label not in (
                 BUY_SELL_LABEL,
                 DEBENTURE_BUY_SELL_LABEL,
-                MATURITY_LABEL,
+                *MATURITY_LABELS,
                 EARLY_REDEMPTION_LABEL,
             ):
                 continue
@@ -158,7 +158,7 @@ def parse_movements(path: WorkbookSource | None = None) -> list[B3FixedIncomeMov
             )
             action = (
                 B3FixedIncomeAction.SELL
-                if movement_label == MATURITY_LABEL and flow == "Debito"
+                if movement_label in MATURITY_LABELS and flow == "Debito"
                 else ACTION_BY_FLOW.get(flow)
             )
             if action is None:
@@ -178,7 +178,7 @@ def parse_movements(path: WorkbookSource | None = None) -> list[B3FixedIncomeMov
                     unit_price=_to_required_decimal(
                         row[h["Preço unitário"]], column="Preço unitário", row_index=row_index
                     ),
-                    is_maturity=movement_label == MATURITY_LABEL,
+                    is_maturity=movement_label in MATURITY_LABELS,
                 )
             )
 
