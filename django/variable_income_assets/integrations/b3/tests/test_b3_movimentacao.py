@@ -181,6 +181,36 @@ def test_pagamento_de_juros_parses_as_fixed_income_interest(tmp_path):
     assert payments[0].amount == Decimal("628.16")
 
 
+def test_vencimento_resgate_saldo_em_conta_maps_to_maturity_sell(tmp_path):
+    path = build_xlsx(
+        tmp_path / "movimentacao.xlsx",
+        [
+            [
+                "Debito",
+                "22/10/2026",
+                "VENCIMENTO/RESGATE SALDO EM CONTA",
+                "CDB - CDB4193UXEU - BANCO PINE S/A",
+                INSTITUICAO,
+                5,
+                1000,
+                5000,
+            ],
+        ],
+    )
+
+    movements = parse_movements(str(path))
+
+    assert len(movements) == 1
+    movement = movements[0]
+    assert movement.kind == B3FixedIncomeKind.CDB
+    assert movement.code == "CDB4193UXEU"
+    assert movement.action == B3FixedIncomeAction.SELL
+    assert movement.operation_date == date(2026, 10, 22)
+    assert movement.quantity == Decimal("5")
+    assert movement.unit_price == Decimal("1000")
+    assert movement.is_maturity is True
+
+
 def test_resgate_antecipado_maps_to_sell(tmp_path):
     path = build_xlsx(
         tmp_path / "movimentacao.xlsx",

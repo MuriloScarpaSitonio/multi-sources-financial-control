@@ -190,11 +190,16 @@ def _cdb_movimentacao_row(*, code: str = "CDB426DGCVL"):
     ]
 
 
-def _fixed_income_maturity_row(*, code: str = "25L03967955", operation_date: str = "29/06/2026"):
+def _fixed_income_maturity_row(
+    *,
+    code: str = "25L03967955",
+    operation_date: str = "29/06/2026",
+    movement_label: str = "VENCIMENTO",
+):
     return [
         "Debito",
         operation_date,
-        "VENCIMENTO",
+        movement_label,
         f"LCI - {code} - BANCO INTER S/A",
         "INTER DTVM",
         1000000,
@@ -364,8 +369,9 @@ def test_missing_asset_with_movimentacao_creates_asset_and_transaction(
     assert metadata.current_price == Decimal("1100")
 
 
+@pytest.mark.parametrize("movement_label", ["VENCIMENTO", "VENCIMENTO/RESGATE SALDO EM CONTA"])
 def test_existing_matured_asset_absent_from_position_imports_redemption_and_interest(
-    tmp_path, user
+    tmp_path, user, movement_label
 ):
     from ..conftest import TransactionFactory
 
@@ -397,7 +403,10 @@ def test_existing_matured_asset_absent_from_position_imports_redemption_and_inte
     posicao_path = _build_posicao(tmp_path, [])
     movimentacao_path = _build_movimentacao(
         tmp_path,
-        [_fixed_income_interest_row(), _fixed_income_maturity_row()],
+        [
+            _fixed_income_interest_row(),
+            _fixed_income_maturity_row(movement_label=movement_label),
+        ],
     )
 
     first_report = import_b3_fixed_income_positions(
@@ -430,7 +439,10 @@ def test_existing_matured_asset_absent_from_position_imports_redemption_and_inte
     assert not any(a["action"].endswith("_created") for a in second_report["actions"])
 
 
-def test_existing_maturity_sell_with_different_price_is_not_duplicated(tmp_path, user):
+@pytest.mark.parametrize("movement_label", ["VENCIMENTO", "VENCIMENTO/RESGATE SALDO EM CONTA"])
+def test_existing_maturity_sell_with_different_price_is_not_duplicated(
+    tmp_path, user, movement_label
+):
     from ..conftest import TransactionFactory
 
     asset = AssetFactory(
@@ -468,7 +480,11 @@ def test_existing_maturity_sell_with_different_price_is_not_duplicated(tmp_path,
     posicao_path = _build_posicao(tmp_path, [])
     movimentacao_path = _build_movimentacao(
         tmp_path,
-        [_fixed_income_maturity_row(code=asset.code, operation_date="19/02/2026")],
+        [
+            _fixed_income_maturity_row(
+                code=asset.code, operation_date="19/02/2026", movement_label=movement_label
+            )
+        ],
     )
 
     report = import_b3_fixed_income_positions(
