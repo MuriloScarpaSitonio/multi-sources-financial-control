@@ -251,30 +251,64 @@ class ExpenseRepository(AbstractExpenseRepository):
         from ..models import Expense
 
         data = asdict(dto)
-        installments_qs = Expense.objects.filter(installments_id=data.pop("installments_id"))
+        installments_id = data.pop("installments_id")
+        installments_qs = Expense.objects.filter(user_id=self.user_id)
+        installments_qs = (
+            installments_qs.filter(installments_id=installments_id)
+            if installments_id is not None
+            else installments_qs.filter(pk=dto.id)
+        )
+        existing = list(installments_qs.order_by("installment_number", "pk"))
+        count = data.pop("installments_qty")
+        first_date = dto.created_at if created_at_changed else existing[0].created_at
+        kept = existing[:count]
         if created_at_changed:
-            expenses: list[Expense] = []
-            for i, expense in enumerate(installments_qs.order_by("created_at")):
-                # `releativedelta` doesn't work with django's `F` object so this doesn't work:
-                # date_fiff = instance.created_at - validated_data["created_at"]
-                # F("created_at") - relativedelta(seconds=int(date_diff.total_seconds()))
-                expense.created_at = dto.created_at + relativedelta(months=i)
-                expenses.append(expense)
-
-            # TODO try to remove this intermediary query
-            Expense.objects.bulk_update(objs=expenses, fields=("created_at",))
+            for i, expense in enumerate(kept):
+                expense.created_at = first_date + relativedelta(months=i)
+            Expense.objects.bulk_update(objs=kept, fields=("created_at",))
 
         data.pop("installments")
-        data.pop("installments_qty")
         data.pop("created_at")
         data.pop("id")
         extra_data = data.pop("extra_data")
         tags = data.pop("tags")
-        installments_qs.update(**data, **extra_data)
 
-        self._persist_tags_to_expenses(
-            installments_qs.values_list("id", flat=True), tags, clear=True
+        dto.installments_id = (installments_id or uuid4()) if count > 1 else None
+        data["installments_id"] = dto.installments_id
+        data["installments_qty"] = count if count > 1 else None
+        if count == 1:
+            data["installment_number"] = None
+
+        installments_qs.filter(pk__in=[expense.pk for expense in existing[count:]]).delete()
+        kept_ids = [expense.pk for expense in kept]
+        Expense.objects.filter(user_id=self.user_id, pk__in=kept_ids).update(
+            **data,
+            **extra_data,
+            **({"installment_number": 1} if installments_id is None and count > 1 else {}),
         )
+        if count > len(existing):
+            added = Expense.objects.bulk_create(
+                [
+                    Expense(
+                        user_id=self.user_id,
+                        created_at=first_date + relativedelta(months=i),
+                        installment_number=i + 1,
+                        **data,
+                        **{
+                            "expanded_category_id": existing[0].expanded_category_id,
+                            "expanded_source_id": existing[0].expanded_source_id,
+                            **extra_data,
+                        },
+                    )
+                    for i in range(len(existing), count)
+                ]
+            )
+            kept_ids.extend(expense.pk for expense in added)
+        if dto.id not in kept_ids:
+            dto.id = kept[0].pk
+            dto.created_at = kept[0].created_at
+
+        self._persist_tags_to_expenses(kept_ids, tags, clear=True)
 
     def _delete(self, dto: ExpenseDTO) -> None:
         from ..models import Expense

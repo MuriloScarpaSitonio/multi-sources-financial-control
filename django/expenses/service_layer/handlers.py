@@ -1,6 +1,10 @@
 from functools import singledispatch
 from uuid import uuid4
 
+from django.utils import timezone
+
+from ..adapters import DjangoBankAccountRepository
+from ..choices import CATEGORIES_NOT_ALLOWED_IN_FUTURE
 from ..domain import commands, events
 from .unit_of_work import ExpenseUnitOfWork, RevenueUnitOfWork
 
@@ -23,6 +27,16 @@ def create_expense(cmd: commands.CreateExpense, uow: ExpenseUnitOfWork) -> None:
 
 def update_expense(cmd: commands.UpdateExpense, uow: ExpenseUnitOfWork) -> None:
     with uow:
+        count_changed = cmd.expense.installments_qty != (cmd.data_instance.installments_qty or 1)
+        previous_paid_value = 0
+        if count_changed:
+            previous = cmd.data_instance.to_domain()
+            previous_paid_value = sum(
+                expense.value
+                for expense in (previous, *previous.installments)
+                if expense.created_at <= timezone.localdate()
+                or expense.source not in CATEGORIES_NOT_ALLOWED_IN_FUTURE
+            )
         if cmd.expense.recurring_id is not None and cmd.expense.is_fixed:
             uow.expenses.update(cmd.expense)
             if cmd.perform_actions_on_future_fixed_entities and not cmd.expense.is_past_month:
@@ -30,7 +44,7 @@ def update_expense(cmd: commands.UpdateExpense, uow: ExpenseUnitOfWork) -> None:
                     cmd.expense,
                     created_at_changed=cmd.data_instance.created_at != cmd.expense.created_at,
                 )
-        elif cmd.expense.installments_id is not None:
+        elif cmd.expense.installments_id is not None or cmd.expense.installments_qty > 1:
             uow.expenses.update_installments(
                 cmd.expense,
                 created_at_changed=cmd.data_instance.created_at != cmd.expense.created_at,
@@ -58,9 +72,25 @@ def update_expense(cmd: commands.UpdateExpense, uow: ExpenseUnitOfWork) -> None:
         cmd.expense.installments = uow.expenses.get_installments(
             id=cmd.expense.id, installments_id=cmd.expense.installments_id
         )
-        cmd.expense.events.append(
-            events.ExpenseUpdated(expense=cmd.expense, previous_value=cmd.data_instance.value)
-        )
+        if count_changed:
+            paid_value = sum(
+                expense.value
+                for expense in (cmd.expense, *cmd.expense.installments)
+                if expense.created_at <= timezone.localdate()
+                or expense.source not in CATEGORIES_NOT_ALLOWED_IN_FUTURE
+            )
+            if cmd.data_instance.bank_account_id != uow.bank_account_id:
+                previous_account = DjangoBankAccountRepository(
+                    user_id=uow.user_id, bank_account_id=cmd.data_instance.bank_account_id
+                )
+                previous_account.increment(value=previous_paid_value)
+                uow.bank_account.decrement(value=paid_value)
+            else:
+                uow.bank_account.decrement(value=paid_value - previous_paid_value)
+        else:
+            cmd.expense.events.append(
+                events.ExpenseUpdated(expense=cmd.expense, previous_value=cmd.data_instance.value)
+            )
         uow.commit()
 
 

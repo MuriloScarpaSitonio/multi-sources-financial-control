@@ -76,6 +76,7 @@ def test__list__response_schema(client, expense, bank_account):
         "full_description": expense.full_description,
         "tags": [],
         "bank_account_description": bank_account.description,
+        "installments": 1,
     }
 
 

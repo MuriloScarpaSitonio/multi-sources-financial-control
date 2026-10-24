@@ -66,8 +66,10 @@ const schema = yup.object().shape({
     .required("A fonte é obrigatória"),
   installments: yup
     .number()
-    .required("A quantidade de parcelas é obrigatório")
-    .positive("Apenas números positivos"),
+    .required("A quantidade de parcelas é obrigatória")
+    .integer("Informe um número inteiro de parcelas")
+    .min(1, "Informe pelo menos uma parcela")
+    .max(32767, "Quantidade de parcelas inválida"),
   tags: yup.array().of(yup.string().required("Uma tag vazia não é permitida")),
   bank_account_description: yup
     .object()
@@ -263,9 +265,10 @@ const ExpenseForm = ({
     defaultValues,
     onSuccess: async () => {
       const data = getValues() as yup.Asserts<typeof schema>;
+      const countChanged = data.installments !== defaultValues.installments;
       await invalidateExpensesQueries({
-        isUpdatingValue: data.value !== defaultValues.value,
-        invalidateTableQuery: !expenseId,
+        isUpdatingValue: data.value !== defaultValues.value || countChanged,
+        invalidateTableQuery: !expenseId || countChanged,
         tags: data.tags ?? [],
       });
 
@@ -276,7 +279,7 @@ const ExpenseForm = ({
         },
       );
       if (expenseId) {
-        updateCachedData({ ...data, id: expenseId });
+        if (!countChanged) updateCachedData({ ...data, id: expenseId });
         onEditSuccess?.();
       } else reset({ ...data, description: "", value: "", installments: 1 });
     },
@@ -327,7 +330,7 @@ const ExpenseForm = ({
           getErrorMessage={getErrorMessage}
           currencySymbol="R$"
           name="value"
-          label="Valor"
+          label={expenseId && installments > 1 ? "Valor da parcela" : "Valor"}
         />
         <DateInput name="created_at" control={control} />
       </Stack>
@@ -367,12 +370,11 @@ const ExpenseForm = ({
               error={isFieldInvalid(field)}
               helperText={
                 getErrorMessage(field.name) ||
-                (installments > 1 && (
-                  <Stack spacing={0.1}>
-                    <p>Coloque o valor completo </p>
-                    <p>da compra (e não da parcela)</p>
-                  </Stack>
-                ))
+                (installments > 1
+                  ? expenseId
+                    ? "Informe o valor de cada parcela."
+                    : "Coloque o valor completo da compra (e não da parcela)."
+                  : undefined)
               }
               style={{
                 display: isFixed ? "none" : "",

@@ -3,6 +3,7 @@ import { RawDateString } from "../../../../types";
 export type Expense = {
   id: number;
   value: number;
+  installments: number;
   description: string;
   category: string;
   created_at: RawDateString;
