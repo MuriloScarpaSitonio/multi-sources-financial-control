@@ -282,6 +282,7 @@ const Expenses = () => {
                       revenues: description,
                     }));
                     fullSearch.openSearch();
+                    window.scrollTo({ top: 0 });
                   }}
                 />
               )
@@ -306,6 +307,7 @@ const Expenses = () => {
                     expenses: description,
                   }));
                   fullSearch.openSearch();
+                  window.scrollTo({ top: 0 });
                 }}
               />
             )}

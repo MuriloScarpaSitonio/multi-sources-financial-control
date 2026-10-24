@@ -16,10 +16,16 @@ import Button from "@mui/material/Button";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import ListItemIcon from "@mui/material/ListItemIcon";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import SearchIcon from "@mui/icons-material/Search";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 import {
   type MRT_PaginationState as PaginationState,
@@ -50,7 +56,13 @@ import {
 import { Filters } from "../../types";
 import { SearchBar } from "../../../components";
 
-const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
+const TopToolBarExtraActionsMenu = ({
+  table,
+  onOpenSearch,
+}: {
+  table: DataTable<Row>;
+  onOpenSearch?: () => void;
+}) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openDrawer, setOpenDrawer] = useState(false);
 
@@ -58,6 +70,7 @@ const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
   return (
     <>
       <IconButton
+        aria-label="Mais ações"
         onClick={(event: MouseEvent<HTMLElement>) =>
           setAnchorEl(event.currentTarget)
         }
@@ -65,6 +78,19 @@ const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
         <MoreVertIcon />
       </IconButton>
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={onClose}>
+        {onOpenSearch && (
+          <MenuItem
+            onClick={() => {
+              onClose();
+              onOpenSearch();
+            }}
+          >
+            <ListItemIcon>
+              <SearchIcon fontSize="small" />
+            </ListItemIcon>
+            Pesquisar todas as receitas
+          </MenuItem>
+        )}
         <ManageRelatedEntitiesMenuItem
           onClick={() => {
             setOpenDrawer(true);
@@ -137,15 +163,22 @@ const TopToolBar = ({
         </Grid>
         <Grid container item xs={6} justifyContent="flex-end">
           <Stack direction="row" spacing={1}>
-            {onOpenSearch && (
-              <Button variant="neutral" onClick={onOpenSearch}>
-                Pesquisar todas as receitas
-              </Button>
-            )}
             {onBackToOverview && (
-              <Button variant="neutral" onClick={onBackToOverview}>
-                Voltar à visão geral
-              </Button>
+              <Tooltip title="Voltar à visão geral">
+                <IconButton
+                  aria-label="Voltar à visão geral"
+                  onClick={onBackToOverview}
+                  sx={{
+                    gap: 0.5,
+                    "&:hover": { backgroundColor: "transparent" },
+                  }}
+                >
+                  <ArrowBackIcon />
+                  <Typography component="span" variant="body2">
+                    Voltar
+                  </Typography>
+                </IconButton>
+              </Tooltip>
             )}
             <Button
               startIcon={<AddIcon />}
@@ -162,7 +195,10 @@ const TopToolBar = ({
             >
               Filtrar
             </Button>
-            <TopToolBarExtraActionsMenu table={table} />
+            <TopToolBarExtraActionsMenu
+              table={table}
+              onOpenSearch={onOpenSearch}
+            />
           </Stack>
         </Grid>
       </Grid>

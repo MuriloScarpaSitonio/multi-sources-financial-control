@@ -85,12 +85,15 @@ it.each([false, true])(
         ).toBe("rent"),
       { timeout: 2000 },
     );
+    const searchAction = revenues
+      ? "Pesquisar todas as receitas"
+      : "Pesquisar todas as despesas";
+    expect(
+      screen.queryByRole("button", { name: searchAction }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Mais ações" }));
     fireEvent.click(
-      screen.getByRole("button", {
-        name: revenues
-          ? "Pesquisar todas as receitas"
-          : "Pesquisar todas as despesas",
-      }),
+      await screen.findByRole("menuitem", { name: searchAction }),
     );
     await screen.findByRole("button", { name: "Voltar à visão geral" });
     expect(screen.getByPlaceholderText("Pesquisar por descrição")).toHaveValue(

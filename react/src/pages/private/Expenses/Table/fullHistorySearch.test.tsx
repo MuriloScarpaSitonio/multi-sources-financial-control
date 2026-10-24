@@ -293,7 +293,7 @@ it("an old invalid page cannot move a newer search", async () => {
   expect(api.requests).toHaveLength(requestCount);
 });
 
-it("other list failures keep feedback without requesting a different page", async () => {
+it("other list failures do not show a custom banner or request a different page", async () => {
   const api = fakeSearchApi([expenseRow()]);
   api.get.mockRejectedValue({ response: { status: 500 }, isAxiosError: true });
   render(
@@ -305,7 +305,10 @@ it("other list failures keep feedback without requesting a different page", asyn
       />
     </SearchTestProvider>,
   );
-  await screen.findByRole("alert");
+  await screen.findByText("Total indisponível");
+  expect(
+    screen.queryByText("Não foi possível carregar despesas."),
+  ).not.toBeInTheDocument();
   expect(api.get.mock.calls.filter(([url]) => url === "expenses")).toHaveLength(
     1,
   );
