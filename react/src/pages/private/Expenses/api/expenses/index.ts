@@ -11,18 +11,24 @@ import { Expense } from "../models";
 
 const RESOURCE = "expenses";
 
-export const getSum = async (params: {
-  startDate: Date;
-  endDate: Date;
-}): Promise<{
-  total: number;
-}> =>
+export const getSum = async (
+  params: Omit<ExpenseListParams, "page" | "page_size" | "ordering"> = {},
+): Promise<{ total: number }> =>
   (
     await apiProvider.get(`${RESOURCE}/sum`, {
       params: {
-        start_date: params.startDate.toLocaleDateString("pt-br"),
-        end_date: params.endDate.toLocaleDateString("pt-br"),
+        ...params,
+        start_date:
+          params.startDate instanceof Date
+            ? params.startDate.toLocaleDateString("pt-br")
+            : params.startDate,
+        end_date:
+          params.endDate instanceof Date
+            ? params.endDate.toLocaleDateString("pt-br")
+            : params.endDate,
       },
+      paramsSerializer: (params: ExpenseListParams) =>
+        qs.stringify(params, { arrayFormat: "repeat" }),
     })
   ).data;
 
@@ -85,12 +91,13 @@ export const getHistoricReport = async (params: {
     })
   ).data;
 
-type Params = {
+export type ExpenseListParams = {
   page?: number;
   page_size?: number;
   ordering?: string;
-  startDate?: Date;
-  endDate?: Date;
+  startDate?: Date | string;
+  endDate?: Date | string;
+  bank_account_description?: string;
   description?: string;
   is_fixed?: boolean;
   with_installments?: boolean;
@@ -99,21 +106,35 @@ type Params = {
   tag?: string[];
 };
 export const getExpenses = async (
-  params: Params = {}
+  params: ExpenseListParams = {},
 ): Promise<ApiListResponse<Expense>> =>
   (
     await apiProvider.get(RESOURCE, {
       params: {
         ...params,
-        start_date: params.startDate?.toLocaleDateString("pt-br"),
-        end_date: params.endDate?.toLocaleDateString("pt-br"),
+        start_date:
+          params.startDate instanceof Date
+            ? params.startDate.toLocaleDateString("pt-br")
+            : params.startDate,
+        end_date:
+          params.endDate instanceof Date
+            ? params.endDate.toLocaleDateString("pt-br")
+            : params.endDate,
       },
-      paramsSerializer: (params: Params) =>
+      paramsSerializer: (params: ExpenseListParams) =>
         qs.stringify(params, { arrayFormat: "repeat" }),
     })
   ).data;
 
-type ExpenseWrite = Omit<Expense, "id" | "full_description" | "created_at"> & {
+type ExpenseWrite = Omit<
+  Expense,
+  | "id"
+  | "full_description"
+  | "created_at"
+  | "installments_id"
+  | "installment_number"
+  | "installments_qty"
+> & {
   installments: number;
   created_at: Date;
   performActionsOnFutureFixedEntities?: boolean;
@@ -133,14 +154,14 @@ export const createExpense = async (data: ExpenseWrite): Promise<Expense> => {
           perform_actions_on_future_fixed_entities:
             performActionsOnFutureFixedEntities,
         },
-      }
+      },
     )
   ).data;
 };
 
 export const deleteExpense = async (
   id: number,
-  performActionsOnFutureFixedEntities?: boolean
+  performActionsOnFutureFixedEntities?: boolean,
 ) =>
   (
     await apiProvider.Delete(`${RESOURCE}/${id}`, {
@@ -171,7 +192,7 @@ export const editExpense = async ({
           perform_actions_on_future_fixed_entities:
             performActionsOnFutureFixedEntities,
         },
-      }
+      },
     )
   ).data;
 };

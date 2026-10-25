@@ -11,6 +11,9 @@ export type Expense = {
   full_description: string;
   tags: string[];
   bank_account_description: string;
+  installments_id: string | null;
+  installment_number: number | null;
+  installments_qty: number | null;
 };
 
 export type BankAccount = {

@@ -1,3 +1,10 @@
+import FullHistorySearchTotal from "../../../Expenses/FullHistorySearchTotal";
+import {
+  FullHistorySearchBar,
+  FullHistoryFilterIndicators,
+} from "../../../Expenses/FullHistorySearchControls";
+import { type SearchDateControls } from "../../../Expenses/fullHistorySearch";
+import Alert from "@mui/material/Alert";
 import {
   useState,
   type Dispatch,
@@ -9,10 +16,16 @@ import Button from "@mui/material/Button";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import ListItemIcon from "@mui/material/ListItemIcon";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import SearchIcon from "@mui/icons-material/Search";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 import {
   type MRT_PaginationState as PaginationState,
@@ -21,7 +34,9 @@ import {
 } from "material-react-table";
 
 import { Colors, getColor } from "../../../../../design-system";
-import FilterIndicators, { type DateFilterProps } from "../../../../../components/FilterIndicators";
+import FilterIndicators, {
+  type DateFilterProps,
+} from "../../../../../components/FilterIndicators";
 import {
   ShowHideColumnsMenuItem,
   ToggleDensityMenuItem,
@@ -34,11 +49,20 @@ import {
   ManageRelatedEntitiesMenuItem,
   ManageRelatedEntitiesDrawer,
 } from "./ManageRelatedEntitiesMenuItem";
-import { revenuesFilterConfig } from "../../filterConfig";
+import {
+  revenuesFilterConfig,
+  revenuesSearchFilterConfig,
+} from "../../filterConfig";
 import { Filters } from "../../types";
 import { SearchBar } from "../../../components";
 
-const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
+const TopToolBarExtraActionsMenu = ({
+  table,
+  onOpenSearch,
+}: {
+  table: DataTable<Row>;
+  onOpenSearch?: () => void;
+}) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openDrawer, setOpenDrawer] = useState(false);
 
@@ -46,6 +70,7 @@ const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
   return (
     <>
       <IconButton
+        aria-label="Mais ações"
         onClick={(event: MouseEvent<HTMLElement>) =>
           setAnchorEl(event.currentTarget)
         }
@@ -53,6 +78,19 @@ const TopToolBarExtraActionsMenu = ({ table }: { table: DataTable<Row> }) => {
         <MoreVertIcon />
       </IconButton>
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={onClose}>
+        {onOpenSearch && (
+          <MenuItem
+            onClick={() => {
+              onClose();
+              onOpenSearch();
+            }}
+          >
+            <ListItemIcon>
+              <SearchIcon fontSize="small" />
+            </ListItemIcon>
+            Pesquisar todas as receitas
+          </MenuItem>
+        )}
         <ManageRelatedEntitiesMenuItem
           onClick={() => {
             setOpenDrawer(true);
@@ -80,6 +118,10 @@ const TopToolBar = ({
   setFilters,
   defaultFilters,
   dateFilters,
+  isSearch = false,
+  onOpenSearch,
+  onBackToOverview,
+  searchDateControls,
 }: {
   table: DataTable<Row>;
   search: string;
@@ -89,6 +131,10 @@ const TopToolBar = ({
   setFilters: Dispatch<SetStateAction<Filters>>;
   defaultFilters: Filters;
   dateFilters: DateFilterProps;
+  isSearch?: boolean;
+  onOpenSearch?: () => void;
+  onBackToOverview?: () => void;
+  searchDateControls?: SearchDateControls;
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [openDrawer, setOpenDrawer] = useState(false);
@@ -104,15 +150,36 @@ const TopToolBar = ({
         }}
       >
         <Grid item xs={6}>
-          <SearchBar
-            search={search}
-            placeholder="Pesquisar por descrição"
-            setSearch={setSearch}
-            setPagination={setPagination}
-          />
+          {isSearch ? (
+            <FullHistorySearchBar search={search} setSearch={setSearch} />
+          ) : (
+            <SearchBar
+              search={search}
+              placeholder="Pesquisar por descrição"
+              setSearch={setSearch}
+              setPagination={setPagination}
+            />
+          )}
         </Grid>
         <Grid container item xs={6} justifyContent="flex-end">
           <Stack direction="row" spacing={1}>
+            {onBackToOverview && (
+              <Tooltip title="Voltar à visão geral">
+                <IconButton
+                  aria-label="Voltar à visão geral"
+                  onClick={onBackToOverview}
+                  sx={{
+                    gap: 0.5,
+                    "&:hover": { backgroundColor: "transparent" },
+                  }}
+                >
+                  <ArrowBackIcon />
+                  <Typography component="span" variant="body2">
+                    Voltar
+                  </Typography>
+                </IconButton>
+              </Tooltip>
+            )}
             <Button
               startIcon={<AddIcon />}
               size="large"
@@ -128,23 +195,41 @@ const TopToolBar = ({
             >
               Filtrar
             </Button>
-            <TopToolBarExtraActionsMenu table={table} />
+            <TopToolBarExtraActionsMenu
+              table={table}
+              onOpenSearch={onOpenSearch}
+            />
           </Stack>
         </Grid>
       </Grid>
-      <FilterIndicators
-        filters={filters}
-        setFilters={setFilters}
-        defaultFilters={defaultFilters}
-        fieldConfigs={revenuesFilterConfig}
-        dateFilters={dateFilters}
-      />
+      {isSearch && (
+        <FullHistorySearchTotal resource="revenues" filters={filters} />
+      )}
+      {isSearch && table.getState().showAlertBanner && (
+        <Alert severity="error">Não foi possível carregar receitas.</Alert>
+      )}
+      {isSearch ? (
+        <FullHistoryFilterIndicators
+          filters={filters}
+          setFilters={setFilters}
+          fieldConfigs={revenuesSearchFilterConfig}
+        />
+      ) : (
+        <FilterIndicators
+          filters={filters}
+          setFilters={setFilters}
+          defaultFilters={defaultFilters}
+          fieldConfigs={revenuesFilterConfig}
+          dateFilters={dateFilters}
+        />
+      )}
       <FiltersMenu
         open={Boolean(anchorEl)}
         onClose={() => setAnchorEl(null)}
         anchorEl={anchorEl}
         filters={filters}
         setFilters={setFilters}
+        searchDateControls={searchDateControls}
       />
       <RevenueDrawer open={openDrawer} onClose={() => setOpenDrawer(false)} />
     </>

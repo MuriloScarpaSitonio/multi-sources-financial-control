@@ -37,7 +37,7 @@ URL = f"/{BASE_API_URL}" + "expenses"
     [
         ("", 12),
         ("description=Expense", 12),
-        ("description=pense", 12),
+        ("description=pense", 0),
         ("description=wrong", 0),
         ("is_fixed=False", 6),
         ("is_fixed=True", 6),
@@ -76,6 +76,9 @@ def test__list__response_schema(client, expense, bank_account):
         "full_description": expense.full_description,
         "tags": [],
         "bank_account_description": bank_account.description,
+        "installments_id": None,
+        "installment_number": None,
+        "installments_qty": None,
     }
 
 
