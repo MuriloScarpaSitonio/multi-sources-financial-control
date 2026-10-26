@@ -9,7 +9,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("expenses", "0021_bankaccountsnapshot_expenses_ba_user_id_25b238_idx"),
+        ("expenses", "0022_rename_exclude_from_fire_to_exclude_from_planning"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
