@@ -60,7 +60,6 @@ if TYPE_CHECKING:  # pragma: no cover
     from datetime import date
 
     from django_filters import FilterSet
-    from djchoices import ChoiceItem
     from rest_framework.request import Request
     from rest_framework.serializers import Serializer
     from rest_framework.utils.serializer_helpers import ReturnList
@@ -221,13 +220,13 @@ class AssetViewSet(
         return Response(serializer.data, status=HTTP_200_OK)
 
     @staticmethod
-    def _get_report_serializer_class(choice: ChoiceItem) -> type[Serializer]:
+    def _get_report_serializer_class(choice: choices.AssetsReportsAggregations) -> type[Serializer]:
         module = __import__("variable_income_assets.serializers", fromlist=[choice.serializer_name])
         return getattr(module, choice.serializer_name)
 
     def _get_report_data(self, filterset: FilterSet) -> ReturnList:
         qs = filterset.qs
-        choice = choices.AssetsReportsAggregations.get_choice(value=filterset.form.data["group_by"])
+        choice = choices.AssetsReportsAggregations(filterset.form.data["group_by"])
         Serializer = self._get_report_serializer_class(choice=choice)
         serializer = Serializer(qs, many=True)
         return serializer.data

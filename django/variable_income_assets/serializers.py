@@ -250,7 +250,7 @@ class PassiveIncomeSerializer(serializers.ModelSerializer):
                     }
                 )
 
-            choice = choices.AssetTypes.get_choice(asset.type)
+            choice = choices.AssetTypes(asset.type)
             if not choice.accept_incomes and asset.type != choices.AssetTypes.fixed_br:
                 raise serializers.ValidationError(
                     {"type": f"Ativos de classe {choice.label} não aceitam rendimentos"}

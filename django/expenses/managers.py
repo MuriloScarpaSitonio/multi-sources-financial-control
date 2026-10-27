@@ -130,7 +130,7 @@ class _PersonalFinancialQuerySet(QuerySet):
 
 class ExpenseQueryset(_PersonalFinancialQuerySet):
     def percentage_report(self, group_by: str, start_date: date, end_date: date) -> Self:
-        choice = ExpenseReportType.get_choice(value=group_by)
+        choice = ExpenseReportType(group_by)
         return (
             self.values(choice.field_name)
             .annotate(
@@ -145,7 +145,7 @@ class ExpenseQueryset(_PersonalFinancialQuerySet):
         )
 
     def avg_comparasion_report(self, group_by: str) -> Self:
-        choice = ExpenseReportType.get_choice(value=group_by)
+        choice = ExpenseReportType(group_by)
         return (
             self.values(choice.field_name)
             .annotate(

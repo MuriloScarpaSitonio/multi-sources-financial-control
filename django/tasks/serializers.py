@@ -34,9 +34,9 @@ class TaskHistorySerializer(serializers.ModelSerializer):
         try:
             return (
                 f"Integração '{tasks_notification_display_map[obj.name]}' "
-                f"{TaskStates.get_choice(obj.state).notification_display}"
+                f"{TaskStates(obj.state).notification_display}"
             )
-        except KeyError:
+        except (KeyError, ValueError):
             return "Integração depreceada"
 
 

@@ -140,7 +140,7 @@ def check_monthly_selling_transaction_threshold(
         )
     )
 
-    choice = AssetTypes.get_choice(transaction.asset.type)
+    choice = AssetTypes(transaction.asset.type)
     if total_sold > choice.monthly_sell_threshold:
         TaskHistory.objects.create(
             id=uuid4(),

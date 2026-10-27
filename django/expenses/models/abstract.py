@@ -1,5 +1,7 @@
 from django.db import models
 
+from shared.validators import ChoicesValidator
+
 from ..choices import Colors
 
 
@@ -7,7 +9,7 @@ class RelatedEntity(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     name = models.CharField(max_length=100)
-    hex_color = models.CharField(max_length=7, validators=[Colors.validator])
+    hex_color = models.CharField(max_length=7, validators=[ChoicesValidator(dict(Colors.choices))])
     deleted = models.BooleanField(default=False, db_index=True)
 
     class Meta:

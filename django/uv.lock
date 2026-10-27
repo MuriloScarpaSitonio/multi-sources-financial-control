@@ -374,19 +374,6 @@ wheels = [
 ]
 
 [[package]]
-name = "django-choices"
-version = "1.7.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "django" },
-    { name = "six" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/6c/35/c0e4bf9b88da48a4ea32313fa7aef451bcbcfb07a3a3735617ca310032d4/django-choices-1.7.2.tar.gz", hash = "sha256:e52f1d9fe3afd92611bd2ea313ad8a6ba2a89fdb12d5e518438892b6ae462ee3", size = 8054, upload-time = "2021-07-12T13:03:27.899Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/f9/56/5df9f8662dcb6a8f071ec6d0571a38301a8b1d58fab3f04f181ef0f40c59/django_choices-1.7.2-py2.py3-none-any.whl", hash = "sha256:d8dda7e11fa0627d138f98d9a5e8e3124d938bb538e2077cc65c43168bfdde10", size = 8685, upload-time = "2021-07-12T13:03:26.166Z" },
-]
-
-[[package]]
 name = "django-cors-headers"
 version = "4.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -990,7 +977,6 @@ dependencies = [
     { name = "cryptography" },
     { name = "django" },
     { name = "django-anymail" },
-    { name = "django-choices" },
     { name = "django-cors-headers" },
     { name = "django-filter" },
     { name = "djangorestframework" },
@@ -1041,7 +1027,6 @@ requires-dist = [
     { name = "cryptography", specifier = ">=42.0.0,<43" },
     { name = "django", specifier = ">=6.1.1,<6.2" },
     { name = "django-anymail", extras = ["brevo"], specifier = "~=10.1" },
-    { name = "django-choices", specifier = ">=1.7.2,<2" },
     { name = "django-cors-headers", specifier = ">=4.3.0,<5" },
     { name = "django-filter", specifier = "~=24.0" },
     { name = "djangorestframework", specifier = ">=3.18.3,<4" },

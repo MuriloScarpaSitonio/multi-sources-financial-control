@@ -142,7 +142,7 @@ def _print_assets_portfolio(qs: AssetQuerySet[Asset], year: int) -> None:
         # 91,166711130 ACOES (EWBC) // EAST WEST BANCORP, INC. //
         # COM CUSTO DE AQUISICAO DE US$ 3.962,24, SENDO O DOLAR MEDIO DE 4,9728,
         # CUSTODIADOS PELA CORRETORA VEST
-        currency = Currencies.get_choice(asset["currency"])
+        currency = Currencies(asset["currency"])
         results.append(
             f"{i}. {asset['code']} - {asset['description']}"
             if asset["description"]
@@ -256,7 +256,7 @@ def _print_credited_jcps(qs: AssetQuerySet[Asset], year: int) -> None:
 
     if results:
         print(
-            f"\n\t{PassiveIncomeTypes.labels['jcp']} "
+            f"\n\t{PassiveIncomeTypes.jcp.label} "
             "(seção 'Rendimentos sujeitos à tributação' "
             "opção '10 - Juros sobre capital próprio')\n\n"
         )

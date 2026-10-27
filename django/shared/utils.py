@@ -1,15 +1,11 @@
 from __future__ import annotations
 
 from datetime import date
-from enum import Enum
-from typing import TYPE_CHECKING, Required, TypedDict
+from typing import Required, TypedDict
 
 from django.db.transaction import atomic
 
 from dateutil.relativedelta import relativedelta
-
-if TYPE_CHECKING:
-    from djchoices import DjangoChoices
 
 
 class MonthlyHistoricType(TypedDict, total=False):
@@ -69,10 +65,6 @@ def insert_zeros_if_no_data_in_yearly_historic_data(
         current_date += relativedelta(years=1)
 
     return result
-
-
-def choices_to_enum(choices_class: type[DjangoChoices]) -> Enum:
-    return Enum(choices_class.__name__ + "Enum", {choice[1]: choice[0] for choice in choices_class})
 
 
 class DryRunException(Exception): ...  # pragma: no cover

@@ -1154,7 +1154,7 @@ def _proventos_actions(*, user_id: int, proventos_path_resolved) -> list[dict]:
                 }
             )
             continue
-        choice = AssetTypes.get_choice(asset.type)
+        choice = AssetTypes(asset.type)
         if not choice.accept_incomes:
             actions.append(
                 {

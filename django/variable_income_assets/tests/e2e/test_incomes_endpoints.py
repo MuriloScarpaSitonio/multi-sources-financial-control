@@ -480,15 +480,15 @@ def test__list__sanity_check(client, simple_income):
         "results": [
             {
                 "id": simple_income.pk,
-                "type": PassiveIncomeTypes.get_choice(simple_income.type).label,
-                "event_type": PassiveIncomeEventTypes.get_choice(simple_income.event_type).label,
+                "type": PassiveIncomeTypes(simple_income.type).label,
+                "event_type": PassiveIncomeEventTypes(simple_income.event_type).label,
                 "operation_date": simple_income.operation_date.strftime("%Y-%m-%d"),
                 "amount": simple_income.amount,
                 "current_currency_conversion_rate": simple_income.current_currency_conversion_rate,
                 "asset": {
                     "id": simple_income.asset.pk,
                     "code": simple_income.asset.code,
-                    "type": AssetTypes.get_choice(simple_income.asset.type).label,
+                    "type": AssetTypes(simple_income.asset.type).label,
                     "currency": simple_income.asset.currency,
                     "description": simple_income.asset.description,
                     "is_held_in_self_custody": simple_income.asset.is_held_in_self_custody,
@@ -791,7 +791,7 @@ def test__credited_by_asset_type_report(client, user):
         )
         result.append(
             {
-                "asset_type": AssetTypes.get_choice(asset_type).label,
+                "asset_type": AssetTypes(asset_type).label,
                 "total_credited": convert_and_quantitize(total_credited),
             }
         )

@@ -3,7 +3,7 @@
 from django.conf import settings
 from django.db import migrations, models
 import django.db.models.deletion
-import djchoices.choices
+from shared.validators import ChoicesValidator
 
 
 class Migration(migrations.Migration):
@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
                     models.CharField(
                         max_length=7,
                         validators=[
-                            djchoices.choices.ChoicesValidator(
+                            ChoicesValidator(
                                 {
                                     "#5F7CB2": "Azul 3",
                                     "#61A78F": "Verde 2",

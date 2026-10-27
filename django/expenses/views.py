@@ -8,7 +8,6 @@ from uuid import uuid4
 from django.db.models import F
 from django.db.transaction import atomic
 
-from djchoices.choices import ChoiceItem
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.mixins import (
@@ -156,7 +155,7 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
         )
 
     @staticmethod
-    def _get_report_serializer_class(choice: ChoiceItem, avg: bool) -> type[Serializer]:
+    def _get_report_serializer_class(choice: ExpenseReportType, avg: bool) -> type[Serializer]:
         name = (
             choice.serializer_name.replace("Report", "ReportAvg") if avg else choice.serializer_name
         )
@@ -167,7 +166,7 @@ class ExpenseViewSet(_PersonalFinanceViewSet):
         self, filterset: filters.ExpenseAvgComparasionReportFilterSet, avg: bool
     ) -> ReturnList:
         qs = filterset.qs
-        choice = ExpenseReportType.get_choice(value=filterset.form.cleaned_data["group_by"])
+        choice = ExpenseReportType(filterset.form.cleaned_data["group_by"])
         Serializer = self._get_report_serializer_class(choice=choice, avg=avg)
         serializer = Serializer(qs, many=True)
         return serializer.data
