@@ -5,8 +5,6 @@ from django.conf import settings
 
 from pydantic import BaseModel, Field, condecimal
 
-from shared.utils import choices_to_enum
-
 from ..choices import Currencies, TransactionActions
 from ..domain.commands import CreateTransactions
 from ..domain.models import TransactionDTO
@@ -20,9 +18,9 @@ class TransactionPydanticModel(BaseModel):
     price: Decimal = condecimal(decimal_places=8, max_digits=15)
     quantity: Decimal = condecimal(decimal_places=8, max_digits=15)
     operation_date: date
-    action: choices_to_enum(TransactionActions)
+    action: TransactionActions
     code: str = Field(exclude=True)
-    currency: choices_to_enum(Currencies) = Field(exclude=True)
+    currency: Currencies = Field(exclude=True)
 
     async def is_skippable(self) -> bool:
         return (

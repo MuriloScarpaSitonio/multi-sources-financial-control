@@ -1,44 +1,41 @@
-from djchoices import ChoiceItem, DjangoChoices
+from django.db.models import TextChoices
 
 
-class ExpenseReportType(DjangoChoices):
-    type = ChoiceItem(
-        "type",
-        label="Tipo",
-        field_name="is_fixed",
-        serializer_name="ExpenseReportTypeSerializer",
-    )
-    category = ChoiceItem(
-        "category",
-        label="Categoria",
-        field_name="category",
-        serializer_name="ExpenseReportCategorySerializer",
-    )
-    source = ChoiceItem(
-        "source",
-        label="Fonte",
-        field_name="source",
-        serializer_name="ExpenseReportSourceSerializer",
-    )
+class ExpenseReportType(TextChoices):
+    type = "type", "Tipo"
+    category = "category", "Categoria"
+    source = "source", "Fonte"
+
+    @property
+    def field_name(self) -> str:
+        return {self.type: "is_fixed", self.category: "category", self.source: "source"}[self]
+
+    @property
+    def serializer_name(self) -> str:
+        return {
+            self.type: "ExpenseReportTypeSerializer",
+            self.category: "ExpenseReportCategorySerializer",
+            self.source: "ExpenseReportSourceSerializer",
+        }[self]
 
 
-class Colors(DjangoChoices):
-    purple1 = ChoiceItem("#906CCC", label="Roxo 1")
-    purple2 = ChoiceItem("#906C96", label="Roxo 2")
-    pink1 = ChoiceItem("#CC6CC8", label="Rosa 1")
-    pink2 = ChoiceItem("#D6A8D4", label="Rosa 2")
-    pink3 = ChoiceItem("#E57A96", label="Rosa 3")
-    pink4 = ChoiceItem("#DAADAE", label="Rosa 4")
-    red1 = ChoiceItem("#CB5F61", label="Vermelho 1")
-    orange1 = ChoiceItem("#CA7F45", label="Laranja 1")
-    yellow1 = ChoiceItem("#D8A548", label="Amarelo 1")
-    yellow2 = ChoiceItem("#D4C05C", label="Amarelo 2")
-    green1 = ChoiceItem("#C6CB9C", label="Verde 1")
-    green2 = ChoiceItem("#61A78F", label="Verde 2")
-    green3 = ChoiceItem("#6CCCC6", label="Verde 3")
-    blue1 = ChoiceItem("#A3C4DA", label="Azul 1")
-    blue2 = ChoiceItem("#7A9FE5", label="Azul 2")
-    blue3 = ChoiceItem("#5F7CB2", label="Azul 3")
+class Colors(TextChoices):
+    purple1 = "#906CCC", "Roxo 1"
+    purple2 = "#906C96", "Roxo 2"
+    pink1 = "#CC6CC8", "Rosa 1"
+    pink2 = "#D6A8D4", "Rosa 2"
+    pink3 = "#E57A96", "Rosa 3"
+    pink4 = "#DAADAE", "Rosa 4"
+    red1 = "#CB5F61", "Vermelho 1"
+    orange1 = "#CA7F45", "Laranja 1"
+    yellow1 = "#D8A548", "Amarelo 1"
+    yellow2 = "#D4C05C", "Amarelo 2"
+    green1 = "#C6CB9C", "Verde 1"
+    green2 = "#61A78F", "Verde 2"
+    green3 = "#6CCCC6", "Verde 3"
+    blue1 = "#A3C4DA", "Azul 1"
+    blue2 = "#7A9FE5", "Azul 2"
+    blue3 = "#5F7CB2", "Azul 3"
 
 
 DEFAULT_CATEGORIES_MAP = {

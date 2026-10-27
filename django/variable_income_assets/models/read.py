@@ -7,6 +7,7 @@ from django.db import models
 from django.utils.functional import cached_property
 
 from shared.models_utils import serializable_today_function
+from shared.validators import ChoicesValidator
 
 from ..adapters.key_value_store import get_dollar_conversion_rate
 from ..choices import AssetObjectives, AssetTypes, Currencies, FixedIncomeIndexers, LiquidityTypes
@@ -18,24 +19,29 @@ class AssetReadModel(models.Model):
     # region: write model fields
     code = models.CharField(max_length=200)
     description = models.CharField(max_length=100, blank=True, default="")
-    type = models.CharField(max_length=20, validators=[AssetTypes.validator])
+    type = models.CharField(max_length=20, validators=[ChoicesValidator(dict(AssetTypes.choices))])
     objective = models.CharField(
         max_length=50,
-        validators=[AssetObjectives.validator],
+        validators=[ChoicesValidator(dict(AssetObjectives.choices))],
         default=AssetObjectives.unknown,
     )
     user_id = models.PositiveBigIntegerField(editable=False, db_index=True)
     # endregion: write model fields
 
     write_model_pk = models.PositiveBigIntegerField(editable=False, unique=True, db_index=True)
-    currency = models.CharField(max_length=6, blank=True, validators=[Currencies.validator])
+    currency = models.CharField(
+        max_length=6, blank=True, validators=[ChoicesValidator(dict(Currencies.choices))]
+    )
     liquidity_type = models.CharField(
-        max_length=20, validators=[LiquidityTypes.validator], default="", blank=True
+        max_length=20,
+        validators=[ChoicesValidator(dict(LiquidityTypes.choices))],
+        default="",
+        blank=True,
     )
     maturity_date = models.DateField(null=True, blank=True)
     indexer = models.CharField(
         max_length=10,
-        validators=[FixedIncomeIndexers.validator],
+        validators=[ChoicesValidator(dict(FixedIncomeIndexers.choices))],
         blank=True,
         default="",
         db_default="",

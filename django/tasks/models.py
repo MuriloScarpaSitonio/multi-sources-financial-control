@@ -4,6 +4,8 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from shared.validators import ChoicesValidator
+
 from .choices import TaskStates
 from .constants import ERROR_DISPLAY_TEXT
 from .managers import TaskHistoryQuerySet
@@ -13,7 +15,9 @@ class TaskHistory(models.Model):
     id = models.UUIDField(editable=False, primary_key=True, default=uuid4)
     name = models.CharField(max_length=50)
     state = models.CharField(
-        max_length=20, validators=[TaskStates.validator], default=TaskStates.pending
+        max_length=20,
+        validators=[ChoicesValidator(dict(TaskStates.choices))],
+        default=TaskStates.pending,
     )
     updated_at = models.DateTimeField(auto_now=True)
     started_at = models.DateTimeField(null=True, blank=True)

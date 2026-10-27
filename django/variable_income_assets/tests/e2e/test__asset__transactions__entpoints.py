@@ -161,7 +161,7 @@ def test__list__sanity_check(client, stock_usa_asset):
         "results": [
             {
                 "id": transaction.id,
-                "action": TransactionActions.get_choice(transaction.action).label,
+                "action": TransactionActions(transaction.action).label,
                 "price": float(transaction.price),
                 "irpf_price": float(transaction.irpf_price),
                 "quantity": float(transaction.quantity),
@@ -170,7 +170,7 @@ def test__list__sanity_check(client, stock_usa_asset):
                 "asset": {
                     "id": stock_usa_asset.pk,
                     "code": stock_usa_asset.code,
-                    "type": AssetTypes.get_choice(stock_usa_asset.type).label,
+                    "type": AssetTypes(stock_usa_asset.type).label,
                     "currency": stock_usa_asset.currency,
                     "description": stock_usa_asset.description,
                     "is_held_in_self_custody": stock_usa_asset.is_held_in_self_custody,

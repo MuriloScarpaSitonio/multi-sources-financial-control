@@ -2,7 +2,7 @@
 
 from decimal import Decimal
 
-import djchoices.choices
+from shared.validators import ChoicesValidator
 
 import django.db.models.deletion
 from django.db import migrations, models
@@ -50,7 +50,7 @@ class Migration(migrations.Migration):
             field=models.CharField(
                 max_length=10,
                 validators=[
-                    djchoices.choices.ChoicesValidator(
+                    ChoicesValidator(
                         {
                             "CRYPTO": "Cripto",
                             "FII": "FII",
@@ -68,7 +68,7 @@ class Migration(migrations.Migration):
             field=models.CharField(
                 max_length=10,
                 validators=[
-                    djchoices.choices.ChoicesValidator(
+                    ChoicesValidator(
                         {
                             "CRYPTO": "Cripto",
                             "FII": "FII",
@@ -91,7 +91,7 @@ class Migration(migrations.Migration):
             field=models.CharField(
                 max_length=10,
                 validators=[
-                    djchoices.choices.ChoicesValidator(
+                    ChoicesValidator(
                         {
                             "CRYPTO": "Cripto",
                             "FII": "FII",

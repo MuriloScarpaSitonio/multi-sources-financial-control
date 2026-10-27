@@ -2,7 +2,7 @@
 
 from django.db import migrations, models
 
-import djchoices.choices
+from shared.validators import ChoicesValidator
 
 
 class Migration(migrations.Migration):
@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
                 default="",
                 max_length=10,
                 validators=[
-                    djchoices.choices.ChoicesValidator(
+                    ChoicesValidator(
                         {"CDI": "CDI", "IPCA": "IPCA", "PREFIXED": "Prefixado", "SELIC": "Selic"}
                     )
                 ],
@@ -39,7 +39,7 @@ class Migration(migrations.Migration):
                 default="",
                 max_length=10,
                 validators=[
-                    djchoices.choices.ChoicesValidator(
+                    ChoicesValidator(
                         {"CDI": "CDI", "IPCA": "IPCA", "PREFIXED": "Prefixado", "SELIC": "Selic"}
                     )
                 ],
@@ -51,7 +51,7 @@ class Migration(migrations.Migration):
             field=models.CharField(
                 max_length=20,
                 validators=[
-                    djchoices.choices.ChoicesValidator(
+                    ChoicesValidator(
                         {
                             "CRYPTO": "Cripto",
                             "EQUITY_GLOBAL": "Renda variável Global",
@@ -70,7 +70,7 @@ class Migration(migrations.Migration):
             field=models.CharField(
                 max_length=20,
                 validators=[
-                    djchoices.choices.ChoicesValidator(
+                    ChoicesValidator(
                         {
                             "CRYPTO": "Cripto",
                             "EQUITY_GLOBAL": "Renda variável Global",
@@ -89,7 +89,7 @@ class Migration(migrations.Migration):
             field=models.CharField(
                 max_length=20,
                 validators=[
-                    djchoices.choices.ChoicesValidator(
+                    ChoicesValidator(
                         {
                             "CRYPTO": "Cripto",
                             "EQUITY_GLOBAL": "Renda variável Global",
@@ -108,7 +108,7 @@ class Migration(migrations.Migration):
             field=models.CharField(
                 max_length=20,
                 validators=[
-                    djchoices.choices.ChoicesValidator(
+                    ChoicesValidator(
                         {
                             "DIVIDEND": "Dividendo",
                             "INCOME": "Rendimento",

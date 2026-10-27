@@ -944,7 +944,7 @@ def test__total_bought_per_asset_type_report(client, user, stock_usa_asset):
         )
         result.append(
             {
-                "asset_type": AssetTypes.get_choice(asset_type).label,
+                "asset_type": AssetTypes(asset_type).label,
                 "total_bought": convert_and_quantitize(total_bought),
             }
         )
@@ -1104,7 +1104,7 @@ def test__list__sanity_check(client, buy_transaction):
         "results": [
             {
                 "id": buy_transaction.id,
-                "action": TransactionActions.get_choice(buy_transaction.action).label,
+                "action": TransactionActions(buy_transaction.action).label,
                 "price": convert_and_quantitize(buy_transaction.price),
                 "irpf_price": convert_and_quantitize(buy_transaction.irpf_price),
                 "quantity": convert_and_quantitize(buy_transaction.quantity),
@@ -1115,7 +1115,7 @@ def test__list__sanity_check(client, buy_transaction):
                 "asset": {
                     "id": buy_transaction.asset.pk,
                     "code": buy_transaction.asset.code,
-                    "type": AssetTypes.get_choice(buy_transaction.asset.type).label,
+                    "type": AssetTypes(buy_transaction.asset.type).label,
                     "currency": buy_transaction.asset.currency,
                     "description": buy_transaction.asset.description,
                     "is_held_in_self_custody": buy_transaction.asset.is_held_in_self_custody,

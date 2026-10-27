@@ -8,8 +8,6 @@ from typing import TYPE_CHECKING
 from django.template.defaultfilters import slugify
 from django.utils import timezone
 
-from shared.utils import choices_to_enum
-
 from ..choices import (
     AssetObjectives,
     AssetTypes,
@@ -41,7 +39,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class TransactionDTO:
-    action: choices_to_enum(TransactionActions)
+    action: TransactionActions
     price: Decimal
     operation_date: date
     quantity: Decimal | None = None
@@ -63,8 +61,8 @@ class TransactionDTO:
 
 @dataclass
 class PassiveIncomeDTO:  # TODO?
-    type: choices_to_enum(PassiveIncomeTypes)
-    event_type: choices_to_enum(PassiveIncomeEventTypes)
+    type: PassiveIncomeTypes
+    event_type: PassiveIncomeEventTypes
     quantity: Decimal
     amount: Decimal
     operation_date: date
@@ -73,11 +71,11 @@ class PassiveIncomeDTO:  # TODO?
 
 @dataclass(unsafe_hash=True)
 class Asset:
-    type: choices_to_enum(AssetTypes)
+    type: AssetTypes
     code: str = ""
     id: int | None = None
     description: str = ""
-    objective: choices_to_enum(AssetObjectives) = AssetObjectives.unknown
+    objective: AssetObjectives = AssetObjectives.unknown
     description: str = ""
     quantity_balance: Decimal | None = None
     currency: Currencies | None = None
@@ -89,9 +87,9 @@ class Asset:
     is_held_in_self_custody: bool = False
 
     # Emergency fund fields (only for FIXED_BR assets)
-    liquidity_type: choices_to_enum(LiquidityTypes) | None = None
+    liquidity_type: LiquidityTypes | None = None
     maturity_date: date | None = None
-    indexer: choices_to_enum(FixedIncomeIndexers) | None = None
+    indexer: FixedIncomeIndexers | None = None
 
     def __post_init__(self) -> None:
         self._transactions: list[TransactionDTO] = []
@@ -104,7 +102,7 @@ class Asset:
             self.code = self.code.upper()
 
     def validate(self) -> None:
-        if self.currency not in AssetTypes.get_choice(self.type).valid_currencies:
+        if self.currency not in AssetTypes(self.type).valid_currencies:
             raise InvalidAssetCurrentException(
                 message_interpolation_params={"currency": self.currency, "type": self.type}
             )

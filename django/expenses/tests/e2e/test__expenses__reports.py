@@ -83,7 +83,7 @@ def test__avg_comparasion_report__invalid_period(client):
 @skip_if_sqlite
 @pytest.mark.parametrize(
     "group_by, field_name",
-    [(value, ExpenseReportType.get_choice(value).field_name) for value in ExpenseReportType.values],
+    [(value, ExpenseReportType(value).field_name) for value in ExpenseReportType.values],
 )
 def test__avg_comparasion_report(client, group_by, field_name):
     # GIVEN
@@ -185,7 +185,7 @@ def test__reports__percentage__invalid_group_by(client):
 @pytest.mark.usefixtures("expenses_report_data")
 @pytest.mark.parametrize(
     "group_by, field_name",
-    [(value, ExpenseReportType.get_choice(value).field_name) for value in ExpenseReportType.values],
+    [(value, ExpenseReportType(value).field_name) for value in ExpenseReportType.values],
 )
 def test__reports__percentage(client, group_by, field_name):
     # GIVEN

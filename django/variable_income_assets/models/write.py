@@ -5,6 +5,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 from shared.models_utils import serializable_today_function
+from shared.validators import ChoicesValidator
 
 from ..choices import (
     AssetObjectives,
@@ -27,8 +28,12 @@ from .managers import (
 
 
 class ConversionRate(models.Model):
-    from_currency = models.CharField(max_length=6, validators=[Currencies.validator])
-    to_currency = models.CharField(max_length=6, validators=[Currencies.validator])
+    from_currency = models.CharField(
+        max_length=6, validators=[ChoicesValidator(dict(Currencies.choices))]
+    )
+    to_currency = models.CharField(
+        max_length=6, validators=[ChoicesValidator(dict(Currencies.choices))]
+    )
     value = models.DecimalField(decimal_places=4, max_digits=10)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -48,11 +53,15 @@ class ConversionRate(models.Model):
 
 class AssetMetaData(models.Model):
     code = models.CharField(max_length=200)
-    type = models.CharField(max_length=20, validators=[AssetTypes.validator])
+    type = models.CharField(max_length=20, validators=[ChoicesValidator(dict(AssetTypes.choices))])
     sector = models.CharField(
-        max_length=50, validators=[AssetSectors.validator], default=AssetSectors.unknown
+        max_length=50,
+        validators=[ChoicesValidator(dict(AssetSectors.choices))],
+        default=AssetSectors.unknown,
     )
-    currency = models.CharField(max_length=6, validators=[Currencies.validator])
+    currency = models.CharField(
+        max_length=6, validators=[ChoicesValidator(dict(Currencies.choices))]
+    )
     current_price = models.DecimalField(decimal_places=10, max_digits=17)
     current_price_updated_at = models.DateTimeField(blank=True, null=True)
     asset = models.OneToOneField(
@@ -89,20 +98,25 @@ class AssetMetaData(models.Model):
 class Asset(models.Model):
     code = models.CharField(max_length=200)
     description = models.CharField(max_length=100, blank=True, default="")
-    type = models.CharField(max_length=20, validators=[AssetTypes.validator])
+    type = models.CharField(max_length=20, validators=[ChoicesValidator(dict(AssetTypes.choices))])
     objective = models.CharField(
         max_length=50,
-        validators=[AssetObjectives.validator],
+        validators=[ChoicesValidator(dict(AssetObjectives.choices))],
         default=AssetObjectives.unknown,
     )
-    currency = models.CharField(max_length=6, blank=True, validators=[Currencies.validator])
+    currency = models.CharField(
+        max_length=6, blank=True, validators=[ChoicesValidator(dict(Currencies.choices))]
+    )
     liquidity_type = models.CharField(
-        max_length=20, validators=[LiquidityTypes.validator], default="", blank=True
+        max_length=20,
+        validators=[ChoicesValidator(dict(LiquidityTypes.choices))],
+        default="",
+        blank=True,
     )
     maturity_date = models.DateField(null=True, blank=True)
     indexer = models.CharField(
         max_length=10,
-        validators=[FixedIncomeIndexers.validator],
+        validators=[ChoicesValidator(dict(FixedIncomeIndexers.choices))],
         blank=True,
         default="",
         db_default="",
@@ -207,9 +221,7 @@ class AssetClosedOperation(models.Model):
     total_bought = models.DecimalField(
         decimal_places=4, max_digits=20, validators=[MinValueValidator(Decimal("0.0001"))]
     )
-    irpf_total_bought = models.DecimalField(
-        decimal_places=4, max_digits=20, default=Decimal()
-    )
+    irpf_total_bought = models.DecimalField(decimal_places=4, max_digits=20, default=Decimal())
     quantity_bought = models.DecimalField(
         decimal_places=4, max_digits=20, validators=[MinValueValidator(Decimal("0.0001"))]
     )
@@ -230,7 +242,9 @@ class AssetClosedOperation(models.Model):
 
 class Transaction(models.Model):
     external_id = models.CharField(max_length=100, blank=True, default="")
-    action = models.CharField(max_length=20, validators=[TransactionActions.validator])
+    action = models.CharField(
+        max_length=20, validators=[ChoicesValidator(dict(TransactionActions.choices))]
+    )
     price = models.DecimalField(decimal_places=8, max_digits=15)
     # IRPF unit price: equals `price` for BUY/SELL; for BONIFICACAO it stores
     # the company-declared value (while `price` is 0 because the shares were
@@ -264,8 +278,12 @@ class Transaction(models.Model):
 
 
 class PassiveIncome(models.Model):
-    type = models.CharField(max_length=20, validators=[PassiveIncomeTypes.validator])
-    event_type = models.CharField(max_length=11, validators=[PassiveIncomeEventTypes.validator])
+    type = models.CharField(
+        max_length=20, validators=[ChoicesValidator(dict(PassiveIncomeTypes.choices))]
+    )
+    event_type = models.CharField(
+        max_length=11, validators=[ChoicesValidator(dict(PassiveIncomeEventTypes.choices))]
+    )
     amount = models.DecimalField(decimal_places=2, max_digits=12)
     operation_date = models.DateField()
     # the conversion rate between `asset.currency` and `Currencies.real` at `operation_date`

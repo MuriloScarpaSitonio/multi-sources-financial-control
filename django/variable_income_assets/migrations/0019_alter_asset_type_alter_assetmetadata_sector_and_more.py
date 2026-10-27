@@ -3,7 +3,7 @@
 from django.conf import settings
 from django.db import migrations, models
 import django.db.models.deletion
-import djchoices.choices
+from shared.validators import ChoicesValidator
 import shared.models_utils
 
 
@@ -23,7 +23,7 @@ class Migration(migrations.Migration):
             field=models.CharField(
                 max_length=10,
                 validators=[
-                    djchoices.choices.ChoicesValidator(
+                    ChoicesValidator(
                         {
                             "CRYPTO": "Cripto",
                             "FII": "FII",
@@ -41,7 +41,7 @@ class Migration(migrations.Migration):
                 default="UNKNOWN",
                 max_length=50,
                 validators=[
-                    djchoices.choices.ChoicesValidator(
+                    ChoicesValidator(
                         {
                             "COMMUNICATION": "Comunicações",
                             "CONSUMER DISCRETIONARY": "Consumo não cíclico",
@@ -65,7 +65,7 @@ class Migration(migrations.Migration):
             field=models.CharField(
                 max_length=10,
                 validators=[
-                    djchoices.choices.ChoicesValidator(
+                    ChoicesValidator(
                         {
                             "CRYPTO": "Cripto",
                             "FII": "FII",
@@ -82,7 +82,7 @@ class Migration(migrations.Migration):
             field=models.CharField(
                 max_length=10,
                 validators=[
-                    djchoices.choices.ChoicesValidator(
+                    ChoicesValidator(
                         {
                             "CRYPTO": "Cripto",
                             "FII": "FII",

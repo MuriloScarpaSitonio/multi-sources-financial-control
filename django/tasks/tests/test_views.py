@@ -46,7 +46,7 @@ def test__list__notification_display(
     }
     expected_notification_display_title = (
         f"Integração '{tasks_notification_display_map[simple_task_history.name]}' "
-        f"{TaskStates.get_choice(simple_task_history.state).notification_display}"
+        f"{TaskStates(simple_task_history.state).notification_display}"
     )
     assert result["notification_display_title"] == expected_notification_display_title
 
