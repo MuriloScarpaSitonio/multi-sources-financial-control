@@ -34,7 +34,7 @@ brotli==1.1.0
     # via geventhttpclient
 cachetools==5.5.2
     # via google-auth
-certifi==2025.6.15
+certifi==2026.10.23
     # via
     #   geventhttpclient
     #   requests

@@ -19,7 +19,7 @@ attrs==25.3.0
     #   aiohttp
     #   jsonschema
     #   referencing
-certifi==2025.6.15
+certifi==2026.10.23
     # via requests
 cffi==1.17.1 ; platform_python_implementation != 'PyPy'
     # via cryptography

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ssl
 from collections.abc import Callable
 from datetime import datetime
 from functools import wraps
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
 UserModel = get_user_model()
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
+stripe.ca_bundle_path = ssl.get_default_verify_paths().openssl_cafile
 
 
 class StripeHandlersRegistry:
