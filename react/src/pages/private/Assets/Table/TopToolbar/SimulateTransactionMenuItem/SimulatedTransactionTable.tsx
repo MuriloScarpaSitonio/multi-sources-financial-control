@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import Tooltip from "@mui/material/Tooltip";
 
 import {
   MaterialReactTable,
@@ -10,10 +11,8 @@ import { Colors, getColor } from "../../../../../../design-system";
 import { SimulatedAssetResponse } from "../../../api/types";
 
 const SimulatedTransactionTable = ({
-  currencySymbol,
   simulatedAsset,
 }: {
-  currencySymbol?: string;
   simulatedAsset: SimulatedAssetResponse;
 }) => {
   const columns = useMemo<
@@ -26,7 +25,7 @@ const SimulatedTransactionTable = ({
         size: 10,
       },
       {
-        header: "Preço médio",
+        header: "Preço médio (R$)",
         accessorKey: "adjusted_avg_price",
         size: 60,
         Cell: ({ cell }) => {
@@ -34,7 +33,11 @@ const SimulatedTransactionTable = ({
             minimumFractionDigits: 2,
             maximumFractionDigits: 4,
           });
-          return `${currencySymbol} ${amount}`;
+          return (
+            <Tooltip title="Preço médio em reais, ajustado por vendas e rendimentos recebidos.">
+              <span>{`R$ ${amount}`}</span>
+            </Tooltip>
+          );
         },
       },
       {
@@ -95,7 +98,7 @@ const SimulatedTransactionTable = ({
         },
       },
     ],
-    [currencySymbol],
+    [],
   );
 
   const table = useMaterialReactTable({

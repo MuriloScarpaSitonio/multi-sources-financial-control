@@ -93,7 +93,6 @@ const SimulateTransactionResponseDialog = ({
         <SimulatedTransactionSubTitle formData={formData} />
         <SimulatedTransactionTable
           simulatedAsset={responseData as SimulatedAssetResponse}
-          currencySymbol={formData?.asset.currency}
         />
         <DialogActions>
           <Button onClick={onClose} variant="brand-text">
