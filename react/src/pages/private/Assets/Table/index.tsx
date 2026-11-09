@@ -144,7 +144,7 @@ const Table = ({ externalFilters }: TableProps) => {
         size: 40,
       },
       {
-        header: "Preço médio (R$)",
+        header: "Preço médio",
         accessorKey: "adjusted_avg_price",
         enableSorting: false,
         size: 50,
@@ -153,11 +153,7 @@ const Table = ({ externalFilters }: TableProps) => {
             minimumFractionDigits: 2,
             maximumFractionDigits: 4,
           });
-          return (
-            <Tooltip title="Preço médio em reais, ajustado por vendas e rendimentos recebidos.">
-              <span>{`R$ ${price}`}</span>
-            </Tooltip>
-          );
+          return `${AssetCurrencyMap[original.currency].symbol} ${price}`;
         },
       },
       {

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from django.db.models import Case, F, Q, Sum, Value, When
+from django.db.models import Case, DecimalField, F, OuterRef, Q, Subquery, Sum, Value, When
 from django.db.models.expressions import CombinedExpression
 from django.db.models.functions import Coalesce, Greatest
 
@@ -173,9 +174,7 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
             self.get_quantity(), filter=Q(self.filters.sold, extra_filters)
         )
 
-    def get_avg_price(
-        self, extra_filters: Q | None = None, price_field: str = "price"
-    ) -> Coalesce:
+    def get_avg_price(self, extra_filters: Q | None = None, price_field: str = "price") -> Coalesce:
         extra_filters = extra_filters if extra_filters is not None else Q()
         return Coalesce(
             self.get_total_bought(extra_filters=extra_filters, price_field=price_field)
@@ -277,3 +276,50 @@ class GenericQuerySetExpressions(_GenericQueryHelperIntializer):
             ),
             default=Decimal("1.0"),
         )
+
+
+def native_net_outlay(asset_id: Combinable) -> CombinedExpression:
+    """Net cash paid in the asset currency since its latest completed operation.
+
+    Correlated subqueries keep transactions and income from multiplying each other.
+    The date boundary follows the existing closed-operation/reopening convention.
+    """
+    from ...models.write import AssetClosedOperation, PassiveIncome, Transaction
+
+    money = DecimalField(max_digits=30, decimal_places=12)
+    closed = (
+        AssetClosedOperation.objects.filter(asset_id=OuterRef("asset_id"))
+        .order_by("-operation_datetime")
+        .values("operation_datetime__date")[:1]
+    )
+    cutoff = Coalesce(Subquery(closed), Value(date.min))
+    transactions = (
+        Transaction.objects.filter(asset_id=asset_id, operation_date__gt=cutoff)
+        .order_by()
+        .values("asset_id")
+        .annotate(
+            net=Sum(
+                Case(
+                    When(
+                        action__in=[TransactionActions.buy, TransactionActions.bonificacao],
+                        then=F("price") * F("quantity"),
+                    ),
+                    When(action=TransactionActions.sell, then=-F("price") * F("quantity")),
+                    default=Value(Decimal()),
+                    output_field=money,
+                )
+            )
+        )
+        .values("net")[:1]
+    )
+    incomes = (
+        PassiveIncome.objects.filter(asset_id=asset_id, operation_date__gt=cutoff)
+        .credited()
+        .order_by()
+        .values("asset_id")
+        .annotate(total=Sum("amount"))
+        .values("total")[:1]
+    )
+    return Coalesce(Subquery(transactions, output_field=money), Value(Decimal())) - Coalesce(
+        Subquery(incomes, output_field=money), Value(Decimal())
+    )

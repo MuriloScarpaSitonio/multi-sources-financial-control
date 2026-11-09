@@ -148,6 +148,19 @@ class _Expressions:
 
 
 class AssetReadModelQuerySet(models.QuerySet):
+    def annotate_native_net_outlay(self) -> Self:
+        from .expressions import native_net_outlay
+
+        return self.annotate(
+            native_net_outlay=models.Case(
+                models.When(
+                    currency=Currencies.dollar,
+                    then=native_net_outlay(models.OuterRef("write_model_pk")),
+                ),
+                default=models.Value(Decimal()),
+            )
+        )
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.expressions = _Expressions(metadata_repository=DjangoSQLAssetMetaDataRepository)
@@ -181,7 +194,8 @@ class AssetReadModelQuerySet(models.QuerySet):
 
     def annotate_for_serializer(self) -> Self:
         return (
-            self.annotate_normalized_total_invested()
+            self.annotate_native_net_outlay()
+            .annotate_normalized_total_invested()
             .annotate_normalized_roi()
             .annotate_roi_percentage()
         )

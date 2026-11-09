@@ -134,10 +134,10 @@ def test__simulate_transaction__adjusted_price_uses_net_cash_outlay(client, cryp
     # THEN
     assert response.status_code == 200
 
-    # The original 50 units cost R$2,550. The simulated purchase adds R$5,000
-    # and 100 units: 2,550 / 50 = 51; 7,550 / 150 = 50.3333.
-    assert response_json["old"]["adjusted_avg_price"] == pytest.approx(51)
-    assert response_json["new"]["adjusted_avg_price"] == pytest.approx(50.3333333333)
+    # The original 50 units cost US$500. The simulated purchase adds
+    # US$1,000 and 100 units, so the USD average stays at US$10 despite FX changes.
+    assert response_json["old"]["adjusted_avg_price"] == pytest.approx(10)
+    assert response_json["new"]["adjusted_avg_price"] == pytest.approx(10)
 
     for k, v in old.items():
         assert convert_and_quantitize(v) == convert_and_quantitize(response_json["old"][k])

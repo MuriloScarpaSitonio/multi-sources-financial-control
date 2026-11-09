@@ -175,6 +175,7 @@ class AssetQuerySet(QuerySet):
 
     def annotate_for_simulation(self) -> Self:
         from ...adapters import DjangoSQLAssetMetaDataRepository
+        from .expressions import native_net_outlay
 
         return (
             self.annotate_for_domain()
@@ -183,9 +184,10 @@ class AssetQuerySet(QuerySet):
             .annotate_current_normalized_total_sold()
             .annotate_current_credited_incomes()
             .annotate(
+                native_net_outlay=native_net_outlay(OuterRef("pk")),
                 current_price_metadata=DjangoSQLAssetMetaDataRepository.get_current_price_annotation(
                     source="write"
-                )
+                ),
             )
         )
 
@@ -213,7 +215,9 @@ class AssetQuerySet(QuerySet):
             normalized_total_invested=F("normalized_avg_price") * F("transactions_balance"),
             total_invested=F("avg_price") * F("transactions_balance"),
             avg_current_currency_conversion_rate=Coalesce(
-                self.expressions.get_normalized_total_bought(extra_filters, price_field="irpf_price")
+                self.expressions.get_normalized_total_bought(
+                    extra_filters, price_field="irpf_price"
+                )
                 / Greatest(
                     self.expressions.get_total_bought(extra_filters, price_field="irpf_price"),
                     Value(Decimal("1.0")),

@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.db.models import Q
+from django.utils import timezone
 
 from ..adapters.key_value_store import get_dollar_conversion_rate
 from ..choices import Currencies
@@ -61,6 +62,17 @@ def get_current_adjusted_avg_price_brute_forte(
     quantity_balance = get_quantity_balance_brute_force(asset=asset)
     if not quantity_balance:
         return Decimal()
+    if asset.currency == Currencies.dollar:
+        latest = asset.closed_operations.order_by("-operation_datetime").first()
+        transactions = asset.transactions.all()
+        incomes = asset.incomes.credited()
+        if latest:
+            cutoff = timezone.localdate(latest.operation_datetime)
+            transactions = transactions.filter(operation_date__gt=cutoff)
+            incomes = incomes.filter(operation_date__gt=cutoff)
+        bought = sum(t.price * t.quantity for t in transactions.bought())
+        sold = sum(t.price * t.quantity for t in transactions.sold())
+        return (bought - sold - sum(i.amount for i in incomes)) / quantity_balance
     closed_total_sold, previous_total_bought = get_closed_operations_totals(asset, normalize=True)
     closed_total_bought = (
         closed_total_bought if closed_total_bought is not None else previous_total_bought

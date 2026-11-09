@@ -19,7 +19,7 @@ const chtr: Asset = {
   quantity_balance: 38.468,
   current_price: 118.029999,
   current_price_updated_at: "2026-11-08T14:02:05Z",
-  adjusted_avg_price: 1406.0502443589478,
+  adjusted_avg_price: 251.7222631022798,
   normalized_roi: -30000,
   roi_percentage: -55,
   normalized_total_invested: 54075,
@@ -36,7 +36,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it("labels CHTR's BRL-adjusted average in reais while keeping its market price in dollars", async () => {
+it("labels CHTR's USD-adjusted average in dollars while keeping its market price in dollars", async () => {
   vi.spyOn(assetsApi, "getAssets").mockResolvedValue({
     count: 1,
     results: [chtr],
@@ -58,13 +58,13 @@ it("labels CHTR's BRL-adjusted average in reais while keeping its market price i
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  expect(await screen.findByText(/R\$\s*1\.406,0502/)).toBeInTheDocument();
+  expect(await screen.findByText(/US\$\s*251,7223/)).toBeInTheDocument();
   expect(screen.getByText(/US\$\s*118,03/)).toBeInTheDocument();
-  expect(screen.queryByText(/US\$\s*1\.406/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/R\$\s*251,7223/)).not.toBeInTheDocument();
   client.clear();
 });
 
-it("labels both simulated adjusted averages in reais for a dollar asset", () => {
+it("labels both simulated adjusted averages in dollars for a dollar asset", () => {
   const simulation = {
     ...chtr,
     adjusted_avg_price: chtr.adjusted_avg_price,
@@ -74,13 +74,14 @@ it("labels both simulated adjusted averages in reais for a dollar asset", () => 
   };
   render(
     <SimulatedTransactionTable
+      currencySymbol="US$"
       simulatedAsset={{
         old: simulation,
         new: { ...simulation, adjusted_avg_price: 1300 },
       }}
     />,
   );
-  expect(screen.getByText(/R\$\s*1\.406,0502/)).toBeInTheDocument();
-  expect(screen.getByText(/R\$\s*1\.300,00/)).toBeInTheDocument();
-  expect(screen.queryByText(/US\$/)).not.toBeInTheDocument();
+  expect(screen.getByText(/US\$\s*251,7223/)).toBeInTheDocument();
+  expect(screen.getByText(/US\$\s*1\.300,00/)).toBeInTheDocument();
+  expect(screen.queryByText(/R\$\s*251,7223/)).not.toBeInTheDocument();
 });
