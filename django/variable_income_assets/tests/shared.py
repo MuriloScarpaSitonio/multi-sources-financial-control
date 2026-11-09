@@ -70,7 +70,9 @@ def get_current_adjusted_avg_price_brute_forte(
     incomes = get_total_credited_incomes_brute_force(
         asset, normalize=True
     ) - _get_finsished_credited_incomes_brute_force(asset, normalize=True)
-    return (bought - sold - incomes) / quantity_balance
+    return (bought - sold - incomes) / quantity_balance / (
+        get_dollar_conversion_rate() if asset.currency == Currencies.dollar else 1
+    )
 
 
 def _get_finsished_credited_incomes_brute_force(asset: Asset, normalize: bool = True):

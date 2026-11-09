@@ -110,7 +110,9 @@ class AssetReadModel(models.Model):
                 self.normalized_total_bought
                 - self.normalized_total_sold
                 - self.normalized_credited_incomes
-            ) / self.quantity_balance
+            ) / self.quantity_balance / (
+                get_dollar_conversion_rate() if self.currency == Currencies.dollar else 1
+            )
         except DecimalException:
             return Decimal()
 

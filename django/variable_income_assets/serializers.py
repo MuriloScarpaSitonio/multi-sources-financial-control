@@ -455,7 +455,10 @@ class AssetSimulateSerializer(serializers.ModelSerializer):
             obj.normalized_total_bought
             - obj.normalized_total_sold
             - obj.normalized_credited_incomes
-        ) / obj.quantity_balance
+        ) / obj.quantity_balance / (
+            self.context["current_currency_conversion_rate"]
+            if obj.currency == choices.Currencies.dollar else 1
+        )
 
 
 class AssetTransactionSimulateEndpointSerializer(serializers.Serializer):
