@@ -105,20 +105,9 @@ class AssetReadModel(models.Model):
 
     @cached_property
     def adjusted_avg_price(self) -> Decimal:
-        if not self.quantity_balance:
-            return Decimal()
         try:
             if self.currency == Currencies.dollar:
-                outlay = self.__dict__.get("native_net_outlay")
-                if outlay is None:
-                    outlay = (
-                        type(self)
-                        .objects.filter(pk=self.pk)
-                        .annotate_native_net_outlay()
-                        .values_list("native_net_outlay", flat=True)
-                        .get()
-                    )
-                return outlay / self.quantity_balance
+                return self.avg_price - self.credited_incomes / self.quantity_balance
             return (
                 self.normalized_total_bought
                 - self.normalized_total_sold
