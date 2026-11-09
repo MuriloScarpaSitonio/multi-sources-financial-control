@@ -134,9 +134,9 @@ def test__simulate_transaction__adjusted_price_uses_net_cash_outlay(client, cryp
     # THEN
     assert response.status_code == 200
 
-    # Both the existing holding and simulated purchase have a US$10 unit price.
-    assert response_json["old"]["adjusted_avg_price"] == pytest.approx(10)
-    assert response_json["new"]["adjusted_avg_price"] == pytest.approx(10)
+    # Preserve BRL break-even cash flows, then express the result in USD at FX=5.
+    assert response_json["old"]["adjusted_avg_price"] == pytest.approx(10.2)
+    assert response_json["new"]["adjusted_avg_price"] == pytest.approx(10.0666666667)
 
     for k, v in old.items():
         assert convert_and_quantitize(v) == convert_and_quantitize(response_json["old"][k])

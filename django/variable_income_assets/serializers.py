@@ -451,13 +451,14 @@ class AssetSimulateSerializer(serializers.ModelSerializer):
         return obj.normalized_avg_price * obj.quantity_balance
 
     def get_adjusted_avg_price(self, obj: Asset) -> Decimal:
-        if obj.currency == choices.Currencies.dollar:
-            return obj.avg_price - obj.credited_incomes / obj.quantity_balance
         return (
             obj.normalized_total_bought
             - obj.normalized_total_sold
             - obj.normalized_credited_incomes
-        ) / obj.quantity_balance
+        ) / obj.quantity_balance / (
+            self.context["current_currency_conversion_rate"]
+            if obj.currency == choices.Currencies.dollar else 1
+        )
 
 
 class AssetTransactionSimulateEndpointSerializer(serializers.Serializer):

@@ -106,13 +106,13 @@ class AssetReadModel(models.Model):
     @cached_property
     def adjusted_avg_price(self) -> Decimal:
         try:
-            if self.currency == Currencies.dollar:
-                return self.avg_price - self.credited_incomes / self.quantity_balance
             return (
                 self.normalized_total_bought
                 - self.normalized_total_sold
                 - self.normalized_credited_incomes
-            ) / self.quantity_balance
+            ) / self.quantity_balance / (
+                get_dollar_conversion_rate() if self.currency == Currencies.dollar else 1
+            )
         except DecimalException:
             return Decimal()
 

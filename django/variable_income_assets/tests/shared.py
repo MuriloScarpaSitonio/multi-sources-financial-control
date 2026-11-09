@@ -61,11 +61,6 @@ def get_current_adjusted_avg_price_brute_forte(
     quantity_balance = get_quantity_balance_brute_force(asset=asset)
     if not quantity_balance:
         return Decimal()
-    if asset.currency == Currencies.dollar:
-        avg_price = get_current_avg_price_bute_force(asset, normalize=False)
-        incomes = get_total_credited_incomes_brute_force(asset, normalize=False)
-        incomes -= _get_finsished_credited_incomes_brute_force(asset, normalize=False)
-        return avg_price - incomes / quantity_balance
     closed_total_sold, previous_total_bought = get_closed_operations_totals(asset, normalize=True)
     closed_total_bought = (
         closed_total_bought if closed_total_bought is not None else previous_total_bought
@@ -75,7 +70,9 @@ def get_current_adjusted_avg_price_brute_forte(
     incomes = get_total_credited_incomes_brute_force(
         asset, normalize=True
     ) - _get_finsished_credited_incomes_brute_force(asset, normalize=True)
-    return (bought - sold - incomes) / quantity_balance
+    return (bought - sold - incomes) / quantity_balance / (
+        get_dollar_conversion_rate() if asset.currency == Currencies.dollar else 1
+    )
 
 
 def _get_finsished_credited_incomes_brute_force(asset: Asset, normalize: bool = True):
