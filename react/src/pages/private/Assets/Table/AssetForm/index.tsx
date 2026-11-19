@@ -35,6 +35,12 @@ import {
 } from "../../forms/components";
 import { useInvalidateAssetsReportsQueries } from "../../Reports/hooks";
 import { ASSETS_QUERY_KEY } from "../consts";
+import {
+  getCurrencyFromType,
+  hasSelectableCurrency,
+} from "../TopToolbar/utils";
+import { useInvalidateAssetsMinimalDataQueries } from "../../forms/hooks";
+import { useInvalidateAssetsQueries } from "../hooks";
 import DeleteAssetDialog from "./DeleteAssetDialog";
 import { GroupBy, Kinds } from "../../Reports/types";
 
@@ -71,7 +77,7 @@ const schema = yup.object().shape({
 
 const AssetsForm = ({ asset }: { asset: Asset }) => {
   const assetTypeValue = AssetsTypesMapping[asset.type]?.value ?? "";
-  const [isCrypto, setIsCrypto] = useState(
+  const [, setIsCrypto] = useState(
     assetTypeValue === AssetsTypesMapping.Cripto.value,
   );
   const [isFixedBR, setIsFixedBR] = useState(
@@ -104,12 +110,21 @@ const AssetsForm = ({ asset }: { asset: Asset }) => {
     isDirty,
     getValues,
     reset,
+    watch,
   } = useFormPlus({
     mutationFn: editAsset,
     onSuccess: async () => {
-      const data = getValues() as AssetData;
+      const values = getValues() as AssetData;
+      const data = {
+        ...values,
+        currency: getCurrencyFromType(values.type.value, values.currency),
+      };
       await maybeInvalidateRelatedReportsQueries(data);
       updateCachedData(data);
+      if (data.currency !== parsedValues.currency) {
+        await invalidateAssetsQueries();
+        await invalidateAssetsMinimalDataQueries();
+      }
       reset(data);
       enqueueSnackbar("Ativo atualizado com sucesso", { variant: "success" });
     },
@@ -133,6 +148,10 @@ const AssetsForm = ({ asset }: { asset: Asset }) => {
   });
 
   const queryClient = useQueryClient();
+  const { invalidate: invalidateAssetsQueries } =
+    useInvalidateAssetsQueries(queryClient);
+  const { invalidate: invalidateAssetsMinimalDataQueries } =
+    useInvalidateAssetsMinimalDataQueries();
   const { invalidate: invalidateAssetsReportsQueries } =
     useInvalidateAssetsReportsQueries();
 
@@ -161,6 +180,7 @@ const AssetsForm = ({ asset }: { asset: Asset }) => {
             ? {
                 ...asset,
                 code: data.code,
+                currency: data.currency,
                 description: data.description,
                 indexer:
                   data.type.value === "FIXED_BR" && data.indexer
@@ -251,7 +271,7 @@ const AssetsForm = ({ asset }: { asset: Asset }) => {
               getFieldHasError={() => false}
               getErrorMessage={() => ""}
             />
-            {isCrypto && (
+            {hasSelectableCurrency(watch("type")?.value) && (
               <AssetCurrenciesInput
                 prefix="edit"
                 control={control}
@@ -308,7 +328,7 @@ const AssetsForm = ({ asset }: { asset: Asset }) => {
                 data: {
                   code: data.code,
                   description: data.description,
-                  currency: data.currency,
+                  currency: getCurrencyFromType(data.type.value, data.currency),
                   objective: data.objective,
                   type: data.type.value,
                   indexer: isFixedBR ? data.indexer : null,
