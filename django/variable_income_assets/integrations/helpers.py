@@ -59,7 +59,9 @@ def fetch_asset_sector(code: str, asset_type: AssetTypes) -> AssetSectors:
 
 def fetch_asset_current_price(code: str, asset_type: AssetTypes, currency: Currencies) -> Decimal:
     kwargs = {"codes": (code,)}
-    if asset_type in (AssetTypes.stock, AssetTypes.fii):
+    if asset_type in (AssetTypes.stock, AssetTypes.fii) or (
+        asset_type == AssetTypes.equity_global and currency == Currencies.real
+    ):
         coro = get_b3_prices
     elif asset_type in (AssetTypes.stock_usa, AssetTypes.equity_global):
         coro = get_stocks_usa_prices
@@ -100,7 +102,9 @@ def fetch_asset_close_price(
     code: str, asset_type: AssetTypes, currency: Currencies, operation_date: date
 ) -> Decimal:
     kwargs = {"codes": (code,), "operation_date": operation_date}
-    if asset_type in (AssetTypes.stock, AssetTypes.fii):
+    if asset_type in (AssetTypes.stock, AssetTypes.fii) or (
+        asset_type == AssetTypes.equity_global and currency == Currencies.real
+    ):
         coro = get_b3_close_prices
     elif asset_type in (AssetTypes.stock_usa, AssetTypes.equity_global):
         coro = get_stocks_usa_close_prices

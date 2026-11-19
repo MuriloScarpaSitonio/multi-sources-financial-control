@@ -41,7 +41,7 @@ class AssetTypes(TextChoices):
         return {
             self.stock: (Currencies.real,),
             self.stock_usa: (Currencies.dollar,),
-            self.equity_global: (Currencies.dollar,),
+            self.equity_global: (Currencies.real, Currencies.dollar),
             self.crypto: (Currencies.real, Currencies.dollar),
             self.fii: (Currencies.real,),
             self.fixed_br: (Currencies.real,),

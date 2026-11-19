@@ -48,7 +48,7 @@ def test_integration_uses_native_enum_and_preserves_wire_values():
     [
         ("STOCK", ("BRL",), 20_000, True),
         ("STOCK_USA", ("USD",), 35_000, True),
-        ("EQUITY_GLOBAL", ("USD",), 35_000, True),
+        ("EQUITY_GLOBAL", ("BRL", "USD"), 35_000, True),
         ("CRYPTO", ("BRL", "USD"), 35_000, True),
         ("FII", ("BRL",), 0, True),
         ("FIXED_BR", ("BRL",), 0, False),
