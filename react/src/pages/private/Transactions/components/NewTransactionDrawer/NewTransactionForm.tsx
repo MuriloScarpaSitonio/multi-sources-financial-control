@@ -36,7 +36,10 @@ import {
 } from "../../../Assets/consts";
 import { createAsset, updateAssetPrice } from "../../../Assets/api";
 import { createTransaction } from "../../api";
-import { getCurrencyFromType } from "../../../Assets/Table/TopToolbar/utils";
+import {
+  getCurrencyFromType,
+  hasSelectableCurrency,
+} from "../../../Assets/Table/TopToolbar/utils";
 import { useInvalidateAssetsMinimalDataQueries } from "../../../Assets/forms/hooks";
 import {
   AssetCodeAutoComplete,
@@ -110,12 +113,9 @@ const transactionShape = {
         const { asset, currency, type } = this.parent;
         if (!rate) {
           if (asset?.currency) return asset.currency !== AssetCurrencies.USD;
-          if (type?.value === AssetsTypesMapping.Cripto.value)
-            return currency !== AssetCurrencies.USD;
-          return ![
-            AssetsTypesMapping["Renda variável EUA"].value,
-            AssetsTypesMapping["Renda variável Global"].value,
-          ].includes(type?.value);
+          return (
+            getCurrencyFromType(type?.value, currency) !== AssetCurrencies.USD
+          );
         }
         return true;
       },
@@ -135,8 +135,10 @@ const assetShape = {
   objective: yup.string().required("O objetivo é obrigatório"),
   currency: yup
     .string()
-    .when("$isCrypto", (isCrypto, schema) =>
-      isCrypto[0] ? schema.required("A moeda é obrigatória") : schema,
+    .when("type", ([type], schema) =>
+      hasSelectableCurrency(type?.value)
+        ? schema.required("A moeda é obrigatória")
+        : schema,
     ),
   liquidity_type: yup
     .string()
@@ -192,7 +194,7 @@ const createTransactionAndAsset = async (
     indexer,
     ...transaction
   } = data;
-  const assetCurrency = currency ?? (getCurrencyFromType(type.value) as string);
+  const assetCurrency = getCurrencyFromType(type.value, currency);
   const isFixedBR = type.value === AssetsTypesMapping["Renda fixa BR"].value;
   const asset = await createAsset({
     type: type.value,
@@ -247,7 +249,7 @@ const NewTransactionForm = ({
   setIsSubmitting: Dispatch<SetStateAction<boolean>>;
   variant?: string;
 }) => {
-  const [isCrypto, setIsCrypto] = useState(false);
+  const [, setIsCrypto] = useState(false);
   const [newCode, setNewCode] = useState<string | undefined>("");
 
   const defaultValues = {
@@ -293,7 +295,6 @@ const NewTransactionForm = ({
           maturity_date: "",
         }
       : defaultValues,
-    context: { isCrypto },
     onSuccess: async () => {
       onSuccess();
       enqueueSnackbar("Transação criada com sucesso", {
@@ -325,10 +326,10 @@ const NewTransactionForm = ({
   const getCurrencySymbol = useCallback(() => {
     if (assetObj?.currency)
       return AssetCurrencyMap[assetObj.currency as AssetCurrencies].symbol;
-    if (assetCurrency && isCrypto)
-      return AssetCurrencyMap[assetCurrency as AssetCurrencies].symbol;
-    return AssetCurrencyMap[getCurrencyFromType(assetType?.value)].symbol;
-  }, [assetObj, assetCurrency, assetType, isCrypto]);
+    return AssetCurrencyMap[
+      getCurrencyFromType(assetType?.value, assetCurrency)
+    ].symbol;
+  }, [assetObj, assetCurrency, assetType]);
 
   const currencySymbol = getCurrencySymbol();
 
@@ -459,7 +460,7 @@ const NewTransactionForm = ({
             getFieldHasError={getFieldHasError}
             getErrorMessage={getErrorMessage}
           />
-          {isCrypto && (
+          {hasSelectableCurrency(assetType?.value) && (
             <AssetCurrenciesInput
               prefix="create-transaction"
               control={control}

@@ -164,6 +164,51 @@ def test__create__global_equity(client, mocker):
 
 
 @pytest.mark.parametrize(
+    "code,currency,provider,rate,invested,roi",
+    [
+        ("MUND11", Currencies.real, "get_b3_prices", None, 1000, 200),
+        ("VWRA", Currencies.dollar, "get_stocks_usa_prices", 4, 4000, 2000),
+    ],
+)
+def test_global_equity_creation_transaction_and_valuation(
+    client, mocker, code, currency, provider, rate, invested, roi
+):
+    mocker.patch(
+        f"variable_income_assets.integrations.helpers.{provider}",
+        return_value={code: 120},
+    )
+    response = client.post(
+        f"/{BASE_API_URL}assets",
+        data={
+            "code": code,
+            "type": AssetTypes.equity_global,
+            "currency": currency,
+            "objective": "GROWTH",
+        },
+    )
+    assert response.status_code == 201, response.json()
+    asset = Asset.objects.get(code=code)
+    data = {
+        "asset_pk": asset.pk,
+        "action": "BUY",
+        "price": 100,
+        "quantity": 10,
+        "operation_date": "01/01/2024",
+    }
+    if rate is not None:
+        data["current_currency_conversion_rate"] = rate
+    response = client.post(f"/{BASE_API_URL}transactions", data=data)
+    assert response.status_code == 201, response.json()
+    transaction = Transaction.objects.get(asset=asset)
+    assert transaction.current_currency_conversion_rate == (rate or 1)
+    read = AssetReadModel.objects.get(write_model_pk=asset.pk)
+    assert read.currency == currency
+    assert read.normalized_total_bought == invested
+    # Current USD/BRL is 5 in the shared test fixture; BRL values stay unchanged.
+    assert read.normalized_roi == roi
+
+
+@pytest.mark.parametrize(
     ("type", "currency", "status_code"),
     (
         (AssetTypes.crypto, Currencies.real, HTTP_201_CREATED),
