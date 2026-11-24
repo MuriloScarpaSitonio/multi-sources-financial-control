@@ -207,6 +207,7 @@ def test_global_equity_creation_transaction_and_valuation(
     # Current USD/BRL is 5 in the shared test fixture; BRL values stay unchanged.
     assert read.normalized_roi == roi
 
+
 @pytest.mark.parametrize(
     ("type", "currency", "status_code"),
     (

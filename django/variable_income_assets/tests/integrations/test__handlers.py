@@ -132,6 +132,7 @@ def test_scheduled_global_quotes_keep_currencies_separate(mocker, user):
     b3.assert_any_await(codes=["ETF"])
     foreign.assert_any_await(codes=["ETF"])
 
+
 @pytest.mark.usefixtures(
     "buy_transaction",
     "crypto_transaction",
