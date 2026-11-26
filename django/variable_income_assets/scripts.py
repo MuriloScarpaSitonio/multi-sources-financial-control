@@ -676,7 +676,7 @@ def print_irpf_infos(
     )
 
 
-def update_assets_metadata_current_price() -> None:
+def update_assets_metadata_current_price() -> Exception | None:
     from asgiref.sync import async_to_sync
 
     from .integrations.handlers import update_prices

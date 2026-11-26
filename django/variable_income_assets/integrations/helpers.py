@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from django.db.transaction import atomic
 from django.utils import timezone
 
+from aiohttp import ClientSession, ClientTimeout
 from aiohttp.client_exceptions import ClientError
 from aiohttp.http_exceptions import HttpProcessingError
 from aiohttp.web_exceptions import HTTPException
@@ -40,9 +41,40 @@ async def get_crypto_prices(codes: list[str], currency: Currencies):
         return await c.get_prices(symbols=codes, currency=currency)
 
 
+async def _get_vwra_usd_price() -> str:
+    url = "https://query1.finance.yahoo.com/v8/finance/chart/VWRA.L"
+    async with (
+        ClientSession(timeout=ClientTimeout(total=30)) as session,
+        session.get(url, headers={"User-Agent": "Mozilla/5.0"}) as response,
+    ):
+        response.raise_for_status()
+        quote = (await response.json())["chart"]["result"][0]["meta"]
+    if quote["symbol"] != "VWRA.L" or quote["currency"] != "USD" or quote["exchangeName"] != "LSE":
+        raise ValueError("Unexpected listing for VWRA")
+    price = Decimal(str(quote["regularMarketPrice"]))
+    if not price.is_finite() or price <= 0:
+        raise ValueError("Invalid USD price for VWRA")
+    return str(price)
+
+
 async def get_stocks_usa_prices(codes: list[str]):
-    async with TwelveDataClient() as c:
-        return await c.get_prices(codes=codes)
+    prices = {}
+    if "VWRA" in codes:
+        try:
+            prices["VWRA"] = await _get_vwra_usd_price()
+        except Exception:
+            if len(codes) == 1:
+                raise
+        codes = [code for code in codes if code != "VWRA"]
+
+    if codes:
+        try:
+            async with TwelveDataClient() as c:
+                prices.update(await c.get_prices(codes=codes))
+        except Exception:
+            if not prices:
+                raise
+    return prices
 
 
 # TODO: fetch API

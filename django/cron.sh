@@ -48,6 +48,6 @@ if os.environ.get('PERFORM_METADATA_UPDATES', '').lower() in ("true", "1"):
         except NotFirstDayOfMonthException:
             pass
     else:
-        print(f"Error when trying to update assets prices: {exc}")
+        raise exc
 EOF
 

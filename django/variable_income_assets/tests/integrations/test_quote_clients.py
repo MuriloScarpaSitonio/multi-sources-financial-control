@@ -5,6 +5,7 @@ from aioresponses import aioresponses
 from asgiref.sync import async_to_sync
 
 from ...integrations.clients import BrApiClient
+from ...integrations.helpers import get_stocks_usa_prices
 
 
 @pytest.mark.parametrize("last_status", [200, 429])
@@ -31,3 +32,32 @@ def test_brapi_honors_retry_after_and_continues_with_next_symbol(mocker, last_st
 
     assert sleep.await_args_list == [mocker.call(2), mocker.call(3)]
     assert prices == ({"AAA": 42, "BBB": 12} if last_status == 200 else {"BBB": 12})
+
+
+@pytest.mark.parametrize("currency", ["USD", "GBP"])
+def test_vwra_uses_london_usd_listing_and_preserves_other_quotes(settings, currency):
+    settings.TWELVE_DATA_API_KEY = "test"
+    with aioresponses() as http:
+        http.get(
+            "https://query1.finance.yahoo.com/v8/finance/chart/VWRA.L",
+            payload={
+                "chart": {
+                    "result": [
+                        {
+                            "meta": {
+                                "symbol": "VWRA.L",
+                                "exchangeName": "LSE",
+                                "currency": currency,
+                                "regularMarketPrice": 123.45,
+                            }
+                        }
+                    ]
+                }
+            },
+        )
+        http.get("https://api.twelvedata.com/price?apikey=test&symbol=VT", payload={"price": "87"})
+        prices = async_to_sync(get_stocks_usa_prices)(["VWRA", "VT"])
+    expected = {"VT": "87"}
+    if currency == "USD":
+        expected["VWRA"] = "123.45"
+    assert prices == expected

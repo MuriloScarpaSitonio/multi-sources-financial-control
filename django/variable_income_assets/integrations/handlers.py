@@ -27,10 +27,9 @@ async def _fetch_prices(
     global_equity_brl_codes: list[str] = []
     assets_map: dict[str, AssetMetaData] = {}
     async for asset in qs:
-        assets_map["-".join((asset.code, asset.type, asset.currency))] = asset
         if asset.type == AssetTypes.stock:
             stock_codes.append(asset.code)
-        if asset.type == AssetTypes.fii:
+        elif asset.type == AssetTypes.fii:
             fii_codes.append(asset.code)
         elif asset.type == AssetTypes.stock_usa:
             usa_stocks_codes.append(asset.code)
@@ -44,6 +43,9 @@ async def _fetch_prices(
                 crypto_brl_codes.append(asset.code)
             else:
                 crypto_usd_codes.append(asset.code)
+        else:
+            continue
+        assets_map["-".join((asset.code, asset.type, asset.currency))] = asset
     other_prices = asyncio.gather(
         get_crypto_prices(codes=crypto_usd_codes, currency=Currencies.dollar),
         get_crypto_prices(codes=crypto_brl_codes, currency=Currencies.real),
@@ -85,20 +87,26 @@ async def update_prices() -> Exception | None:
             qs=DjangoSQLAssetMetaDataRepository.filter_assets_eligible_for_update()
         )
         print("update_prices result: ", result)
+        updated = []
         for data in result:
             for code, price in data["prices"].items():
                 if price is None:
                     print(f"Skipping {code}: price is None")
                     continue
-                asset_metadata = assets_metadata_map[
-                    "-".join((code, data["type"], data["currency"]))
-                ]
+                key = "-".join((code, data["type"], data["currency"]))
+                asset_metadata = assets_metadata_map.pop(key, None)
+                if asset_metadata is None:
+                    continue
                 asset_metadata.current_price = str(price)
                 asset_metadata.current_price_updated_at = timezone.now()
+                updated.append(asset_metadata)
 
         await DjangoSQLAssetMetaDataRepository.abulk_update(
-            objs=assets_metadata_map.values(), fields=("current_price", "current_price_updated_at")
+            objs=updated, fields=("current_price", "current_price_updated_at")
         )
+
+        if assets_metadata_map:
+            return RuntimeError("Missing prices for " + ", ".join(sorted(assets_metadata_map)))
 
     except Exception as e:
         # TODO: log error
