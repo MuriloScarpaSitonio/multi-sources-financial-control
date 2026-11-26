@@ -39,15 +39,14 @@ if os.environ.get('PERFORM_METADATA_UPDATES', '').lower() in ("true", "1"):
     value = update_dollar_conversion_rate()
     print(f"USD-BRL convertion rate updated to {float(value)}")
     exc = update_assets_metadata_current_price()
-    if exc is None:
-        print("Assets prices updated!")
+    if exc is not None:
+        raise exc
+    print("Assets prices updated!")
 
-        try:
-            create_total_invested_snapshot_for_all_users()
-            print("Assets total invested snapshots created!")
-        except NotFirstDayOfMonthException:
-            pass
-    else:
-        print(f"Error when trying to update assets prices: {exc}")
+    try:
+        create_total_invested_snapshot_for_all_users()
+        print("Assets total invested snapshots created!")
+    except NotFirstDayOfMonthException:
+        pass
 EOF
 
