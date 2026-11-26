@@ -134,47 +134,6 @@ def test_scheduled_global_quotes_keep_currencies_separate(mocker, user):
     foreign.assert_any_await(codes=["ETF"])
 
 
-@pytest.mark.parametrize(
-    "global_result", [RuntimeError("provider unavailable"), {}, {"VWRA": None}]
-)
-def test_incomplete_refresh_saves_successful_prices_and_reports_missing_assets(
-    mocker, global_result
-):
-    def metadata(code, asset_type, currency):
-        return AssetMetaData.objects.create(
-            code=code, type=asset_type, currency=currency, current_price=10
-        )
-
-    stock = metadata("CHTR", AssetTypes.stock_usa, Currencies.dollar)
-    missing = metadata("VWRA", AssetTypes.equity_global, Currencies.dollar)
-    fixed = metadata("CDB", AssetTypes.fixed_br, Currencies.real)
-    mocker.patch(
-        "variable_income_assets.integrations.handlers."
-        "DjangoSQLAssetMetaDataRepository.filter_assets_eligible_for_update",
-        return_value=AssetMetaData.objects.filter(pk__in=[stock.pk, missing.pk, fixed.pk]).only(
-            "pk", "code", "type", "currency"
-        ),
-    )
-    mocker.patch(
-        "variable_income_assets.integrations.clients.BrApiClient.get_b3_prices", return_value={}
-    )
-    mocker.patch("variable_income_assets.integrations.handlers.get_crypto_prices", return_value={})
-    mocker.patch(
-        "variable_income_assets.integrations.handlers.get_stocks_usa_prices",
-        side_effect=[{"CHTR": 147}, global_result],
-    )
-
-    error = async_to_sync(update_prices)()
-
-    assert str(error) == "Missing prices for VWRA-EQUITY_GLOBAL-USD"
-    stock.refresh_from_db()
-    missing.refresh_from_db()
-    assert stock.current_price == 147
-    assert stock.current_price_updated_at is not None
-    assert missing.current_price == 10
-    assert missing.current_price_updated_at is None
-
-
 @pytest.mark.usefixtures(
     "buy_transaction",
     "crypto_transaction",

@@ -28,9 +28,10 @@ async def _fetch_prices(
     global_equity_brl_codes: list[str] = []
     assets_map: dict[str, AssetMetaData] = {}
     async for asset in qs:
+        assets_map["-".join((asset.code, asset.type, asset.currency))] = asset
         if asset.type == AssetTypes.stock:
             stock_codes.append(asset.code)
-        elif asset.type == AssetTypes.fii:
+        if asset.type == AssetTypes.fii:
             fii_codes.append(asset.code)
         elif asset.type == AssetTypes.stock_usa:
             usa_stocks_codes.append(asset.code)
@@ -44,9 +45,6 @@ async def _fetch_prices(
                 crypto_brl_codes.append(asset.code)
             else:
                 crypto_usd_codes.append(asset.code)
-        else:
-            continue
-        assets_map["-".join((asset.code, asset.type, asset.currency))] = asset
     task_metadata = [
         {"type": AssetTypes.stock, "currency": Currencies.real},
         {"type": AssetTypes.fii, "currency": Currencies.real},
@@ -83,29 +81,24 @@ async def _fetch_prices(
 async def update_prices() -> Exception | None:
     exc = None
     try:
-        missing, result = await _fetch_prices(
+        assets_metadata_map, result = await _fetch_prices(
             qs=DjangoSQLAssetMetaDataRepository.filter_assets_eligible_for_update()
         )
         print("update_prices result: ", result)
-        updated = []
         for data in result:
             for code, price in data["prices"].items():
                 if price is None:
                     print(f"Skipping {code}: price is None")
                     continue
-                key = "-".join((code, data["type"], data["currency"]))
-                asset_metadata = missing.pop(key, None)
-                if asset_metadata is None:
-                    continue
+                asset_metadata = assets_metadata_map[
+                    "-".join((code, data["type"], data["currency"]))
+                ]
                 asset_metadata.current_price = str(price)
                 asset_metadata.current_price_updated_at = timezone.now()
-                updated.append(asset_metadata)
 
         await DjangoSQLAssetMetaDataRepository.abulk_update(
-            objs=updated, fields=("current_price", "current_price_updated_at")
+            objs=assets_metadata_map.values(), fields=("current_price", "current_price_updated_at")
         )
-        if missing:
-            return RuntimeError(f"Missing prices for {', '.join(sorted(missing))}")
 
     except Exception as e:
         # TODO: log error
