@@ -47,7 +47,7 @@ class BrApiClient:
         response.raise_for_status()
         return response
 
-    async def _get_valid_codes(self, code: str) -> dict[str, list[str]]:
+    async def _search_available_stocks(self, code: str) -> dict[str, list[str]]:
         response = await self._request(path="available", params={"search": code})
         return await response.json()
 
@@ -65,7 +65,7 @@ class BrApiClient:
         result = {}
         for code in codes:
             try:
-                response = await self._get_valid_codes(code=code)
+                response = await self._search_available_stocks(code=code)
             except ClientError:
                 continue
             valid_codes = response.get("stocks")
