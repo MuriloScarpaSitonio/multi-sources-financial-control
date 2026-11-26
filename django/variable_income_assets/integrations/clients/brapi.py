@@ -3,7 +3,7 @@ import asyncio
 from django.conf import settings
 
 from aiohttp import ClientResponse, ClientSession, ClientTimeout, TCPConnector
-from aiohttp.client_exceptions import ClientError, ClientResponseError
+from aiohttp.client_exceptions import ClientError
 
 
 class BrApiClient:
@@ -63,15 +63,8 @@ class BrApiClient:
                 if matches:
                     valid_codes.append(matches[0])
             except (ClientError, TimeoutError, KeyError, TypeError, ValueError) as exc:
-                self._log_quote_error(code, exc)
+                print(f"brapi {code}: {type(exc).__name__}", getattr(exc, "status", ""))
         return valid_codes
-
-    @staticmethod
-    def _log_quote_error(code: str, exc: Exception) -> None:
-        reason = (
-            f"HTTP {exc.status}" if isinstance(exc, ClientResponseError) else type(exc).__name__
-        )
-        print(f"brapi {code}: {reason}")
 
     async def get_b3_price(self, code: str) -> float:
         if code == "BBSE3":
@@ -89,7 +82,7 @@ class BrApiClient:
             try:
                 result[code] = await self.get_b3_price(code=code)
             except (ClientError, TimeoutError, KeyError, TypeError, ValueError) as exc:
-                self._log_quote_error(code, exc)
+                print(f"brapi {code}: {type(exc).__name__}", getattr(exc, "status", ""))
         return result
 
     async def get_crypto_prices(self, codes: list[str], currency: str) -> dict[str, float]:
