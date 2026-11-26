@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import asyncio
+from typing import TYPE_CHECKING
 
 from django.utils import timezone
-
-from aiohttp import ClientResponseError
 
 from ..adapters import DjangoSQLAssetMetaDataRepository
 from ..choices import AssetTypes, Currencies
@@ -18,7 +17,7 @@ if TYPE_CHECKING:
 
 async def _fetch_prices(
     qs: QuerySet[AssetMetaData],
-) -> tuple[dict[str, AssetMetaData], list[dict[str, Any]]]:
+) -> tuple[dict[str, AssetMetaData], dict[str, float | str]]:
     stock_codes: list[str] = []
     fii_codes: list[str] = []
     crypto_brl_codes: list[str] = []
@@ -45,44 +44,46 @@ async def _fetch_prices(
                 crypto_brl_codes.append(asset.code)
             else:
                 crypto_usd_codes.append(asset.code)
-    batches = [
-        (stock_codes, AssetTypes.stock, Currencies.real, get_b3_prices),
-        (fii_codes, AssetTypes.fii, Currencies.real, get_b3_prices),
-        (crypto_usd_codes, AssetTypes.crypto, Currencies.dollar, get_crypto_prices),
-        (crypto_brl_codes, AssetTypes.crypto, Currencies.real, get_crypto_prices),
-        (usa_stocks_codes, AssetTypes.stock_usa, Currencies.dollar, get_stocks_usa_prices),
-        (global_equity_codes, AssetTypes.equity_global, Currencies.dollar, get_stocks_usa_prices),
-        (global_equity_brl_codes, AssetTypes.equity_global, Currencies.real, get_b3_prices),
+    brapi_lock = asyncio.Lock()
+
+    async def fetch_b3_batch(codes: list[str]) -> dict[str, float]:
+        async with brapi_lock:
+            return await get_b3_prices(codes=codes)
+
+    tasks = [
+        fetch_b3_batch(codes=stock_codes),
+        fetch_b3_batch(codes=fii_codes),
+        get_crypto_prices(codes=crypto_usd_codes, currency=Currencies.dollar),
+        get_crypto_prices(codes=crypto_brl_codes, currency=Currencies.real),
+        get_stocks_usa_prices(codes=usa_stocks_codes),
+        get_stocks_usa_prices(codes=global_equity_codes),
     ]
+    task_metadata = [
+        {"type": AssetTypes.stock, "currency": Currencies.real},
+        {"type": AssetTypes.fii, "currency": Currencies.real},
+        {"type": AssetTypes.crypto, "currency": Currencies.dollar},
+        {"type": AssetTypes.crypto, "currency": Currencies.real},
+        {"type": AssetTypes.stock_usa, "currency": Currencies.dollar},
+        {"type": AssetTypes.equity_global, "currency": Currencies.dollar},
+    ]
+    if global_equity_brl_codes:
+        tasks.append(fetch_b3_batch(codes=global_equity_brl_codes))
+        task_metadata.append({"type": AssetTypes.equity_global, "currency": Currencies.real})
     prices = []
-    for codes, asset_type, currency, fetch in batches:
-        if not codes:
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    for i, result in enumerate(results):  # order is guaranteed
+        if isinstance(result, Exception):
+            # TODO: log error
+            print(f"Exception on _fetch_prices [index: {i}]: {repr(result)}")
             continue
-        try:
-            if asset_type == AssetTypes.crypto:
-                result = await fetch(codes=codes, currency=currency)
-            else:
-                result = await fetch(codes=codes)
-        except Exception as exc:
-            reason = (
-                f"HTTP {exc.status}" if isinstance(exc, ClientResponseError) else type(exc).__name__
-            )
-            print(f"{asset_type} {currency} {', '.join(codes)}: {reason}")
-            result = {}
-        prices.append(
-            {
-                "prices": {code: result.get(code) for code in codes},
-                "type": asset_type,
-                "currency": currency,
-            }
-        )
+        prices.append({"prices": result, **task_metadata[i]})
 
     return assets_map, prices
 
 
 async def update_prices() -> Exception | None:
-    missing = []
-    updated = []
+    exc = None
     try:
         assets_metadata_map, result = await _fetch_prices(
             qs=DjangoSQLAssetMetaDataRepository.filter_assets_eligible_for_update()
@@ -91,21 +92,21 @@ async def update_prices() -> Exception | None:
         for data in result:
             for code, price in data["prices"].items():
                 if price is None:
-                    missing.append(f"{code} ({data['type']} {data['currency']})")
+                    print(f"Skipping {code}: price is None")
                     continue
                 asset_metadata = assets_metadata_map[
                     "-".join((code, data["type"], data["currency"]))
                 ]
                 asset_metadata.current_price = str(price)
                 asset_metadata.current_price_updated_at = timezone.now()
-                updated.append(asset_metadata)
 
         await DjangoSQLAssetMetaDataRepository.abulk_update(
-            objs=updated, fields=("current_price", "current_price_updated_at")
+            objs=assets_metadata_map.values(), fields=("current_price", "current_price_updated_at")
         )
 
-    except Exception as exc:
-        return exc
-    if missing:
-        return RuntimeError("Price refresh incomplete: " + ", ".join(missing))
-    return None
+    except Exception as e:
+        # TODO: log error
+        exc = e
+        print("Broader exception on update_prices: ", repr(exc))
+
+    return exc

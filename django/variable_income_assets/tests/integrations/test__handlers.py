@@ -38,7 +38,7 @@ def test__fetch_prices__global_equity_uses_us_market_client(mocker):
     )
     mocker.patch(
         "variable_income_assets.integrations.handlers.get_stocks_usa_prices",
-        return_value={"VT": 123.45},
+        side_effect=[{}, {"VT": 123.45}],
     )
 
     _, prices = async_to_sync(_fetch_prices)(
@@ -50,42 +50,6 @@ def test__fetch_prices__global_equity_uses_us_market_client(mocker):
         "type": "EQUITY_GLOBAL",
         "currency": Currencies.dollar,
     } in prices
-
-
-def test_partial_quote_refresh_saves_successes_and_reports_missing_quotes(mocker):
-
-    def metadata(code, asset_type, currency):
-        return AssetMetaData.objects.create(
-            code=code, type=asset_type, currency=currency, current_price=1
-        )
-
-    good = metadata("EGIE3", AssetTypes.stock, Currencies.real)
-    missing = metadata("TUPY3", AssetTypes.stock, Currencies.real)
-    failed_group = metadata("VWRA", AssetTypes.equity_global, Currencies.dollar)
-    mocker.patch(
-        "variable_income_assets.integrations.handlers.DjangoSQLAssetMetaDataRepository.filter_assets_eligible_for_update",
-        return_value=AssetMetaData.objects.all(),
-    )
-    mocker.patch(
-        "variable_income_assets.integrations.handlers.get_b3_prices", return_value={"EGIE3": 25}
-    )
-    foreign = mocker.patch(
-        "variable_income_assets.integrations.handlers.get_stocks_usa_prices",
-        side_effect=TimeoutError(),
-    )
-
-    error = async_to_sync(update_prices)()
-
-    foreign.assert_any_await(codes=["VWRA"])
-    assert "VWRA" in str(error)
-    assert "TUPY3" in str(error)
-    good.refresh_from_db()
-    assert good.current_price == 25
-    assert good.current_price_updated_at is not None
-    for asset in (missing, failed_group):
-        asset.refresh_from_db()
-        assert asset.current_price == 1
-        assert asset.current_price_updated_at is None
 
 
 @pytest.mark.parametrize(

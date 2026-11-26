@@ -12,7 +12,7 @@ class BrApiClient:
     def __init__(self, timeout: int = 300, api_key: str = "") -> None:
         self._session = ClientSession(
             timeout=ClientTimeout(total=timeout),
-            connector=TCPConnector(ssl=False, force_close=True),
+            connector=TCPConnector(ssl=False, force_close=True, limit=1),
         )
         self._api_key = api_key or settings.BRAPI_API_KEY
 
@@ -56,15 +56,12 @@ class BrApiClient:
         The code may exist in the DB, but its name may have changed at B3. For example:
         https://www.moneytimes.com.br/codigo-da-acao-da-via-antiga-via-varejo-mudara-de-vvar3-para-viia3/
         """
-        valid_codes = []
-        for code in codes:
-            try:
-                matches = (await self._get_valid_codes(code=code)).get("stocks")
-                if matches:
-                    valid_codes.append(matches[0])
-            except (ClientError, TimeoutError, KeyError, TypeError, ValueError) as exc:
-                print(f"brapi {code}: {type(exc).__name__}", getattr(exc, "status", ""))
-        return valid_codes
+        tasks = [self._get_valid_codes(code=code) for code in codes]
+        return [
+            result["stocks"][0]
+            for result in await asyncio.gather(*tasks, return_exceptions=True)
+            if not isinstance(result, ClientError) and result.get("stocks")
+        ]
 
     async def get_b3_price(self, code: str) -> float:
         if code == "BBSE3":
@@ -77,12 +74,20 @@ class BrApiClient:
             return r["regularMarketPrice"]
 
     async def get_b3_prices(self, codes: list[str]) -> dict[str, float]:
+        if not codes:
+            return {}
+
         result = {}
-        for code in await self.get_valid_codes(codes=codes):
-            try:
-                result[code] = await self.get_b3_price(code=code)
-            except (ClientError, TimeoutError, KeyError, TypeError, ValueError) as exc:
-                print(f"brapi {code}: {type(exc).__name__}", getattr(exc, "status", ""))
+        valid_codes = await self.get_valid_codes(codes=codes)
+        coroutines = [self.get_b3_price(code=code) for code in valid_codes]
+        for code, price in zip(
+            valid_codes, await asyncio.gather(*coroutines, return_exceptions=True), strict=True
+        ):
+            if isinstance(price, Exception):
+                # TODO: log error
+                print(code, repr(price))
+                continue
+            result[code] = price
         return result
 
     async def get_crypto_prices(self, codes: list[str], currency: str) -> dict[str, float]:

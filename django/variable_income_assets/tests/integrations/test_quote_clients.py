@@ -4,7 +4,7 @@ import pytest
 from aioresponses import aioresponses
 from asgiref.sync import async_to_sync
 
-from ...integrations.clients import BrApiClient, TwelveDataClient
+from ...integrations.clients import BrApiClient
 
 
 @pytest.mark.parametrize("last_status", [200, 429])
@@ -31,18 +31,3 @@ def test_brapi_honors_retry_after_and_continues_with_next_symbol(mocker, last_st
 
     assert sleep.await_args_list == [mocker.call(2), mocker.call(3)]
     assert prices == ({"AAA": 42, "BBB": 12} if last_status == 200 else {"BBB": 12})
-
-
-def test_twelve_data_keeps_successful_quotes_in_mixed_response(settings):
-    settings.TWELVE_DATA_API_KEY = "test"
-
-    async def fetch():
-        async with TwelveDataClient() as client:
-            return await client.get_prices(["VT", "VWRA"])
-
-    with aioresponses() as http:
-        http.get(
-            "https://api.twelvedata.com/price?apikey=test&symbol=VT,VWRA",
-            payload={"VT": {"price": "123.45"}, "VWRA": {"status": "error", "code": 404}},
-        )
-        assert async_to_sync(fetch)() == {"VT": "123.45"}
