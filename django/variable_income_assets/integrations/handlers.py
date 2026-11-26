@@ -44,19 +44,13 @@ async def _fetch_prices(
                 crypto_brl_codes.append(asset.code)
             else:
                 crypto_usd_codes.append(asset.code)
-    brapi_lock = asyncio.Lock()
-
-    async def fetch_b3_batch(codes: list[str]) -> dict[str, float]:
-        async with brapi_lock:
-            return await get_b3_prices(codes=codes)
-
     tasks = [
-        fetch_b3_batch(codes=stock_codes),
-        fetch_b3_batch(codes=fii_codes),
-        get_crypto_prices(codes=crypto_usd_codes, currency=Currencies.dollar),
-        get_crypto_prices(codes=crypto_brl_codes, currency=Currencies.real),
-        get_stocks_usa_prices(codes=usa_stocks_codes),
-        get_stocks_usa_prices(codes=global_equity_codes),
+        get_b3_prices(codes=stock_codes),
+        get_b3_prices(codes=fii_codes),
+        asyncio.create_task(get_crypto_prices(codes=crypto_usd_codes, currency=Currencies.dollar)),
+        asyncio.create_task(get_crypto_prices(codes=crypto_brl_codes, currency=Currencies.real)),
+        asyncio.create_task(get_stocks_usa_prices(codes=usa_stocks_codes)),
+        asyncio.create_task(get_stocks_usa_prices(codes=global_equity_codes)),
     ]
     task_metadata = [
         {"type": AssetTypes.stock, "currency": Currencies.real},
@@ -67,15 +61,16 @@ async def _fetch_prices(
         {"type": AssetTypes.equity_global, "currency": Currencies.dollar},
     ]
     if global_equity_brl_codes:
-        tasks.append(fetch_b3_batch(codes=global_equity_brl_codes))
+        tasks.append(get_b3_prices(codes=global_equity_brl_codes))
         task_metadata.append({"type": AssetTypes.equity_global, "currency": Currencies.real})
     prices = []
 
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    for i, result in enumerate(results):  # order is guaranteed
-        if isinstance(result, Exception):
+    for i, task in enumerate(tasks):
+        try:
+            result = await task
+        except Exception as exc:
             # TODO: log error
-            print(f"Exception on _fetch_prices [index: {i}]: {repr(result)}")
+            print(f"Exception on _fetch_prices [index: {i}]: {repr(exc)}")
             continue
         prices.append({"prices": result, **task_metadata[i]})
 
