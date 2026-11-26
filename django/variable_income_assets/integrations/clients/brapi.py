@@ -1,4 +1,5 @@
 import asyncio
+import re
 
 from django.conf import settings
 
@@ -87,13 +88,15 @@ class BrApiClient:
 
         result = {}
         valid_codes = await self.get_valid_codes(codes=codes)
-        for code in valid_codes:
-            try:
-                result[code] = await self.get_b3_price(code=code)
-            except ClientResponseError as exc:
-                print(f"{code} quote failed with HTTP {exc.status}")
-            except Exception as exc:
-                print(f"{code} quote failed with {type(exc).__name__}")
+        coroutines = [self.get_b3_price(code=code) for code in valid_codes]
+        for code, price in zip(
+            valid_codes, await asyncio.gather(*coroutines, return_exceptions=True), strict=True
+        ):
+            if isinstance(price, Exception):
+                # aiohttp includes the token-bearing request URL in its exception repr.
+                print(code, re.sub(r"([?&]token=)[^&'\"\s)]+", r"\1[REDACTED]", repr(price)))
+                continue
+            result[code] = price
         return result
 
     async def get_crypto_prices(self, codes: list[str], currency: str) -> dict[str, float]:

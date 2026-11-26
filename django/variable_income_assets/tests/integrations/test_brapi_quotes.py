@@ -47,7 +47,7 @@ def test_refresh_serializes_quotes_across_brapi_groups(mocker):
 
 
 @pytest.mark.parametrize(("status", "attempts"), [(429, 3), (404, 1)])
-def test_quote_retries_only_throttling_then_continues(mocker, status, attempts):
+def test_quote_retries_only_throttling_then_continues(mocker, capsys, status, attempts):
     sleep = mocker.patch.object(asyncio, "sleep")
     url = "https://brapi.dev/api/quote/TUPY3?token=test"
 
@@ -71,6 +71,10 @@ def test_quote_retries_only_throttling_then_continues(mocker, status, attempts):
             sum(len(calls) for (_, target), calls in http.requests.items() if str(target) == url)
             == attempts
         )
+    output = capsys.readouterr().out
+    assert f"status={status}" in output
+    assert "quote/TUPY3?token=[REDACTED]" in output
+    assert "token=test" not in output
     assert sleep.await_args_list == [mocker.call(2)] * (attempts - 1)
 
 
