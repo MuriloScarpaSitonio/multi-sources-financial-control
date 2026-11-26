@@ -51,18 +51,6 @@ class BrApiClient:
         response = await self._request(path="available", params={"search": code})
         return await response.json()
 
-    async def get_valid_codes(self, codes: list[str]) -> list[str]:
-        """
-        The code may exist in the DB, but its name may have changed at B3. For example:
-        https://www.moneytimes.com.br/codigo-da-acao-da-via-antiga-via-varejo-mudara-de-vvar3-para-viia3/
-        """
-        tasks = [self._get_valid_codes(code=code) for code in codes]
-        return [
-            result["stocks"][0]
-            for result in await asyncio.gather(*tasks, return_exceptions=True)
-            if not isinstance(result, ClientError) and result.get("stocks")
-        ]
-
     async def get_b3_price(self, code: str) -> float:
         if code == "BBSE3":
             return 35.17
@@ -76,7 +64,11 @@ class BrApiClient:
     async def get_b3_prices(self, codes: list[str]) -> dict[str, float]:
         result = {}
         for code in codes:
-            valid_codes = await self.get_valid_codes(codes=[code])
+            try:
+                response = await self._get_valid_codes(code=code)
+            except ClientError:
+                continue
+            valid_codes = response.get("stocks")
             if not valid_codes:
                 continue
             symbol = valid_codes[0]
