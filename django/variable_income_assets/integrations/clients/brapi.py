@@ -1,19 +1,23 @@
 import asyncio
+import re
 
 from django.conf import settings
 
 from aiohttp import ClientResponse, ClientSession, ClientTimeout, TCPConnector
-from aiohttp.client_exceptions import ClientError
+from aiohttp.client_exceptions import ClientError, ClientResponseError
 
 
 class BrApiClient:
     API_URL = "https://brapi.dev"
+    # Two retries is an arbitrary cap on attempts per ticker. Retry-After specifies the wait.
+    MAX_QUOTE_RETRIES = 2
 
     def __init__(self, timeout: int = 300, api_key: str = "") -> None:
         self._session = ClientSession(
             timeout=ClientTimeout(total=timeout),
             connector=TCPConnector(ssl=False, force_close=True),
         )
+        self._quote_lock = asyncio.Lock()
         self._api_key = api_key or settings.BRAPI_API_KEY
 
     async def __aenter__(self) -> "BrApiClient":
@@ -62,10 +66,21 @@ class BrApiClient:
             return 35.17
         if code == "CPLE6":
             return 10.09
-        response = await self._request(path=f"quote/{code}")
-        result = await response.json()
-        for r in result["results"]:
-            return r["regularMarketPrice"]
+        async with self._quote_lock:
+            retries = 0
+            while True:
+                try:
+                    response = await self._request(path=f"quote/{code}")
+                    break
+                except ClientResponseError as exc:
+                    if exc.status != 429 or retries >= self.MAX_QUOTE_RETRIES:
+                        raise
+                    retries += 1
+                    delay = (exc.headers or {}).get("Retry-After", "1")
+                    await asyncio.sleep(int(delay) if delay.isdecimal() else 1)
+            result = await response.json()
+            for r in result["results"]:
+                return r["regularMarketPrice"]
 
     async def get_b3_prices(self, codes: list[str]) -> dict[str, float]:
         if not codes:
@@ -78,8 +93,8 @@ class BrApiClient:
             valid_codes, await asyncio.gather(*coroutines, return_exceptions=True), strict=True
         ):
             if isinstance(price, Exception):
-                # TODO: log error
-                print(code, repr(price))
+                # aiohttp includes the token-bearing request URL in its exception repr.
+                print(code, re.sub(r"([?&]token=)[^&'\"\s)]+", r"\1[REDACTED]", repr(price)))
                 continue
             result[code] = price
         return result
