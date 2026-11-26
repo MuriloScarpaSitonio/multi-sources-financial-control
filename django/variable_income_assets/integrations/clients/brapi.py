@@ -34,6 +34,7 @@ class BrApiClient:
     ) -> ClientResponse:
         url = await self._create_url(path=path, v2=v2)
         query = {**(params or {}), "token": self._api_key}
+        # Two retries are an arbitrary cap to give transient throttling time to clear.
         for attempt in range(3):
             response = await self._session.get(url=url, params=query)
             if response.status != 429 or attempt == 2:
@@ -45,6 +46,32 @@ class BrApiClient:
             await asyncio.sleep(int(delay))
         response.raise_for_status()
         return response
+
+    async def _get_valid_codes(self, code: str) -> dict[str, list[str]]:
+        response = await self._request(path="available", params={"search": code})
+        return await response.json()
+
+    async def get_valid_codes(self, codes: list[str]) -> list[str]:
+        """
+        The code may exist in the DB, but its name may have changed at B3. For example:
+        https://www.moneytimes.com.br/codigo-da-acao-da-via-antiga-via-varejo-mudara-de-vvar3-para-viia3/
+        """
+        valid_codes = []
+        for code in codes:
+            try:
+                matches = (await self._get_valid_codes(code=code)).get("stocks")
+                if matches:
+                    valid_codes.append(matches[0])
+            except (ClientError, TimeoutError, KeyError, TypeError, ValueError) as exc:
+                self._log_quote_error(code, exc)
+        return valid_codes
+
+    @staticmethod
+    def _log_quote_error(code: str, exc: Exception) -> None:
+        reason = (
+            f"HTTP {exc.status}" if isinstance(exc, ClientResponseError) else type(exc).__name__
+        )
+        print(f"brapi {code}: {reason}")
 
     async def get_b3_price(self, code: str) -> float:
         if code == "BBSE3":
@@ -58,20 +85,11 @@ class BrApiClient:
 
     async def get_b3_prices(self, codes: list[str]) -> dict[str, float]:
         result = {}
-        for code in codes:
+        for code in await self.get_valid_codes(codes=codes):
             try:
-                response = await self._request(path="available", params={"search": code})
-                matches = (await response.json())["stocks"]
-                if matches:
-                    symbol = matches[0]
-                    result[symbol] = await self.get_b3_price(code=symbol)
+                result[code] = await self.get_b3_price(code=code)
             except (ClientError, TimeoutError, KeyError, TypeError, ValueError) as exc:
-                reason = (
-                    f"HTTP {exc.status}"
-                    if isinstance(exc, ClientResponseError)
-                    else type(exc).__name__
-                )
-                print(f"brapi {code}: {reason}")
+                self._log_quote_error(code, exc)
         return result
 
     async def get_crypto_prices(self, codes: list[str], currency: str) -> dict[str, float]:
