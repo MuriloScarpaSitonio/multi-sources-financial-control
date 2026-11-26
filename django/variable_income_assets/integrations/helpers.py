@@ -23,7 +23,7 @@ from ..models import Asset
 from ..service_layer.tasks import maybe_create_asset_metadata
 from ..service_layer.unit_of_work import DjangoUnitOfWork
 from .binance.client import BinanceClient
-from .clients import ApyHubClient, BrApiClient, CoinMarketCapClient, TwelveDataClient
+from .clients import ApyHubClient, BrApiClient, CoinMarketCapClient, YahooFinanceClient
 from .kucoin.client import KuCoinClient
 
 if TYPE_CHECKING:
@@ -41,7 +41,7 @@ async def get_crypto_prices(codes: list[str], currency: Currencies):
 
 
 async def get_stocks_usa_prices(codes: list[str]):
-    async with TwelveDataClient() as c:
+    async with YahooFinanceClient() as c:
         return await c.get_prices(codes=codes)
 
 
@@ -94,7 +94,7 @@ async def get_crypto_close_prices(codes: list[str], currency: Currencies, operat
 
 
 async def get_stocks_usa_close_prices(codes: list[str], operation_date: date):
-    async with TwelveDataClient() as c:
+    async with YahooFinanceClient() as c:
         return await c.get_close_prices(symbols=codes, operation_date=operation_date)
 
 

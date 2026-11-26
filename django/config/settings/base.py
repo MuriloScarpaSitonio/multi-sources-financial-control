@@ -175,7 +175,6 @@ FERNET_KEY = secret(
     default="TFGiLL_iX38XrRzwH9Ya4qEUY2gbAuanHbC3R7ZYwoo=",
 )
 
-TWELVE_DATA_API_KEY = secret("TWELVE_DATA_API_KEY", default="")
 
 BRAPI_API_KEY = secret("BRAPI_API_KEY", default="")
 
