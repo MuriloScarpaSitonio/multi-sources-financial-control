@@ -29,7 +29,7 @@ def test__fetch_prices__global_equity_uses_us_market_client(mocker):
         current_price=1,
     )
     mocker.patch(
-        "variable_income_assets.integrations.handlers.get_b3_prices",
+        "variable_income_assets.integrations.clients.BrApiClient.get_b3_prices",
         side_effect=[{}, {}],
     )
     mocker.patch(
@@ -116,7 +116,8 @@ def test_scheduled_global_quotes_keep_currencies_separate(mocker, user):
         return dict.fromkeys(codes, 30)
 
     b3 = mocker.patch(
-        "variable_income_assets.integrations.handlers.get_b3_prices", side_effect=b3_prices
+        "variable_income_assets.integrations.clients.BrApiClient.get_b3_prices",
+        side_effect=b3_prices,
     )
     foreign = mocker.patch(
         "variable_income_assets.integrations.handlers.get_stocks_usa_prices", side_effect=usd_prices
@@ -156,7 +157,7 @@ def test__update_prices(
 ):
     # GIVEN
     mocker.patch(
-        "variable_income_assets.integrations.handlers.get_b3_prices",
+        "variable_income_assets.integrations.clients.BrApiClient.get_b3_prices",
         side_effect=[{stock_asset_metadata.code: 78}, {fii_asset_metadata.code: 100}],
     )
     stock_roi_before = AssetReadModel.objects.get(write_model_pk=stock_asset.pk).normalized_roi
