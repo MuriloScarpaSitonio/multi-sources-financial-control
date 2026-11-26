@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 from django.utils import timezone
@@ -43,35 +44,36 @@ async def _fetch_prices(
                 crypto_brl_codes.append(asset.code)
             else:
                 crypto_usd_codes.append(asset.code)
-    tasks = [
-        get_b3_prices(codes=stock_codes),
-        get_b3_prices(codes=fii_codes),
+    other_prices = asyncio.gather(
         get_crypto_prices(codes=crypto_usd_codes, currency=Currencies.dollar),
         get_crypto_prices(codes=crypto_brl_codes, currency=Currencies.real),
         get_stocks_usa_prices(codes=usa_stocks_codes),
         get_stocks_usa_prices(codes=global_equity_codes),
-    ]
-    task_metadata = [
-        {"type": AssetTypes.stock, "currency": Currencies.real},
-        {"type": AssetTypes.fii, "currency": Currencies.real},
-        {"type": AssetTypes.crypto, "currency": Currencies.dollar},
-        {"type": AssetTypes.crypto, "currency": Currencies.real},
-        {"type": AssetTypes.stock_usa, "currency": Currencies.dollar},
-        {"type": AssetTypes.equity_global, "currency": Currencies.dollar},
-    ]
+        return_exceptions=True,
+    )
+    b3_batches = [(AssetTypes.stock, stock_codes), (AssetTypes.fii, fii_codes)]
     if global_equity_brl_codes:
-        tasks.append(get_b3_prices(codes=global_equity_brl_codes))
-        task_metadata.append({"type": AssetTypes.equity_global, "currency": Currencies.real})
+        b3_batches.append((AssetTypes.equity_global, global_equity_brl_codes))
     prices = []
-
-    for i, task in enumerate(tasks):
+    for asset_type, codes in b3_batches:
         try:
-            result = await task
+            result = await get_b3_prices(codes=codes)
         except Exception as exc:
-            # TODO: log error
-            print(f"Exception on _fetch_prices [index: {i}]: {repr(exc)}")
+            print(f"Exception on _fetch_prices [{asset_type}]: {repr(exc)}")
             continue
-        prices.append({"prices": result, **task_metadata[i]})
+        prices.append({"prices": result, "type": asset_type, "currency": Currencies.real})
+
+    other_groups = [
+        (AssetTypes.crypto, Currencies.dollar),
+        (AssetTypes.crypto, Currencies.real),
+        (AssetTypes.stock_usa, Currencies.dollar),
+        (AssetTypes.equity_global, Currencies.dollar),
+    ]
+    for (asset_type, currency), result in zip(other_groups, await other_prices, strict=True):
+        if isinstance(result, Exception):
+            print(f"Exception on _fetch_prices [{asset_type} {currency}]: {repr(result)}")
+            continue
+        prices.append({"prices": result, "type": asset_type, "currency": currency})
 
     return assets_map, prices
 
