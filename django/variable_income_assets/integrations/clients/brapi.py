@@ -8,6 +8,7 @@ from aiohttp.client_exceptions import ClientError, ClientResponseError
 
 class BrApiClient:
     API_URL = "https://brapi.dev"
+    # Two retries is an arbitrary cap on attempts per ticker. Retry-After specifies the wait.
     MAX_QUOTE_RETRIES = 2
 
     def __init__(self, timeout: int = 300, api_key: str = "") -> None:
