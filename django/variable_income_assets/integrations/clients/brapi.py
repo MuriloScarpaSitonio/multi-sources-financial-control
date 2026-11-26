@@ -3,7 +3,7 @@ import asyncio
 from django.conf import settings
 
 from aiohttp import ClientResponse, ClientSession, ClientTimeout, TCPConnector
-from aiohttp.client_exceptions import ClientError
+from aiohttp.client_exceptions import ClientError, ClientResponseError
 
 
 class BrApiClient:
@@ -32,30 +32,19 @@ class BrApiClient:
     async def _request(
         self, path: str, params: dict[str, str] | None = None, v2: bool = False
     ) -> ClientResponse:
-        response = await self._session.get(
-            url=await self._create_url(path=path, v2=v2),
-            params=(
-                {"token": self._api_key} if params is None else {**params, "token": self._api_key}
-            ),
-        )
+        url = await self._create_url(path=path, v2=v2)
+        query = {**(params or {}), "token": self._api_key}
+        for attempt in range(3):
+            response = await self._session.get(url=url, params=query)
+            if response.status != 429 or attempt == 2:
+                break
+            delay = response.headers.get("Retry-After", "1")
+            if not delay.isdecimal() or int(delay) > 60:
+                break
+            response.release()
+            await asyncio.sleep(int(delay))
         response.raise_for_status()
         return response
-
-    async def _get_valid_codes(self, code: str) -> dict[str, list[str]]:
-        response = await self._request(path="available", params={"search": code})
-        return await response.json()
-
-    async def get_valid_codes(self, codes: list[str]) -> list[str]:
-        """
-        The code may exist in the DB, but its name may have changed at B3. For example:
-        https://www.moneytimes.com.br/codigo-da-acao-da-via-antiga-via-varejo-mudara-de-vvar3-para-viia3/
-        """
-        tasks = [self._get_valid_codes(code=code) for code in codes]
-        return [
-            result["stocks"][0]
-            for result in await asyncio.gather(*tasks, return_exceptions=True)
-            if not isinstance(result, ClientError) and result.get("stocks")
-        ]
 
     async def get_b3_price(self, code: str) -> float:
         if code == "BBSE3":
@@ -68,20 +57,21 @@ class BrApiClient:
             return r["regularMarketPrice"]
 
     async def get_b3_prices(self, codes: list[str]) -> dict[str, float]:
-        if not codes:
-            return {}
-
         result = {}
-        valid_codes = await self.get_valid_codes(codes=codes)
-        coroutines = [self.get_b3_price(code=code) for code in valid_codes]
-        for code, price in zip(
-            valid_codes, await asyncio.gather(*coroutines, return_exceptions=True), strict=True
-        ):
-            if isinstance(price, Exception):
-                # TODO: log error
-                print(code, repr(price))
-                continue
-            result[code] = price
+        for code in codes:
+            try:
+                response = await self._request(path="available", params={"search": code})
+                matches = (await response.json())["stocks"]
+                if matches:
+                    symbol = matches[0]
+                    result[symbol] = await self.get_b3_price(code=symbol)
+            except (ClientError, TimeoutError, KeyError, TypeError, ValueError) as exc:
+                reason = (
+                    f"HTTP {exc.status}"
+                    if isinstance(exc, ClientResponseError)
+                    else type(exc).__name__
+                )
+                print(f"brapi {code}: {reason}")
         return result
 
     async def get_crypto_prices(self, codes: list[str], currency: str) -> dict[str, float]:

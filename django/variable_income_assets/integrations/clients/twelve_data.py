@@ -50,11 +50,13 @@ class TwelveDataClient:
             codes = codes[:8]
         response = await self._get(path="price", params={"symbol": ",".join(codes)})
         result = await response.json()
-        return (
-            {codes[0]: result["price"]}
-            if len(result) == 1
-            else {k: v["price"] for k, v in result.items()}
-        )
+        if len(codes) == 1:
+            return {codes[0]: result["price"]} if result.get("price") is not None else {}
+        return {
+            code: result[code]["price"]
+            for code in codes
+            if code in result and result[code].get("price") is not None
+        }
 
     async def get_close_prices(
         self, symbols: list[str], operation_date: date

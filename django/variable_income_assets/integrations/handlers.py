@@ -1,106 +1,66 @@
 from __future__ import annotations
 
-import asyncio
-from typing import TYPE_CHECKING
+from collections import defaultdict
+from functools import partial
 
 from django.utils import timezone
+
+from aiohttp import ClientResponseError
 
 from ..adapters import DjangoSQLAssetMetaDataRepository
 from ..choices import AssetTypes, Currencies
 from .helpers import get_b3_prices, get_crypto_prices, get_stocks_usa_prices
 
-if TYPE_CHECKING:
-    from django.db.models import QuerySet
-
-    from ..models import AssetMetaData
-
-
-async def _fetch_prices(
-    qs: QuerySet[AssetMetaData],
-) -> tuple[dict[str, AssetMetaData], dict[str, float | str]]:
-    stock_codes: list[str] = []
-    fii_codes: list[str] = []
-    crypto_brl_codes: list[str] = []
-    crypto_usd_codes: list[str] = []
-    usa_stocks_codes: list[str] = []
-    global_equity_codes: list[str] = []
-    global_equity_brl_codes: list[str] = []
-    assets_map: dict[str, AssetMetaData] = {}
-    async for asset in qs:
-        assets_map["-".join((asset.code, asset.type, asset.currency))] = asset
-        if asset.type == AssetTypes.stock:
-            stock_codes.append(asset.code)
-        if asset.type == AssetTypes.fii:
-            fii_codes.append(asset.code)
-        elif asset.type == AssetTypes.stock_usa:
-            usa_stocks_codes.append(asset.code)
-        elif asset.type == AssetTypes.equity_global:
-            if asset.currency == Currencies.real:
-                global_equity_brl_codes.append(asset.code)
-            else:
-                global_equity_codes.append(asset.code)
-        elif asset.type == AssetTypes.crypto:
-            if asset.currency == Currencies.real:
-                crypto_brl_codes.append(asset.code)
-            else:
-                crypto_usd_codes.append(asset.code)
-    tasks = [
-        get_b3_prices(codes=stock_codes),
-        get_b3_prices(codes=fii_codes),
-        get_crypto_prices(codes=crypto_usd_codes, currency=Currencies.dollar),
-        get_crypto_prices(codes=crypto_brl_codes, currency=Currencies.real),
-        get_stocks_usa_prices(codes=usa_stocks_codes),
-        get_stocks_usa_prices(codes=global_equity_codes),
-    ]
-    task_metadata = [
-        {"type": AssetTypes.stock, "currency": Currencies.real},
-        {"type": AssetTypes.fii, "currency": Currencies.real},
-        {"type": AssetTypes.crypto, "currency": Currencies.dollar},
-        {"type": AssetTypes.crypto, "currency": Currencies.real},
-        {"type": AssetTypes.stock_usa, "currency": Currencies.dollar},
-        {"type": AssetTypes.equity_global, "currency": Currencies.dollar},
-    ]
-    if global_equity_brl_codes:
-        tasks.append(get_b3_prices(codes=global_equity_brl_codes))
-        task_metadata.append({"type": AssetTypes.equity_global, "currency": Currencies.real})
-    prices = []
-
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    for i, result in enumerate(results):  # order is guaranteed
-        if isinstance(result, Exception):
-            # TODO: log error
-            print(f"Exception on _fetch_prices [index: {i}]: {repr(result)}")
-            continue
-        prices.append({"prices": result, **task_metadata[i]})
-
-    return assets_map, prices
-
 
 async def update_prices() -> Exception | None:
-    exc = None
+    providers = {
+        (AssetTypes.stock, Currencies.real): get_b3_prices,
+        (AssetTypes.fii, Currencies.real): get_b3_prices,
+        (AssetTypes.equity_global, Currencies.real): get_b3_prices,
+        (AssetTypes.crypto, Currencies.dollar): partial(
+            get_crypto_prices, currency=Currencies.dollar
+        ),
+        (AssetTypes.crypto, Currencies.real): partial(get_crypto_prices, currency=Currencies.real),
+        (AssetTypes.stock_usa, Currencies.dollar): get_stocks_usa_prices,
+        (AssetTypes.equity_global, Currencies.dollar): get_stocks_usa_prices,
+    }
+    groups = defaultdict(list)
+    updated = []
+    failures = []
     try:
-        assets_metadata_map, result = await _fetch_prices(
-            qs=DjangoSQLAssetMetaDataRepository.filter_assets_eligible_for_update()
-        )
-        print("update_prices result: ", result)
-        for data in result:
-            for code, price in data["prices"].items():
-                if price is None:
-                    print(f"Skipping {code}: price is None")
-                    continue
-                asset_metadata = assets_metadata_map[
-                    "-".join((code, data["type"], data["currency"]))
-                ]
-                asset_metadata.current_price = str(price)
-                asset_metadata.current_price_updated_at = timezone.now()
+        async for asset in DjangoSQLAssetMetaDataRepository.filter_assets_eligible_for_update():
+            groups[asset.type, asset.currency].append(asset)
+
+        for group, fetch in providers.items():
+            assets = groups.get(group)
+            if not assets:
+                continue
+            codes = list(dict.fromkeys(asset.code for asset in assets))
+            try:
+                prices = await fetch(codes=codes)
+            except Exception as exc:
+                reason = (
+                    f"HTTP {exc.status}"
+                    if isinstance(exc, ClientResponseError)
+                    else type(exc).__name__
+                )
+                failures.append(f"{group[0]} {group[1]} ({reason}): {', '.join(codes)}")
+                continue
+            missing = [code for code in codes if prices.get(code) is None]
+            if missing:
+                failures.append(f"{group[0]} {group[1]} (no quote): {', '.join(missing)}")
+            for asset in assets:
+                price = prices.get(asset.code)
+                if price is not None:
+                    asset.current_price = str(price)
+                    asset.current_price_updated_at = timezone.now()
+                    updated.append(asset)
 
         await DjangoSQLAssetMetaDataRepository.abulk_update(
-            objs=assets_metadata_map.values(), fields=("current_price", "current_price_updated_at")
+            objs=updated, fields=("current_price", "current_price_updated_at")
         )
-
-    except Exception as e:
-        # TODO: log error
-        exc = e
-        print("Broader exception on update_prices: ", repr(exc))
-
-    return exc
+    except Exception as exc:
+        return exc
+    if failures:
+        return RuntimeError("Price refresh incomplete: " + "; ".join(failures))
+    return None
