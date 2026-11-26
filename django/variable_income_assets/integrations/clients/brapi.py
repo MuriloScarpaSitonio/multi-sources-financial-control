@@ -63,11 +63,12 @@ class BrApiClient:
 
     async def get_b3_prices(self, codes: list[str]) -> dict[str, float]:
         result = {}
-        for code in codes:
-            try:
-                response = await self._search_available_stocks(code=code)
-            except ClientError:
+        searches = [self._search_available_stocks(code=code) for code in codes]
+        for response in await asyncio.gather(*searches, return_exceptions=True):
+            if isinstance(response, ClientError):
                 continue
+            if isinstance(response, BaseException):
+                raise response
             valid_codes = response.get("stocks")
             if not valid_codes:
                 continue
