@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import asyncio
 from typing import TYPE_CHECKING
 
 from django.utils import timezone
 
 from ..adapters import DjangoSQLAssetMetaDataRepository
 from ..choices import AssetTypes, Currencies
-from .clients import BrApiClient
-from .helpers import get_crypto_prices, get_stocks_usa_prices
+from .helpers import get_b3_prices, get_crypto_prices, get_stocks_usa_prices
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
@@ -45,33 +43,33 @@ async def _fetch_prices(
                 crypto_brl_codes.append(asset.code)
             else:
                 crypto_usd_codes.append(asset.code)
-    async with BrApiClient() as brapi:
-        tasks = [
-            brapi.get_b3_prices(codes=stock_codes),
-            brapi.get_b3_prices(codes=fii_codes),
-            get_crypto_prices(codes=crypto_usd_codes, currency=Currencies.dollar),
-            get_crypto_prices(codes=crypto_brl_codes, currency=Currencies.real),
-            get_stocks_usa_prices(codes=usa_stocks_codes),
-            get_stocks_usa_prices(codes=global_equity_codes),
-        ]
-        task_metadata = [
-            {"type": AssetTypes.stock, "currency": Currencies.real},
-            {"type": AssetTypes.fii, "currency": Currencies.real},
-            {"type": AssetTypes.crypto, "currency": Currencies.dollar},
-            {"type": AssetTypes.crypto, "currency": Currencies.real},
-            {"type": AssetTypes.stock_usa, "currency": Currencies.dollar},
-            {"type": AssetTypes.equity_global, "currency": Currencies.dollar},
-        ]
-        if global_equity_brl_codes:
-            tasks.append(brapi.get_b3_prices(codes=global_equity_brl_codes))
-            task_metadata.append({"type": AssetTypes.equity_global, "currency": Currencies.real})
-
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+    tasks = [
+        get_b3_prices(codes=stock_codes),
+        get_b3_prices(codes=fii_codes),
+        get_crypto_prices(codes=crypto_usd_codes, currency=Currencies.dollar),
+        get_crypto_prices(codes=crypto_brl_codes, currency=Currencies.real),
+        get_stocks_usa_prices(codes=usa_stocks_codes),
+        get_stocks_usa_prices(codes=global_equity_codes),
+    ]
+    task_metadata = [
+        {"type": AssetTypes.stock, "currency": Currencies.real},
+        {"type": AssetTypes.fii, "currency": Currencies.real},
+        {"type": AssetTypes.crypto, "currency": Currencies.dollar},
+        {"type": AssetTypes.crypto, "currency": Currencies.real},
+        {"type": AssetTypes.stock_usa, "currency": Currencies.dollar},
+        {"type": AssetTypes.equity_global, "currency": Currencies.dollar},
+    ]
+    if global_equity_brl_codes:
+        tasks.append(get_b3_prices(codes=global_equity_brl_codes))
+        task_metadata.append({"type": AssetTypes.equity_global, "currency": Currencies.real})
     prices = []
-    for i, result in enumerate(results):  # order is guaranteed
-        if isinstance(result, Exception):
+
+    for i, task in enumerate(tasks):
+        try:
+            result = await task
+        except Exception as exc:
             # TODO: log error
-            print(f"Exception on _fetch_prices [index: {i}]: {repr(result)}")
+            print(f"Exception on _fetch_prices [index: {i}]: {repr(exc)}")
             continue
         prices.append({"prices": result, **task_metadata[i]})
 
