@@ -4756,6 +4756,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"math-expression-evaluator@npm:^2.0.7":
+  version: 2.0.7
+  resolution: "math-expression-evaluator@npm:2.0.7"
+  checksum: 10c0/1ea184f028acf0d71ed4d3b7abaadab53218dab3b6d5ad7206a387b8d887305364bae34ebbd641106f238fc2d6abefcf76ef77d9b8b636726ce5b8ae00be0445
+  languageName: node
+  linkType: hard
+
 "math-intrinsics@npm:^1.1.0":
   version: 1.1.0
   resolution: "math-intrinsics@npm:1.1.0"
@@ -5504,6 +5511,7 @@ __metadata:
     eslint-plugin-react-refresh: "npm:^0.4.0"
     jsdom: "npm:^26.1.0"
     material-react-table: "npm:^3.2.1"
+    math-expression-evaluator: "npm:^2.0.7"
     notistack: "npm:^3.0.1"
     prettier: "npm:^3.1.0"
     prettier-eslint: "npm:^16.1.2"

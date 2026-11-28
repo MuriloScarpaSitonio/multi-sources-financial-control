@@ -363,6 +363,7 @@ const ExpenseForm = ({
       />
       <Stack direction="row" spacing={1}>
         <PriceWithCurrencyInput
+          withCalculator
           control={control}
           isFieldInvalid={isFieldInvalid}
           getFieldHasError={getFieldHasError}
